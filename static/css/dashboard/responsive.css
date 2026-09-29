@@ -291,6 +291,14 @@
     grid-template-columns: 1fr;
   }
 
+  .dashboard_passkey {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard_passkey .dashboard_account_link_button {
+    width: 100%;
+  }
+
   .dashboard_spread {
     padding: 8px;
   }

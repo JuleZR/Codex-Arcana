@@ -7,8 +7,9 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260928d">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260929a">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
+    <script defer src="{% static 'js/passkeys.js' %}?v=20260929a"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=3">
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=3"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
@@ -379,6 +380,46 @@
                 <button type="submit" class="dashboard_account_link_button" form="twoFactorDisableForm">2FA deaktivieren</button>
               </div>
             {% endif %}
+            <div class="dashboard_passkeys"
+                 data-passkey-registration
+                 data-options-url="{% url 'passkey_registration_options' %}"
+                 data-verify-url="{% url 'passkey_registration_verify' %}">
+              <div class="dashboard_session_header">
+                <div>
+                  <h5>Passkeys: {% if registered_passkeys %}{{ registered_passkeys|length }} registriert{% else %}Keine registriert{% endif %}</h5>
+                  <p>Passwortlos anmelden – auch mit synchronisierten Passkeys aus Passwortmanagern wie Bitwarden.</p>
+                </div>
+              </div>
+              <div class="dashboard_passkey_list">
+                {% for passkey in registered_passkeys %}
+                  <article class="dashboard_passkey">
+                    <div class="dashboard_session_details">
+                      <strong>{{ passkey.name }}</strong>
+                      <small>Hinzugefügt am {{ passkey.created_at|date:"d.m.Y H:i" }}{% if passkey.backed_up %} · synchronisierbar{% endif %}</small>
+                    </div>
+                    <label class="form_row dashboard_passkey_password">
+                      <span>Passwort zum Entfernen</span>
+                      <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="passkeyRemove{{ passkey.pk }}" required>
+                    </label>
+                    <button type="submit" class="dashboard_account_link_button" form="passkeyRemove{{ passkey.pk }}">Entfernen</button>
+                  </article>
+                {% empty %}
+                  <p class="dashboard_session_empty">Noch kein Passkey hinterlegt.</p>
+                {% endfor %}
+              </div>
+              <div class="dashboard_account_grid dashboard_account_grid--security">
+                <label class="form_row">
+                  <span>Name des Passkeys</span>
+                  <input class="dashboard_input" type="text" name="name" maxlength="80" placeholder="z. B. Bitwarden oder iPhone" form="passkeyRegistrationForm" required>
+                </label>
+                <label class="form_row">
+                  <span>Aktuelles Passwort zur Bestätigung</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="passkeyRegistrationForm" required>
+                </label>
+                <button type="button" class="dashboard_account_link_button" data-passkey-register-button>Passkey hinzufügen</button>
+                <p class="dashboard_passkey_error dashboard_account_grid_full" role="alert" data-passkey-error hidden></p>
+              </div>
+            </div>
             <div class="dashboard_account_grid dashboard_account_grid--security">
               <label class="form_row dashboard_account_grid_full">
                 <span>Aktuelles Passwort</span>
@@ -566,6 +607,14 @@
         <form method="post" action="{% url 'two_factor_disable' %}" id="twoFactorDisableForm">
           {% csrf_token %}
         </form>
+        <form method="post" id="passkeyRegistrationForm">
+          {% csrf_token %}
+        </form>
+        {% for passkey in registered_passkeys %}
+          <form method="post" action="{% url 'passkey_remove' passkey.pk %}" id="passkeyRemove{{ passkey.pk }}">
+            {% csrf_token %}
+          </form>
+        {% endfor %}
         {% for active_session in active_sessions %}
           {% if not active_session.is_current %}
             <form method="post" action="{% url 'logout_session' %}" id="logoutSession{{ forloop.counter }}">

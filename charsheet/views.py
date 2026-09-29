@@ -38,13 +38,15 @@ from django.views.decorators.debug import (
     sensitive_post_parameters,
     sensitive_variables,
 )
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import F, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
+from webauthn import base64url_to_bytes
+from webauthn.helpers.exceptions import WebAuthnException
 from .engine import CharacterCreationEngine
 from .engine.creature_engine import CreatureEngine, sync_character_creatures
 from .engine.dice_engine import DiceEngine
@@ -127,6 +129,7 @@ from .models import (
     Quality,
     ItemPermissionGrant,
     ItemTransfer,
+    PasskeyCredential,
     GameGroup,
     GameGroupInvitation,
     GameGroupMembership,
@@ -161,6 +164,12 @@ from .two_factor import (
     regenerate_recovery_codes,
     unused_recovery_code_count,
     verify_totp,
+)
+from .passkeys import (
+    authentication_options as generate_passkey_authentication_options,
+    registration_options as generate_passkey_registration_options,
+    verify_authentication as verify_passkey_authentication,
+    verify_registration as verify_passkey_registration,
 )
 from .constants import (
     ATTRIBUTE_CODE_CHOICES,
@@ -678,6 +687,8 @@ TWO_FACTOR_LOGIN_USER_SESSION_KEY = "two_factor_login_user_id"
 TWO_FACTOR_LOGIN_BACKEND_SESSION_KEY = "two_factor_login_backend"
 TWO_FACTOR_LOGIN_NEXT_SESSION_KEY = "two_factor_login_next"
 TWO_FACTOR_LOGIN_STARTED_SESSION_KEY = "two_factor_login_started_at"
+PASSKEY_REGISTRATION_SESSION_KEY = "passkey_registration"
+PASSKEY_AUTHENTICATION_SESSION_KEY = "passkey_authentication"
 
 
 def _security_settings_redirect():
@@ -691,6 +702,277 @@ def _clear_pending_two_factor_login(request):
     request.session.pop(TWO_FACTOR_LOGIN_BACKEND_SESSION_KEY, None)
     request.session.pop(TWO_FACTOR_LOGIN_NEXT_SESSION_KEY, None)
     request.session.pop(TWO_FACTOR_LOGIN_STARTED_SESSION_KEY, None)
+
+
+def _encoded_passkey_challenge(challenge):
+    return base64.urlsafe_b64encode(challenge).rstrip(b"=").decode("ascii")
+
+
+def _consume_passkey_challenge(request, session_key):
+    state = request.session.pop(session_key, None)
+    request.session.modified = True
+    if not isinstance(state, dict):
+        return None, None
+    try:
+        age = timezone.now().timestamp() - float(state["started_at"])
+        challenge = base64url_to_bytes(state["challenge"])
+    except (KeyError, TypeError, ValueError):
+        return None, None
+    if age > settings.WEBAUTHN_CHALLENGE_TIMEOUT_SECONDS:
+        return None, None
+    return challenge, state
+
+
+def _passkey_error(message, *, code="passkey_error", status=400):
+    return JsonResponse({"error": code, "message": message}, status=status)
+
+
+@sensitive_post_parameters("password")
+@login_required
+@require_POST
+def passkey_registration_options(request):
+    name = (request.POST.get("name") or "").strip()
+    password = request.POST.get("password") or ""
+    if not name or len(name) > 80:
+        return _passkey_error(
+            "Bitte gib einen Namen mit höchstens 80 Zeichen ein.",
+            code="invalid_name",
+        )
+    rate_limit = consume_auth_rate_limit(
+        request,
+        "passkey",
+        account_reference=str(request.user.pk),
+    )
+    if rate_limit.limited:
+        return _passkey_error(
+            "Zu viele Versuche. Bitte warte und versuche es später erneut.",
+            code="rate_limited",
+            status=429,
+        )
+    if not request.user.check_password(password):
+        return _passkey_error(
+            "Das aktuelle Passwort ist nicht korrekt.",
+            code="invalid_password",
+        )
+
+    options, payload = generate_passkey_registration_options(
+        request.user,
+        request.user.passkeys.all(),
+    )
+    request.session[PASSKEY_REGISTRATION_SESSION_KEY] = {
+        "challenge": _encoded_passkey_challenge(options.challenge),
+        "started_at": timezone.now().timestamp(),
+        "user_id": request.user.pk,
+        "name": name,
+    }
+    return JsonResponse(payload)
+
+
+@sensitive_variables("credential")
+@login_required
+@require_POST
+def passkey_registration_verify(request):
+    challenge, state = _consume_passkey_challenge(
+        request,
+        PASSKEY_REGISTRATION_SESSION_KEY,
+    )
+    if challenge is None or state.get("user_id") != request.user.pk:
+        return _passkey_error(
+            "Die Passkey-Einrichtung ist abgelaufen. Bitte versuche es "
+            "erneut.",
+            code="expired_challenge",
+        )
+    try:
+        credential = json.loads(request.body.decode("utf-8"))
+        verification = verify_passkey_registration(credential, challenge)
+    except (UnicodeDecodeError, ValueError, WebAuthnException):
+        return _passkey_error(
+            "Der Passkey konnte nicht bestätigt werden.",
+            code="verification_failed",
+        )
+
+    transports = credential.get("response", {}).get("transports", [])
+    transports = [
+        value for value in transports
+        if isinstance(value, str) and len(value) <= 32
+    ]
+    try:
+        with transaction.atomic():
+            passkey = PasskeyCredential.objects.create(
+                user=request.user,
+                name=state["name"],
+                credential_id=verification.credential_id,
+                public_key=verification.credential_public_key,
+                sign_count=verification.sign_count,
+                transports=transports,
+                device_type=verification.credential_device_type.value,
+                backed_up=verification.credential_backed_up,
+            )
+    except IntegrityError:
+        return _passkey_error(
+            "Dieser Passkey ist bereits registriert.",
+            code="duplicate_credential",
+        )
+
+    clear_auth_rate_limit(
+        request,
+        "passkey",
+        account_reference=str(request.user.pk),
+    )
+    record_security_event(
+        request.user,
+        AccountSecurityEvent.EventType.PASSKEY_ADDED,
+        request=request,
+        metadata={"label": passkey.name},
+    )
+    return JsonResponse(
+        {"ok": True, "redirect": _security_settings_redirect().url}
+    )
+
+
+@sensitive_post_parameters("password")
+@login_required
+@require_POST
+def passkey_remove(request, passkey_id):
+    passkey = get_object_or_404(
+        PasskeyCredential,
+        pk=passkey_id,
+        user=request.user,
+    )
+    rate_limit = consume_auth_rate_limit(
+        request,
+        "passkey",
+        account_reference=str(request.user.pk),
+    )
+    if rate_limit.limited:
+        messages.error(
+            request,
+            "Zu viele Versuche. Bitte warte und versuche es später erneut.",
+        )
+        return _security_settings_redirect()
+    if not request.user.check_password(request.POST.get("password") or ""):
+        messages.error(request, "Das aktuelle Passwort ist nicht korrekt.")
+        return _security_settings_redirect()
+    label = passkey.name
+    passkey.delete()
+    record_security_event(
+        request.user,
+        AccountSecurityEvent.EventType.PASSKEY_REMOVED,
+        request=request,
+        metadata={"label": label},
+    )
+    clear_auth_rate_limit(
+        request,
+        "passkey",
+        account_reference=str(request.user.pk),
+    )
+    messages.success(request, "Der Passkey wurde entfernt.")
+    return _security_settings_redirect()
+
+
+@require_POST
+def passkey_authentication_options(request):
+    if request.user.is_authenticated:
+        return JsonResponse({"redirect": reverse("dashboard")})
+    rate_limit = consume_auth_rate_limit(request, "passkey")
+    if rate_limit.limited:
+        return _passkey_error(
+            "Zu viele Versuche. Bitte warte und versuche es später erneut.",
+            code="rate_limited",
+            status=429,
+        )
+    options, payload = generate_passkey_authentication_options()
+    request.session[PASSKEY_AUTHENTICATION_SESSION_KEY] = {
+        "challenge": _encoded_passkey_challenge(options.challenge),
+        "started_at": timezone.now().timestamp(),
+        "next": request.POST.get("next", ""),
+    }
+    return JsonResponse(payload)
+
+
+@sensitive_variables("credential")
+@require_POST
+def passkey_authentication_verify(request):
+    if request.user.is_authenticated:
+        return JsonResponse({"redirect": reverse("dashboard")})
+    challenge, state = _consume_passkey_challenge(
+        request,
+        PASSKEY_AUTHENTICATION_SESSION_KEY,
+    )
+    if challenge is None:
+        return _passkey_error(
+            "Die Passkey-Anmeldung ist abgelaufen. Bitte versuche es erneut.",
+            code="expired_challenge",
+        )
+    try:
+        credential = json.loads(request.body.decode("utf-8"))
+        credential_id = base64url_to_bytes(credential["id"])
+    except (KeyError, TypeError, UnicodeDecodeError, ValueError):
+        return _passkey_error(
+            "Der Passkey konnte nicht bestätigt werden.",
+            code="verification_failed",
+        )
+
+    try:
+        with transaction.atomic():
+            passkey = (
+                PasskeyCredential.objects.select_for_update()
+                .select_related("user")
+                .get(credential_id=credential_id, user__is_active=True)
+            )
+            verification = verify_passkey_authentication(
+                credential,
+                challenge,
+                passkey,
+            )
+            if not verification.user_verified:
+                raise WebAuthnException("User verification is required")
+            if (
+                settings.EMAIL_VERIFICATION_REQUIRED_FOR_LOGIN
+                and (passkey.user.email or "").strip()
+                and not email_is_verified(passkey.user)
+            ):
+                return _passkey_error(
+                    "Bitte bestätige zuerst deine E-Mail-Adresse.",
+                    code="email_not_verified",
+                )
+            passkey.sign_count = verification.new_sign_count
+            passkey.last_used_at = timezone.now()
+            passkey.device_type = verification.credential_device_type.value
+            passkey.backed_up = verification.credential_backed_up
+            passkey.save(
+                update_fields=[
+                    "sign_count",
+                    "last_used_at",
+                    "device_type",
+                    "backed_up",
+                ]
+            )
+    except (PasskeyCredential.DoesNotExist, WebAuthnException):
+        return _passkey_error(
+            "Der Passkey ist ungültig oder wurde entfernt.",
+            code="verification_failed",
+        )
+
+    user = passkey.user
+    auth_login(
+        request,
+        user,
+        backend="django.contrib.auth.backends.ModelBackend",
+    )
+    clear_auth_rate_limit(
+        request,
+        "passkey",
+        account_reference=str(user.pk),
+    )
+    redirect_to = state.get("next") or reverse("dashboard")
+    if not url_has_allowed_host_and_scheme(
+        redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        redirect_to = reverse("dashboard")
+    return JsonResponse({"ok": True, "redirect": redirect_to})
 
 
 @sensitive_variables("secret", "encrypted_secret")
@@ -3046,6 +3328,7 @@ def dashboard(
         "unused_recovery_code_count": unused_recovery_code_count(
             request.user
         ),
+        "registered_passkeys": request.user.passkeys.all(),
         "two_factor_setup": two_factor_setup,
         "show_two_factor_setup": show_two_factor_setup,
         "two_factor_recovery_codes": recovery_codes or [],

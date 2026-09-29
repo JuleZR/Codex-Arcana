@@ -506,6 +506,57 @@
   user-select: all;
 }
 
+.dashboard_passkeys {
+  margin-top: 18px;
+  border: 1px solid rgba(54, 117, 88, 0.3);
+  border-radius: 10px;
+  background: rgba(226, 246, 236, 0.58);
+  padding: 0 12px 12px;
+}
+
+.dashboard_passkeys .dashboard_session_header {
+  margin-top: 12px;
+}
+
+.dashboard_passkey_list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dashboard_passkey {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(190px, 0.8fr) auto;
+  align-items: end;
+  gap: 10px;
+  border: 1px solid rgba(54, 117, 88, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 10px;
+}
+
+.dashboard_passkey_password span {
+  font-size: 0.74rem;
+}
+
+.dashboard_passkey .dashboard_account_link_button {
+  width: auto;
+  margin: 0;
+}
+
+.dashboard_passkey_error {
+  margin: 0;
+  border-radius: 7px;
+  background: rgba(122, 31, 31, 0.09);
+  padding: 9px 11px;
+  color: #792828;
+  font-size: 0.84rem;
+}
+
+.dashboard_passkey_error[hidden] {
+  display: none;
+}
+
 .dashboard_session_header {
   display: flex;
   align-items: flex-end;

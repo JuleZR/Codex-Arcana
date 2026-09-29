@@ -178,6 +178,28 @@ TWO_FACTOR_LOGIN_TIMEOUT_SECONDS = _env_int(
     "TWO_FACTOR_LOGIN_TIMEOUT_SECONDS",
     300,
 )
+# Production deployments must override these with their stable HTTPS domain.
+WEBAUTHN_RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost").strip()
+WEBAUTHN_RP_NAME = os.getenv(
+    "WEBAUTHN_RP_NAME",
+    "Codex Arcana",
+).strip()
+WEBAUTHN_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "WEBAUTHN_ALLOWED_ORIGINS",
+        "http://localhost:8000",
+    ).split(",")
+    if origin.strip()
+]
+WEBAUTHN_CHALLENGE_TIMEOUT_SECONDS = _env_int(
+    "WEBAUTHN_CHALLENGE_TIMEOUT_SECONDS",
+    300,
+)
+WEBAUTHN_USER_VERIFICATION = os.getenv(
+    "WEBAUTHN_USER_VERIFICATION",
+    "required",
+).strip().lower()
 
 AUTH_TURNSTILE_SITE_KEY = os.getenv("AUTH_TURNSTILE_SITE_KEY", "")
 AUTH_TURNSTILE_SECRET_KEY = os.getenv("AUTH_TURNSTILE_SECRET_KEY", "")

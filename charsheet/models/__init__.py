@@ -2,7 +2,7 @@
 
 from .announcement import DashboardAnnouncement
 from .auth_security import AccountSecurityEvent, AuthenticationThrottle
-from .user import TwoFactorRecoveryCode, UserSettings
+from .user import PasskeyCredential, TwoFactorRecoveryCode, UserSettings
 from .character import (
     Character,
     CharacterAlmanacBrew,
@@ -287,6 +287,7 @@ __all__ = [
     "MagicItemStats",
     "Quality",
     "ProgressionRule",
+    "PasskeyCredential",
     "Race",
     "RaceAttributeLimit",
     "RaceSemanticEffect",

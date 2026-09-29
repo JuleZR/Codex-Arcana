@@ -16,7 +16,11 @@ class UserSettings(models.Model):
     )
 
     radial_menu_enabled = models.BooleanField(default=False)
-    theme_mode = models.CharField(max_length=24, choices=ThemeMode.choices, default=ThemeMode.DEFAULT)
+    theme_mode = models.CharField(
+        max_length=24,
+        choices=ThemeMode.choices,
+        default=ThemeMode.DEFAULT,
+    )
     print_include_inventory = models.BooleanField(default=True)
     print_include_notes = models.BooleanField(default=True)
     print_compact = models.BooleanField(default=False)
@@ -40,7 +44,11 @@ class UserSettings(models.Model):
     dddice_enabled = models.BooleanField(default=False)
     dddice_api_key = models.CharField(max_length=255, blank=True, default="")
     dddice_room_id = models.CharField(max_length=255, blank=True, default="")
-    dddice_room_password = models.CharField(max_length=255, blank=True, default="")
+    dddice_room_password = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
     dddice_dice_box = models.CharField(max_length=255, blank=True, default="")
     dddice_theme_id = models.CharField(max_length=255, blank=True, default="")
 
@@ -63,3 +71,26 @@ class TwoFactorRecoveryCode(models.Model):
                 name="two_factor_user_used_idx",
             )
         ]
+
+
+class PasskeyCredential(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="passkeys",
+    )
+    name = models.CharField(max_length=80)
+    credential_id = models.BinaryField(unique=True, editable=False)
+    public_key = models.BinaryField(editable=False)
+    sign_count = models.PositiveBigIntegerField(default=0, editable=False)
+    transports = models.JSONField(default=list, blank=True)
+    device_type = models.CharField(max_length=32, blank=True, default="")
+    backed_up = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ("created_at", "id")
+
+    def __str__(self):
+        return f"{self.user}: {self.name}"

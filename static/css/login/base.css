@@ -312,6 +312,51 @@ body.registration_page {
   filter: brightness(1.08);
 }
 
+.login_btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.login_btn--secondary {
+  width: 100%;
+  margin-top: 0;
+  border-color: rgba(47, 78, 122, 0.72);
+  background: linear-gradient(180deg, #58759a 0%, #345273 100%);
+}
+
+.passkey_login {
+  margin-top: 14px;
+}
+
+.passkey_divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  color: rgba(58, 40, 19, 0.68);
+  font-size: 0.86rem;
+}
+
+.passkey_divider::before,
+.passkey_divider::after {
+  flex: 1;
+  height: 1px;
+  background: rgba(79, 58, 33, 0.3);
+  content: "";
+}
+
+.passkey_hint {
+  margin: 8px 0 0;
+  color: rgba(58, 40, 19, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.passkey_login .login_errors {
+  margin-top: 10px;
+}
+
 .forgot_password_link,
 .auth_back_link {
   text-align: right;
