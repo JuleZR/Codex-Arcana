@@ -7,10 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20260827a">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260828i">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260929b">
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260828c"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260729b"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260929b"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -64,6 +64,7 @@
                         data-creature-ref="base:{{ creature.id }}"
                         data-creature-name="{{ creature.display_name }}"
                         data-creature-search="{{ creature.display_name|lower }}"
+                        data-creature-type="{{ creature.creature_type.slug }}"
                       >
                         <strong>{{ creature.display_name }}</strong>
                       </button>
@@ -74,6 +75,7 @@
                         data-creature-ref="character:{{ creature.id }}"
                         data-creature-name="{{ creature.owner.name }} · {{ creature.display_name }}"
                         data-creature-search="{{ creature.owner.name|lower }} {{ creature.display_name|lower }} {{ creature.source_binding.choice_label|default:'Tierform'|lower }}"
+                        data-creature-type="{{ creature.creature.creature_type.slug }}"
                       >
                         <strong>{{ creature.owner.name }} · {{ creature.display_name }}</strong>
                         <span>{{ creature.source_binding.choice_label|default:"Tierform" }}</span>
@@ -86,7 +88,12 @@
                     <span aria-hidden="true">+</span>
                   </button>
                 </div>
-                <small>Dieselbe Kreatur kann mehrfach hinzugefügt werden.</small>
+                <div class="gm-creature-picker__kraftbestie-slot">
+                  <label class="gm-creature-picker__kraftbestie" data-kraftbestie-option hidden>
+                    <input type="checkbox" name="is_kraftbestie" value="1" data-kraftbestie-checkbox disabled>
+                    <span>Als Kraftbestie hinzufügen</span>
+                  </label>
+                </div>
               </form>
             </div>
           </details>
@@ -156,7 +163,36 @@
               </div>
               <div class="gm-character-sheet__name">
                 <span>{{ row.kind_label }}</span>
-                <h2>{{ row.name }}</h2>
+                <div class="gm-character-sheet__name-heading">
+                  <h2 data-creature-instance-name>{{ row.name }}</h2>
+                  {% if row.can_rename_creature and not group.is_archived %}
+                  <button
+                    class="gm-creature-rename-toggle"
+                    type="button"
+                    data-creature-rename-toggle
+                    aria-label="{{ row.name }} umbenennen"
+                    title="Kreatureninstanz umbenennen"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m4 16-.8 4.8L8 20l10.6-10.6-4-4L4 16Zm9.2-9.2 4 4M14.6 5.4l1.6-1.6a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8l-1.6 1.6"/>
+                    </svg>
+                  </button>
+                  {% endif %}
+                </div>
+                {% if row.can_rename_creature and not group.is_archived %}
+                <form
+                  class="gm-creature-rename-form"
+                  method="post"
+                  action="{{ row.rename_creature_url }}"
+                  data-creature-rename-form
+                  hidden
+                >
+                  {% csrf_token %}
+                  <input type="text" name="name" value="{{ row.name }}" maxlength="160" aria-label="Neuer Kreaturenname">
+                  <button type="submit" title="Name speichern" aria-label="Name speichern">✓</button>
+                  <button type="button" data-creature-rename-cancel title="Abbrechen" aria-label="Abbrechen">×</button>
+                </form>
+                {% endif %}
                 {% if row.subtitle %}
                 <p>{{ row.subtitle }}</p>
                 {% endif %}

@@ -237,6 +237,77 @@
   min-width: 0;
 }
 
+.gm-character-sheet__name-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.gm-creature-rename-toggle {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  padding: 3px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(67, 45, 27, 0.58);
+  cursor: pointer;
+}
+
+.gm-creature-rename-toggle:hover,
+.gm-creature-rename-toggle:focus-visible {
+  background: rgba(91, 111, 62, 0.15);
+  color: #372315;
+  outline: none;
+}
+
+.gm-creature-rename-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.gm-creature-rename-form {
+  display: grid;
+  margin-top: 4px;
+  grid-template-columns: minmax(0, 1fr) 24px 24px;
+  gap: 3px;
+}
+
+.gm-creature-rename-form[hidden],
+.gm-creature-rename-toggle[hidden] {
+  display: none;
+}
+
+.gm-creature-rename-form input {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 26px;
+  padding: 3px 6px;
+  border: 1px solid rgba(67, 89, 44, 0.42);
+  border-radius: 3px;
+  background: rgba(250, 247, 224, 0.78);
+  color: #372315;
+  font: 700 0.86rem/1 Georgia, serif;
+}
+
+.gm-creature-rename-form button {
+  padding: 0;
+  border: 1px solid rgba(67, 89, 44, 0.32);
+  border-radius: 50%;
+  background: rgba(238, 226, 195, 0.7);
+  color: #49301d;
+  cursor: pointer;
+}
+
 .gm-character-sheet__name > span,
 .gm-character-section__title {
   color: rgba(67, 45, 27, 0.68);
@@ -2281,9 +2352,40 @@
   white-space: nowrap;
 }
 
-.gm-creature-picker__form small {
-  color: rgba(73, 48, 29, 0.62);
-  font: italic 0.7rem/1.25 Georgia, serif;
+.gm-creature-picker__kraftbestie-slot {
+  display: flex;
+  min-height: 20px;
+  padding: 1px 2px 0;
+  align-items: center;
+}
+
+.gm-creature-picker__kraftbestie {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  color: #4a321e;
+  font: 600 0.78rem/1.2 Georgia, serif;
+  cursor: pointer;
+}
+
+.gm-panel-heading .gm-creature-picker__kraftbestie span {
+  color: #4a321e;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.gm-creature-picker__kraftbestie[hidden] {
+  display: none;
+}
+
+.gm-creature-picker__kraftbestie input {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  accent-color: #526d38;
 }
 
 .gm-creature-search,

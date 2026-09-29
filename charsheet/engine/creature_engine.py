@@ -316,8 +316,14 @@ class CreatureSemanticEffect:
 class CreatureEngine:
     """Resolve effective creature values without mutating the creature template."""
 
-    def __init__(self, creature: Creature | CharacterCreature):
+    def __init__(
+        self,
+        creature: Creature | CharacterCreature,
+        *,
+        force_kraftbestie: bool = False,
+    ):
         self.source = creature
+        self.force_kraftbestie = bool(force_kraftbestie)
         self.instance = creature if isinstance(creature, CharacterCreature) else None
         self.creature = (
             creature.creature
@@ -368,6 +374,12 @@ class CreatureEngine:
         return default if value is None or value == "" else value
 
     def _uses_kraftbestie_rules(self) -> bool:
+        if self.force_kraftbestie:
+            return bool(
+                self.instance.creature_id
+                if self.instance
+                else getattr(self.creature, "pk", None)
+            )
         binding = getattr(self.instance, "source_binding", None) if self.instance else None
         return bool(
             self.instance
@@ -2648,7 +2660,7 @@ class CreatureEngine:
             context["is_kraftbestie"] = True
             context["kraftbestie_base_name"] = base_name
             if not (self.instance and self.instance.name_override):
-                context["name"] = self._kraftbestie_display_name(base_name)
+                context["name"] = self.kraftbestie_display_name(base_name)
         if (
             self.instance
             and self.instance.source_binding_id
@@ -2666,7 +2678,7 @@ class CreatureEngine:
         return context
 
     @staticmethod
-    def _kraftbestie_display_name(base_name: str) -> str:
+    def kraftbestie_display_name(base_name: str) -> str:
         base_name = str(base_name or "").strip()
         if not base_name:
             return "Kraftbestie"

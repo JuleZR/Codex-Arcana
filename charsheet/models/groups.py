@@ -245,6 +245,8 @@ class GameGroupCreature(models.Model):
         null=True,
         blank=True,
     )
+    is_kraftbestie = models.BooleanField(default=False)
+    name_override = models.CharField(max_length=160, blank=True)
     screen_position = models.PositiveIntegerField(null=True, blank=True)
     screen_is_collapsed = models.BooleanField(default=False)
     current_stun_damage = models.PositiveIntegerField(default=0)
@@ -291,6 +293,30 @@ class GameGroupCreature(models.Model):
     def __str__(self):
         creature = self.character_creature or self.creature
         return f"{self.group}: {creature} (Karte {self.pk or 'neu'})"
+
+    @property
+    def default_display_name(self) -> str:
+        source = self.character_creature or self.creature
+        if self.character_creature_id:
+            return getattr(source, "display_name", "Kreatur")
+        base_name = getattr(source, "display_name", "Kreatur")
+        if self.is_kraftbestie:
+            from charsheet.engine.creature_engine import CreatureEngine
+
+            return CreatureEngine.kraftbestie_display_name(base_name)
+        return base_name
+
+    @property
+    def display_name(self) -> str:
+        if self.character_creature_id:
+            return self.default_display_name
+        return self.name_override.strip() or self.default_display_name
+
+    def get_engine(self):
+        from charsheet.engine.creature_engine import CreatureEngine
+
+        source = self.character_creature or self.creature
+        return CreatureEngine(source, force_kraftbestie=self.is_kraftbestie)
 
     @property
     def current_damage(self) -> int:

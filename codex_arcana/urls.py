@@ -76,6 +76,11 @@ urlpatterns = [
          group_views.game_master_screen, name="game_master_screen"),
     path("groups/<int:group_id>/creatures/add/",
          group_views.add_group_creature, name="add_group_creature"),
+    path(
+        "groups/<int:group_id>/creatures/<int:creature_card_id>/rename/",
+        group_views.rename_group_creature,
+        name="rename_group_creature",
+    ),
     path("groups/<int:group_id>/creatures/<int:creature_card_id>/delete/",
          group_views.delete_group_creature, name="delete_group_creature"),
     path(

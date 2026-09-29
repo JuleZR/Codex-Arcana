@@ -192,6 +192,8 @@
     const results = picker.querySelector("[data-creature-search-results]");
     const form = picker.closest("form");
     const details = picker.closest("details");
+    const kraftbestieOption = form?.querySelector("[data-kraftbestie-option]");
+    const kraftbestieCheckbox = form?.querySelector("[data-kraftbestie-checkbox]");
     const options = Array.from(
       results?.querySelectorAll("button[data-creature-ref]") || [],
     );
@@ -205,6 +207,17 @@
         window.sessionStorage.removeItem(selectionKey);
       } catch (error) {
         // The picker also works when browser storage is unavailable.
+      }
+    };
+    const syncKraftbestieOption = (option) => {
+      if (!kraftbestieOption || !kraftbestieCheckbox) {
+        return;
+      }
+      const isTier = option?.dataset.creatureType === "tier";
+      kraftbestieOption.hidden = !isTier;
+      kraftbestieCheckbox.disabled = !isTier;
+      if (!isTier) {
+        kraftbestieCheckbox.checked = false;
       }
     };
     const restoreSavedSelection = () => {
@@ -221,6 +234,7 @@
         query.value = option.dataset.creatureName;
         query.dataset.selectedName = option.dataset.creatureName;
         query.setCustomValidity("");
+        syncKraftbestieOption(option);
       } catch (error) {
         // The picker also works when browser storage is unavailable.
       }
@@ -230,6 +244,7 @@
       query.value = "";
       delete query.dataset.selectedName;
       query.setCustomValidity("");
+      syncKraftbestieOption(null);
       results.hidden = true;
       options.forEach((option) => {
         option.hidden = false;
@@ -242,11 +257,12 @@
 
     const filter = () => {
       const term = query.value.trim().toLocaleLowerCase("de");
+      const kraftbestieOnly = Boolean(kraftbestieCheckbox?.checked);
       let visible = 0;
       options.forEach((option) => {
         const matches = (
-          !term
-          || String(option.dataset.creatureSearch || "").includes(term)
+          (!term || String(option.dataset.creatureSearch || "").includes(term))
+          && (!kraftbestieOnly || option.dataset.creatureType === "tier")
         );
         option.hidden = !matches;
         if (matches) {
@@ -279,8 +295,14 @@
         query.value = option.dataset.creatureName;
         query.dataset.selectedName = option.dataset.creatureName;
         query.setCustomValidity("");
+        syncKraftbestieOption(option);
         results.hidden = true;
       });
+    });
+    kraftbestieCheckbox?.addEventListener("change", () => {
+      const resultsWereHidden = results.hidden;
+      filter();
+      results.hidden = resultsWereHidden;
     });
     form?.addEventListener("submit", () => {
       if (!selectedId.value) {
@@ -303,6 +325,75 @@
       }
     });
     restoreSavedSelection();
+  });
+
+  document.querySelectorAll("[data-creature-rename-form]").forEach((form) => {
+    const card = form.closest(".gm-character-sheet--creature");
+    const toggle = card?.querySelector("[data-creature-rename-toggle]");
+    const cancel = form.querySelector("[data-creature-rename-cancel]");
+    const input = form.querySelector("input[name='name']");
+    const heading = card?.querySelector("[data-creature-instance-name]");
+    if (!card || !toggle || !cancel || !input || !heading) {
+      return;
+    }
+    const close = () => {
+      form.hidden = true;
+      toggle.hidden = false;
+      input.value = heading.textContent.trim();
+    };
+    toggle.addEventListener("click", () => {
+      toggle.hidden = true;
+      form.hidden = false;
+      input.focus();
+      input.select();
+    });
+    cancel.addEventListener("click", close);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const buttons = Array.from(form.querySelectorAll("button"));
+      buttons.forEach((button) => {
+        button.disabled = true;
+      });
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "Der Name konnte nicht gespeichert werden.");
+        }
+        heading.textContent = result.name;
+        fitCharacterName(heading);
+        const portraitImage = card.querySelector(".gm-character-sheet__portrait img");
+        if (portraitImage) {
+          portraitImage.alt = `Porträt von ${result.name}`;
+        }
+        const deleteButton = card.querySelector(".gm-character-sheet__delete");
+        if (deleteButton) {
+          deleteButton.setAttribute("aria-label", `${result.name} entfernen`);
+        }
+        toggle.setAttribute("aria-label", `${result.name} umbenennen`);
+        const collapsedPortrait = document.querySelector(
+          `[data-collapsed-card-id="${card.dataset.reorderId}"]`,
+        );
+        if (collapsedPortrait) {
+          collapsedPortrait.title = `${result.name} wieder einblenden`;
+          collapsedPortrait.setAttribute(
+            "aria-label",
+            `${result.name} wieder einblenden`,
+          );
+        }
+        close();
+      } catch (error) {
+        window.alert(error.message || "Der Name konnte nicht gespeichert werden.");
+      } finally {
+        buttons.forEach((button) => {
+          button.disabled = false;
+        });
+      }
+    });
   });
 
   const cardRows = [

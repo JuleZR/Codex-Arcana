@@ -615,10 +615,12 @@ def game_master_screen(request, group_id: int):
     creature_cards = list(
         group.screen_creatures.select_related(
             "creature",
+            "creature__creature_type",
             "creature__quality",
             "character_creature",
             "character_creature__owner",
             "character_creature__creature",
+            "character_creature__creature__creature_type",
             "character_creature__quality",
             "character_creature__source_binding",
         ).prefetch_related(
@@ -629,7 +631,7 @@ def game_master_screen(request, group_id: int):
         creature = creature_card.creature
         character_creature = creature_card.character_creature
         creature_source = character_creature or creature
-        engine = CreatureEngine(creature_source)
+        engine = creature_card.get_engine()
         from charsheet.engine.vampire_engine import VampireRules
 
         vampire_rules = VampireRules(creature_card)
@@ -717,16 +719,23 @@ def game_master_screen(request, group_id: int):
                     args=[group.id, creature_card.id],
                 ),
                 "kind_label": (
-                    character_creature.source_binding.choice_label
+                    "Kraftbestie"
+                    if getattr(engine.creature, "_kraftbestie", False)
+                    else character_creature.source_binding.choice_label
                     if character_creature
                     and character_creature.source_binding
                     and character_creature.source_binding.choice_label
                     else "Kreatur"
                 ),
-                "name": creature_source.display_name,
+                "name": creature_card.display_name,
                 "subtitle": subtitle,
                 "image": creature_source.image,
-                "fallback_letter": creature_source.display_name[:1],
+                "fallback_letter": creature_card.display_name[:1],
+                "can_rename_creature": character_creature is None,
+                "rename_creature_url": reverse(
+                    "rename_group_creature",
+                    args=[group.id, creature_card.id],
+                ),
                 "potential_label": "Pot" if has_creature_kp else "GK",
                 "show_arcane": has_creature_kp,
                 "resource_label": "BP" if is_vampire or engine.creature.has_bp else "KP",
@@ -1140,6 +1149,7 @@ def game_master_screen(request, group_id: int):
         .select_related(
             "owner",
             "creature",
+            "creature__creature_type",
             "quality",
             "source_binding",
         )
@@ -1159,7 +1169,7 @@ def game_master_screen(request, group_id: int):
             "character_count": len(memberships),
             "creature_count": len(creature_cards),
             "creature_options": (
-                Creature.objects.select_related("quality")
+                Creature.objects.select_related("quality", "creature_type")
                 .order_by("name")
             ),
             "character_creature_options": character_creature_options,
@@ -1229,6 +1239,12 @@ def add_group_creature(request, group_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
+        is_kraftbestie = request.POST.get("is_kraftbestie", "").lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         creature_reference = str(request.POST.get("creature_ref", "")).strip()
         character_creature = None
         if creature_reference.startswith("character:"):
@@ -1242,7 +1258,10 @@ def add_group_creature(request, group_id: int):
                     "Bitte eine Kreatur auswählen.",
                 ) from exc
             character_creature = get_object_or_404(
-                CharacterCreature.objects.select_related("creature"),
+                CharacterCreature.objects.select_related(
+                    "creature",
+                    "creature__creature_type",
+                ),
                 pk=character_creature_id,
                 active=True,
                 owner__game_group_memberships__group=group,
@@ -1272,8 +1291,16 @@ def add_group_creature(request, group_id: int):
                     "Bitte eine Kreatur auswählen.",
                 ) from exc
             creature = get_object_or_404(
-                Creature.objects.all(),
+                Creature.objects.select_related("creature_type"),
                 pk=creature_id,
+            )
+        if is_kraftbestie and (
+            creature is None
+            or getattr(creature.creature_type, "slug", "") != "tier"
+        ):
+            raise GroupError(
+                "invalid_kraftbestie",
+                "Nur Kreaturen vom Typ Tier können als Kraftbestie hinzugefügt werden.",
             )
         membership_position = (
             GameGroupMembership.objects.filter(
@@ -1290,7 +1317,10 @@ def add_group_creature(request, group_id: int):
             for value in (membership_position, creature_position, -1)
             if value is not None
         )
-        source_engine = CreatureEngine(character_creature or creature)
+        source_engine = CreatureEngine(
+            character_creature or creature,
+            force_kraftbestie=is_kraftbestie,
+        )
         creature_kp = source_engine.bp() if source_engine.creature.has_bp else source_engine.kp()
         source_actor = character_creature or creature
         from charsheet.engine.vampire_engine import VampireRules
@@ -1310,6 +1340,7 @@ def add_group_creature(request, group_id: int):
             group=group,
             creature=creature,
             character_creature=character_creature,
+            is_kraftbestie=is_kraftbestie,
             screen_position=last_position + 1,
             current_kp=(
                 max(0, int(creature_kp))
@@ -1359,6 +1390,44 @@ def add_group_creature(request, group_id: int):
                 for entry in source_vampire.effective_powers()
             )
 
+    return redirect(
+        f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
+    )
+
+
+@login_required
+@require_POST
+@_group_action
+def rename_group_creature(request, group_id: int, creature_card_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        creature_card = get_object_or_404(
+            GameGroupCreature.objects.select_for_update(of=("self",)).select_related(
+                "creature",
+                "character_creature",
+            ),
+            pk=creature_card_id,
+            group=group,
+        )
+        if creature_card.character_creature_id:
+            raise GroupError(
+                "character_creature_name",
+                "Der Name dieser Kreatur wird vom Charakter festgelegt.",
+            )
+        name = str(request.POST.get("name", "")).strip()
+        if len(name) > 160:
+            raise GroupError(
+                "creature_name_too_long",
+                "Der Kreaturenname darf höchstens 160 Zeichen lang sein.",
+            )
+        creature_card.name_override = (
+            "" if not name or name == creature_card.default_display_name else name
+        )
+        creature_card.save(update_fields=["name_override"])
+
+    if _request_wants_json(request):
+        return JsonResponse({"ok": True, "name": creature_card.display_name})
     return redirect(
         f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
     )
@@ -1467,9 +1536,7 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
             amount = max(1, int(request.POST.get("amount", "1")))
         except (TypeError, ValueError):
             amount = 1
-        wound_rows = CreatureEngine(
-            creature_card.character_creature or creature_card.creature
-        ).wound_rows()
+        wound_rows = creature_card.get_engine().wound_rows()
         max_lp = int(wound_rows[-1]["threshold"]) if wound_rows else 0
         if damage_type in {"B", "T", "S"} and action in {"damage", "heal"}:
             creature_card.adjust_damage(
@@ -1490,9 +1557,7 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
                 VampireRules(creature_card).evaluate_life_state()
         payload = _group_creature_vital_payload(
             creature_card,
-            CreatureEngine(
-                creature_card.character_creature or creature_card.creature
-            ),
+            creature_card.get_engine(),
         )
 
     if _request_wants_json(request):
@@ -1530,9 +1595,7 @@ def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
             maximum = blood.maximum
             current_kp = blood.intelligent
         else:
-            source_engine = CreatureEngine(
-                creature_card.character_creature or creature_card.creature
-            )
+            source_engine = creature_card.get_engine()
             maximum = source_engine.bp() if source_engine.creature.has_bp else source_engine.kp()
         if maximum is not None:
             try:
