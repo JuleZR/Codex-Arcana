@@ -62,6 +62,10 @@ from .auth_security import (
     record_security_event,
     verify_turnstile,
 )
+from .account_lifecycle import (
+    account_deletion_blockers,
+    delete_account_permanently,
+)
 from .learning_progression import weapon_mastery_weapon_type_definitions
 from .consumables import apply_consumable_effects
 from .session_management import (
@@ -149,6 +153,7 @@ from .forms import (
     CharacterSkillSpecificationForm,
     CharacterTechniqueSpecificationForm,
     CharacterTraitSpecificationForm,
+    PermanentAccountDeletionForm,
     RegistrationForm,
     TwoFactorCodeForm,
     TwoFactorDisableForm,
@@ -680,6 +685,73 @@ def logout_session(request):
     return HttpResponseRedirect(
         "%s?account=security#accountSecurity" % reverse("dashboard")
     )
+
+
+def _account_data_redirect():
+    return HttpResponseRedirect(
+        "%s?account=data#accountData" % reverse("dashboard")
+    )
+
+
+@login_required
+@require_POST
+@sensitive_post_parameters("password")
+def deactivate_account(request):
+    form = AccountPasswordConfirmationForm(request.user, request.POST)
+    if not form.is_valid():
+        messages.error(request, form.errors["password"][0])
+        return _account_data_redirect()
+
+    request.user.is_active = False
+    request.user.save(update_fields=["is_active"])
+    auth_logout(request)
+    messages.success(
+        request,
+        "Dein Konto wurde deaktiviert. Eine Reaktivierung ist durch die "
+        "Administration möglich.",
+    )
+    return redirect("login")
+
+
+@login_required
+@require_POST
+@sensitive_post_parameters("password")
+def delete_account(request):
+    form = PermanentAccountDeletionForm(request.user, request.POST)
+    if not form.is_valid():
+        for field_errors in form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+        return _account_data_redirect()
+
+    record_security_event(
+        request.user,
+        AccountSecurityEvent.EventType.DELETION_REQUESTED,
+        request=request,
+    )
+    try:
+        blockers = delete_account_permanently(request.user)
+    except ProtectedError:
+        messages.error(
+            request,
+            "Das Konto kann noch nicht gelöscht werden, weil gemeinsam "
+            "genutzte oder historische Daten darauf verweisen.",
+        )
+        return _account_data_redirect()
+
+    if blockers:
+        messages.error(
+            request,
+            "Das Konto kann erst gelöscht werden, wenn diese Beziehungen "
+            "geklärt wurden:",
+        )
+        for blocker in blockers:
+            messages.error(request, f"{blocker.label} ({blocker.count})")
+        return _account_data_redirect()
+
+    auth_logout(request)
+    messages.success(request, "Dein Konto wurde dauerhaft gelöscht.")
+    return redirect("login")
 
 
 TWO_FACTOR_SETUP_SECRET_SESSION_KEY = "two_factor_setup_secret"
@@ -3329,6 +3401,7 @@ def dashboard(
             request.user
         ),
         "registered_passkeys": request.user.passkeys.all(),
+        "account_deletion_blockers": account_deletion_blockers(request.user),
         "two_factor_setup": two_factor_setup,
         "show_two_factor_setup": show_two_factor_setup,
         "two_factor_recovery_codes": recovery_codes or [],

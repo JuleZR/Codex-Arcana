@@ -788,6 +788,63 @@
   font-weight: 700;
 }
 
+.dashboard_account_danger_zone {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid rgba(133, 48, 39, 0.42);
+}
+
+.dashboard_account_lifecycle_action {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(133, 48, 39, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 247, 232, 0.58);
+}
+
+.dashboard_account_lifecycle_action h6,
+.dashboard_account_lifecycle_action p {
+  margin: 0;
+}
+
+.dashboard_account_lifecycle_action h6 {
+  color: #6d211c;
+  font-size: 1rem;
+}
+
+.dashboard_account_lifecycle_action > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.dashboard_account_deletion_blockers {
+  padding: 12px;
+  border-left: 4px solid #8b3029;
+  background: rgba(139, 48, 41, 0.1);
+}
+
+.dashboard_account_deletion_blockers ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.dashboard_account_deletion_ready {
+  color: #315c37;
+  font-weight: 700;
+}
+
+.dashboard_account_lifecycle_action .dashboard_button {
+  justify-self: start;
+}
+
+.dashboard_account_lifecycle_action .dashboard_button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 
 .dashboard_account_actions {
   position: sticky;

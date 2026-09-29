@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260929a">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260929b">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     <script defer src="{% static 'js/passkeys.js' %}?v=20260929a"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=3">
@@ -503,6 +503,54 @@
               <strong>Charakterdaten exportieren</strong>
               <span>JSON-Datei mit Profil, Charakteren, Inventar und Chronik herunterladen.</span>
             </a>
+            <div class="dashboard_account_danger_zone">
+              <div class="dashboard_account_section_header">
+                <h5>Kontolebenszyklus</h5>
+                <p>Diese Aktionen sind von den normalen Kontoeinstellungen getrennt.</p>
+              </div>
+              <article class="dashboard_account_lifecycle_action">
+                <div>
+                  <h6>Konto deaktivieren</h6>
+                  <p>Dein Login wird gesperrt und alle Sitzungen werden beendet. Charaktere, Gruppenbeziehungen und Historie bleiben erhalten. Die Administration kann das Konto später reaktivieren.</p>
+                </div>
+                <label class="form_row">
+                  <span>Aktuelles Passwort</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="deactivateAccountForm" required>
+                </label>
+                <button type="submit" class="dashboard_button dashboard_button--danger" form="deactivateAccountForm">Konto deaktivieren</button>
+              </article>
+              <article class="dashboard_account_lifecycle_action dashboard_account_lifecycle_action--delete">
+                <div>
+                  <h6>Konto dauerhaft löschen</h6>
+                  <p>Die Löschung ist unumkehrbar. Dein Konto, deine Charaktere und ausschließlich dazugehörige Daten werden gelöscht. Gemeinsam genutzte oder historisch erforderliche Daten werden nicht stillschweigend entfernt.</p>
+                  <p>Exportiere deine Daten vorher über den Link oben.</p>
+                </div>
+                {% if account_deletion_blockers %}
+                  <div class="dashboard_account_deletion_blockers" role="status">
+                    <strong>Die Löschung ist derzeit gesperrt:</strong>
+                    <ul>
+                      {% for blocker in account_deletion_blockers %}
+                        <li>{{ blocker.label }} ({{ blocker.count }})</li>
+                      {% endfor %}
+                    </ul>
+                    <p>Übertrage klärbare Verantwortlichkeiten ausdrücklich. Historische Beziehungen müssen durch die Administration geprüft werden.</p>
+                  </div>
+                {% else %}
+                  <p class="dashboard_account_deletion_ready">Es wurden keine ungelösten gemeinsamen Beziehungen gefunden.</p>
+                {% endif %}
+                <div class="dashboard_account_grid dashboard_account_grid--security">
+                  <label class="form_row">
+                    <span>Aktuelles Passwort</span>
+                    <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="deleteAccountForm" required>
+                  </label>
+                  <label class="form_row">
+                    <span>Zur Bestätigung „KONTO LÖSCHEN“ eingeben</span>
+                    <input class="dashboard_input" type="text" name="confirmation" autocomplete="off" form="deleteAccountForm" required>
+                  </label>
+                </div>
+                <button type="submit" class="dashboard_button dashboard_button--danger" form="deleteAccountForm"{% if account_deletion_blockers %} disabled{% endif %}>Konto dauerhaft löschen</button>
+              </article>
+            </div>
           </section>
 
           <section class="dashboard_account_section">
@@ -590,6 +638,12 @@
           </div>
         </form>
         <form method="post" action="{% url 'logout_other_sessions' %}" id="logoutOtherSessionsForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'deactivate_account' %}" id="deactivateAccountForm" onsubmit="return confirm('Konto wirklich deaktivieren und alle Sitzungen beenden?');">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'delete_account' %}" id="deleteAccountForm" onsubmit="return confirm('Konto und persönliche Daten wirklich unwiderruflich löschen?');">
           {% csrf_token %}
         </form>
         <form method="post" action="{% url 'two_factor_recovery_codes' %}" id="twoFactorRecoveryCodesForm">

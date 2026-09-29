@@ -199,6 +199,27 @@ class AccountPasswordConfirmationForm(forms.Form):
         return password
 
 
+class PermanentAccountDeletionForm(AccountPasswordConfirmationForm):
+    confirmation = forms.CharField(
+        label="Bestätigung",
+        strip=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "l_field",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+    def clean_confirmation(self):
+        confirmation = self.cleaned_data["confirmation"]
+        if confirmation != "KONTO LÖSCHEN":
+            raise forms.ValidationError(
+                'Gib zur Bestätigung exakt "KONTO LÖSCHEN" ein.'
+            )
+        return confirmation
+
+
 class TwoFactorDisableForm(AccountPasswordConfirmationForm):
     code = forms.CharField(
         label="Authentifizierungs- oder Wiederherstellungscode",
