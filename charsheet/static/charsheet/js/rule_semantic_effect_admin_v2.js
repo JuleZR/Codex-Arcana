@@ -9,7 +9,8 @@
   }
 
   function fieldRow(root, fieldName) {
-    var classRow = root.querySelector(".field-" + fieldName);
+    var classRow = root.querySelector(".fieldBox.field-" + fieldName)
+      || root.querySelector(".field-" + fieldName);
     if (classRow) {
       return classRow;
     }
