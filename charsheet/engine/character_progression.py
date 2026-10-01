@@ -50,7 +50,12 @@ def open_specialization_slot_count(engine, school) -> int:
     """Return the number of still-unfilled specialization slots for one school."""
     school_id = engine._coerce_school_id(school)
     total_slots = engine.specialization_slot_count(school_id)
-    filled_slots = len(engine._specialization_entries_by_school_id.get(school_id, []))
+    filled_slots = sum(
+        entry.source_choice_id is None
+        for entry in engine._specialization_entries_by_school_id.get(
+            school_id, []
+        )
+    )
     return max(0, total_slots - filled_slots)
 
 

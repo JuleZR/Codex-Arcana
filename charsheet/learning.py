@@ -474,7 +474,20 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         elif target_kind == Technique.ChoiceTargetKind.SKILL:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Fertigkeitswahl.")
-            if choice_scope == "creature_trait" and raw_value.startswith("special:"):
+            if (
+                choice_scope == "specialization"
+                and raw_value.startswith("character-skill:")
+            ):
+                character_skill = CharacterSkill.objects.get(
+                    pk=int(raw_value.split(":", 1)[1]),
+                    character=character,
+                )
+                choice_payload["selected_skill_id"] = character_skill.skill_id
+                choice_payload["selected_character_skill"] = character_skill
+            elif (
+                choice_scope == "creature_trait"
+                and raw_value.startswith("special:")
+            ):
                 special_skill_id = int(raw_value.split(":", 1)[1])
                 if not CreatureSpecialSkill.objects.filter(pk=special_skill_id).exists():
                     raise LearningSubmissionError(f"{choice_label}: Kreatur-Spezialfertigkeit nicht gefunden.")
@@ -657,7 +670,10 @@ def _reset_invalid_school_progression(character: Character) -> None:
     engine = character.get_engine(refresh=True)
     for school_id in learned_school_ids:
         allowed_count = engine.specialization_slot_count(school_id)
-        specialization_entries = engine.character_specializations(school_id)
+        specialization_entries = [
+            entry for entry in engine.character_specializations(school_id)
+            if entry.source_choice_id is None
+        ]
         if len(specialization_entries) <= allowed_count:
             continue
         removable_ids = [entry.id for entry in specialization_entries[allowed_count:]]

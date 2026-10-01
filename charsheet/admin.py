@@ -3867,6 +3867,20 @@ class RuleSemanticEffectAdminForm(
             cleaned_data["target_key"] = ""
             target_domain = cleaned_data["target_domain"]
             target_key = ""
+        elif area == "choice_binding":
+            binding_field = next(
+                (
+                    name for name in (
+                        "target_choice_definition",
+                        "target_race_choice_definition",
+                    ) if name in self.fields
+                ),
+                "effect_area",
+            )
+            if binding_field not in self.errors:
+                self.add_error(
+                    binding_field, "Bitte eine Auswahlbindung auswählen."
+                )
         elif has_choice_binding:
             self.add_error("effect_area", "Auswahlbindungen bitte als Auswahlbindung einordnen.")
         elif has_target_skills:
@@ -5039,7 +5053,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
     )
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
 class TechniqueSemanticEffectInline(admin.StackedInline):
@@ -5055,7 +5069,7 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
     fieldsets = TraitSemanticEffectInline.fieldsets
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
 class RaceSemanticEffectInline(admin.StackedInline):
@@ -5108,7 +5122,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
     )
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
 RULE_SEMANTIC_EFFECT_FIELDSETS = (
@@ -5162,7 +5176,7 @@ class SchoolSemanticEffectInline(admin.StackedInline):
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
 class RuneSemanticEffectInline(admin.StackedInline):
@@ -5177,7 +5191,7 @@ class RuneSemanticEffectInline(admin.StackedInline):
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
 class RaceAttributeLimitByAttributeInline(admin.TabularInline):
@@ -6634,7 +6648,7 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
     )
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
 class SpecializationChoiceDefinitionInline(admin.StackedInline):
@@ -6698,6 +6712,7 @@ class CharacterSpecializationChoiceFormSet(BaseInlineFormSet):
                     getattr(choice, name)
                     for name in (
                         "selected_skill_id",
+                        "selected_character_skill_id",
                         "selected_skill_category_id",
                         "selected_item_id",
                         "selected_item_category",
@@ -6715,6 +6730,7 @@ class CharacterSpecializationChoiceFormSet(BaseInlineFormSet):
                 if definition.unique_per_character:
                     fields = (
                         "selected_skill_id",
+                        "selected_character_skill_id",
                         "selected_skill_category_id",
                         "selected_item_id",
                         "selected_item_category",

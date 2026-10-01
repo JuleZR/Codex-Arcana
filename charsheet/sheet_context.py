@@ -4305,6 +4305,15 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
             technique = Technique.objects.filter(pk=int(source_id_text)).only("name").first()
             if technique is not None:
                 return technique.name
+    if source_type_text == "specialization":
+        if source_id_text.isdigit():
+            specialization = (
+                Specialization.objects.filter(pk=int(source_id_text))
+                .only("name").first()
+            )
+            if specialization is not None:
+                return specialization.name
+        return "Spezialisierung"
     if source_type_text == "daemonic_power" and source_id_text.isdigit():
         power = DaemonicPower.objects.filter(pk=int(source_id_text)).only("name").first()
         if power is not None:

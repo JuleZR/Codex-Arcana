@@ -13,6 +13,7 @@ from charsheet.constants import (
 from charsheet.models import (
     Attribute,
     CharacterDaemonicPower,
+    CharacterSkill,
     CharacterSpecializationChoice,
     CharacterTrait,
     Item,
@@ -843,6 +844,13 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
     specialization_entries = character.learned_specializations.select_related(
         "specialization",
     )
+    specified_skills = list(
+        CharacterSkill.objects.filter(
+            character=character, skill__requires_specification=True,
+        ).exclude(specification__in=["", "*"])
+        .select_related("skill", "skill__category")
+        .order_by("skill__name", "specification", "pk")
+    )
     for specialization_entry in specialization_entries:
         specialization = specialization_entry.specialization
         instance_id = specialization_entry.pk
@@ -883,6 +891,29 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     }
                 )
                 if definition.target_kind == Technique.ChoiceTargetKind.SKILL:
+                    allowed_ids = {
+                        option["value"] for option in row["options"]
+                    }
+                    specified_ids = {
+                        skill.id for skill in skill_definitions
+                        if skill.requires_specification
+                    }
+                    row["options"] = [
+                        option for option in row["options"]
+                        if option["value"] not in specified_ids
+                    ]
+                    for character_skill in specified_skills:
+                        if character_skill.skill_id not in allowed_ids:
+                            continue
+                        choice = CharacterSpecializationChoice(
+                            selected_skill=character_skill.skill,
+                            selected_character_skill=character_skill,
+                        )
+                        row["options"].append({
+                            "value": f"character-skill:{character_skill.pk}",
+                            "label": choice.selected_target_display(),
+                            "meta": character_skill.skill.category.name,
+                        })
                     used = CharacterSpecializationChoice.objects.filter(
                         definition=definition
                     )
@@ -894,9 +925,13 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         used = used.filter(
                             character_specialization=specialization_entry
                         )
-                    used_ids = set(
-                        used.values_list("selected_skill_id", flat=True)
-                    )
+                    used_ids = {
+                        f"character-skill:{character_skill_id}"
+                        if character_skill_id else skill_id
+                        for skill_id, character_skill_id in used.values_list(
+                            "selected_skill_id", "selected_character_skill_id",
+                        )
+                    }
                     row["options"] = [
                         option
                         for option in row["options"]
@@ -1044,7 +1079,11 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                 selection_group_id=selection_group_id,
                 options=[
                     _build_decision_option(
-                        option_id=str(option["value"]),
+                        option_id=(
+                            f"{option['value']}:{decision_key}"
+                            if option.get("allow_multiple")
+                            else str(option["value"])
+                        ),
                         label=option["label"],
                         meta=option["meta"],
                         submit_name=row["field_name"],
@@ -1176,6 +1215,8 @@ def _build_choice_row(
 ) -> dict[str, object] | None:
     """Return one rendered choice row for a still-missing technique decision."""
     field_name = choice_field_name(target_kind, technique.id, definition_id)
+    if target_kind == Technique.ChoiceTargetKind.SPECIALIZATION:
+        field_name += f"_{slot_index}"
     if not field_name:
         return {
             "field_name": "",
@@ -1230,12 +1271,14 @@ def _build_choice_row(
                 "value": specialization.id,
                 "label": specialization.name,
                 "meta": specialization.get_support_level_display(),
+                "allow_multiple": specialization.allow_multiple,
             }
             for specialization in (
                 Specialization.objects.filter(school_id=technique.school_id, is_active=True)
                 .order_by("sort_order", "name")
             )
-            if specialization.id not in used_specialization_ids
+            if specialization.allow_multiple
+            or specialization.id not in used_specialization_ids
         ]
     elif target_kind == Technique.ChoiceTargetKind.TEXT:
         options = []

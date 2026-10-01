@@ -874,11 +874,6 @@ class CharacterTechniqueChoice(models.Model):
                 name="uniq_character_technique_selected_item",
             ),
             models.UniqueConstraint(
-                fields=["character", "technique", "definition", "selected_specialization"],
-                condition=models.Q(selected_specialization__isnull=False),
-                name="uniq_character_technique_selected_specialization",
-            ),
-            models.UniqueConstraint(
                 fields=["character", "technique", "definition", "selected_item_category"],
                 condition=~models.Q(selected_item_category=""),
                 name="uniq_character_technique_selected_item_category",
@@ -996,6 +991,35 @@ class CharacterTechniqueChoice(models.Model):
                 raise ValidationError(
                     {"selected_specialization": "This specialization has already been chosen for this character."}
                 )
+
+    def save(self, *args, **kwargs):
+        from .progression import CharacterSpecialization
+
+        Character = self._meta.get_field("character").remote_field.model
+        with transaction.atomic():
+            Character.objects.select_for_update().get(pk=self.character_id)
+            if self.selected_specialization_id:
+                self.full_clean()
+            result = super().save(*args, **kwargs)
+            if self.selected_specialization_id:
+                CharacterSpecialization.objects.filter(
+                    source_choice=self,
+                ).exclude(
+                    specialization_id=self.selected_specialization_id,
+                ).delete()
+                CharacterSpecialization.objects.update_or_create(
+                    source_choice=self,
+                    defaults={
+                        "character_id": self.character_id,
+                        "specialization_id": self.selected_specialization_id,
+                        "source_technique_id": self.technique_id,
+                    },
+                )
+            else:
+                CharacterSpecialization.objects.filter(
+                    source_choice=self,
+                ).delete()
+            return result
 
     def _expected_target_kind(self):
         """Return the target kind enforced by the definition or legacy technique fields."""
@@ -1157,6 +1181,13 @@ class CharacterSpecializationChoice(models.Model):
         blank=True,
         related_name="+",
     )
+    selected_character_skill = models.ForeignKey(
+        "CharacterSkill",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="specialization_choices",
+    )
     selected_skill_category = models.ForeignKey(
         SkillCategory,
         on_delete=models.PROTECT,
@@ -1202,7 +1233,12 @@ class CharacterSpecializationChoice(models.Model):
     def technique_id(self):
         return self.character_specialization.specialization_id
 
-    selected_target_display = CharacterTechniqueChoice.selected_target_display
+    def selected_target_display(self):
+        if self.selected_character_skill_id:
+            skill = self.selected_character_skill.skill
+            name = skill.name.replace("[Specification]", "").rstrip(": ")
+            return f"{name}: {self.selected_character_skill.specification}"
+        return CharacterTechniqueChoice.selected_target_display(self)
 
     def clean(self):
         super().clean()
@@ -1214,6 +1250,19 @@ class CharacterSpecializationChoice(models.Model):
         ):
             return
         entry = self.character_specialization
+        if self.selected_character_skill_id:
+            character_skill = self.selected_character_skill
+            if (
+                character_skill.character_id != entry.character_id
+                or character_skill.skill_id != self.selected_skill_id
+                or not character_skill.skill.requires_specification
+                or character_skill.specification.strip() in {"", "*"}
+            ):
+                raise ValidationError({
+                    "selected_character_skill": (
+                        "Choose a specified skill belonging to this character."
+                    ),
+                })
         if self.definition.specialization_id != entry.specialization_id:
             raise ValidationError(
                 {"definition": "Choice must belong to this specialization."}
@@ -1269,6 +1318,7 @@ class CharacterSpecializationChoice(models.Model):
             )
         target_fields = (
             "selected_skill_id",
+            "selected_character_skill_id",
             "selected_skill_category_id",
             "selected_item_id",
             "selected_item_category",

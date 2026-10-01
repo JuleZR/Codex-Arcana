@@ -297,6 +297,13 @@ class CharacterSpecialization(models.Model):
         blank=True,
         related_name="granted_specializations",
     )
+    source_choice = models.OneToOneField(
+        "CharacterTechniqueChoice",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="specialization_instance",
+    )
     learned_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
 

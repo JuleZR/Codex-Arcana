@@ -9,8 +9,11 @@
   }
 
   function fieldRow(root, fieldName) {
-    var classRow = root.querySelector(".fieldBox.field-" + fieldName)
-      || root.querySelector(".field-" + fieldName);
+    var fieldBox = root.querySelector(".fieldBox.field-" + fieldName);
+    if (fieldBox) {
+      return fieldBox.parentElement;
+    }
+    var classRow = root.querySelector(".field-" + fieldName);
     if (classRow) {
       return classRow;
     }
@@ -44,6 +47,15 @@
     if (row) {
       row.hidden = !visible;
       row.style.display = visible ? "" : "none";
+      var formRow = row.closest(".form-row");
+      if (formRow && formRow !== row) {
+        var boxes = formRow.querySelectorAll(".fieldBox");
+        var hasVisibleField = Array.prototype.some.call(boxes, function (box) {
+          return !box.parentElement.hidden;
+        });
+        formRow.hidden = !hasVisibleField;
+        formRow.style.display = hasVisibleField ? "" : "none";
+      }
     }
   }
 

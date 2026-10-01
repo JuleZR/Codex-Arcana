@@ -225,6 +225,10 @@ class ModifierEngine:
                     metadata = dict(modifier.metadata)
                     metadata.pop("choice_binding", None)
                     metadata["semantic_effect_key"] += f":choice:{choice.pk}"
+                    if kind == "skill" and choice.selected_character_skill_id:
+                        metadata["skill_specification"] = (
+                            choice.selected_character_skill.specification
+                        )
                     modifiers.append(
                         replace(modifier, target_key=target, metadata=metadata)
                     )
