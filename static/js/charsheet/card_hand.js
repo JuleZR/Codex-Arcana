@@ -16,6 +16,7 @@ export function initCardHand() {
   const dragHandles = Array.from(hand.querySelectorAll("[data-card-hand-drag-handle]"));
   const miniScales = Array.from(hand.querySelectorAll("[data-card-hand-mini-scale]"));
   const dragStartThreshold = 8;
+  const mobileViewport = window.matchMedia("(max-width: 900px)");
   let activeFloating = floatings.find((entry) => entry instanceof HTMLElement) || null;
 
   const floatingLayer = document.getElementById("charsheetApp") || document.body;
@@ -173,7 +174,7 @@ export function initCardHand() {
     }
     const sourceWidth = 420;
     const sourceHeight = sourceWidth * (1039 / 744);
-    const availableWidth = Math.max(1, tray.clientWidth - 16);
+    const availableWidth = mobileViewport.matches ? 140 : Math.max(1, tray.clientWidth - 16);
     const scale = Math.min(1, availableWidth / sourceWidth);
     const scaledHeight = Math.round(sourceHeight * scale);
     const visibleTitleBand = Math.max(46, Math.round(scaledHeight * 0.22));
@@ -220,6 +221,12 @@ export function initCardHand() {
     if (!(floating instanceof HTMLElement)) {
       return;
     }
+    if (mobileViewport.matches) {
+      floating.style.left = "50%";
+      floating.style.top = "50%";
+      floating.style.transform = "translate(-50%, -50%)";
+      return;
+    }
     const rect = floating.getBoundingClientRect();
     const padding = 10;
     let left = rect.left;
@@ -239,6 +246,13 @@ export function initCardHand() {
     }
     floating.hidden = false;
     setMiniCardInStack(String(floating.getAttribute("data-card-key") || cardKey || ""), false);
+    if (mobileViewport.matches) {
+      floatings.forEach((entry) => {
+        if (entry !== floating && !entry.hidden) closeFloating(entry);
+      });
+      clampFloating(floating);
+      return;
+    }
     if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
       floating.style.left = `${clientX}px`;
       floating.style.top = `${clientY}px`;
@@ -279,6 +293,7 @@ export function initCardHand() {
   };
 
   const startFloatingDrag = (event, { fromMiniCard = false, cardKey = "" } = {}) => {
+    if (mobileViewport.matches) return;
     const sourceKey = cardKey || (
       event.currentTarget instanceof HTMLElement
         ? String(event.currentTarget.getAttribute("data-card-key") || event.currentTarget.closest("[data-card-key]")?.getAttribute("data-card-key") || "")
@@ -330,7 +345,13 @@ export function initCardHand() {
     if (!(openCardButton instanceof HTMLElement)) {
       return;
     }
+    openCardButton.addEventListener("click", () => {
+      if (mobileViewport.matches) {
+        openFloating({ cardKey: String(openCardButton.getAttribute("data-card-key") || "") });
+      }
+    });
     openCardButton.addEventListener("pointerdown", (event) => {
+      if (mobileViewport.matches) return;
       event.preventDefault();
       activeFloating = floatingForKey(String(openCardButton.getAttribute("data-card-key") || ""));
       const pointerId = event.pointerId;
@@ -370,9 +391,18 @@ export function initCardHand() {
     });
   });
 
+  document.addEventListener("click", (event) => {
+    if (!mobileViewport.matches || !(event.target instanceof Node)) return;
+    const floating = activeFloating;
+    if (!(floating instanceof HTMLElement) || floating.hidden || floating.contains(event.target)) return;
+    if (event.target instanceof Element && event.target.closest("[data-card-hand-open-card]")) return;
+    closeFloating(floating);
+  });
+
   if (dragHandles.length > 0) {
     dragHandles.forEach((dragHandle) => {
       dragHandle.addEventListener("pointerdown", (event) => {
+        if (mobileViewport.matches) return;
         event.preventDefault();
         activeFloating = dragHandle.closest("[data-card-hand-floating]");
         startFloatingDrag(event, {
@@ -397,6 +427,7 @@ export function initCardHand() {
   });
 
   floatings.forEach((floating) => {
+    if (mobileViewport.matches) return;
     const restoredState = loadTableState(floating);
     if (
       restoredState?.isOnTable

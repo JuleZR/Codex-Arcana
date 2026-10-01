@@ -2255,3 +2255,44 @@ html[data-left-tools-open="1"] .left-tools {
     content: none !important;
   }
 }
+
+.left-tools__mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .left-tools__mobile-toggle {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid rgba(103, 72, 43, 0.72);
+    border-radius: 6px;
+    background: #f3e6cc;
+    color: #4a3726;
+    font: 700 14px/1.2 "Cinzel", Georgia, serif;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .left-tools__mobile-toggle::after {
+    content: "⌄";
+    float: right;
+    transform: rotate(180deg);
+  }
+
+  .left-tools__mobile-toggle[aria-expanded="true"]::after {
+    transform: none;
+  }
+
+  .sheet-side-stack .left-tools.is-menu-collapsed {
+    display: none;
+  }
+
+  #diaryTrigger,
+  #battleCalculatorTrigger,
+  #diaryWindow,
+  #battleCalculatorWindow {
+    display: none !important;
+  }
+}

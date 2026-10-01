@@ -1,4 +1,4 @@
-import { initBookViewer } from "./charsheet/book_viewer.js?v=20260917e";
+import { initBookViewer } from "./charsheet/book_viewer.js?v=20261001-mobile-tools1";
 import { journalTitle, renderJournalMarkdown } from "./charsheet/journal_markdown.js?v=20260917a";
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -35,6 +35,38 @@ export function initTabs(root = document) {
     }
     tabRoot.dataset.tabsBound = "1";
 
+    if (tabRoot.closest("#learnWindow") && tabList instanceof HTMLElement) {
+      let touchStart = null;
+      let suppressClick = false;
+      tabList.addEventListener("pointerdown", (event) => {
+        if (event.pointerType !== "touch" || !window.matchMedia("(max-width: 1100px)").matches) return;
+        touchStart = { id: event.pointerId, x: event.clientX, y: event.clientY, scrollLeft: tabList.scrollLeft, dragged: false };
+      });
+      document.addEventListener("pointermove", (event) => {
+        if (!touchStart || event.pointerId !== touchStart.id) return;
+        const deltaX = event.clientX - touchStart.x;
+        const deltaY = event.clientY - touchStart.y;
+        if (!touchStart.dragged && (Math.abs(deltaX) < 5 || Math.abs(deltaX) <= Math.abs(deltaY))) return;
+        touchStart.dragged = true;
+        tabList.scrollLeft = touchStart.scrollLeft - deltaX;
+        event.preventDefault();
+      });
+      const finishTouch = (event) => {
+        if (!touchStart || event.pointerId !== touchStart.id) return;
+        suppressClick = touchStart.dragged;
+        touchStart = null;
+        window.setTimeout(() => { suppressClick = false; }, 0);
+      };
+      document.addEventListener("pointerup", finishTouch);
+      document.addEventListener("pointercancel", finishTouch);
+      tabList.addEventListener("click", (event) => {
+        if (!suppressClick) return;
+        event.preventDefault();
+        event.stopPropagation();
+        suppressClick = false;
+      }, true);
+    }
+
     const shouldRememberTab = tabs.length > 1;
 
     const activateTab = (tabToActivate, { remember = true } = {}) => {

@@ -1,4 +1,18 @@
 export function initLeftTools() {
+  const mobileToggle = document.getElementById("leftToolsMobileToggle");
+  const leftTools = document.getElementById("leftTools");
+  if (mobileToggle instanceof HTMLButtonElement && leftTools instanceof HTMLElement) {
+    const setExpanded = (expanded) => {
+      leftTools.classList.toggle("is-menu-collapsed", !expanded);
+      mobileToggle.setAttribute("aria-expanded", String(expanded));
+      mobileToggle.textContent = expanded ? "Menü ausblenden" : "Menü einblenden";
+    };
+    setExpanded(!window.matchMedia("(max-width: 900px)").matches);
+    mobileToggle.addEventListener("click", () => {
+      setExpanded(mobileToggle.getAttribute("aria-expanded") !== "true");
+    });
+  }
+
   const moneyXpInputs = Array.from(document.querySelectorAll(".left-tools__delta_input"));
   if (!moneyXpInputs.length) {
     return;

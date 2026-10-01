@@ -1,5 +1,5 @@
 const initEmbeddedItemTransferCenter = () => {
-  if (window.parent === window || document.documentElement.dataset.transferCenterBound === "1") {
+  if (document.documentElement.dataset.transferCenterBound === "1") {
     return;
   }
   document.documentElement.dataset.transferCenterBound = "1";
@@ -7,7 +7,7 @@ const initEmbeddedItemTransferCenter = () => {
   const transferCenter = document.querySelector(".transfer-center");
   let lastReportedHeight = 0;
   const reportContentHeight = () => {
-    if (!transferCenter) return;
+    if (!transferCenter || window.parent === window) return;
     const contentHeight = Math.ceil(transferCenter.getBoundingClientRect().height + 18);
     if (contentHeight === lastReportedHeight) return;
     lastReportedHeight = contentHeight;
@@ -107,6 +107,13 @@ const initEmbeddedItemTransferCenter = () => {
 
   document.addEventListener("submit", async (event) => {
     const form = event.target;
+    if (event.submitter?.hasAttribute("data-transfer-accept-all")) {
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = true;
+      });
+      updateBulkState();
+    }
+    if (window.parent === window) return;
     if (
       !(form instanceof HTMLFormElement)
       || (

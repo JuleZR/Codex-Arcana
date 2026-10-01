@@ -50,6 +50,7 @@ export function createFloatingWindowController({
   };
 
   const open = () => {
+    if (windowEl.id === "battleCalculatorWindow" && window.matchMedia("(max-width: 900px)").matches) return;
     windowEl.classList.add("is-open");
     windowEl.setAttribute("aria-hidden", "false");
     const rect = windowEl.getBoundingClientRect();
@@ -69,11 +70,18 @@ export function createFloatingWindowController({
     saveState();
   };
 
+  if (windowEl.id === "battleCalculatorWindow") {
+    window.matchMedia("(max-width: 900px)").addEventListener("change", (event) => {
+      if (event.matches) close();
+    });
+  }
+
   const persistedState = loadState();
   if (persistedState && Number.isFinite(persistedState.left) && Number.isFinite(persistedState.top)) {
     placeWindow(windowEl, persistedState.left, persistedState.top);
   }
-  if (allowPersistedOpen && persistedState?.isOpen) {
+  if (allowPersistedOpen && persistedState?.isOpen
+      && !(windowEl.id === "battleCalculatorWindow" && window.matchMedia("(max-width: 900px)").matches)) {
     windowEl.classList.add("is-open");
     windowEl.setAttribute("aria-hidden", "false");
   }

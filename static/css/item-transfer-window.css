@@ -58,7 +58,34 @@
 @media (max-width: 520px), (max-height: 680px) {
   .item-transfer-window.sheet-window.payday-window {
     width: calc(100vw - 16px);
-    height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
     aspect-ratio: auto;
+  }
+}
+
+@media (max-width: 650px) {
+  .item-transfer-window.sheet-window.payday-window {
+    --sheet-window-frame-band: 44px;
+    left: 8px;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    width: calc(100vw - 16px);
+    height: calc(100dvh - max(8px, env(safe-area-inset-top, 0px)) - max(8px, env(safe-area-inset-bottom, 0px)));
+    max-height: none;
+    aspect-ratio: auto;
+    transform: none;
+    padding-inline: 4px;
+    padding-bottom: 4px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .item-transfer-window__header {
+    cursor: default;
+    touch-action: auto;
+  }
+
+  .item-transfer-window [data-close-item-transfer-window] {
+    min-width: 44px;
+    min-height: 44px;
   }
 }

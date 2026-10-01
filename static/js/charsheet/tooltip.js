@@ -775,6 +775,9 @@ function createTooltipCardTableMarkup(table, rows, { includeHead = true } = {}) 
 function normalizeTooltipSectionRows(rows, sectionLabel) {
   return rows.map((row, index) => {
     const clone = row.cloneNode(true);
+    if (sectionLabel === "Runen") {
+      clone.classList.add("tooltip_rune_comment_row");
+    }
     const hasInactiveRaceEffect = Boolean(clone.querySelector(".tooltip_effect_inactive_race"));
     if (hasInactiveRaceEffect) {
       clone.classList.add("has-inactive-race-effect");
@@ -1360,6 +1363,7 @@ function bindFloatingCardInteractions(card, { onClose } = {}) {
   });
 
   card.addEventListener("pointerdown", (event) => {
+    if (window.matchMedia("(max-width: 900px)").matches) return;
     const closeButton = event.target instanceof Element
       ? event.target.closest("[data-tooltip-card-close]")
       : null;
@@ -1411,6 +1415,24 @@ function bindFloatingCardInteractions(card, { onClose } = {}) {
 }
 
 export function initTooltips() {
+  const initShopInfoButtons = () => {
+    document.querySelectorAll("#shopWindow [data-shop-item], #learnWindow [data-learn-source]").forEach((row) => {
+      const target = row.matches(".tooltip_target[data-tooltip]")
+        ? row : row.querySelector(".tooltip_target[data-tooltip]");
+      const cell = row.querySelector("td");
+      if (!target || !cell || cell.querySelector("[data-shop-tooltip-info]")) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "shop_tooltip_info";
+      button.dataset.shopTooltipInfo = "1";
+      button.textContent = "i";
+      button.setAttribute("aria-label", `Details zu ${target.getAttribute("data-tooltip-title") || row.dataset.name || row.dataset.shopName || "Eintrag"}`);
+      cell.classList.add("shop_item_name--with-info");
+      cell.prepend(button);
+    });
+  };
+  initShopInfoButtons();
+  document.addEventListener("charsheet:partials-applied", initShopInfoButtons);
   const dbAnchors = document.querySelectorAll(".db_tooltip_anchor[data-db-tooltip]");
   dbAnchors.forEach((anchor) => {
     const text = anchor.getAttribute("data-db-tooltip") || "";
@@ -1883,6 +1905,7 @@ export function initTooltips() {
     cardEl.className = variant
       ? `floating-tooltip-card floating-tooltip-card--${variant}`
       : "floating-tooltip-card";
+    cardEl.classList.toggle("floating-tooltip-card--item", String(target.getAttribute("data-tooltip-card-key") || "").startsWith("item:"));
   };
 
   const openCard = (target, { preservePosition = false, previousLeft = "", previousTop = "" } = {}) => {
@@ -2007,6 +2030,7 @@ export function initTooltips() {
       ? `floating-tooltip-card floating-tooltip-card--${variant}`
       : "floating-tooltip-card";
     cardEl.dataset.tooltipCardKey = key;
+    cardEl.classList.toggle("floating-tooltip-card--item", key.startsWith("item:"));
     cardEl.innerHTML = buildTooltipCardMarkup({
       title: normalizeInlineText(target.getAttribute("data-tooltip-title") || target.textContent || "Details"),
       subtitle: normalizeInlineText(target.getAttribute("data-tooltip-subtitle") || ""),
@@ -2055,6 +2079,7 @@ export function initTooltips() {
   }, { passive: false });
 
   card.addEventListener("pointerdown", (event) => {
+    if (window.matchMedia("(max-width: 900px)").matches) return;
     const closeButton = event.target instanceof Element
       ? event.target.closest("[data-tooltip-card-close]")
       : null;
@@ -2103,6 +2128,7 @@ export function initTooltips() {
   card.addEventListener("pointercancel", finishDrag);
 
   document.addEventListener("mouseover", (event) => {
+    if (window.matchMedia("(max-width: 900px)").matches) return;
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
     if (
       !(target instanceof HTMLElement)
@@ -2148,6 +2174,7 @@ export function initTooltips() {
   });
 
   document.addEventListener("mouseout", (event) => {
+    if (window.matchMedia("(max-width: 900px)").matches) return;
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
     if (
       !(target instanceof HTMLElement)
@@ -2174,6 +2201,25 @@ export function initTooltips() {
 
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      if (target?.closest("[data-shop-item], [data-learn-source]")) return;
+      if (!(target instanceof HTMLElement)
+        || target.dataset.tooltipMode === "card"
+        || target.dataset.tooltipMode === "skill-card"
+        || target.dataset.tooltipInline === "off") return;
+      const interactive = event.target instanceof Element
+        ? event.target.closest("button, a, input, select, textarea, form, details")
+        : null;
+      if (interactive && interactive !== target) return;
+      event.preventDefault();
+      if (activeCardTarget === target && card.classList.contains("is-visible")) {
+        closeCard();
+      } else {
+        closeCard();
+        openCard(target);
+      }
+      return;
+    }
     if (
       !(target instanceof HTMLElement)
       || target.dataset.tooltipMode === "card"
@@ -2214,6 +2260,8 @@ export function initTooltips() {
       ? event.target.closest(".tooltip_target[data-tooltip][data-tooltip-mode='skill-card']")
       : null;
     if (skillCardTarget instanceof HTMLElement) {
+      if (window.matchMedia("(max-width: 900px)").matches
+        && skillCardTarget.closest("[data-shop-item], [data-learn-source]")) return;
       const nestedInteractive = event.target instanceof Element
         ? event.target.closest("button, a, input, select, textarea, form, details")
         : null;
@@ -2230,6 +2278,8 @@ export function initTooltips() {
       ? event.target.closest(".tooltip_target[data-tooltip][data-tooltip-mode='card']")
       : null;
     if (target instanceof HTMLElement) {
+      if (window.matchMedia("(max-width: 900px)").matches
+        && target.closest("[data-shop-item], [data-learn-source]")) return;
       const nestedInteractive = event.target instanceof Element
         ? event.target.closest("button, a, input, select, textarea, form, details")
         : null;
@@ -2247,6 +2297,40 @@ export function initTooltips() {
       return;
     }
   });
+
+  document.addEventListener("click", (event) => {
+    if (!window.matchMedia("(max-width: 900px)").matches) return;
+    const infoButton = event.target instanceof Element
+      ? event.target.closest("[data-shop-tooltip-info]") : null;
+    if (infoButton) {
+      const row = infoButton.closest("[data-shop-item], [data-learn-source]");
+      const source = row?.matches(".tooltip_target[data-tooltip]")
+        ? row : row?.querySelector(".tooltip_target[data-tooltip]");
+      if (!(source instanceof HTMLElement)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      skillCards.forEach((entry, key) => closeSkillCard(key));
+      if (activeCardTarget === source && card.classList.contains("is-visible")) {
+        closeCard();
+      } else {
+        closeCard();
+        openCard(source);
+      }
+      return;
+    }
+    if (event.target instanceof Element
+      && event.target.closest(".floating-tooltip-card, .card-hand__floating")) return;
+    const target = event.target instanceof Element
+      ? event.target.closest(".tooltip_target[data-tooltip]")
+      : null;
+    if (target !== activeCardTarget) closeCard();
+    skillCards.forEach((entry, key) => {
+      if (entry.target !== target) closeSkillCard(key);
+    });
+    tooltip.classList.remove("is-visible");
+    activeTarget = null;
+    clearShowTimer();
+  }, true);
 
   window.addEventListener("scroll", () => {
     if (activeTarget) {
@@ -2281,6 +2365,7 @@ export function initTooltips() {
   });
 
   document.addEventListener("mouseleave", () => {
+    if (window.matchMedia("(max-width: 900px)").matches) return;
     clearShowTimer();
     scheduleHide();
   });

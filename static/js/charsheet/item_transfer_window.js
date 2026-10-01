@@ -83,6 +83,7 @@ export function initItemTransferWindow() {
   });
 
   handle.addEventListener("pointerdown", (event) => {
+    if (window.matchMedia("(max-width: 650px)").matches) return;
     if (event.button !== 0 || event.target.closest("button")) return;
     const rect = windowElement.getBoundingClientRect();
     dragPointerId = event.pointerId;
@@ -106,6 +107,10 @@ export function initItemTransferWindow() {
   handle.addEventListener("pointerup", stopDragging);
   handle.addEventListener("pointercancel", stopDragging);
   window.addEventListener("resize", () => {
+    if (window.matchMedia("(max-width: 650px)").matches) {
+      resetPosition();
+      return;
+    }
     if (windowElement.hidden || !windowElement.style.left) return;
     const rect = windowElement.getBoundingClientRect();
     place(rect.left, rect.top);

@@ -286,7 +286,7 @@ export function initShopMenu() {
           <td>${qtyControls}</td>
           <td>${fmtKs(unitPrice)}</td>
           <td>${fmtKs(lineTotal)}</td>
-          <td><button type="button" class="shop_cart_remove_btn" data-cart-remove>x</button></td>
+          <td><button type="button" class="shop_cart_remove_btn" data-cart-remove aria-label="Gegenstand entfernen">x</button></td>
         </tr>
       `);
     });

@@ -4844,6 +4844,30 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   min-width: 0;
 }
 
+.floating-tooltip-card table:has(.tooltip_rune_comment_row):not(:has(tbody > tr:not(.tooltip_rune_comment_row))),
+.floating-tooltip-card table:has(.tooltip_rune_comment_row):not(:has(tbody > tr:not(.tooltip_rune_comment_row))) > tbody,
+.floating-tooltip-card tr.tooltip_rune_comment_row {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.floating-tooltip-card tr.tooltip_rune_comment_row td:first-child {
+  display: none;
+}
+
+.floating-tooltip-card tr.tooltip_rune_comment_row td:nth-child(2) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.floating-tooltip-card .tooltip_rune_inline_image {
+  object-fit: contain;
+}
+
 .floating-tooltip-card ul {
   margin: 0;
   padding-left: 18px;
@@ -5670,6 +5694,17 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .weapons_table td.weapon_damage {
   text-align: left;
   padding-left: 6px;
+}
+
+.weapons_table td.weapon_damage,
+.weapons_table .weapon_damage_value {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.weapons_table .weapon_damage_value {
+  display: inline-block;
 }
 
 .weapons_table th:nth-child(2),

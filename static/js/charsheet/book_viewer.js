@@ -34,6 +34,7 @@ export function initBookViewer(root, options = {}) {
   let isBusy = false;
   let initialized = false;
   let lastTrigger = null;
+  const unavailableOnMobile = () => root.id === "diaryWindow" && window.matchMedia("(max-width: 900px)").matches;
 
   const setFallbackMode = () => {
     pages.classList.remove("is-pageflip");
@@ -84,7 +85,7 @@ export function initBookViewer(root, options = {}) {
   };
 
   const open = async (trigger = null) => {
-    if (isOpen || isBusy) {
+    if (isOpen || isBusy || unavailableOnMobile()) {
       return;
     }
     if (trigger instanceof HTMLElement) {
@@ -94,6 +95,10 @@ export function initBookViewer(root, options = {}) {
     // Keep the overlay hidden until the cover has its final initial position.
     await options.beforeOpen?.();
     await initPageFlip();
+    if (unavailableOnMobile()) {
+      isBusy = false;
+      return;
+    }
     if (options.startClosed && pageFlip) pageFlip.turnToPage(0);
     isOpen = true;
     overlay.classList.remove("is-closing");
@@ -105,6 +110,7 @@ export function initBookViewer(root, options = {}) {
     root.querySelector("button[data-book-close]")?.focus({ preventScroll: true });
     window.setTimeout(() => {
       isBusy = false;
+      if (unavailableOnMobile()) close();
     }, prefersReducedMotion() ? 1 : 520);
   };
 
@@ -221,6 +227,10 @@ export function initBookViewer(root, options = {}) {
   closeControls.forEach((control) => control.addEventListener("click", close));
   document.addEventListener("keydown", handleKeydown);
   window.addEventListener("resize", () => {
+    if (unavailableOnMobile()) {
+      close();
+      return;
+    }
     if (!pageFlip || !isOpen) {
       return;
     }

@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Übergaben | Codex Arcana</title>
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
-  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}?v=20260827a">
+  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}?v=20261001-mobile-post3">
 </head>
 <body class="transfer-center-page{% if embedded %} transfer-center-page--embedded{% endif %}">
 <main class="transfer-center">
@@ -35,10 +35,11 @@
           {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
           <label class="transfer-select-all">
             <input type="checkbox" data-transfer-select-all>
-            <span>Alle auswaehlen</span>
+            <span>Alle auswählen</span>
           </label>
-          <button type="button" class="transfer-button transfer-button--secondary" data-transfer-clear-selection>Leeren</button>
+          <button type="button" class="transfer-button transfer-button--secondary" data-transfer-clear-selection>Auswahl aufheben</button>
           <button type="submit" data-transfer-accept-selected disabled>Auswahl annehmen</button>
+          <button type="submit" data-transfer-accept-all>Alles annehmen</button>
         </form>
       {% endif %}
     </div>
@@ -89,6 +90,6 @@
     {% endfor %}
   </section>
 </main>
-{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260901a"></script>{% endif %}
+<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20261001-mobile-post2"></script>
 </body>
 </html>

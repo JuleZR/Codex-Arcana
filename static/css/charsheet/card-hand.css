@@ -1258,15 +1258,33 @@
 @media (max-width: 900px) {
   .card-hand {
     flex: 0 0 auto;
-    max-height: min(360px, 70vh);
+    max-height: none;
+  }
+
+  .card-hand__tray {
+    flex-direction: row;
+    gap: 12px;
+    height: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
   }
 
   .card-hand__mini-card {
-    margin-top: calc(var(--card-offset, 0) * var(--mini-stack-overlap, -210px));
+    width: 140px;
+    margin: 0;
+    cursor: pointer;
+    touch-action: pan-x pan-y;
   }
 
   .card-hand__floating {
-    width: min(340px, calc(100vw - 18px));
+    width: min(390px, calc(100vw - 28px));
+  }
+
+  .card-hand__card-grabber {
+    display: none;
   }
 }
 
