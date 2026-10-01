@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 from dataclasses import dataclass, field, replace
 from functools import cached_property
@@ -31,6 +30,7 @@ from charsheet.constants import (
 from charsheet.modifiers.migration import ModifierResolutionMode, NumericResolutionComparison
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.modifiers.targets import TargetResolver
+from charsheet.modifiers.rounding import round_semantic_value
 from charsheet.item_disclosure import is_character_item_effect_identified
 from charsheet.models import (
     CharacterDaemonicPower,
@@ -39,7 +39,6 @@ from charsheet.models import (
     DaemonicPowerSemanticEffect,
     ItemSemanticEffect,
     RaceSemanticEffect,
-    RuneSemanticEffect,
     SchoolSemanticEffect,
     Skill,
     Technique,
@@ -167,12 +166,13 @@ class ModifierEngine:
         if self.character_engine is None:
             return []
 
-        specialization_ids = {
-            entry.specialization_id
+        entries = [
+            entry
             for entries in self.character_engine._specialization_entries_by_school_id.values()
             for entry in entries
-            if entry.specialization.is_active
-        }
+            if entry.specialization.is_active and entry.choices_complete()
+        ]
+        specialization_ids = {entry.specialization_id for entry in entries}
 
         if not specialization_ids:
             return []
@@ -187,7 +187,48 @@ class ModifierEngine:
             .order_by("specialization_id", "sort_order", "id")
         )
 
-        return [effect.to_modifier() for effect in effects]
+        modifiers = []
+        for effect in effects:
+            for entry in entries:
+                if entry.specialization_id != effect.specialization_id:
+                    continue
+                modifier = effect.to_modifier()
+                modifier.scaling.setdefault(
+                    "scale_school_id", entry.specialization.school_id
+                )
+                modifier.metadata[
+                    "semantic_effect_key"
+                ] += f":instance:{entry.pk}"
+                if not effect.target_choice_definition_id:
+                    modifiers.append(modifier)
+                    continue
+                for choice in entry.choices.filter(
+                    definition_id=effect.target_choice_definition_id
+                ):
+                    kind = choice.definition.target_kind
+                    target = {
+                        "skill": lambda: choice.selected_skill.slug,
+                        "skill_category": lambda: (
+                            choice.selected_skill_category.slug
+                        ),
+                        "item": lambda: str(choice.selected_item_id),
+                        "item_category": lambda: choice.selected_item_category,
+                        "specialization": lambda: str(
+                            choice.selected_specialization_id
+                        ),
+                        "text": lambda: choice.selected_text,
+                        "entity": lambda: (
+                            f"{choice.selected_content_type_id}:"
+                            f"{choice.selected_object_id}"
+                        ),
+                    }[kind]()
+                    metadata = dict(modifier.metadata)
+                    metadata.pop("choice_binding", None)
+                    metadata["semantic_effect_key"] += f":choice:{choice.pk}"
+                    modifiers.append(
+                        replace(modifier, target_key=target, metadata=metadata)
+                    )
+        return modifiers
 
     @cached_property
     def _active_trait_modifiers(self) -> list[BaseModifier]:
@@ -1202,8 +1243,7 @@ class ModifierEngine:
                 return 0
 
             raw_value = (scale_value * numeric_value * mul) / div
-            round_mode = str(modifier.scaling.get("round_mode") or "floor")
-            resolved_value = math.ceil(raw_value) if round_mode == "ceil" else math.floor(raw_value)
+            resolved_value = round_semantic_value(raw_value, modifier.scaling)
 
             cap_mode = str(modifier.scaling.get("cap_mode") or "none")
             if cap_mode != "none":

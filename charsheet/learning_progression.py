@@ -13,6 +13,7 @@ from charsheet.constants import (
 from charsheet.models import (
     Attribute,
     CharacterDaemonicPower,
+    CharacterSpecializationChoice,
     CharacterTrait,
     Item,
     DaemonicPower,
@@ -709,6 +710,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         "name": specialization.name,
                         "support_level": specialization.get_support_level_display(),
                         "description": specialization.description or "",
+                        "allow_multiple": specialization.allow_multiple,
                     }
                     for specialization in available_specializations
                 ],
@@ -725,7 +727,11 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     selection_group_id=f"specialization:{school.id}",
                     options=[
                         _build_decision_option(
-                            option_id=str(option["id"]),
+                            option_id=(
+                                f"{option['id']}:slot:{slot_index}"
+                                if option["allow_multiple"]
+                                else str(option["id"])
+                            ),
                             label=option["name"],
                             meta=option["support_level"],
                             description=option["description"],
@@ -834,6 +840,70 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                 if row is not None:
                     choice_groups.setdefault(race.name, []).append(row)
 
+    specialization_entries = character.learned_specializations.select_related(
+        "specialization",
+    )
+    for specialization_entry in specialization_entries:
+        specialization = specialization_entry.specialization
+        instance_id = specialization_entry.pk
+        for definition in specialization.choice_definitions.filter(
+            is_active=True
+        ):
+            count = specialization_entry.choices.filter(
+                definition=definition
+            ).count()
+            required = definition.min_choices if definition.is_required else 0
+            category_id = definition.allowed_skill_category_id
+            unique_per_character = definition.unique_per_character
+            for missing_index in range(max(0, required - count)):
+                row = _build_race_choice_row(
+                    race=specialization,
+                    target_kind=definition.target_kind,
+                    label=definition.name,
+                    description=definition.description,
+                    definition_id=definition.pk,
+                    slot_index=missing_index,
+                    skill_definitions=skill_definitions,
+                    skill_categories=skill_categories,
+                    item_definitions=item_definitions,
+                    item_category_options=item_category_options,
+                    allowed_skill_category_id=category_id,
+                    allowed_skill_family=definition.allowed_skill_family,
+                )
+                row.update(
+                    {
+                        "choice_scope": "specialization",
+                        "specialization_name": specialization.name,
+                        "character_specialization_id": specialization_entry.pk,
+                        "unique_per_character": unique_per_character,
+                        "field_name": (
+                            "learn_choice_specialization_instance_"
+                            f"{instance_id}_{definition.pk}_{missing_index}"
+                        ),
+                    }
+                )
+                if definition.target_kind == Technique.ChoiceTargetKind.SKILL:
+                    used = CharacterSpecializationChoice.objects.filter(
+                        definition=definition
+                    )
+                    if definition.unique_per_character:
+                        used = used.filter(
+                            character_specialization__character=character
+                        )
+                    else:
+                        used = used.filter(
+                            character_specialization=specialization_entry
+                        )
+                    used_ids = set(
+                        used.values_list("selected_skill_id", flat=True)
+                    )
+                    row["options"] = [
+                        option
+                        for option in row["options"]
+                        if option["value"] not in used_ids
+                    ]
+                choice_groups.setdefault(specialization.name, []).append(row)
+
     trait_entries = list(
         CharacterTrait.objects.filter(owner=character)
         .select_related("trait")
@@ -904,7 +974,22 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
         if not row["supported"]:
             input_type = "unsupported"
         choice_scope = row.get("choice_scope")
-        if choice_scope == "race":
+        if choice_scope == "specialization":
+            decision_prefix = "specialization-choice"
+            decision_kind = "specialization_choice"
+            decision_title = f"Choice: {row['specialization_name']}"
+            selection_group_id = (
+                f"specialization-choice:{row['definition_id']}"
+            )
+            if not row["unique_per_character"]:
+                selection_group_id += (
+                    f":instance:{row['character_specialization_id']}"
+                )
+            decision_key = (
+                f"{row['character_specialization_id']}-"
+                f"{row['definition_id']}-{row['slot_index']}"
+            )
+        elif choice_scope == "race":
             decision_prefix = "race-choice"
             decision_kind = "race_choice"
             decision_title = f"Choice: {row['race_name']}"

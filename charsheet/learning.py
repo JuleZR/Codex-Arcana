@@ -39,6 +39,7 @@ from charsheet.models import (
     CharacterSchoolPath,
     CharacterSpell,
     CharacterSpecialization,
+    CharacterSpecializationChoice,
     CharacterSkill,
     CharacterTraitChoice,
     CharacterTrait,
@@ -203,7 +204,12 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             raise LearningSubmissionError(f"{row['school_name']}: Ungueltige Spezialisierungswahl.")
         school_picks = picked_specializations_by_school.setdefault(row["school_id"], set())
         specialization_id = int(raw_specialization_id)
-        if specialization_id in school_picks:
+        option = next(
+            option
+            for option in row["options"]
+            if option["id"] == specialization_id
+        )
+        if specialization_id in school_picks and not option["allow_multiple"]:
             raise LearningSubmissionError(
                 f"{row['school_name']}: Dieselbe Spezialisierung kann nicht mehrfach im selben Schritt gewaehlt werden."
             )
@@ -391,7 +397,17 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         choice_label = row.get("technique_name") or row.get("race_name") or row.get("trait_name") or "Choice"
         choice_payload: dict[str, object] = {"character": character}
         choice_model = CharacterTechniqueChoice
-        if choice_scope == "race":
+        if choice_scope == "specialization":
+            choice_model = CharacterSpecializationChoice
+            choice_payload.pop("character")
+            choice_payload["character_specialization"] = (
+                CharacterSpecialization.objects.get(
+                    pk=row["character_specialization_id"],
+                    character=character,
+                )
+            )
+            choice_payload["definition_id"] = row["definition_id"]
+        elif choice_scope == "race":
             choice_model = CharacterRaceChoice
             choice_payload["definition_id"] = row["definition_id"]
         elif choice_scope == "trait":

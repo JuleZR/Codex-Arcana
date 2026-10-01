@@ -61,10 +61,15 @@ def available_specializations(engine, school) -> list:
         return []
 
     learned_ids = engine._learned_specialization_ids_by_school_id.get(school_id, set())
+    definitions = engine._specialization_definitions_by_school_id
     return [
         specialization
-        for specialization in engine._specialization_definitions_by_school_id.get(school_id, [])
-        if specialization.is_active and specialization.id not in learned_ids
+        for specialization in definitions.get(school_id, [])
+        if specialization.is_active
+        and (
+            specialization.allow_multiple
+            or specialization.id not in learned_ids
+        )
     ]
 
 

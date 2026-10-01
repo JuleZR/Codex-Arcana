@@ -120,6 +120,8 @@ from .models import (
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
+    CharacterSpecializationChoice,
+    SpecializationChoiceDefinition,
     CharacterSkill,
     CharacterSpell,
     CharacterSpellSource,
@@ -1728,7 +1730,10 @@ class SpecializationInline(admin.TabularInline):
     verbose_name_plural = "Specializations"
     extra = 0
     show_change_link = True
-    fields = ("name", "slug", "support_level", "sort_order", "is_active")
+    fields = (
+        "name", "slug", "support_level", "allow_multiple", "sort_order",
+        "is_active",
+    )
     ordering = ("sort_order", "name")
 
 
@@ -2471,8 +2476,19 @@ class AlchemicalBrewStatsInline(admin.StackedInline):
     )
 
 
-class ItemSemanticEffectAdminForm(forms.ModelForm):
+class SemanticRoundingAdminMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("round_up", "round_down"):
+            if name in self.fields:
+                self.fields[name].widget.attrs["data-semantic-rounding"] = name
+
+
+class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
     """User-friendly item effect editor that maps dropdowns to semantic fields."""
+
+    class Media:
+        js = ("charsheet/js/semantic_effect_rounding_v1.js",)
 
     class CommaFloatField(forms.FloatField):
         widget = forms.TextInput
@@ -2925,6 +2941,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     ("simple_operator", "simple_value"),
                     "scale_source",
                     "scale_divisor",
+                    ("round_up", "round_down"),
                     "condition_races",
                     "condition_schools",
                     "active_flag",
@@ -3464,12 +3481,18 @@ def _semantic_derived_stat_choices():
     ]
 
 
-class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
+class RuleSemanticEffectAdminForm(
+    SemanticRoundingAdminMixin, SemanticCreatureCardGrantFormMixin,
+    forms.ModelForm,
+):
     """Click-first editor for rule SemanticEffects.
 
     The persisted fields remain technical because the engine needs stable keys.
     Admin users edit them through dropdowns, checkboxes, and number fields.
     """
+
+    class Media:
+        js = ("charsheet/js/semantic_effect_rounding_v1.js",)
 
     class CommaFloatField(forms.FloatField):
         widget = forms.TextInput
@@ -3879,7 +3902,6 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
                 "scale_source": scale_source,
                 "mul": 1,
                 "div": self._number_for_scaling_json(divisor),
-                "round_mode": "floor",
             }
             if cleaned_data.get("simple_scale_school"):
                 scaling["scale_school_id"] = cleaned_data["simple_scale_school"].pk
@@ -4047,7 +4069,9 @@ class RuneSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
         fields = "__all__"
 
 
-class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
+class CreatureTraitSemanticEffectAdminForm(
+    SemanticRoundingAdminMixin, forms.ModelForm,
+):
     """User-friendly creature effect editor that maps simple controls to semantic fields."""
 
     class CommaFloatField(forms.FloatField):
@@ -4126,7 +4150,10 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         fields = "__all__"
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
+        js = (
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
+            "charsheet/js/semantic_effect_rounding_v1.js",
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -4292,7 +4319,6 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             scaling.setdefault("scale_source", "trait_level")
             scaling.setdefault("mul", 1)
             scaling["div"] = 1
-            scaling.setdefault("round_mode", "floor")
             cleaned_data["scaling"] = scaling
         else:
             cleaned_data["mode"] = "flat"
@@ -4851,7 +4877,6 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
                 "scale_source": scale_source,
                 "mul": 1,
                 "div": 1,
-                "round_mode": "floor",
             }
         else:
             cleaned_data["mode"] = "flat"
@@ -4993,6 +5018,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
                     "target_choice_definition",
                     "target_skills",
                     "simple_scaling",
+                    ("round_up", "round_down"),
                     (
                         "simple_scale_school",
                         "simple_scale_skill",
@@ -5060,6 +5086,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
                     ("simple_operator", "simple_value"),
                     "target_race_choice_definition",
                     "simple_scaling",
+                    ("round_up", "round_down"),
                     (
                         "simple_scale_school",
                         "simple_scale_skill",
@@ -5101,6 +5128,7 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
                 "simple_weapon_type_contains_filter",
                 ("simple_operator", "simple_value"),
                 "simple_scaling",
+                ("round_up", "round_down"),
                 (
                     "simple_scale_school",
                     "simple_scale_skill",
@@ -6584,6 +6612,14 @@ class SpecializationSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
         model = SpecializationSemanticEffect
         fields = "__all__"
 
+    def clean(self):
+        cleaned_data = super().clean()
+        definition = cleaned_data.get("target_choice_definition")
+        if definition and cleaned_data.get("effect_area") == "choice_binding":
+            if definition.target_kind != Technique.ChoiceTargetKind.TEXT:
+                cleaned_data["target_domain"] = definition.target_kind
+        return cleaned_data
+
 
 class SpecializationSemanticEffectInline(admin.StackedInline):
     model = SpecializationSemanticEffect
@@ -6592,10 +6628,126 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
     ordering = ("sort_order", "id")
     show_change_link = True
     filter_horizontal = ("condition_races", "condition_schools")
-    fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
+    autocomplete_fields = ("target_choice_definition",)
+    fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS + (
+        ("Auswahlbindung", {"fields": ("target_choice_definition",)}),
+    )
 
     class Media:
         js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+
+
+class SpecializationChoiceDefinitionInline(admin.StackedInline):
+    model = SpecializationChoiceDefinition
+    extra = 0
+    autocomplete_fields = ("allowed_skill_category",)
+
+
+@admin.register(SpecializationChoiceDefinition)
+class SpecializationChoiceDefinitionAdmin(admin.ModelAdmin):
+    search_fields = ("name", "specialization__name")
+    list_display = (
+        "name",
+        "specialization",
+        "target_kind",
+        "is_required",
+        "unique_per_character",
+    )
+    autocomplete_fields = ("specialization", "allowed_skill_category")
+
+
+class CharacterSpecializationChoiceInlineForm(forms.ModelForm):
+    class Meta:
+        model = CharacterSpecializationChoice
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance._defer_choice_limits = True
+
+
+class CharacterSpecializationChoiceFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors) or not self.instance.specialization_id:
+            return
+        choices = [
+            form.instance
+            for form in self.forms
+            if form.cleaned_data and not form.cleaned_data.get("DELETE")
+        ]
+        for (
+            definition
+        ) in self.instance.specialization.choice_definitions.filter(
+            is_active=True
+        ):
+            selected = [
+                choice
+                for choice in choices
+                if choice.definition_id == definition.pk
+            ]
+            minimum = definition.min_choices if definition.is_required else 0
+            if not minimum <= len(selected) <= definition.max_choices:
+                raise ValidationError(
+                    f"{definition.name}: Bitte {minimum} bis "
+                    f"{definition.max_choices} Ziele wählen."
+                )
+            seen = set()
+            for choice in selected:
+                target = tuple(
+                    getattr(choice, name)
+                    for name in (
+                        "selected_skill_id",
+                        "selected_skill_category_id",
+                        "selected_item_id",
+                        "selected_item_category",
+                        "selected_specialization_id",
+                        "selected_text",
+                        "selected_content_type_id",
+                        "selected_object_id",
+                    )
+                )
+                if target in seen:
+                    raise ValidationError(
+                        f"{definition.name}: Ziel bereits gewählt."
+                    )
+                seen.add(target)
+                if definition.unique_per_character:
+                    fields = (
+                        "selected_skill_id",
+                        "selected_skill_category_id",
+                        "selected_item_id",
+                        "selected_item_category",
+                        "selected_specialization_id",
+                        "selected_text",
+                        "selected_content_type_id",
+                        "selected_object_id",
+                    )
+                    duplicates = CharacterSpecializationChoice.objects.filter(
+                        definition=definition,
+                        character_specialization__character_id=(
+                            self.instance.character_id
+                        ),
+                        **dict(zip(fields, target)),
+                    ).exclude(character_specialization_id=self.instance.pk)
+                    if duplicates.exists():
+                        raise ValidationError(
+                            f"{definition.name}: Ziel bereits gewählt."
+                        )
+
+
+class CharacterSpecializationChoiceInline(admin.StackedInline):
+    model = CharacterSpecializationChoice
+    form = CharacterSpecializationChoiceInlineForm
+    formset = CharacterSpecializationChoiceFormSet
+    extra = 0
+    autocomplete_fields = (
+        "definition",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_item",
+        "selected_specialization",
+    )
 
 
 @admin.register(Specialization)
@@ -6606,7 +6758,10 @@ class SpecializationAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug", "school__name")
     list_filter = ("school", "support_level", "is_active")
     ordering = ("school", "sort_order", "name")
-    inlines = (SpecializationSemanticEffectInline,)
+    inlines = (
+        SpecializationChoiceDefinitionInline,
+        SpecializationSemanticEffectInline,
+    )
     autocomplete_fields = ("school",)
     list_select_related = ("school", "school__type")
     fieldsets = (
@@ -6617,6 +6772,7 @@ class SpecializationAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("school", "sort_order"),
                     ("name", "slug"),
                     "support_level",
+                    "allow_multiple",
                     "is_active",
                     "description",
                 ),
@@ -6636,6 +6792,7 @@ class CharacterSpecializationAdmin(admin.ModelAdmin):
     """Admin configuration for character-owned school specializations."""
 
     list_display = ("character", "specialization", "specialization_school", "source_technique", "learned_at")
+    inlines = (CharacterSpecializationChoiceInline,)
     search_fields = (
         "character__name",
         "specialization__name",
@@ -8995,6 +9152,7 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
                     "simple_target",
                     ("simple_operator", "simple_value"),
                     "scale_by_trait_level",
+                    ("round_up", "round_down"),
                     "condition_races",
                     "condition_schools",
                     "condition_text",
@@ -9026,6 +9184,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
                     "target_schools",
                     ("simple_operator", "simple_value"),
                     "vampire_scaling",
+                    ("round_up", "round_down"),
                     "condition_races",
                     "condition_schools",
                     "condition_text",
@@ -9054,6 +9213,7 @@ class VampirePowerSemanticEffectInline(VampireTraitSemanticEffectInline):
                     "target_schools",
                     ("simple_operator", "simple_value"),
                     "vampire_scaling",
+                    ("round_up", "round_down"),
                     "condition_text",
                 ),
                 "description": (

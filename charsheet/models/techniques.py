@@ -4,7 +4,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
 
 from ..constants import (
     MODIFIER_OPERATOR_CHOICES,
@@ -488,6 +488,14 @@ class TechniqueSemanticEffect(models.Model):
     formula = models.CharField(max_length=200, blank=True, default="")
 
     scaling = models.JSONField(default=dict, blank=True)
+    round_up = models.BooleanField(default=False, verbose_name="Aufrunden")
+    round_down = models.BooleanField(
+        default=False, verbose_name="Abrunden",
+        help_text=(
+            "Standard: mathematisch runden – "
+            "ab einschließlich 0,5 aufrunden."
+        ),
+    )
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
     condition_races = models.ManyToManyField(
@@ -549,6 +557,12 @@ class TechniqueSemanticEffect(models.Model):
     def clean(self):
         """Validate JSON-like admin payloads before save."""
         super().clean()
+        if self.round_up and self.round_down:
+            raise ValidationError(
+                {
+                    "round_down": "Nur eine Rundungsoption aktivieren."
+                }
+            )
         if self.scaling is not None and not isinstance(self.scaling, dict):
             raise ValidationError({"scaling": "Scaling must be a JSON object."})
         if self.condition_set is not None and not isinstance(self.condition_set, dict):
@@ -656,7 +670,11 @@ class TechniqueSemanticEffect(models.Model):
             value_min=self.value_min,
             value_max=self.value_max,
             formula=self.formula,
-            scaling=dict(self.scaling or {}),
+            scaling={
+                **dict(self.scaling or {}),
+                "round_up": self.round_up,
+                "round_down": self.round_down,
+            },
             operator=self.operator,
             stack_behavior=self.stack_behavior,
             condition_set=ConditionSet(**dict(self.condition_set or {})),
@@ -968,7 +986,8 @@ class CharacterTechniqueChoice(models.Model):
             if self.pk:
                 existing = existing.exclude(pk=self.pk)
 
-        if self.character_id and self.selected_specialization_id:
+        if (self.character_id and self.selected_specialization_id
+                and not self.selected_specialization.allow_multiple):
             duplicate_specialization_choice = CharacterTechniqueChoice.objects.filter(
                 character_id=self.character_id,
                 selected_specialization_id=self.selected_specialization_id,
@@ -1059,6 +1078,237 @@ class CharacterTechniqueChoice(models.Model):
 
     def __str__(self) -> str:
         return f"{self.character.name} -> {self.technique.name}: {self.selected_target_display()}"
+
+
+class SpecializationChoiceDefinition(models.Model):
+    """A persistent decision required by each specialization instance."""
+
+    specialization = models.ForeignKey(
+        Specialization,
+        on_delete=models.CASCADE,
+        related_name="choice_definitions",
+    )
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True, default="")
+    target_kind = models.CharField(
+        max_length=20, choices=Technique.ChoiceTargetKind.choices
+    )
+    min_choices = models.PositiveSmallIntegerField(default=1)
+    max_choices = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1)]
+    )
+    is_required = models.BooleanField(default=True)
+    allowed_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="specialization_choice_definitions",
+    )
+    allowed_skill_family = models.SlugField(
+        max_length=50, blank=True, default=""
+    )
+    unique_per_character = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["specialization", "sort_order", "name", "id"]
+
+    def clean(self):
+        super().clean()
+        if self.target_kind == Technique.ChoiceTargetKind.NONE:
+            raise ValidationError(
+                {"target_kind": "Select a concrete target kind."}
+            )
+        if self.max_choices < self.min_choices:
+            raise ValidationError(
+                {"max_choices": "Maximum must be at least the minimum."}
+            )
+        if not self.is_required and self.min_choices != 0:
+            raise ValidationError(
+                {"min_choices": "Optional choices must use a minimum of zero."}
+            )
+        if self.target_kind != Technique.ChoiceTargetKind.SKILL:
+            if self.allowed_skill_category_id or self.allowed_skill_family:
+                raise ValidationError("Skill filters require a skill choice.")
+
+    def __str__(self):
+        return f"{self.specialization.name}: {self.name}"
+
+
+class CharacterSpecializationChoice(models.Model):
+    """One chosen target owned by a concrete specialization instance."""
+
+    character_specialization = models.ForeignKey(
+        "CharacterSpecialization",
+        on_delete=models.CASCADE,
+        related_name="choices",
+    )
+    definition = models.ForeignKey(
+        SpecializationChoiceDefinition,
+        on_delete=models.CASCADE,
+        related_name="character_choices",
+    )
+    selected_skill = models.ForeignKey(
+        Skill,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_item = models.ForeignKey(
+        Item, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    selected_item_category = models.CharField(
+        max_length=30, blank=True, default=""
+    )
+    selected_specialization = models.ForeignKey(
+        Specialization,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_text = models.CharField(max_length=255, blank=True, default="")
+    selected_content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    selected_entity = GenericForeignKey(
+        "selected_content_type", "selected_object_id"
+    )
+
+    class Meta:
+        ordering = ["character_specialization", "definition__sort_order", "id"]
+
+    @property
+    def technique(self):
+        """Supply school ownership to the existing generic target validator."""
+        return self.character_specialization.specialization
+
+    @property
+    def technique_id(self):
+        return self.character_specialization.specialization_id
+
+    selected_target_display = CharacterTechniqueChoice.selected_target_display
+
+    def clean(self):
+        super().clean()
+        if not self.definition_id:
+            return
+        if (
+            not self.character_specialization_id
+            and "character_specialization" not in self._state.fields_cache
+        ):
+            return
+        entry = self.character_specialization
+        if self.definition.specialization_id != entry.specialization_id:
+            raise ValidationError(
+                {"definition": "Choice must belong to this specialization."}
+            )
+        if not self.definition.is_active:
+            raise ValidationError(
+                {"definition": "This choice definition is inactive."}
+            )
+        CharacterTechniqueChoice._validate_target_kind(
+            self, self.definition.target_kind
+        )
+        if self.selected_skill_id:
+            if (
+                self.definition.allowed_skill_category_id
+                and self.selected_skill.category_id
+                != self.definition.allowed_skill_category_id
+            ):
+                raise ValidationError(
+                    {
+                        "selected_skill": (
+                            "Skill is outside the allowed category."
+                        ),
+                    }
+                )
+            if (
+                self.definition.allowed_skill_family
+                and self.selected_skill.family
+                != self.definition.allowed_skill_family
+            ):
+                raise ValidationError(
+                    {"selected_skill": "Skill is outside the allowed family."}
+                )
+        if (
+            self.definition.target_kind == Technique.ChoiceTargetKind.ENTITY
+            and self.selected_entity is None
+        ):
+            raise ValidationError(
+                {"selected_object_id": "The selected entity does not exist."}
+            )
+        if getattr(self, "_defer_choice_limits", False):
+            return
+        siblings = (
+            type(self)
+            .objects.filter(
+                character_specialization=entry,
+                definition=self.definition,
+            )
+            .exclude(pk=self.pk)
+        )
+        if siblings.count() >= self.definition.max_choices:
+            raise ValidationError(
+                {"definition": "Maximum number of choices reached."}
+            )
+        target_fields = (
+            "selected_skill_id",
+            "selected_skill_category_id",
+            "selected_item_id",
+            "selected_item_category",
+            "selected_specialization_id",
+            "selected_text",
+            "selected_content_type_id",
+            "selected_object_id",
+        )
+        values = {field: getattr(self, field) for field in target_fields}
+        duplicates = (
+            type(self)
+            .objects.filter(definition=self.definition, **values)
+            .exclude(pk=self.pk)
+        )
+        if self.definition.unique_per_character:
+            duplicates = duplicates.filter(
+                character_specialization__character_id=entry.character_id
+            )
+        else:
+            duplicates = duplicates.filter(character_specialization=entry)
+        if duplicates.exists():
+            raise ValidationError("This target has already been chosen.")
+
+    def save(self, *args, **kwargs):
+        Character = self.character_specialization._meta.get_field(
+            "character"
+        ).remote_field.model
+        with transaction.atomic():
+            Character.objects.select_for_update().get(
+                pk=self.character_specialization.character_id
+            )
+            self._defer_choice_limits = False
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.character_specialization}: "
+            f"{self.selected_target_display()}"
+        )
 
 
 class CharacterRaceChoice(models.Model):

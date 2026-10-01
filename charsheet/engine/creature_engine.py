@@ -6,7 +6,6 @@ import copy
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import cached_property
-import math
 import re
 from types import SimpleNamespace
 from typing import Any
@@ -46,6 +45,7 @@ from charsheet.models.creatures import (
     CreatureTraitDefinition,
 )
 from charsheet.models.core import Skill
+from charsheet.modifiers.rounding import round_semantic_value
 from charsheet.models.daemonic_powers import DaemonicPowerSemanticEffect
 from charsheet.models.vampirism import VampireTraitSemanticEffect
 from charsheet.models.character import CharacterItem
@@ -959,7 +959,11 @@ class CreatureEngine:
             value=effect_row._coerce_scalar(effect_row.value),
             value_min=effect_row.value_min,
             value_max=effect_row.value_max,
-            scaling=dict(effect_row.scaling or {}),
+            scaling={
+                **dict(effect_row.scaling or {}),
+                "round_up": effect_row.round_up,
+                "round_down": effect_row.round_down,
+            },
             stack_behavior=effect_row.stack_behavior,
             priority=int(effect_row.priority),
             condition_text=effect_row.condition_text,
@@ -986,6 +990,8 @@ class CreatureEngine:
     ) -> list[CreatureSemanticEffect]:
         scaling = {
             **dict(effect_row.scaling or {}),
+            "round_up": effect_row.round_up,
+            "round_down": effect_row.round_down,
             "_vampire_trait_rank": max(1, int(rank or 1)),
             "_vampire_age_cycle": max(1, int(age_cycle or 1)),
         }
@@ -1049,7 +1055,12 @@ class CreatureEngine:
             value=effect_row._coerce_scalar(effect_row.value),
             value_min=effect_row.value_min,
             value_max=effect_row.value_max,
-            scaling={**dict(effect_row.scaling or {}), "_trait_level": 1 if is_choice_bound else level},
+            scaling={
+                **dict(effect_row.scaling or {}),
+                "round_up": effect_row.round_up,
+                "round_down": effect_row.round_down,
+                "_trait_level": 1 if is_choice_bound else level,
+            },
             stack_behavior=effect_row.stack_behavior,
             priority=int(effect_row.priority),
             condition_text=condition_text,
@@ -1259,7 +1270,7 @@ class CreatureEngine:
             if not div:
                 return 0
             raw_value = (scale_value * numeric_value * mul) / div
-            numeric_value = math.ceil(raw_value) if str(scaling.get("round_mode") or "floor") == "ceil" else math.floor(raw_value)
+            numeric_value = round_semantic_value(raw_value, scaling)
         if effect.value_min is not None:
             numeric_value = max(numeric_value, self._coerce_numeric(effect.value_min, default=numeric_value))
         if effect.value_max is not None:

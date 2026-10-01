@@ -988,6 +988,14 @@ class ItemSemanticEffectFields(models.Model):
     value_max = models.IntegerField(null=True, blank=True)
     formula = models.CharField(max_length=200, blank=True, default="")
     scaling = models.JSONField(default=dict, blank=True)
+    round_up = models.BooleanField(default=False, verbose_name="Aufrunden")
+    round_down = models.BooleanField(
+        default=False, verbose_name="Abrunden",
+        help_text=(
+            "Standard: mathematisch runden – "
+            "ab einschließlich 0,5 aufrunden."
+        ),
+    )
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
     condition_races = models.ManyToManyField(
@@ -1052,6 +1060,12 @@ class ItemSemanticEffectFields(models.Model):
             value = getattr(self, field_name)
             if value is not None and not isinstance(value, dict):
                 raise ValidationError({field_name: "Value must be a JSON object."})
+        if self.round_up and self.round_down:
+            raise ValidationError(
+                {
+                    "round_down": "Nur eine Rundungsoption aktivieren."
+                }
+            )
 
     def semantic_source_type(self) -> str:
         raise NotImplementedError
@@ -1145,6 +1159,7 @@ class ItemSemanticEffectFields(models.Model):
             metadata["item_invested_cp"] = resolved_invested_cp
         mode = self.mode
         scaling = dict(self.scaling or {})
+        scaling.update(round_up=self.round_up, round_down=self.round_down)
         if self.scale_source:
             mode = "scaled"
             scaling.update(
@@ -1152,7 +1167,6 @@ class ItemSemanticEffectFields(models.Model):
                     "scale_source": self.scale_source,
                     "mul": 1,
                     "div": self.scale_divisor or 1,
-                    "round_mode": "floor",
                 }
             )
         resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)

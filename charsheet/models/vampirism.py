@@ -136,6 +136,14 @@ class VampireTraitSemanticEffect(models.Model):
     value_max = models.IntegerField(null=True, blank=True)
     formula = models.CharField(max_length=200, blank=True, default="")
     scaling = models.JSONField(default=dict, blank=True)
+    round_up = models.BooleanField(default=False, verbose_name="Aufrunden")
+    round_down = models.BooleanField(
+        default=False, verbose_name="Abrunden",
+        help_text=(
+            "Standard: mathematisch runden – "
+            "ab einschließlich 0,5 aufrunden."
+        ),
+    )
     stack_behavior = models.CharField(
         max_length=40,
         choices=STACK_BEHAVIOR_CHOICES,
@@ -216,6 +224,12 @@ class VampireTraitSemanticEffect(models.Model):
         for field_name in ("scaling", "condition_set", "metadata"):
             if not isinstance(getattr(self, field_name), dict):
                 raise ValidationError({field_name: f"{field_name} must be a JSON object."})
+        if self.round_up and self.round_down:
+            raise ValidationError(
+                {
+                    "round_down": "Nur eine Rundungsoption aktivieren."
+                }
+            )
         if (
             self.application_scope in {self.ApplicationScope.CHARACTER, self.ApplicationScope.BOTH}
             and self.target_domain.startswith("creature_")
@@ -301,6 +315,7 @@ class VampireTraitSemanticEffect(models.Model):
             if skill_slugs:
                 metadata["target_skill_slugs"] = skill_slugs
         scaling = dict(self.scaling or {})
+        scaling.update(round_up=self.round_up, round_down=self.round_down)
         scaling["_vampire_trait_rank"] = max(1, int(rank or 1))
         scaling["_vampire_age_cycle"] = max(1, int(age_cycle or 1))
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)

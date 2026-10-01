@@ -2,7 +2,7 @@
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 
 from ..constants import SCHOOL_ARCANE, SCHOOL_TYPE_CHOICES
 from .semantic_effects import SemanticEffectFields
@@ -172,6 +172,7 @@ class Specialization(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100)
     description = models.TextField(blank=True)
+    allow_multiple = models.BooleanField(default=False)
     support_level = models.CharField(
         max_length=20,
         choices=SupportLevel.choices,
@@ -190,6 +191,32 @@ class Specialization(models.Model):
     def __str__(self) -> str:
         return f"{self.school.name}: {self.name}"
 
+    def clean(self):
+        super().clean()
+        if self.pk and not self.allow_multiple:
+            duplicates = (
+                self.character_specializations.values("character_id")
+                .annotate(
+                    count=models.Count("pk"),
+                )
+                .filter(count__gt=1)
+            )
+            if duplicates.exists():
+                raise ValidationError(
+                    {
+                        "allow_multiple": (
+                            "Existing instances require multiple selection."
+                        ),
+                    }
+                )
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            if self.pk:
+                type(self).objects.select_for_update().get(pk=self.pk)
+            self.clean()
+            return super().save(*args, **kwargs)
+
 
 class SpecializationSemanticEffect(SemanticEffectFields):
     """Persisted semantic effect attached directly to one specialization."""
@@ -199,6 +226,34 @@ class SpecializationSemanticEffect(SemanticEffectFields):
         on_delete=models.CASCADE,
         related_name="semantic_effects",
     )
+    target_choice_definition = models.ForeignKey(
+        "SpecializationChoiceDefinition", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="semantic_effects",
+    )
+
+    def clean(self):
+        super().clean()
+        if (
+            self.target_choice_definition_id
+            and self.target_choice_definition.specialization_id
+            != self.specialization_id
+        ):
+            raise ValidationError(
+                {
+                    "target_choice_definition": (
+                        "Choice must belong to this specialization."
+                    ),
+                }
+            )
+
+    def to_modifier(self):
+        modifier = super().to_modifier()
+        if self.target_choice_definition_id:
+            modifier.metadata["choice_binding"] = {
+                "kind": "specialization_choice_definition",
+                "id": self.target_choice_definition_id,
+            }
+        return modifier
 
     class Meta:
         ordering = ["specialization", "sort_order", "id"]
@@ -253,16 +308,29 @@ class CharacterSpecialization(models.Model):
             "specialization__name",
             "id",
         ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["character", "specialization"],
-                name="uniq_character_specialization",
-            ),
-        ]
 
     def clean(self):
         """Validate school ownership and an optional source-technique school match."""
         super().clean()
+        if (
+            self.character_id
+            and self.specialization_id
+            and not self.specialization.allow_multiple
+            and type(self)
+            .objects.filter(
+                character_id=self.character_id,
+                specialization_id=self.specialization_id,
+            )
+            .exclude(pk=self.pk)
+            .exists()
+        ):
+            raise ValidationError(
+                {
+                    "specialization": (
+                        "This specialization has already been chosen."
+                    ),
+                }
+            )
         if (
             self.character_id
             and self.specialization_id
@@ -282,6 +350,41 @@ class CharacterSpecialization(models.Model):
             raise ValidationError(
                 {"source_technique": "The source technique must belong to the same school as the specialization."}
             )
+
+    def save(self, *args, **kwargs):
+        Character = self._meta.get_field("character").remote_field.model
+        with transaction.atomic():
+            Character.objects.select_for_update().get(pk=self.character_id)
+            self.specialization = (
+                Specialization.objects.select_for_update().get(
+                    pk=self.specialization_id
+                )
+            )
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+    def choices_complete(self):
+        if not self.pk:
+            return not self.specialization.choice_definitions.filter(
+                is_active=True, is_required=True
+            ).exists()
+        for definition in self.specialization.choice_definitions.filter(
+            is_active=True
+        ):
+            choices = list(self.choices.filter(definition=definition))
+            if len(choices) > definition.max_choices:
+                return False
+            if (
+                definition.is_required
+                and len(choices) < definition.min_choices
+            ):
+                return False
+            try:
+                for choice in choices:
+                    choice.full_clean()
+            except ValidationError:
+                return False
+        return True
 
     def __str__(self) -> str:
         return f"{self.character.name} - {self.specialization.school.name}: {self.specialization.name}"

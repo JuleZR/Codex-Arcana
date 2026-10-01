@@ -149,6 +149,8 @@ from .progression import (
     SpecializationSemanticEffect,
 )
 from .techniques import (
+    CharacterSpecializationChoice,
+    SpecializationChoiceDefinition,
     Aspect,
     CharacterAspect,
     CharacterDruidCult,
@@ -306,6 +308,8 @@ __all__ = [
     "SkillCategory",
     "Spell",
     "Specialization",
+    "SpecializationChoiceDefinition",
+    "CharacterSpecializationChoice",
     "Technique",
     "TechniqueChoiceBlock",
     "TechniqueChoiceDefinition",

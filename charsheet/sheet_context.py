@@ -1785,14 +1785,22 @@ def _serialize_item_semantic_effect_payload(
         value = Decimal(str(raw_value or 0))
     except (InvalidOperation, TypeError, ValueError):
         value = Decimal("0")
+    scaling_value = value
     if str(effect.operator or "") == "flat_sub":
-        value *= -1
+        value = -abs(value)
 
     resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
     effective_value = value
     if str(effect.scale_source or "") == "item_invested_cp":
         divisor = int(effect.scale_divisor or 1)
-        effective_value = value * (resolved_invested_cp // max(1, divisor))
+        from charsheet.modifiers.rounding import round_scaled_value
+
+        effective_value = Decimal(round_scaled_value(
+            scaling_value * resolved_invested_cp / max(1, divisor),
+            round_up=effect.round_up, round_down=effect.round_down,
+        ))
+        if str(effect.operator or "") == "flat_sub":
+            effective_value = -abs(effective_value)
 
     payload: dict[str, object] = {
         "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
@@ -7132,6 +7140,20 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
     for school_entry in schools:
         for specialization_entry in engine.character_specializations(school_entry.school_id):
             specialization = specialization_entry.specialization
+            choices = ", ".join(
+                choice.selected_target_display()
+                for choice in specialization_entry.choices.select_related(
+                    "selected_skill",
+                    "selected_skill_category",
+                    "selected_item",
+                    "selected_specialization",
+                )
+            )
+            entry_name = specialization.name
+            if choices:
+                entry_name += f" → {choices}"
+            if not specialization_entry.choices_complete():
+                entry_name += " (Auswahl fehlt)"
             school_technique_rows.append(
                 {
                     "kind": "specialization",
@@ -7144,7 +7166,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "school_description": str(
                         school_entry.school.description or ""
                     ).strip(),
-                    "entry_name": specialization.name,
+                    "entry_name": entry_name,
                     "description": specialization.description,
                     "support_level_icon": _SUPPORT_ICON_DESCRIPTIVE,
                     "support_level_tooltip": _SUPPORT_TOOLTIP_DESCRIPTIVE,

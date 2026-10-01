@@ -55,6 +55,14 @@ class SemanticEffectFields(models.Model):
     value_max = models.IntegerField(null=True, blank=True)
     formula = models.CharField(max_length=200, blank=True, default="")
     scaling = models.JSONField(default=dict, blank=True)
+    round_up = models.BooleanField(default=False, verbose_name="Aufrunden")
+    round_down = models.BooleanField(
+        default=False, verbose_name="Abrunden",
+        help_text=(
+            "Standard: mathematisch runden – "
+            "ab einschließlich 0,5 aufrunden."
+        ),
+    )
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
     condition_races = models.ManyToManyField(
@@ -83,6 +91,12 @@ class SemanticEffectFields(models.Model):
 
     def clean(self):
         super().clean()
+        if self.round_up and self.round_down:
+            raise ValidationError(
+                {
+                    "round_down": "Nur eine Rundungsoption aktivieren."
+                }
+            )
         for field_name in ("scaling", "condition_set", "metadata"):
             value = getattr(self, field_name)
             if value is not None and not isinstance(value, dict):
@@ -138,7 +152,11 @@ class SemanticEffectFields(models.Model):
             value_min=self.value_min,
             value_max=self.value_max,
             formula=self.formula,
-            scaling=dict(self.scaling or {}),
+            scaling={
+                **dict(self.scaling or {}),
+                "round_up": self.round_up,
+                "round_down": self.round_down,
+            },
             operator=self.operator,
             stack_behavior=self.stack_behavior,
             condition_set=ConditionSet(**dict(self.condition_set or {})),
