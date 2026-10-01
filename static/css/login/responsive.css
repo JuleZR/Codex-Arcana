@@ -24,11 +24,12 @@
   }
 }
 
-/* ── 480px – smartphones: no scroll, full-screen background, centered ─── */
+/* ── 480px – smartphones: full-screen background, centered ──────── */
 @media (max-width: 480px) {
   html {
-    overflow: hidden;
-    height: 100dvh;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   html.registration_page_root {
@@ -38,9 +39,10 @@
   }
 
   body {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
     background-attachment: scroll;
     background-size: cover;
     background-position: center;
@@ -59,8 +61,6 @@
   .login_scene {
     transform: none;
     width: min(92vw, 360px);
-    /* Prevent scene from overflowing vertically */
-    max-height: calc(100dvh - 24px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -106,10 +106,17 @@
 
 /* ── SHORT VIEWPORT / LANDSCAPE PHONE ─────────────────────────────────── */
 @media (max-height: 560px) {
+  html {
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
   body {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
     background-attachment: scroll;
     place-items: center;
     padding: 8px 16px;
@@ -140,7 +147,7 @@
   }
 
   .login_box {
-    margin-top: -12px;
+    margin-top: 8px;
     padding: 22px 22px 18px;
   }
 }

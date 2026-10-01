@@ -1,5 +1,6 @@
 /* Login stylesheet entry point.
    Keep thematic rules in ./login/*.css modules instead of growing this file again. */
+@import url("./responsive-foundation.css?v=20261001i");
 @import url("./login/base.css?v=20260929c");
 @import url("./login/effects.css");
-@import url("./login/responsive.css?v=20260929c");
+@import url("./login/responsive.css?v=20261001a");

@@ -1,6 +1,11 @@
 export function initCardHand() {
   const hand = document.querySelector("[data-card-hand]");
-  if (!(hand instanceof HTMLElement) || hand.dataset.cardHandBound === "1") {
+  if (!(hand instanceof HTMLElement)) {
+    const toggle = document.getElementById("cardHandLaptopToggle");
+    if (toggle) toggle.hidden = true;
+    return;
+  }
+  if (hand.dataset.cardHandBound === "1") {
     return;
   }
   hand.dataset.cardHandBound = "1";
@@ -14,6 +19,58 @@ export function initCardHand() {
   let activeFloating = floatings.find((entry) => entry instanceof HTMLElement) || null;
 
   const floatingLayer = document.getElementById("charsheetApp") || document.body;
+  const host = hand.closest(".card-hand-host");
+  if (host instanceof HTMLElement) {
+    let originalPosition = document.getElementById("cardHandOriginalPosition");
+    if (!originalPosition) {
+      originalPosition = document.createElement("span");
+      originalPosition.id = "cardHandOriginalPosition";
+      originalPosition.hidden = true;
+      host.before(originalPosition);
+    }
+    const laptopViewport = window.matchMedia("(min-width: 901px) and (max-width: 1500px) and (max-height: 850px)");
+    let trayToggle = document.getElementById("cardHandLaptopToggle");
+    if (!trayToggle) {
+      trayToggle = document.createElement("button");
+      trayToggle.id = "cardHandLaptopToggle";
+      trayToggle.type = "button";
+      trayToggle.className = "card-hand-laptop-toggle";
+      floatingLayer.appendChild(trayToggle);
+    }
+    trayToggle.setAttribute("aria-controls", host.id);
+    const syncLaptopTray = () => {
+      if (!host.isConnected) return;
+      if (laptopViewport.matches) {
+        if (host.parentElement !== floatingLayer) floatingLayer.appendChild(host);
+        const pages = Array.from(document.querySelectorAll(".book-spread > .page"));
+        const rightEdge = Math.max(0, ...pages.map((page) => page.getBoundingClientRect().right));
+        const drawer = window.innerWidth - rightEdge < 238;
+        host.classList.toggle("card-hand-host--drawer", drawer);
+        const expanded = !drawer || host.classList.contains("is-tray-open");
+        trayToggle.textContent = `${expanded && drawer ? "Schließen" : "Karten"} (${openCardButtons.length})`;
+        trayToggle.setAttribute("aria-expanded", String(expanded));
+        trayToggle.hidden = !host.classList.contains("card-hand-host--active");
+      } else {
+        originalPosition.after(host);
+        host.classList.remove("card-hand-host--drawer", "is-tray-open");
+        trayToggle.hidden = true;
+      }
+    };
+    trayToggle.onclick = () => {
+      if (host.classList.contains("card-hand-host--drawer")) {
+        host.classList.toggle("is-tray-open");
+        syncLaptopTray();
+      }
+    };
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && laptopViewport.matches) {
+        host.classList.remove("is-tray-open");
+        syncLaptopTray();
+      }
+    });
+    window.addEventListener("resize", syncLaptopTray);
+    requestAnimationFrame(syncLaptopTray);
+  }
   floatings.forEach((floating) => {
     if (floating instanceof HTMLElement && floating.parentElement !== floatingLayer) {
       floatingLayer.appendChild(floating);

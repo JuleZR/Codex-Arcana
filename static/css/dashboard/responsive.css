@@ -1,5 +1,9 @@
 /* Dashboard responsive adjustments */
 
+.dashboard_mobile_icon_action__icon {
+  display: none;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    1080px  TABLET / SMALLER WINDOW
    ═══════════════════════════════════════════════════════════════════════ */
@@ -27,6 +31,141 @@
   }
 }
 
+/* Short desktop workspaces use their width instead of shrinking to the
+   landscape-paper ratio. This covers small laptops, display scaling, and
+   increased browser zoom through their effective CSS viewport. */
+@media (min-width: 841px) and (max-height: 800px) {
+  .dashboard_spread {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .page.dashboard_page {
+    width: calc(100vw - 24px);
+    height: auto;
+    min-height: calc(100dvh - 24px);
+    max-width: none;
+    max-height: none;
+    aspect-ratio: auto;
+    overflow: visible;
+  }
+}
+
+/* Compact the dashboard according to its own available width. */
+@container dashboard-page (max-width: 1150px) {
+  .dashboard_layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .dashboard_logo {
+    max-height: 150px;
+  }
+
+  .dashboard_panel_header h2,
+  .dashboard_panel_header h3,
+  .dashboard_table thead th,
+  .dashboard_table tbody td:not(:first-child) {
+    white-space: nowrap;
+  }
+
+  .dashboard_mobile_icon_action {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    flex: 0 0 40px;
+  }
+
+  .dashboard_mobile_icon_action__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dashboard_mobile_icon_action__label {
+    display: none;
+  }
+
+  .dashboard_table_wrap {
+    overflow-x: auto;
+  }
+
+  .dashboard_table thead th,
+  .dashboard_table td {
+    padding: 6px;
+  }
+}
+
+/* Let typography and controls grow with genuinely wide dashboard space. */
+@container dashboard-page (min-width: 2200px) {
+  .dashboard_panel {
+    padding: 14px;
+  }
+
+  .dashboard_panel--sidebar .dashboard_title_wrap h1 {
+    font-size: 1.3rem;
+  }
+
+  .dashboard_version {
+    font-size: 0.9rem;
+  }
+
+  .dashboard_side_title {
+    font-size: 1rem;
+  }
+
+  .dashboard_button--sidebar {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  .dashboard_panel_header h2,
+  .dashboard_panel_header h3 {
+    font-size: 1.7rem;
+  }
+
+  .dashboard_panel_header span {
+    font-size: 1.05rem;
+  }
+
+  .dashboard_table thead th {
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+
+  .dashboard_table td {
+    padding: 11px 14px;
+    font-size: 1.05rem;
+  }
+
+  .dashboard_button--small {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 1rem;
+  }
+
+  .dashboard_button--small.dashboard_button--icon {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+  }
+
+  .dashboard_foreign_badge,
+  .dashboard_npc_badge {
+    font-size: 0.85rem;
+  }
+
+  .dashboard_stats dt {
+    font-size: 0.9rem;
+  }
+
+  .dashboard_stats dd {
+    font-size: 1.2rem;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    840px  TABLET PORTRAIT / MOBILE
    The dashboard page drops its landscape aspect-ratio and becomes a
@@ -37,9 +176,18 @@
     overflow-x: hidden;
   }
 
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   .dashboard_spread {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: 12px;
     align-items: flex-start;
+    overflow-x: clip;
   }
 
   /* Drop the fixed A4-landscape dimensions */
@@ -59,11 +207,13 @@
     grid-template-rows: auto auto;
     gap: 10px;
     height: auto;
+    min-width: 0;
   }
 
   /* Both panels: natural content height, scrollable */
   .dashboard_panel {
     height: auto;
+    min-width: 0;
     min-height: 0;
     overflow: visible;
   }
@@ -91,6 +241,7 @@
     flex-direction: column;
     gap: 8px;
     min-height: 0;
+    min-width: 0;
     flex: none;
   }
 
@@ -128,7 +279,9 @@
   }
 
   .dashboard_table_wrap {
-    overflow-x: visible;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
     overflow-y: auto;
     max-height: min(400px, 45dvh);
     min-height: 80px;
@@ -208,15 +361,48 @@
   /* Account settings window: full-screen */
   .dashboard_account_window {
     position: fixed !important;
-    left: 12px !important;
-    top: 12px !important;
-    width: calc(100vw - 24px) !important;
-    max-height: calc(100dvh - 24px);
+    inset: 0 !important;
+    display: grid;
+    width: 100vw !important;
+    height: 100dvh;
+    max-height: none;
+    grid-template-rows: 48px minmax(0, 1fr);
+    border-radius: 0;
+  }
+
+  .dashboard_account_window .payday-window__titlebar {
+    position: relative;
+    inset: auto;
+    min-height: 48px;
+    padding: 0 8px 0 14px;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(74, 55, 38, 0.24);
+    background: rgba(247, 236, 211, 0.96);
+    cursor: default;
+    touch-action: auto;
+  }
+
+  .dashboard_account_window .payday-window__title {
+    display: block;
+    margin: 0;
+    color: var(--line);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.25rem;
+  }
+
+  .dashboard_account_window .payday-window__close {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
   }
 
   .dashboard_account_window .dashboard_account_body {
-    max-height: calc(100dvh - 24px - 46px);
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 10px;
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .dashboard_account_grid,
@@ -230,8 +416,41 @@
   }
 
   .dashboard_account_nav {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: flex;
+    grid-template-columns: none;
+    margin: -10px -10px 10px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: rgba(247, 236, 211, 0.98);
+    scrollbar-width: thin;
+  }
+
+  .dashboard_account_nav a {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .dashboard_account_section {
+    scroll-margin-top: 60px;
+  }
+
+  .dashboard_account_actions {
     position: static;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+    padding: 4px 0 0;
+    background: transparent;
+  }
+
+  .dashboard_account_actions::before {
+    content: none;
   }
 
   .dashboard_account_section_header {
@@ -248,6 +467,83 @@
    600px  LARGE PHONE
    ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
+  .dashboard_account_form,
+  .dashboard_account_content {
+    gap: 8px;
+  }
+
+  .dashboard_account_section {
+    padding: 10px;
+  }
+
+  .dashboard_account_section_header {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+
+  .dashboard_account_choice,
+  .dashboard_account_toggle {
+    min-height: 0;
+    padding: 10px;
+  }
+
+  .dashboard_account_choice {
+    align-items: center;
+  }
+
+  .dashboard_account_choice input {
+    width: 22px;
+    height: 22px;
+    margin-top: 0;
+  }
+
+  .dashboard_account_toggle input {
+    width: 24px;
+    height: 24px;
+    margin-top: 0;
+  }
+
+  .dashboard_account_choice small,
+  .dashboard_account_toggle small {
+    line-height: 1.35;
+  }
+
+  .dashboard_account_window input:not([type="checkbox"]):not([type="radio"]),
+  .dashboard_account_window select,
+  .dashboard_account_window textarea,
+  .dashboard_account_window .dashboard_button {
+    min-height: 44px;
+  }
+
+  .dashboard_account_actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard_account_actions .dashboard_button {
+    width: 100%;
+  }
+
+  .dashboard_mobile_icon_action {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    flex: 0 0 40px;
+  }
+
+  .dashboard_mobile_icon_action__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dashboard_mobile_icon_action__label {
+    display: none;
+  }
+
   .dashboard_session_header,
   .dashboard_session,
   .dashboard_security_activity,
@@ -347,14 +643,15 @@
   }
 
   .dashboard_account_window {
-    left: 6px !important;
-    top: 6px !important;
-    width: calc(100vw - 12px) !important;
-    max-height: calc(100dvh - 12px);
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100dvh;
+    max-height: none;
   }
 
   .dashboard_account_window .dashboard_account_body {
-    max-height: calc(100dvh - 12px - 46px);
+    max-height: none;
   }
 }
 
@@ -375,21 +672,79 @@
     max-height: 68px;
   }
 
+  .dashboard_table thead {
+    display: none;
+  }
+
+  .dashboard_table tbody,
+  .dashboard_table tbody tr,
+  .dashboard_table tbody td,
+  .dashboard_table tbody th {
+    width: 100%;
+  }
+
+  .dashboard_table tbody tr:not(.dashboard_table_group_heading) {
+    display: block;
+    padding: 8px;
+    border-bottom: 1px solid rgba(74, 55, 38, 0.14);
+  }
+
+  .dashboard_table tbody tr:not(.dashboard_table_group_heading) > td {
+    padding: 4px 2px;
+    border-bottom: 0;
+  }
+
+  .dashboard_table tbody tr:not(.dashboard_table_group_heading) > td:first-child,
+  .dashboard_table tbody tr:not(.dashboard_table_group_heading) > td:last-child {
+    display: block;
+  }
+
+  .dashboard_action_cell {
+    text-align: left;
+  }
+
+  .dashboard_action_cell .dashboard_actions_inline {
+    justify-content: flex-start;
+  }
+
+  .dashboard_table_group_heading th {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dashboard_table_group_heading .dashboard_actions_inline {
+    width: 100%;
+    float: none;
+  }
+
+  .dashboard_table_group_heading .dashboard_button {
+    flex: 1 1 0;
+  }
+
+  .dashboard_button--small.dashboard_button--icon {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
   .dashboard_creation_window {
     inset: 4px;
     border-radius: 8px;
   }
 
   .dashboard_account_window {
-    left: 4px !important;
-    top: 4px !important;
-    width: calc(100vw - 8px) !important;
-    border-radius: 8px;
-    max-height: calc(100dvh - 8px);
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    border-radius: 0;
+    max-height: none;
   }
 
   .dashboard_account_window .dashboard_account_body {
-    max-height: calc(100dvh - 8px - 46px);
+    max-height: none;
   }
 }
 
@@ -410,7 +765,7 @@
   }
 
   .dashboard_account_window {
-    top: 4px !important;
-    max-height: calc(100dvh - 8px);
+    top: 0 !important;
+    max-height: none;
   }
 }

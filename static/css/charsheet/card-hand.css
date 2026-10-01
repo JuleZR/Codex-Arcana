@@ -1,3 +1,58 @@
+.card-hand-laptop-toggle {
+  display: none;
+}
+
+.card-hand-laptop-toggle[hidden] {
+  display: none !important;
+}
+
+@media (min-width: 901px) and (max-width: 1500px) and (max-height: 850px) {
+  .charsheet-page .card-hand-host--active {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    left: auto;
+    width: 214px;
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    padding-top: 48px;
+    z-index: 100;
+  }
+
+  .charsheet-page .card-hand-host--active .card-hand {
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    width: 100%;
+  }
+
+  .charsheet-page .card-hand-laptop-toggle {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 101;
+    display: block;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid rgba(97, 69, 40, 0.8);
+    border-radius: 6px;
+    background: #f3e6cc;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .charsheet-page .card-hand-host--drawer:not(.is-tray-open) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .charsheet-page .card-hand-host--drawer.is-tray-open {
+    background: #f3e6cc;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
 .card-hand-host {
   display: none;
 }
@@ -104,6 +159,7 @@
   margin: 0 auto;
   margin-top: calc(var(--card-offset, 0) * var(--mini-stack-overlap, -196px));
   height: var(--mini-card-height, 276px);
+  flex-shrink: 0;
   overflow: hidden;
   border: 0;
   background: transparent;

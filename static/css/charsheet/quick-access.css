@@ -2202,6 +2202,23 @@ html[data-left-tools-open="1"] .left-tools {
   }
 }
 
+/* FullHD must keep both the stack and its children inside the viewport. */
+@media (min-width: 1501px) and (max-width: 2000px) and (max-height: 1150px) and (orientation: landscape) {
+  .charsheet-page .sheet-side-stack {
+    left: clamp(8px, var(--sheet-side-left), calc(100vw - var(--sheet-side-panel-width) - 8px)) !important;
+    transform: none !important;
+  }
+
+  .charsheet-page .sheet-side-stack > :is(.left-tools, .sheet-dice-dock, .card-hand-host) {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: calc(100% / var(--fullhd-content-scale, 1)) !important;
+    zoom: var(--fullhd-content-scale, 1);
+    transform: none !important;
+  }
+}
+
 /* The side stack is now a required part of the sheet UI. */
 .left-tools__toggle {
   display: none !important;

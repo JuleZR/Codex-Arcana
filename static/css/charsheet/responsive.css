@@ -1196,3 +1196,226 @@
   background: rgba(180, 140, 78, 0.26);
   flex-shrink: 0;
 }
+
+@media (max-width: 900px),
+       (min-width: 901px) and (max-width: 1500px) and (max-height: 850px) {
+  .charsheet-page .core_name--abbreviated .core_name__full,
+  .charsheet-page .core_formula--compact .core_formula__full {
+    display: none;
+  }
+
+  .charsheet-page .core_name--abbreviated::before {
+    content: attr(data-short-name);
+    white-space: nowrap;
+  }
+
+  .charsheet-page .core_formula--compact {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .charsheet-page .core_formula--compact::before {
+    content: attr(data-short-formula);
+  }
+}
+
+/* Height-fitted A4 pages with proportionally scaled contents.
+   The effective CSS viewport also accounts for display scaling and zoom. */
+@media (min-width: 901px) and (max-width: 1500px) and (max-height: 850px) {
+  html:has(body.charsheet-page) {
+    scroll-snap-type: y mandatory;
+  }
+
+  body.charsheet-page {
+    overflow-y: auto;
+  }
+
+  .charsheet-page .book-spread {
+    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: 8px 24px;
+  }
+
+  .charsheet-page .page {
+    --compact-laptop-page-width: 735px;
+    width: var(--compact-laptop-page-width);
+    height: calc(var(--compact-laptop-page-width) * 297 / 210);
+    zoom: var(--compact-laptop-scale, 1);
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    scroll-margin-top: 8px;
+  }
+
+}
+
+/* Larger A4 pages on 4K workspaces, with only a modest content increase. */
+@media (min-width: 2400px) and (min-height: 1200px) and (orientation: landscape) {
+  body.charsheet-page {
+    --large-desktop-content-scale: 1.3;
+    --page-height: min(1900px, calc(100dvh - 64px), calc((100vw - 568px) * 297 / 420));
+    --page-width: calc(var(--page-height) * 210 / 297);
+    --page-gap: 48px;
+    --sheet-page-width-effective: var(--page-width);
+    --sheet-page-top: max(32px, calc((100dvh - var(--page-height)) / 2));
+    --sheet-side-left: max(8px, calc(50vw - var(--page-width) - var(--page-gap) / 2 - var(--sheet-side-panel-width) - 20px));
+  }
+
+  .charsheet-page .book-spread {
+    gap: var(--page-gap);
+    padding: 32px 24px;
+  }
+
+  .charsheet-page .page {
+    width: var(--page-width);
+    height: var(--page-height);
+    flex-shrink: 0;
+  }
+
+  .charsheet-page .page > :is(.p1_top, .p1_bottom_left, .p1_bottom_right, .p2_layout) {
+    zoom: var(--large-desktop-content-scale);
+  }
+
+  .charsheet-page .page > .p2_layout {
+    height: 100%;
+  }
+
+  .charsheet-page .p1_bottom_left > :is(.attribute_wrapper, .fame_wrapper) {
+    zoom: calc(1 / var(--large-desktop-content-scale));
+  }
+}
+
+/* FullHD keeps the spread side by side, fitting both A4 pages and contents. */
+@media (min-width: 1501px) and (max-width: 2000px) and (max-height: 1150px) and (orientation: landscape) {
+  body.charsheet-page {
+    --fullhd-content-scale: 0.86;
+    --page-gap: 12px;
+    --sheet-page-width-effective: calc(735px * var(--fullhd-page-scale, 1));
+    --sheet-page-top: max(16px, calc((100dvh - 1039.5px * var(--fullhd-page-scale, 1)) / 2));
+    --sheet-side-left: max(8px, calc(50vw + (var(--sheet-side-panel-width) + 20px) / 2 - var(--sheet-page-width-effective) - var(--page-gap) / 2 - var(--sheet-side-panel-width) - 20px));
+  }
+
+  .charsheet-page .book-spread {
+    --page-gap: 12px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: var(--page-gap);
+    padding: 16px 24px 16px calc(var(--sheet-side-panel-width) + 44px);
+  }
+
+  .charsheet-page .page {
+    width: 735px;
+    height: calc(735px * 297 / 210);
+    zoom: var(--fullhd-page-scale, 1);
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .charsheet-page .page > :is(.p1_top, .p1_bottom_left, .p1_bottom_right, .p2_layout) {
+    zoom: var(--fullhd-content-scale);
+  }
+
+  .charsheet-page .page > .p2_layout {
+    height: calc(100% / var(--fullhd-content-scale));
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1500px) and (max-height: 850px),
+       (min-width: 1501px) and (max-width: 2000px) and (max-height: 1150px) and (orientation: landscape) {
+  .charsheet-page .page:first-child {
+    grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .charsheet-page .page :is(th, td, h2, .move_title) {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .charsheet-page .attribute_wrapper {
+    --stat-cell-size: 32px;
+    min-width: 0;
+    padding: 5px;
+  }
+
+  .charsheet-page .attribute_table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .charsheet-page .attribute_table .a_header {
+    padding-inline: 3px;
+    font-size: 1.1rem;
+  }
+
+  .charsheet-page .attribute_table .mod {
+    width: var(--stat-cell-size);
+  }
+
+  .charsheet-page .attribute_table .mod-badge {
+    max-width: 100%;
+  }
+
+  .charsheet-page .char_info_table td {
+    font-size: 0.85rem;
+  }
+
+  .charsheet-page .char_info_table .label {
+    font-size: 0.6rem;
+  }
+
+  .charsheet-page .skills_table td.skill_name {
+    font-size: 0.9rem;
+  }
+
+  .charsheet-page .weapons_table th,
+  .charsheet-page .weapons_table td {
+    font-size: 0.75rem;
+  }
+
+  .charsheet-page .weapons_table th:nth-child(2),
+  .charsheet-page .weapons_table td:nth-child(2) {
+    width: 70px;
+    padding-inline: 1px;
+    white-space: nowrap;
+  }
+
+  .charsheet-page .weapons_table th {
+    padding-inline: 1px;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+    font-size: 0.62rem;
+  }
+
+  .charsheet-page .weapon_heading--compact .weapon_heading__full {
+    display: none;
+  }
+
+  .charsheet-page .weapon_heading--compact::before {
+    content: attr(data-short-heading);
+  }
+
+  .charsheet-page .weapons_table td.weapon_damage,
+  .charsheet-page .weapon_damage_value {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+    font-size: 0.66rem;
+  }
+
+  .charsheet-page .weapons_table th:first-child,
+  .charsheet-page .weapons_table td:first-child {
+    width: calc(29% + 40px);
+  }
+}

@@ -91,3 +91,44 @@
 .announcement_editor textarea { resize: vertical; }
 .announcement_hint { font-size: 0.8rem; margin: 0; }
 .announcement_live { max-height: 220px; overflow: auto; min-height: 36px; margin: 6px 0 0; }
+
+@media (max-width: 840px) {
+  .dashboard_announcements {
+    display: flex;
+    flex: none;
+    min-height: 0;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dashboard_announcements_scroll {
+    position: static;
+    max-height: min(320px, 42dvh);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .announcement_add {
+    position: static;
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    align-self: flex-start;
+  }
+}
+
+@container dashboard-page (min-width: 2200px) {
+  .announcement {
+    padding: 12px;
+    margin-bottom: 10px;
+    font-size: 1rem;
+  }
+
+  .announcement_icon {
+    font-size: 1.3rem;
+  }
+
+  .announcement_more {
+    font-size: 0.9rem;
+  }
+}

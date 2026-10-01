@@ -1,3 +1,5 @@
+@import url("../responsive-foundation.css?v=20261001i");
+
 @font-face {
     font-family: "Cormorant Garamond";
     src: url("/static/fonts/cormorant_garamond/CormorantGaramond-wght.ttf") format("truetype");
@@ -1550,7 +1552,8 @@ span.card-aspect-placeholder {
 }
 
 .creature-card__rules::-webkit-scrollbar {
-    width: 6px;
+    width: 2px;
+    height: 2px;
 }
 
 .creature-card__rules::-webkit-scrollbar-track {
@@ -1558,7 +1561,7 @@ span.card-aspect-placeholder {
 }
 
 .creature-card__rules::-webkit-scrollbar-thumb {
-    border: 1px solid transparent;
+    border: 0;
     border-radius: 999px;
     background: rgba(65, 51, 37, 0.5);
     background-clip: padding-box;

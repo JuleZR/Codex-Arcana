@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
-    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260929b">
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     <script defer src="{% static 'js/passkeys.js' %}?v=20260929a"></script>
-    <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=5">
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=3"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-table.css' %}?v=8">
@@ -85,9 +85,15 @@
                     <span>{{ character_count }} aktiv</span>
                     <form method="post" action="{% url 'create_game_group' %}">
                       {% csrf_token %}
-                      <button class="dashboard_button dashboard_button--small">Neue Spielgruppe</button>
+                      <button class="dashboard_button dashboard_button--small dashboard_mobile_icon_action" aria-label="Neue Spielgruppe" title="Neue Spielgruppe">
+                        <span class="dashboard_mobile_icon_action__icon">{% include "charsheet/partials/_dashboard_icon.html" with icon="group-add" %}</span>
+                        <span class="dashboard_mobile_icon_action__label">Neue Spielgruppe</span>
+                      </button>
                     </form>
-                    <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Charaktererschaffung beginnen</a>
+                    <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary dashboard_mobile_icon_action" aria-label="Charaktererschaffung beginnen" title="Charaktererschaffung beginnen">
+                      <span class="dashboard_mobile_icon_action__icon">{% include "charsheet/partials/_dashboard_icon.html" with icon="character-add" %}</span>
+                      <span class="dashboard_mobile_icon_action__label">Charaktererschaffung beginnen</span>
+                    </a>
                   </div>
                 </div>
 
@@ -1458,6 +1464,7 @@ if (dddiceCheckbox) {
         const accountCloseBtn = document.getElementById("dashboardAccountClose");
         const accountCancelBtn = document.getElementById("dashboardAccountCancel");
         const accountBackdrop = document.getElementById("dashboardAccountBackdrop");
+        const accountBody = accountWin ? accountWin.querySelector(".dashboard_account_body") : null;
 
         window.addEventListener("resize", function () {
           if (accountWin && accountWin.classList.contains("is-open")) {
@@ -1486,6 +1493,9 @@ if (dddiceCheckbox) {
             accountBackdrop.classList.add("is-open");
             accountWin.classList.add("is-open");
             accountWin.setAttribute("aria-hidden", "false");
+            if (accountBody) {
+              accountBody.scrollTop = 0;
+            }
             placeAccountCentered();
           };
 

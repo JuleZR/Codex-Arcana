@@ -27,7 +27,7 @@ import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260919b";
 import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
-import { initCardHand } from "./card_hand.js?v=20260621a";
+import { initCardHand } from "./card_hand.js?v=20261001l";
 import { initGodCards } from "./god_card.js?v=20260702a";
 import { initCreatureCards } from "./creature_card.js?v=20260924a";
 import { initItemTransfers } from "./item_transfers.js?v=20260924a";

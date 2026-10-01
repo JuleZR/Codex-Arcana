@@ -18,31 +18,31 @@
         data-tooltip-on="{{ core_stats.initiative_with_load_tooltip_with_carry }}"
       >{{ core_stats.initiative_with_load_display }}</span>
     </div>
-    <div class="core_formula">Wa-Bonus/Malus + Mod.</div>
+    <div class="core_formula core_formula--compact" data-short-formula="WA-B/M + Mod." title="Wa-Bonus/Malus + Mod."><span class="core_formula__full">Wa-Bonus/Malus + Mod.</span></div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Verteidigungswert (VW)</span><span class="core_value tooltip_target{% if core_stats.vw_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.vw_tooltip }}">{{ core_stats.vw }}</span>
+      <span class="core_name core_name--abbreviated" data-short-name="VW" aria-label="Verteidigungswert" title="Verteidigungswert"><span class="core_name__full">Verteidigungswert (VW)</span></span><span class="core_value tooltip_target{% if core_stats.vw_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.vw_tooltip }}">{{ core_stats.vw }}</span>
     </div>
-    <div class="core_formula">14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.</div>
+    <div class="core_formula core_formula--compact" data-short-formula="14 + GE-B/M + WA-B/M + GK + Mod." title="14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod."><span class="core_formula__full">14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.</span></div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Schockresistenz (SR)</span><span class="core_value tooltip_target{% if core_stats.sr_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.sr_tooltip }}">{{ core_stats.sr }}</span>
+      <span class="core_name core_name--abbreviated" data-short-name="SR" aria-label="Schockresistenz" title="Schockresistenz"><span class="core_name__full">Schockresistenz (SR)</span></span><span class="core_value tooltip_target{% if core_stats.sr_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.sr_tooltip }}">{{ core_stats.sr }}</span>
     </div>
-    <div class="core_formula">14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.</div>
+    <div class="core_formula core_formula--compact" data-short-formula="14 + ST-B/M + KON-B/M + Mod." title="14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod."><span class="core_formula__full">14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.</span></div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Geistiger Widerstand (GW)</span><span class="core_value tooltip_target{% if core_stats.gw_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.gw_tooltip }}">{{ core_stats.gw }}</span>
+      <span class="core_name core_name--abbreviated" data-short-name="GW" aria-label="Geistiger Widerstand" title="Geistiger Widerstand"><span class="core_name__full">Geistiger Widerstand (GW)</span></span><span class="core_value tooltip_target{% if core_stats.gw_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.gw_tooltip }}">{{ core_stats.gw }}</span>
     </div>
-    <div class="core_formula">14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.</div>
+    <div class="core_formula core_formula--compact" data-short-formula="14 + INT-B/M + WILL-B/M + Mod." title="14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod."><span class="core_formula__full">14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.</span></div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">{% if is_vampire %}Blutvorrat (BP){% else %}Arkane Macht (KP){% endif %}</span><span class="core_value tooltip_target{% if core_stats.arcane_power_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.arcane_power_tooltip }}">{{ core_stats.arcane_power }}</span>
+      <span class="core_name core_name--abbreviated" data-short-name="{% if is_vampire %}BP{% else %}KP{% endif %}" aria-label="{% if is_vampire %}Blutvorrat{% else %}Arkane Macht{% endif %}" title="{% if is_vampire %}Blutvorrat{% else %}Arkane Macht{% endif %}"><span class="core_name__full">{% if is_vampire %}Blutvorrat (BP){% else %}Arkane Macht (KP){% endif %}</span></span><span class="core_value tooltip_target{% if core_stats.arcane_power_condition_badge.visible %} has_conditional_modifiers{% endif %}" data-tooltip-side="right" data-tooltip="{{ core_stats.arcane_power_tooltip }}">{{ core_stats.arcane_power }}</span>
     </div>
-    <div class="core_formula">Will + Stufen in Schulen + Mod.</div>
+    <div class="core_formula core_formula--compact" data-short-formula="WILL + Schulstufen + Mod." title="Will + Stufen in Schulen + Mod."><span class="core_formula__full">Will + Stufen in Schulen + Mod.</span></div>
   </div>
   <div class="core_item">
     <div class="core_main single">

@@ -1,0 +1,73 @@
+/* Shared intrinsic-sizing safeguards for all public application shells. */
+
+html,
+body {
+  max-width: 100%;
+}
+
+html,
+body,
+* {
+  scrollbar-color: rgba(82, 61, 42, 0.58) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(82, 61, 42, 0.58);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+iframe {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+:where(h1, h2, h3, h4, h5, h6, p, li, label, legend, button, th, td) {
+  overflow-wrap: anywhere;
+}
+
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+dialog {
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+}
