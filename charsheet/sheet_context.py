@@ -1744,6 +1744,8 @@ def _serialize_item_semantic_effect_payload(
         base_item_effect_id = int(metadata.get("base_item_effect_id"))
     except (TypeError, ValueError):
         base_item_effect_id = None
+    if base_item_effect_id is None and isinstance(effect, ItemSemanticEffect) and effect.pk:
+        base_item_effect_id = int(effect.pk)
     if target_domain == "metadata" and target_key == "rules_text":
         text = str(effect.rules_text or effect.notes or "")
         resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
@@ -1766,6 +1768,8 @@ def _serialize_item_semantic_effect_payload(
             "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
             "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
             "base_item_effect_id": base_item_effect_id,
+            "condition_races": condition_race_ids,
+            "condition_schools": condition_school_ids,
             "race_condition_matches": race_condition_matches,
             "condition_race_labels": condition_race_labels,
             "condition_school_labels": condition_school_labels,
@@ -1810,6 +1814,8 @@ def _serialize_item_semantic_effect_payload(
         "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
         "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
         "base_item_effect_id": base_item_effect_id,
+        "condition_races": condition_race_ids,
+        "condition_schools": condition_school_ids,
         "race_condition_matches": race_condition_matches,
         "condition_race_labels": condition_race_labels,
         "condition_school_labels": condition_school_labels,
@@ -2085,6 +2091,18 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 continue
             if bool(candidate.get("inactive_due_to_school", False)) != payload_inactive_due_to_school:
                 continue
+            if set(candidate.get("condition_races") or []) != set(
+                payload.get("condition_races") or []
+            ):
+                continue
+            if set(candidate.get("condition_schools") or []) != set(
+                payload.get("condition_schools") or []
+            ):
+                continue
+            if str(candidate.get("semantic_effect_source") or "") != str(
+                payload.get("semantic_effect_source") or ""
+            ):
+                continue
             matching_index = candidate_index
             break
         if matching_index is None:
@@ -2125,11 +2143,27 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                         ]
                     )
                 ),
+                "condition_races": list(
+                    dict.fromkeys(
+                        [
+                            *(payload.get("condition_races") or []),
+                            *(modifier_payloads[matching_index].get("condition_races") or []),
+                        ]
+                    )
+                ),
                 "condition_school_labels": list(
                     dict.fromkeys(
                         [
                             *(payload.get("condition_school_labels") or []),
                             *(modifier_payloads[matching_index].get("condition_school_labels") or []),
+                        ]
+                    )
+                ),
+                "condition_schools": list(
+                    dict.fromkeys(
+                        [
+                            *(payload.get("condition_schools") or []),
+                            *(modifier_payloads[matching_index].get("condition_schools") or []),
                         ]
                     )
                 ),
@@ -2141,6 +2175,14 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                     for value in [
                         *(payload.get("semantic_effect_ids") or []),
                         *(modifier_payloads[matching_index].get("semantic_effect_ids") or []),
+                    ]
+                    if str(value).isdigit()
+                ],
+                "base_item_effect_ids": [
+                    int(value)
+                    for value in [
+                        payload.get("base_item_effect_id"),
+                        modifier_payloads[matching_index].get("base_item_effect_id"),
                     ]
                     if str(value).isdigit()
                 ],
@@ -2926,6 +2968,8 @@ def _load_character_item_modifier_payloads(
             and comparable_metadata(base_effect) == comparable_metadata(instance_effect)
             and list(base_effect.condition_races.order_by("id").values_list("id", flat=True))
             == list(instance_effect.condition_races.order_by("id").values_list("id", flat=True))
+            and list(base_effect.condition_schools.order_by("id").values_list("id", flat=True))
+            == list(instance_effect.condition_schools.order_by("id").values_list("id", flat=True))
         )
 
     for character_item in character_items:
@@ -9940,6 +9984,8 @@ def build_character_sheet_context(
             (value, label) for value, label in Item.ItemType.choices
         ],
         "shop_modifier_specialization_choices": Specialization.objects.order_by("name"),
+        "shop_modifier_race_choices": Race.objects.order_by("name"),
+        "shop_modifier_school_choices": School.objects.order_by("name"),
         "shop_runes": Rune.objects.order_by("name"),
         "weapon_mastery_arcana_panel": weapon_mastery_arcana_panel,
         "daemonic_power_panel": daemonic_power_panel,

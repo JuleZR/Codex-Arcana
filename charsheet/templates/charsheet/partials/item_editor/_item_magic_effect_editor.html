@@ -19,6 +19,10 @@
       <label class="sl-editor-field shop_item_form_row"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description data-magic-effect-description></label>
       <label class="sl-editor-field shop_item_form_row"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text data-magic-rules-text></label>
       <div class="sl-editor-row sl-editor-row--effect">
+        <label class="sl-editor-field shop_item_form_row"><span>Nur f&uuml;r Spezies</span><select multiple data-effect-condition-races data-magic-condition-races>{% for race in magic_editor_race_choices %}<option value="{{ race.pk }}">{{ race.name }}</option>{% endfor %}</select></label>
+        <label class="sl-editor-field shop_item_form_row"><span>Nur mit Schulen</span><select multiple data-effect-condition-schools data-magic-condition-schools>{% for school in magic_editor_school_choices %}<option value="{{ school.pk }}">{{ school.name }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="sl-editor-row sl-editor-row--effect">
         <label class="shop_item_form_row"><span>Anzeigegruppe</span><input type="number" min="1" step="1" placeholder="z. B. 1" data-effect-display-group data-magic-display-group></label>
         <label class="sl-editor-field sl-editor-field--check shop_item_form_check shop_item_form_check--inline"><span>Gruppe</span><input type="checkbox" value="1" data-effect-display-group-append data-magic-display-group-append> <em>anh&auml;ngen</em></label>
       </div>

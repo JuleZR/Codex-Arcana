@@ -83,8 +83,10 @@ from charsheet.models import (
     ItemSemanticEffect,
     ItemOwnershipEvent,
     ItemTransfer,
+    Race,
     Rune,
     Quality,
+    School,
     Skill,
     SkillCategory,
     Specialization,
@@ -1228,6 +1230,8 @@ def game_master_screen(request, group_id: int):
             ).order_by("name"),
             "group_inventory_skill_categories": SkillCategory.objects.order_by("name"),
             "group_inventory_specializations": Specialization.objects.order_by("name"),
+            "group_inventory_races": Race.objects.order_by("name"),
+            "group_inventory_schools": School.objects.order_by("name"),
         },
     )
 

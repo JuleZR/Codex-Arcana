@@ -210,6 +210,21 @@ def _read_skill_ids(post_data, name: str) -> list[int]:
     return skill_ids
 
 
+def _positive_int_list(raw_values) -> list[int]:
+    """Return deduplicated positive ids from one JSON-list value."""
+    if not isinstance(raw_values, (list, tuple)):
+        return []
+    values: list[int] = []
+    for raw_value in raw_values:
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if value > 0 and value not in values:
+            values.append(value)
+    return values
+
+
 def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict[str, object] | None:
     """Resolve one normalized magic-item modifier payload from raw row data."""
     if not target_kind:
@@ -244,12 +259,21 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
             semantic_effect_ids.append(effect_id)
     if semantic_effect_ids:
         payload["semantic_effect_ids"] = semantic_effect_ids
+    semantic_effect_source = str(row_data.get("semantic_effect_source") or "")
+    if semantic_effect_source in {"item", "character_item"}:
+        payload["semantic_effect_source"] = semantic_effect_source
     try:
         base_item_effect_id = int(row_data.get("base_item_effect_id") or 0)
     except (TypeError, ValueError):
         base_item_effect_id = 0
     if base_item_effect_id > 0:
         payload["base_item_effect_id"] = base_item_effect_id
+    base_item_effect_ids = _positive_int_list(row_data.get("base_item_effect_ids"))
+    if base_item_effect_ids:
+        payload["base_item_effect_ids"] = base_item_effect_ids
+    for condition_name in ("condition_races", "condition_schools"):
+        if condition_name in row_data:
+            payload[condition_name] = _positive_int_list(row_data.get(condition_name))
     try:
         display_group = int(row_data.get("display_group"))
     except (TypeError, ValueError):
@@ -437,6 +461,27 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                     if second_effect_id
                     else {}
                 )
+                base_item_effect_ids = _positive_int_list(
+                    payload.get("base_item_effect_ids")
+                )
+                shared_condition_payload = {
+                    key: list(payload[key])
+                    for key in ("condition_races", "condition_schools")
+                    if key in payload
+                }
+                first_effect_payload.update(shared_condition_payload)
+                second_effect_payload.update(shared_condition_payload)
+                if payload.get("semantic_effect_source"):
+                    first_effect_payload["semantic_effect_source"] = payload[
+                        "semantic_effect_source"
+                    ]
+                    second_effect_payload["semantic_effect_source"] = payload[
+                        "semantic_effect_source"
+                    ]
+                if base_item_effect_ids:
+                    first_effect_payload["base_item_effect_id"] = base_item_effect_ids[0]
+                if len(base_item_effect_ids) > 1:
+                    second_effect_payload["base_item_effect_id"] = base_item_effect_ids[1]
                 payloads.extend(
                     [
                         {
@@ -651,14 +696,61 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     }
 
 
-def _magic_effect_kwargs_signature(kwargs: dict[str, object]) -> str:
+def _magic_effect_kwargs_signature(
+    kwargs: dict[str, object],
+    *,
+    condition_races: list[int] | None = None,
+    condition_schools: list[int] | None = None,
+) -> str:
     """Return a semantic duplicate key for persisted magic effect rows."""
     comparable = {
         key: value
         for key, value in kwargs.items()
         if key not in {"sort_order"}
     }
+    if condition_races is not None:
+        comparable["condition_races"] = sorted(condition_races)
+    if condition_schools is not None:
+        comparable["condition_schools"] = sorted(condition_schools)
     return json.dumps(comparable, sort_keys=True, default=str)
+
+
+def _semantic_effect_matches_magic_payload(
+    effect: ItemSemanticEffect,
+    kwargs: dict[str, object],
+    *,
+    condition_races: list[int],
+    condition_schools: list[int],
+) -> bool:
+    """Return whether one editor payload leaves a base-item effect unchanged."""
+    for field_name, incoming_value in kwargs.items():
+        if field_name in {"metadata", "notes", "sort_order"}:
+            continue
+        current_value = getattr(effect, field_name)
+        if field_name in {"scale_divisor", "display_group"}:
+            current_value = current_value or None
+            incoming_value = incoming_value or None
+        elif field_name == "value":
+            current_value = str(current_value)
+            incoming_value = str(incoming_value)
+        if current_value != incoming_value:
+            return False
+
+    current_metadata = dict(effect.metadata or {})
+    incoming_metadata = dict(kwargs.get("metadata") or {})
+    current_description = str(
+        current_metadata.get("condition_text") or effect.notes or ""
+    ).strip()
+    incoming_description = str(
+        incoming_metadata.get("condition_text") or kwargs.get("notes") or ""
+    ).strip()
+    return (
+        current_description == incoming_description
+        and set(effect.condition_races.values_list("id", flat=True))
+        == set(condition_races)
+        and set(effect.condition_schools.values_list("id", flat=True))
+        == set(condition_schools)
+    )
 
 
 def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloads: list[dict[str, object]]) -> None:
@@ -675,20 +767,83 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         effect_filter = {"character_item_id": source_id}
     existing_effects = {
         int(effect.pk): effect
-        for effect in effect_model.objects.filter(**effect_filter)
+        for effect in effect_model.objects.filter(**effect_filter).prefetch_related(
+            "condition_races",
+            "condition_schools",
+        )
     }
+    existing_effects_by_base_id: dict[int, CharacterItemSemanticEffect] = {}
+    base_effects: dict[int, ItemSemanticEffect] = {}
+    if source_model is not Item:
+        character_item = CharacterItem.objects.select_related("item").get(pk=source_id)
+        base_effects = {
+            int(effect.pk): effect
+            for effect in ItemSemanticEffect.objects.filter(
+                item_id=character_item.item_id
+            ).prefetch_related("condition_races", "condition_schools")
+        }
+        for effect in existing_effects.values():
+            try:
+                base_id = int(dict(effect.metadata or {}).get("base_item_effect_id"))
+            except (TypeError, ValueError):
+                continue
+            existing_effects_by_base_id[base_id] = effect
     kept_effect_ids: set[int] = set()
     seen_signatures: set[str] = set()
     for payload in magic_modifier_payloads:
         kwargs = _magic_payload_to_semantic_effect_kwargs(payload)
         if kwargs is None:
             continue
-        signature = _magic_effect_kwargs_signature(kwargs)
+        condition_races = (
+            _positive_int_list(payload.get("condition_races"))
+            if "condition_races" in payload
+            else None
+        )
+        condition_schools = (
+            _positive_int_list(payload.get("condition_schools"))
+            if "condition_schools" in payload
+            else None
+        )
+        try:
+            base_item_effect_id = int(payload.get("base_item_effect_id") or 0)
+        except (TypeError, ValueError):
+            base_item_effect_id = 0
+        base_effect = base_effects.get(base_item_effect_id)
+        if source_model is Item or base_effect is None:
+            kwargs["metadata"].pop("base_item_effect_id", None)
+            base_item_effect_id = 0
+        else:
+            kwargs["metadata"]["base_item_effect_id"] = base_item_effect_id
+            if condition_races is None:
+                condition_races = list(
+                    base_effect.condition_races.values_list("id", flat=True)
+                )
+            if condition_schools is None:
+                condition_schools = list(
+                    base_effect.condition_schools.values_list("id", flat=True)
+                )
+            if _semantic_effect_matches_magic_payload(
+                base_effect,
+                kwargs,
+                condition_races=condition_races,
+                condition_schools=condition_schools,
+            ):
+                continue
+        signature = _magic_effect_kwargs_signature(
+            kwargs,
+            condition_races=condition_races,
+            condition_schools=condition_schools,
+        )
         payload_effect_ids = [
             int(value)
             for value in payload.get("semantic_effect_ids", [])
             if str(value).isdigit()
         ]
+        if (
+            source_model is not Item
+            and payload.get("semantic_effect_source") == "item"
+        ):
+            payload_effect_ids = []
         existing_effect = next(
             (
                 existing_effects[effect_id]
@@ -698,17 +853,63 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
             ),
             None,
         )
+        if existing_effect is None and base_item_effect_id:
+            candidate = existing_effects_by_base_id.get(base_item_effect_id)
+            if candidate is not None and int(candidate.pk) not in kept_effect_ids:
+                existing_effect = candidate
         if existing_effect is None and signature in seen_signatures:
             continue
         seen_signatures.add(signature)
+        metadata_source = (
+            dict(existing_effect.metadata or {})
+            if existing_effect is not None
+            else dict(base_effect.metadata or {}) if base_effect is not None else {}
+        )
+        for key in (
+            "ui_target_kind",
+            "target_skill_id",
+            "target_skill_category_id",
+            "target_item_id",
+            "target_specialization_id",
+            "legacy_target_kind",
+            "legacy_target_slug",
+            "base_item_effect_id",
+            "condition_text",
+        ):
+            metadata_source.pop(key, None)
+        metadata_source.update(dict(kwargs.get("metadata") or {}))
+        kwargs["metadata"] = metadata_source
         if existing_effect is None:
-            effect = effect_model(**effect_filter, **kwargs)
+            if base_effect is not None:
+                copied_fields = {
+                    field_name: getattr(base_effect, field_name)
+                    for field_name in (
+                        "value_min",
+                        "value_max",
+                        "formula",
+                        "scaling",
+                        "stack_behavior",
+                        "condition_set",
+                        "priority",
+                        "visibility",
+                        "hidden",
+                        "sheet_relevant",
+                    )
+                }
+                copied_fields.update(kwargs)
+                effect = effect_model(**effect_filter, **copied_fields)
+            else:
+                effect = effect_model(**effect_filter, **kwargs)
         else:
             effect = existing_effect
             for field_name, value in kwargs.items():
                 setattr(effect, field_name, value)
         effect.full_clean()
         effect.save()
+        if condition_races is not None:
+            effect.condition_races.set(condition_races)
+        if condition_schools is not None:
+            effect.condition_schools.set(condition_schools)
         kept_effect_ids.add(int(effect.pk))
     stale_ids = [
         effect_id

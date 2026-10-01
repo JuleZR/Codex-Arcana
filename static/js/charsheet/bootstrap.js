@@ -11,7 +11,7 @@ import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20260920a";
 import { initLearningMenu } from "./learning_menu.js?v=20260926a";
 import { initTooltips } from "./tooltip.js?v=20260926d";
-import { initInventoryMenu } from "./inventory_menu.js?v=20260820a";
+import { initInventoryMenu } from "./inventory_menu.js?v=20261001a";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";

@@ -628,6 +628,24 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       if (semanticEffectIds.length) {
         payload.semantic_effect_ids = semanticEffectIds;
       }
+      if (row.dataset.semanticEffectSource) {
+        payload.semantic_effect_source = row.dataset.semanticEffectSource;
+      }
+      const baseItemEffectIds = parseIdList(row.dataset.baseItemEffectIds || "");
+      const baseItemEffectId = Number.parseInt(row.dataset.baseItemEffectId || "0", 10);
+      if (baseItemEffectIds.length) {
+        payload.base_item_effect_ids = baseItemEffectIds;
+      } else if (baseItemEffectId > 0) {
+        payload.base_item_effect_id = baseItemEffectId;
+      }
+      payload.condition_races = Array.from(
+        row.querySelector("[data-magic-condition-races]")?.selectedOptions || [],
+        (option) => Number.parseInt(option.value, 10),
+      ).filter((value) => Number.isInteger(value) && value > 0);
+      payload.condition_schools = Array.from(
+        row.querySelector("[data-magic-condition-schools]")?.selectedOptions || [],
+        (option) => Number.parseInt(option.value, 10),
+      ).filter((value) => Number.isInteger(value) && value > 0);
       if (row.dataset.displayGroup) {
         payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
       }
@@ -799,6 +817,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       row.dataset.semanticEffectIds = parseIdList(
         initialPayload.semantic_effect_ids || [],
       ).join(",");
+      row.dataset.semanticEffectSource = String(initialPayload.semantic_effect_source || "");
+      row.dataset.baseItemEffectId = String(initialPayload.base_item_effect_id || "");
+      row.dataset.baseItemEffectIds = parseIdList(
+        initialPayload.base_item_effect_ids || [],
+      ).join(",");
       row.dataset.displayGroup = initialPayload.display_group == null ? "" : String(initialPayload.display_group);
       row.dataset.displayGroupAppend = initialPayload.display_group_append ? "1" : "0";
       if (targetKindSelect instanceof HTMLSelectElement) {
@@ -828,6 +851,18 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       if (toggleInvertedInput instanceof HTMLInputElement) {
         toggleInvertedInput.checked = Boolean(initialPayload.toggle_state_inverted);
       }
+      [
+        ["[data-magic-condition-races]", initialPayload.condition_races],
+        ["[data-magic-condition-schools]", initialPayload.condition_schools],
+      ].forEach(([selector, selectedValues]) => {
+        const select = row.querySelector(selector);
+        const selectedIds = new Set(parseIdList(selectedValues || []));
+        if (select instanceof HTMLSelectElement) {
+          Array.from(select.options).forEach((option) => {
+            option.selected = selectedIds.has(Number.parseInt(option.value, 10));
+          });
+        }
+      });
       const scaleSource = row.querySelector("[data-magic-scale-source]");
       const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
       if (scaleSource instanceof HTMLSelectElement) {
@@ -865,6 +900,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggle-inverted]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-magic-condition-races]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-magic-condition-schools]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {
       syncMagicEffectRow(row);
       serializeMagicEffects();

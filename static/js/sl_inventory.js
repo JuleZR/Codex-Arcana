@@ -206,6 +206,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (semanticEffectIds.length) {
           payload.semantic_effect_ids = semanticEffectIds;
         }
+        if (row.dataset.semanticEffectSource) {
+          payload.semantic_effect_source = row.dataset.semanticEffectSource;
+        }
+        payload.condition_races = Array.from(
+          row.querySelector("[data-effect-condition-races]")?.selectedOptions || [],
+          (option) => Number.parseInt(option.value, 10),
+        ).filter((value) => Number.isInteger(value) && value > 0);
+        payload.condition_schools = Array.from(
+          row.querySelector("[data-effect-condition-schools]")?.selectedOptions || [],
+          (option) => Number.parseInt(option.value, 10),
+        ).filter((value) => Number.isInteger(value) && value > 0);
         if (row.dataset.displayGroup) {
           payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
         }
@@ -400,6 +411,27 @@ document.addEventListener("DOMContentLoaded", () => {
         if (semanticEffectIds.length) {
           payload.semantic_effect_ids = semanticEffectIds;
         }
+        if (row.dataset.semanticEffectSource) {
+          payload.semantic_effect_source = row.dataset.semanticEffectSource;
+        }
+        const baseItemEffectIds = String(row.dataset.baseItemEffectIds || "")
+          .split(",")
+          .map((rawValue) => Number.parseInt(rawValue.trim(), 10))
+          .filter((value) => Number.isInteger(value) && value > 0);
+        const baseItemEffectId = Number.parseInt(row.dataset.baseItemEffectId || "0", 10);
+        if (baseItemEffectIds.length) {
+          payload.base_item_effect_ids = baseItemEffectIds;
+        } else if (baseItemEffectId > 0) {
+          payload.base_item_effect_id = baseItemEffectId;
+        }
+        payload.condition_races = Array.from(
+          row.querySelector("[data-effect-condition-races]")?.selectedOptions || [],
+          (option) => Number.parseInt(option.value, 10),
+        ).filter((value) => Number.isInteger(value) && value > 0);
+        payload.condition_schools = Array.from(
+          row.querySelector("[data-effect-condition-schools]")?.selectedOptions || [],
+          (option) => Number.parseInt(option.value, 10),
+        ).filter((value) => Number.isInteger(value) && value > 0);
         if (row.dataset.displayGroup) {
           payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
         }
@@ -483,6 +515,11 @@ document.addEventListener("DOMContentLoaded", () => {
       row.dataset.semanticEffectIds = Array.isArray(payload.semantic_effect_ids)
         ? payload.semantic_effect_ids.join(",")
         : "";
+      row.dataset.semanticEffectSource = String(payload.semantic_effect_source || "");
+      row.dataset.baseItemEffectId = String(payload.base_item_effect_id || "");
+      row.dataset.baseItemEffectIds = Array.isArray(payload.base_item_effect_ids)
+        ? payload.base_item_effect_ids.join(",")
+        : "";
       row.dataset.displayGroup = payload.display_group == null ? "" : String(payload.display_group);
       row.dataset.displayGroupAppend = payload.display_group_append ? "1" : "0";
       if (kind && payload.target_kind) kind.value = payload.target_kind;
@@ -493,6 +530,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (displayGroupAppend) displayGroupAppend.checked = Boolean(payload.display_group_append);
       if (toggleable) toggleable.checked = Boolean(payload.toggleable);
       if (toggleInverted) toggleInverted.checked = Boolean(payload.toggle_state_inverted);
+      [
+        ["[data-effect-condition-races]", payload.condition_races],
+        ["[data-effect-condition-schools]", payload.condition_schools],
+      ].forEach(([selector, selectedValues]) => {
+        const select = row.querySelector(selector);
+        const selectedIds = new Set(
+          (Array.isArray(selectedValues) ? selectedValues : [])
+            .map((rawValue) => Number.parseInt(rawValue, 10))
+            .filter((selectedId) => Number.isInteger(selectedId) && selectedId > 0),
+        );
+        Array.from(select?.options || []).forEach((option) => {
+          option.selected = selectedIds.has(Number.parseInt(option.value, 10));
+        });
+      });
       const scaleSource = row.querySelector("[data-effect-scale-source]");
       const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
       if (scaleSource) scaleSource.value = payload.scale_source || "";
