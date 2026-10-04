@@ -5753,6 +5753,8 @@ def _trait_display_name(trait: Trait, specification: str) -> str:
     """Return the character-sheet label for a specified trait."""
     if trait.slug == "adv_guild_membership" and specification:
         return f"Mitglied der {specification}"
+    if specification:
+        return f"{trait.name}: {specification}"
     return trait.name
 
 
