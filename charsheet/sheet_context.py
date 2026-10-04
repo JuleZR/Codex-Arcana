@@ -5053,26 +5053,31 @@ def _build_skill_modifier_rows(
                 }
             )
     if skill_id is not None:
-        choice_bonus = int(engine._resolve_choice_skill_bonus(skill_id))
-        if choice_bonus:
-            rows.append(
-                {
-                    "label": "Auswahlbonus",
-                    "value": format_modifier(choice_bonus),
-                    "source": "Auswahl",
-                    "tone": "modifier",
-                }
+        choice_explanation = []
+        for technique in engine._choice_bonus_techniques:
+            state = engine._technique_state_map.get(technique.id)
+            if state is None or not (
+                state["learned"]
+                and state["available"]
+                and state["engine_resolves_effects"]
+            ):
+                continue
+            if technique.choice_target_kind != Technique.ChoiceTargetKind.SKILL:
+                continue
+            for choice in engine.technique_choices(technique):
+                if choice.selected_skill_id == skill_id:
+                    choice_explanation.append({
+                        "source_type": "technique",
+                        "source_id": technique.id,
+                        "resolved_value": technique.choice_bonus_value,
+                    })
+        choice_explanation.extend(
+            {**entry, "notes": ""}
+            for entry in engine.modifier_engine.explain_choice_skill_modifiers(
+                skill_id, specification=specification,
             )
-        choice_modifiers = int(engine._resolve_choice_skill_modifiers(skill_id, specification=specification))
-        if choice_modifiers:
-            rows.append(
-                {
-                    "label": "Auswahl-Mod.",
-                    "value": format_modifier(choice_modifiers),
-                    "source": "Auswahl",
-                    "tone": "modifier",
-                }
-            )
+        )
+        rows.extend(_build_grouped_explanation_rows(engine, choice_explanation))
     return rows
 
 
@@ -7031,13 +7036,24 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         .select_related("technique")
         .order_by("technique__name")
     )
+
+    def technique_entry_name(technique, specification_value):
+        details = (
+            [specification_value or "*"] if technique.has_specification else []
+        )
+        details.extend(
+            dict.fromkeys(
+                choice.selected_target_display()
+                for choice in engine.technique_choices(technique)
+            )
+        )
+        return technique.name + (f": {', '.join(details)}" if details else "")
+
     for race_link in race_techniques:
         technique = race_link.technique
         learned_technique = learned_techniques_by_technique_id.get(technique.id)
         specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
-        entry_name = technique.name
-        if technique.has_specification:
-            entry_name = f"{technique.name}: {specification_value or '*'}"
+        entry_name = technique_entry_name(technique, specification_value)
         school_technique_rows.append(
             {
                 "kind": "race_technique",
@@ -7088,15 +7104,11 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 if technique.acquisition_type == Technique.AcquisitionType.CHOICE and learned_technique is None:
                     continue
                 specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
-                entry_name = technique.name
-                if technique.has_specification:
-                    entry_name = f"{technique.name}: {specification_value or '*'}"
+                entry_name = technique_entry_name(technique, specification_value)
                 selected_specializations = technique_specialization_names.get(technique.id, [])
                 selected_specialization_descriptions = technique_specialization_descriptions.get(technique.id, [])
                 description_text = technique.description
                 if selected_specializations:
-                    rendered_specializations = ", ".join(selected_specializations)
-                    entry_name = f"{rendered_specializations} ({technique.name})"
                     if selected_specialization_descriptions:
                         description_text = "\n\n".join(selected_specialization_descriptions)
                 daemonic_power = daemonic_powers_by_technique_id.get(technique.id)

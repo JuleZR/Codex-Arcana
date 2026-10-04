@@ -510,25 +510,32 @@ class ModifierEngine:
                 effect.technique_id
             )
         )
-        if learned_technique is None:
-            return modifier
-
         specification = " ".join(
-            str(learned_technique.specification_value or "").split()
+            str(
+                getattr(learned_technique, "specification_value", "") or ""
+            ).split()
         )
-        if not specification or specification == "*":
-            return modifier
-
+        if not effect.technique.has_specification:
+            specification = ""
         metadata = dict(modifier.metadata or {})
-        metadata["technique_specification"] = specification
+        if specification and specification != "*":
+            metadata["technique_specification"] = specification
         condition_text = " ".join(
             str(metadata.get("condition_text") or "").split()
         )
         if "@" in condition_text:
-            metadata["condition_text"] = condition_text.replace(
-                "@",
-                specification,
-            )
+            replacement = specification if specification != "*" else ""
+            if not replacement:
+                replacement = ", ".join(dict.fromkeys(
+                    choice.selected_target_display()
+                    for choice in self.character_engine.technique_choices(
+                        effect.technique_id,
+                    )
+                ))
+            if replacement:
+                metadata["condition_text"] = condition_text.replace(
+                    "@", replacement,
+                )
 
         return replace(modifier, metadata=metadata)
 
@@ -661,9 +668,66 @@ class ModifierEngine:
             and self._modifier_matches_race_condition(modifier)
             and self._modifier_matches_school_condition(modifier)
         ]
+        result = self._career_max_modifiers(result, context=context)
         if not context:
             self._active_modifiers_cache = result
         return result
+
+    def _career_max_modifiers(self, modifiers, *, context=None):
+        """Keep the higher applicable bonus across careers."""
+        if self.character_engine is None:
+            return modifiers
+        groups = {}
+        for modifier in modifiers:
+            if (
+                modifier.source_type != "technique"
+                or modifier.operator != ModifierOperator.FLAT_ADD
+            ):
+                continue
+            if not self._modifier_matches_condition_text(
+                modifier, context or {}
+            ):
+                continue
+            if not self._modifier_matches_item_context(
+                modifier,
+                target_domain=modifier.target_domain,
+                context=context,
+            ):
+                continue
+            step = self.character_engine._career_steps_by_technique.get(
+                int(modifier.source_id)
+            )
+            if step is None:
+                continue
+            value = self._resolve_numeric_modifier(modifier)
+            if value is None or value <= 0:
+                continue
+            key = (
+                step.path.school_id,
+                modifier.target_domain,
+                modifier.target_key,
+                modifier.metadata.get("technique_specification"),
+                modifier.metadata.get("skill_specification"),
+            )
+            groups.setdefault(key, {}).setdefault(step.path_id, []).append(
+                (modifier, value)
+            )
+        excluded = set()
+        for careers in groups.values():
+            if len(careers) < 2:
+                continue
+            best = max(
+                careers,
+                key=lambda path_id: sum(
+                    value for _, value in careers[path_id]
+                ),
+            )
+            for path_id, entries in careers.items():
+                if path_id != best:
+                    excluded.update(id(modifier) for modifier, _ in entries)
+        return [
+            modifier for modifier in modifiers if id(modifier) not in excluded
+        ]
 
     def resolve_numeric_total(
         self,
@@ -994,7 +1058,7 @@ class ModifierEngine:
             and TargetResolver.matches_context(modifier, context)
         ]
         for modifier in sorted(
-            relevant_modifiers,
+            self._career_max_modifiers(relevant_modifiers),
             key=lambda entry: (entry.priority, entry.source_type, entry.source_id),
         ):
             if modifier.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
@@ -1300,9 +1364,21 @@ class ModifierEngine:
 
         resolved_total = 0
         seen_unique_sources: set[tuple[str, str, str, str]] = set()
-        for modifier in sorted(relevant_modifiers, key=lambda entry: (entry.priority, entry.source_type, entry.source_id)):
+        for modifier in sorted(
+            self._career_max_modifiers(relevant_modifiers),
+            key=lambda entry: (
+                entry.priority,
+                entry.source_type,
+                entry.source_id,
+            ),
+        ):
             if modifier.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
-                dedupe_key = (modifier.source_type, modifier.source_id, modifier.target_domain, modifier.target_key)
+                dedupe_key = (
+                    modifier.source_type,
+                    modifier.source_id,
+                    modifier.target_domain,
+                    modifier.target_key,
+                )
                 if dedupe_key in seen_unique_sources:
                     continue
                 seen_unique_sources.add(dedupe_key)
@@ -1466,10 +1542,25 @@ class ModifierEngine:
         specification: str | None = None,
     ) -> int:
         """Resolve choice-bound skill modifiers from migrated typed modifiers."""
-        if self.character_engine is None:
-            return 0
+        return sum(
+            int(entry["resolved_value"] or 0)
+            for entry in self.explain_choice_skill_modifiers(
+                skill_id, context=context, specification=specification,
+            )
+        )
 
-        total = 0
+    def explain_choice_skill_modifiers(
+        self,
+        skill_id: int,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return the sources used to resolve choice-bound skill modifiers."""
+        if self.character_engine is None:
+            return []
+
+        rows: list[dict[str, Any]] = []
         for modifier in self.collect_active_modifiers(context=context):
             if modifier.target_domain != TargetDomain.SKILL:
                 continue
@@ -1490,8 +1581,13 @@ class ModifierEngine:
                 )
                 for choice in choices
             ):
-                total += int(self._resolve_numeric_modifier(modifier) or 0)
-        return total
+                rows.append({
+                    "source_type": modifier.source_type,
+                    "source_id": modifier.source_id,
+                    "resolved_value": self._resolve_numeric_modifier(modifier),
+                    "notes": modifier.notes,
+                })
+        return rows
 
     def _modifier_matches_skill_specification(
         self,
@@ -1624,7 +1720,17 @@ class ModifierEngine:
         gate_school_id = self._modifier_gate_school_id(modifier)
         if gate_school_id is None:
             return False
-        return self.character_engine.school_level(gate_school_id) >= int(min_school_level)
+        if modifier.source_type == "technique":
+            step = self.character_engine._career_steps_by_technique.get(
+                int(modifier.source_id)
+            )
+            if step:
+                return self.character_engine.career_path_level(
+                    step.path
+                ) >= int(min_school_level)
+        return self.character_engine.school_level(gate_school_id) >= int(
+            min_school_level
+        )
 
     def _expand_choice_bound_modifiers(self, modifiers: list[BaseModifier]) -> list[BaseModifier]:
         """Expand choice-bound modifiers into concrete target-key instances."""
@@ -1705,6 +1811,12 @@ class ModifierEngine:
         if self.character_engine is None:
             return None
         if scale_source == "school_level":
+            if modifier.source_type == "technique":
+                step = self.character_engine._career_steps_by_technique.get(
+                    int(modifier.source_id)
+                )
+                if step:
+                    return self.character_engine.career_path_level(step.path)
             gate_school_id = self._modifier_gate_school_id(modifier)
             if not gate_school_id:
                 return None

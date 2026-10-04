@@ -794,10 +794,18 @@ class CharacterTechnique(models.Model):
                 character_id=self.character_id,
                 school_id=self.technique.school_id,
             ).first()
-            if selected_path and selected_path.path_id != self.technique.path_id:
-                raise ValidationError(
-                    {"technique": "The persisted school path does not allow this technique."}
-                )
+            if (
+                selected_path
+                and selected_path.path_id != self.technique.path_id
+            ):
+                if not self.character.career_path_purchases.filter(
+                    step__technique_id=self.technique_id
+                ).exists():
+                    raise ValidationError(
+                        {
+                            "technique": "The persisted school path does not allow this technique."
+                        }
+                    )
 
     def __str__(self) -> str:
         return f"{self.character.name} learned {self.technique.name}"
@@ -941,9 +949,12 @@ class CharacterTechniqueChoice(models.Model):
                     school_id=self.technique.school_id,
                 ).first()
                 if selected_path and selected_path.path_id != self.technique.path_id:
-                    raise ValidationError(
-                        {"technique": "The character's persisted school path does not allow this technique choice."}
-                    )
+                    if not self.character.career_path_purchases.filter(
+                        step__technique_id=self.technique_id,
+                    ).exists():
+                        raise ValidationError({
+                            "technique": "Die Laufbahn erlaubt diese Technikwahl nicht.",
+                        })
             if self.definition_id:
                 existing_count = (
                     CharacterTechniqueChoice.objects.filter(

@@ -460,6 +460,7 @@ class CharacterEngine:
     def _choice_skill_bonus_by_skill_id(self) -> dict[int, int]:
         """Index fixed choice-based bonuses by selected skill id."""
         totals: DefaultDict[int, int] = defaultdict(int)
+        career_totals = {}
         for technique in self._choice_bonus_techniques:
             state = self._technique_state_map.get(technique.id)
             if state is None or not (
@@ -472,7 +473,20 @@ class CharacterEngine:
                 continue
             for choice in self.technique_choices(technique):
                 if choice.selected_skill_id is not None:
-                    totals[choice.selected_skill_id] += technique.choice_bonus_value
+                    step = self._career_steps_by_technique.get(technique.id)
+                    if step:
+                        key = (step.path.school_id, choice.selected_skill_id)
+                        paths = career_totals.setdefault(key, {})
+                        paths[step.path_id] = (
+                            paths.get(step.path_id, 0)
+                            + technique.choice_bonus_value
+                        )
+                    else:
+                        totals[
+                            choice.selected_skill_id
+                        ] += technique.choice_bonus_value
+        for (_, skill_id), paths in career_totals.items():
+            totals[skill_id] += max(paths.values())
         return dict(totals)
 
     @cached_property
@@ -1480,11 +1494,51 @@ class CharacterEngine:
         selected_path: SchoolPath | None = None,
     ) -> bool:
         """Check whether the current path choice permits the technique."""
+        step = self._career_steps_by_technique.get(technique.id)
+        if step and (
+            selected_path is None or selected_path.id != step.path_id
+        ):
+            if not technique.path_id:
+                return True
+            return (
+                technique.id in self._purchased_career_technique_ids
+                and self.school_level(step.path.school_id)
+                >= step.path.required_school_level
+            )
         if not technique.path_id:
             return True
         if selected_path is None:
             selected_path = self.selected_school_path(technique.school_id)
-        return selected_path is not None and selected_path.id == technique.path_id
+        return (
+            selected_path is not None and selected_path.id == technique.path_id
+        )
+
+    @cached_property
+    def _career_steps_by_technique(self):
+        from charsheet.career_paths import synchronize_career_paths
+        from charsheet.models import CareerPathTechnique
+
+        synchronize_career_paths(self._school_entries)
+        return {
+            step.technique_id: step
+            for step in CareerPathTechnique.objects.filter(
+                path__additional_progression=True,
+                path__school_id__in=self._school_entries,
+            ).select_related("path")
+        }
+
+    @cached_property
+    def _purchased_career_technique_ids(self):
+        return set(
+            self.character.career_path_purchases.filter(
+                step__isnull=False,
+            ).values_list("step__technique_id", flat=True)
+        )
+
+    def career_path_level(self, path):
+        from charsheet.career_paths import effective_level
+
+        return effective_level(self.character, path)
 
     def _requirements_met(
         self,
@@ -1502,6 +1556,16 @@ class CharacterEngine:
         school_level = self.school_level(technique.school_id) if school_level is None else school_level
         selected_path = self.selected_school_path(technique.school_id) if selected_path is None else selected_path
         requirements = technique.requirements.all()
+        step = self._career_steps_by_technique.get(technique.id)
+        if step and not technique.path_id:
+            for earlier in step.path.career_steps.filter(
+                order__lt=step.order
+            ).select_related("technique"):
+                if not self._has_technique_learned(
+                    earlier.technique, learned_stack, available_stack
+                ):
+                    self._technique_requirement_cache[technique.id] = False
+                    return False
         # Each TechniqueRequirement row is one atomic requirement. All rows must pass.
         for requirement in requirements:
             if (
@@ -1511,13 +1575,30 @@ class CharacterEngine:
                 self._technique_requirement_cache[technique.id] = False
                 return False
             if requirement.required_path_id is not None:
-                if selected_path is None or selected_path.id != requirement.required_path_id:
+                path_level = self.career_path_level(requirement.required_path)
+                if (
+                    selected_path is None
+                    or selected_path.id != requirement.required_path_id
+                ) and path_level <= 0:
                     self._technique_requirement_cache[technique.id] = False
                     return False
-            if requirement.required_technique_id is not None and not self._has_technique_learned(
-                requirement.required_technique,
-                learned_stack,
-                available_stack,
+                minimum = max(
+                    (row.minimum_school_level or 0 for row in requirements),
+                    default=0,
+                )
+                if path_level < minimum and (
+                    selected_path is None
+                    or selected_path.id != requirement.required_path_id
+                ):
+                    self._technique_requirement_cache[technique.id] = False
+                    return False
+            if (
+                requirement.required_technique_id is not None
+                and not self._has_technique_learned(
+                    requirement.required_technique,
+                    learned_stack,
+                    available_stack,
+                )
             ):
                 self._technique_requirement_cache[technique.id] = False
                 return False
@@ -1553,6 +1634,20 @@ class CharacterEngine:
         resolved = any(
             self._has_technique_learned(excluded, learned_stack, available_stack)
             for excluded in excluded_techniques
+            if not self._different_career_paths(technique, excluded)
         )
         self._technique_exclusion_cache[technique.id] = resolved
         return resolved
+
+    def _different_career_paths(self, technique, excluded):
+        """Mastery permits other configured careers while retaining within-path exclusions."""
+        step = self._career_steps_by_technique.get(technique.id)
+        other = self._career_steps_by_technique.get(excluded.id)
+        return bool(
+            step
+            and other
+            and step.path_id != other.path_id
+            and step.path.school_id == other.path.school_id
+            and self.school_level(step.path.school_id)
+            >= step.path.required_school_level
+        )

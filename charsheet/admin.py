@@ -119,6 +119,7 @@ from .models import (
     CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
+    CareerPathTechnique,
     CharacterSpecialization,
     CharacterSpecializationChoice,
     SpecializationChoiceDefinition,
@@ -6287,6 +6288,12 @@ class ShieldStatsAdmin(admin.ModelAdmin):
         return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
 
 
+class CareerPathTechniqueInline(admin.TabularInline):
+    model = CareerPathTechnique
+    extra = 0
+    autocomplete_fields = ("technique",)
+
+
 @admin.register(SchoolPath)
 class SchoolPathAdmin(admin.ModelAdmin):
     """Admin configuration for school specialization paths."""
@@ -6296,6 +6303,7 @@ class SchoolPathAdmin(admin.ModelAdmin):
     list_filter = ("school__type", "school")
     ordering = ("school", "name")
     autocomplete_fields = ("school",)
+    inlines = (CareerPathTechniqueInline,)
     list_select_related = ("school", "school__type")
 
     @admin.display(ordering="school__type__name", description="School Type")

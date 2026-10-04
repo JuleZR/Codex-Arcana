@@ -135,6 +135,8 @@ from .transfers import (
     ItemTransferNotification,
 )
 from .progression import (
+    CareerPathTechnique,
+    CharacterCareerPathPurchase,
     CharacterAdvancedBonus,
     CharacterSchool,
     CharacterSchoolPath,
@@ -179,6 +181,8 @@ from .techniques import (
 )
 
 __all__ = [
+    "CareerPathTechnique",
+    "CharacterCareerPathPurchase",
     "ArmorStats",
     "AccountSecurityEvent",
     "AuthenticationThrottle",

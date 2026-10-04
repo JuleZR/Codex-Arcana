@@ -58,6 +58,7 @@ def calculate_initiative(engine) -> int:
 def calculate_arcane_power(engine) -> int:
     """Calculate the character's arcane power value."""
     from charsheet.advanced_specializations import arcane_power_bonus
+    from charsheet.career_paths import arcane_power_bonus as career_arcane_power_bonus
 
     willpower = engine.attributes().get(ATTR_WILL, 0)
     school_levels = sum(entry.level for entry in engine._school_entries.values())
@@ -67,9 +68,20 @@ def calculate_arcane_power(engine) -> int:
         if entry.is_bonus_aspect
     )
     lesson_levels = engine.character.learned_lessons.count()
+    advanced_runes = (
+        sum(
+            1 for entry in engine._weapon_mastery_arcana_entries
+            if entry.paid_ep and entry.kind == "rune"
+        )
+        if engine._weapon_master_school_entry
+        and engine._weapon_master_school_entry.level == 10
+        else 0
+    )
     return (
         willpower + school_levels + aspect_levels + lesson_levels
+        + advanced_runes
         + arcane_power_bonus(engine.character)
+        + career_arcane_power_bonus(engine.character)
         + engine._resolve_stat_modifiers(ARCANE_POWER)
     )
 

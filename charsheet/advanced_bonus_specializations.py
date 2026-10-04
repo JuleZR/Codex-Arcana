@@ -259,9 +259,19 @@ def configured_options(character):
 
 
 def learning_context(character):
+    options = list(configured_options(character).values())
+    for option in options:
+        if (
+            option["school_name"] == "Bardenschule"
+            and option["name"] == "Musisches Talent"
+        ):
+            option["name"] = "Musikalisches Talent"
     return {
-        "learn_advanced_bonus_options": list(
-            configured_options(character).values()
+        "learn_advanced_bonus_options": sorted(
+            options,
+            key=lambda option: (
+                option["school_name"], option["name"], option["label"],
+            ),
         )
     }
 

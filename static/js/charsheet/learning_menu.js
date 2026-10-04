@@ -16,7 +16,27 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   const isNpc = () => document.getElementById("learnBudgetPanel")?.getAttribute("data-is-npc") === "1";
   const getUsedExperience = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-used-experience") || "0", 0);
   let newSpecCounter = 0;
+  const weaponSources = new Map(Array.from(form.querySelectorAll('[data-learn-source][data-kind="advanced-weapon"]'))
+    .map((source) => [source.getAttribute("data-key"), source]));
   const getRows = () => Array.from(cartBody.querySelectorAll("[data-learn-cart-item]"));
+  const careerSources = Array.from(form.querySelectorAll("[data-career-path]"));
+  const syncCareerCart = () => {
+    const selected = new Map(getRows().filter((row) => readInt(row.querySelector("[data-learn-value]")?.value, 0) > 0)
+      .map((row) => [row.querySelector("[data-learn-hidden]")?.name, row]));
+    careerSources.forEach((source) => {
+      const name = source.getAttribute("data-input-name");
+      const previous = source.getAttribute("data-career-previous");
+      const prerequisiteMet = !previous || selected.has(previous);
+      if (!prerequisiteMet && selected.has(name)) {
+        selected.get(name).remove();
+        selected.delete(name);
+      }
+      const available = prerequisiteMet && !selected.has(name);
+      source.dataset.careerAvailable = available ? "1" : "0";
+      source.hidden = !available;
+    });
+    form.dispatchEvent(new CustomEvent("learn:career-updated"));
+  };
   const ensureEmptyRow = () => {
     const emptyRow = cartBody.querySelector("[data-learn-empty-row]");
     if (emptyRow) {
@@ -306,12 +326,31 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
-    } else if (["brew", "advanced-buy", "advanced-remove", "advanced-bonus"].includes(kind)) {
+    } else if (["brew", "advanced-buy", "advanced-remove", "advanced-bonus", "advanced-weapon"].includes(kind)) {
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, 0, readInt(row.getAttribute("data-max"), 1));
       cost = value * readInt(row.getAttribute("data-unit-cost"), 0);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
+      }
+      if (kind === "advanced-weapon" && infoEl) {
+        const sideChoice = row.querySelector("[data-advanced-weapon-side]");
+        const side = sideChoice
+          ? (sideChoice.checked ? "damage" : "maneuver")
+          : row.getAttribute("data-first-bonus");
+        const steps = readInt(row.getAttribute("data-maneuver"), 0)
+          + readInt(row.getAttribute("data-damage"), 0) + value;
+        const first = Math.ceil(steps / 2);
+        const second = Math.floor(steps / 2);
+        const bonus = side === "damage"
+          ? `+${second} / +${first}`
+          : `+${first} / +${second}`;
+        infoEl.textContent = bonus;
+        const sourceBonus = weaponSources.get(row.getAttribute("data-key"))
+          ?.querySelector("[data-advanced-weapon-bonus]");
+        if (sourceBonus) {
+          sourceBonus.textContent = bonus;
+        }
       }
     } else if (kind === "magic-aspect") {
       const base = readInt(row.getAttribute("data-base"), 0);
@@ -357,6 +396,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   };
 
   const refreshTotals = () => {
+    syncCareerCart();
+    weaponSources.forEach((source) => {
+      const bonus = source.querySelector("[data-advanced-weapon-bonus]");
+      if (bonus) {
+        bonus.textContent = `+${readInt(source.getAttribute("data-maneuver"), 0)} / +${readInt(source.getAttribute("data-damage"), 0)}`;
+      }
+    });
     let spent = 0;
     let spentSpellSlots = 0;
     let spentBrewSlots = 0;
@@ -534,6 +580,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const decBtn = row.querySelector("[data-learn-step-dec]");
     const incBtn = row.querySelector("[data-learn-step-inc]");
     const vampirePowerWeaknessChoice = row.querySelector("[data-vampire-power-weakness-choice]");
+    const weaponSide = row.querySelector("[data-advanced-weapon-side]");
+    if (weaponSide instanceof HTMLInputElement) {
+      weaponSide.addEventListener("change", refreshTotals);
+    }
 
     if (valueInput instanceof HTMLInputElement) {
       valueInput.addEventListener("input", refreshTotals);
@@ -997,15 +1047,31 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       return row;
     }
 
-    if (["brew", "advanced-buy", "advanced-remove", "advanced-bonus"].includes(kind)) {
+    if (["brew", "advanced-buy", "advanced-remove", "advanced-bonus", "advanced-weapon"].includes(kind)) {
       const itemId = source.getAttribute("data-id") || "";
       const unitCost = readInt(source.getAttribute("data-unit-cost"), 0);
       const max = readInt(source.getAttribute("data-max"), 1);
       const inputName = source.getAttribute("data-input-name") || `learn_brew_${itemId}`;
       row.setAttribute("data-unit-cost", String(unitCost));
       row.setAttribute("data-max", String(max));
+      let sideChoice = "";
+      if (kind === "advanced-weapon") {
+        for (const attribute of ["data-maneuver", "data-damage", "data-first-bonus"]) {
+          row.setAttribute(attribute, source.getAttribute(attribute) || "");
+        }
+        if (source.getAttribute("data-new") === "1") {
+          sideChoice = `
+            <label class="learn_weapon_side_switch" title="Startbonus wählen">
+              <input type="checkbox" name="${escapeHtml(source.getAttribute("data-side-name") || "")}" value="damage" data-advanced-weapon-side aria-label="Schaden zuerst">
+              <span class="learn_weapon_side_switch__track" aria-hidden="true"><span>Manöver</span><span>Schaden</span></span>
+            </label>`;
+        }
+      }
+      const displayName = source.hasAttribute("data-career-path")
+        ? `<strong>${escapeHtml(source.getAttribute("data-career-name") || "")}:</strong> ${escapeHtml(source.getAttribute("data-career-technique") || "")}`
+        : `<span>${safeName}</span>`;
       row.innerHTML = `
-        <td><span>${safeName}</span><input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden></td>
+        <td>${displayName}${kind === "advanced-weapon" ? `<div class="learn_weapon_cart_bonus"><span data-learn-level-info></span>${sideChoice}</div>` : ""}<input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             ${max > 1 ? '<button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Anzahl verringern">-</button>' : ""}
@@ -1054,6 +1120,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   };
 
   const addFromSource = (source) => {
+    if (source.dataset.careerAvailable === "0") {
+      return;
+    }
     const key = source.getAttribute("data-key") || "";
     const kind = source.getAttribute("data-kind") || "";
     if (!key && kind !== "skill-new-spec") {
@@ -1286,11 +1355,17 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       const matchesGrade = !activeMagicGradeFilter
         || kind !== "magic-spell"
         || String(row.getAttribute("data-level") || "") === activeMagicGradeFilter;
-      row.hidden = !(matchesText && matchesSource && matchesGrade);
+      row.hidden = !(matchesText && matchesSource && matchesGrade && row.dataset.careerAvailable !== "0");
     });
     Array.from(document.querySelectorAll("[data-learn-group]")).forEach((group) => {
       const visible = Array.from(group.querySelectorAll("tr[data-learn-source]")).some((row) => !row.hidden);
       group.hidden = !visible;
+      if (group.querySelector("[data-career-path]")) {
+        const count = group.querySelector(".shop_group_count");
+        if (count) {
+          count.textContent = String(Array.from(group.querySelectorAll("[data-career-path]")).filter((row) => !row.hidden).length);
+        }
+      }
       if ((needle || activeMagicSourceFilter || activeMagicGradeFilter) && visible && group instanceof HTMLDetailsElement) {
         group.open = true;
       } else if (!needle && !activeMagicSourceFilter && !activeMagicGradeFilter && group instanceof HTMLDetailsElement) {
@@ -1367,7 +1442,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       closeMagicFilterMenus();
     }
   });
-  syncMagicFilterButtons();
+  form.addEventListener("learn:career-updated", applyLearningFilters);
+  applyLearningFilters();
 
   return { cartController, choiceController };
 }

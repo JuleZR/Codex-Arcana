@@ -59,4 +59,13 @@ def school_max_levels() -> dict[int, int]:
     # Explicit overrides (also covers schools with no techniques)
     for school in School.objects.filter(max_level__isnull=False).values("id", "max_level"):
         caps[int(school["id"])] = max(1, int(school["max_level"]))
+    for school_id in School.objects.filter(
+        name__iexact="Waffenmeister",
+    ).values_list("id", flat=True):
+        caps[school_id] = 10
+    for school_id in School.objects.filter(
+        paths__techniques__isnull=False,
+        type__slug__in=["combat", "school_combat"],
+    ).values_list("id", flat=True).distinct():
+        caps[school_id] = min(caps.get(school_id, 10), 10)
     return caps

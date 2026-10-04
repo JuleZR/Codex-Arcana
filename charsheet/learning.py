@@ -17,6 +17,10 @@ from charsheet.advanced_bonus_specializations import (
     apply_submission as apply_advanced_bonuses,
     plan_submission as plan_advanced_bonuses,
 )
+from charsheet.advanced_weapon_mastery import (
+    apply_submission as apply_advanced_weapon_mastery,
+    plan_submission as plan_advanced_weapon_mastery,
+)
 from charsheet.learning_progression import build_learning_progression_context
 from charsheet.learning_progression import build_learning_magic_groups
 from charsheet.learning_rules import (
@@ -46,6 +50,7 @@ from charsheet.models import (
     CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
+    SchoolPath,
     CharacterSpell,
     CharacterSpecialization,
     CharacterSpecializationChoice,
@@ -117,6 +122,7 @@ def _is_checked(post_data, name: str) -> bool:
 def _has_progression_inputs(post_data) -> bool:
     """Return whether the form contains non-EP progression selections."""
     prefixes = (
+        "learn_career_path_",
         "learn_school_path_",
         "learn_take_technique_",
         "learn_specialization_pick_",
@@ -394,10 +400,19 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
     for row in progression_context["learn_choice_rows"]:
         if not row["supported"]:
             continue
-        raw_value = str(post_data.get(row["field_name"], "")).strip()
+        submitted_field_name = row["field_name"]
+        raw_value = str(post_data.get(submitted_field_name, "")).strip()
+        if (
+            not raw_value
+            and row.get("choice_scope", "technique") == "technique"
+            and "_slot_" in submitted_field_name
+        ):
+            # Keep already open choice forms usable after the slot-name update.
+            submitted_field_name = submitted_field_name.rsplit("_slot_", 1)[0]
+            raw_value = str(post_data.get(submitted_field_name, "")).strip()
         if not raw_value:
             continue
-        dedup_key = (row["field_name"], raw_value)
+        dedup_key = (submitted_field_name, raw_value)
         if dedup_key in saved_field_name_values:
             continue
         saved_field_name_values.add(dedup_key)
@@ -692,13 +707,16 @@ def _reset_invalid_school_progression(character: Character) -> None:
     if weapon_master_school and weapon_master_school.id in learned_school_ids:
         school_entry = CharacterSchool.objects.filter(character=character, school=weapon_master_school).first()
         allowed_count = min(int(getattr(school_entry, "level", 0) or 0), 10)
-        CharacterWeaponMastery.objects.filter(
-            character=character,
-            school=weapon_master_school,
-            pick_order__gt=allowed_count,
-        ).delete()
+        if allowed_count < 10:
+            CharacterWeaponMastery.objects.filter(
+                character=character,
+                school=weapon_master_school,
+                pick_order__gt=allowed_count,
+            ).delete()
         arcana_entries = list(
-            CharacterWeaponMasteryArcana.objects.filter(character=character, school=weapon_master_school).order_by("id")
+            CharacterWeaponMasteryArcana.objects.filter(
+                character=character, school=weapon_master_school, paid_ep=0,
+            ).order_by("id")
         )
         if len(arcana_entries) > allowed_count:
             CharacterWeaponMasteryArcana.objects.filter(
@@ -1211,10 +1229,16 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         bonus_updates, bonus_removals, bonus_cost = plan_advanced_bonuses(
             character, post_data, planned_school_levels,
         )
+        weapon_updates, weapon_removals, weapon_cost = (
+            plan_advanced_weapon_mastery(
+                character, post_data, planned_school_levels,
+            )
+        )
     except ValidationError as exc:
         return "error", " ".join(exc.messages)
     total_cost += advanced_cost
     total_cost += bonus_cost
+    total_cost += weapon_cost
     active_clerical_school_ids = {
         int(school_id)
         for school_id, target_level in planned_school_levels.items()
@@ -1821,7 +1845,30 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                 character, advanced_additions, advanced_removals,
             )
             apply_advanced_bonuses(character, bonus_updates, bonus_removals)
+            apply_advanced_weapon_mastery(
+                character, weapon_updates, weapon_removals,
+            )
             _reset_invalid_school_progression(character)
+            from charsheet.career_paths import purchase as purchase_career_path
+
+            career_cost = 0
+            for key in post_data.keys():
+                if not str(key).startswith("learn_career_path_"):
+                    continue
+                value = str(post_data.get(key, "")).strip()
+                if value != "1":
+                    continue
+                try:
+                    path_id, step_value = (
+                        str(key)
+                        .removeprefix("learn_career_path_")
+                        .split("_", 1)
+                    )
+                    career_cost += purchase_career_path(
+                        character, int(path_id), step_value
+                    )
+                except (ValueError, SchoolPath.DoesNotExist):
+                    raise LearningSubmissionError("Ungültige Laufbahnauswahl.")
             progression_summary = _apply_progression_choices(
                 character, post_data, magic_engine=magic_engine,
             )
@@ -1869,6 +1916,12 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                 )
                 lesson_summary["learned"] += 1
 
+            if not character.is_npc and total_cost > int(
+                character.current_experience
+            ):
+                raise LearningSubmissionError(
+                    "Nicht genug aktuelle EP für diese Lernkosten."
+                )
             if character.is_npc:
                 character.used_experience = max(
                     0,
@@ -1895,14 +1948,16 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         return "error", str(exc)
 
     parts: list[str] = []
-    if total_cost > 0:
-        parts.append(f"{total_cost} EP ausgegeben")
+    if total_cost + career_cost > 0:
+        parts.append(f"{total_cost + career_cost} EP ausgegeben")
     elif total_cost < 0:
         parts.append(f"{abs(total_cost)} EP erstattet")
     if lesson_summary["learned"]:
         parts.append(f"{lesson_summary['learned']} Lektion(en) gelernt")
     if bonus_updates:
         parts.append("Bonus-Spezialisierungen gesteigert")
+    if weapon_updates:
+        parts.append("Waffenmeister-Erweiterungen gelernt")
     if advanced_additions:
         parts.append(
             f"{len(advanced_additions)} zusätzliche Spezialisierung(en) gelernt"

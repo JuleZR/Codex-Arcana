@@ -434,7 +434,7 @@ def build_learning_magic_groups(
                 if spell_id not in display_spells:
                     display_row = {**row, "free_sources": []}
                     display_spells[spell_id] = display_row
-                    display_name = f"{row['filter_source_name']} – Stufe {row['grade']}"
+                    display_name = str(row["filter_source_name"])
                     display_groups.setdefault(display_name, []).append(display_row)
                 if row.get("granted_level"):
                     display_spells[spell_id]["free_sources"].append({
@@ -458,7 +458,9 @@ def build_learning_magic_groups(
         for name, rows in groups.items() if rows
     ]
     return sorted(spell_groups, key=lambda group: (
-        min(int(row.get("grade" if group_by_spell_grade else "granted_level", 1000)) for row in group["rows"]),
+        0 if group_by_spell_grade else min(
+            int(row.get("granted_level", 1000)) for row in group["rows"]
+        ),
         str(group["name"]).casefold(),
     ))
 
@@ -497,7 +499,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
     for entry in learned_school_entries:
         school = entry.school
         selected_path = engine.selected_school_path(school)
-        available_paths = list(school.paths.order_by("name"))
+        available_paths = list(school.paths.filter(additional_only=False).order_by("name"))
         if available_paths and selected_path is None:
             row = {
                 "field_name": f"learn_school_path_{school.id}",
@@ -545,12 +547,17 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             continue
 
         mastered_entries = list(engine._weapon_mastery_entries_by_type.values())
+        normal_mastered_entries = [
+            mastery for mastery in mastered_entries if mastery.pick_order <= 10
+        ]
         required_mastery_count = min(int(entry.level), 10)
-        missing_mastery_count = max(0, required_mastery_count - len(mastered_entries))
+        missing_mastery_count = max(
+            0, required_mastery_count - len(normal_mastered_entries),
+        )
         used_weapon_types = {mastery.effective_weapon_type() for mastery in mastered_entries}
 
         for slot_offset in range(missing_mastery_count):
-            pick_order = len(mastered_entries) + slot_offset + 1
+            pick_order = len(normal_mastered_entries) + slot_offset + 1
             weapon_field_name = f"learn_weapon_mastery_weapon_{school.id}_{pick_order}"
             side_field_name = f"learn_weapon_mastery_side_{school.id}_{pick_order}"
             weapon_options = []
@@ -600,14 +607,19 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
 
         required_arcana_count = min(int(entry.level), 10)
         existing_arcana_entries = list(engine._weapon_mastery_arcana_entries)
-        missing_arcana_count = max(0, required_arcana_count - len(existing_arcana_entries))
+        normal_arcana_count = sum(
+            1 for arcana in existing_arcana_entries if not arcana.paid_ep
+        )
+        missing_arcana_count = max(
+            0, required_arcana_count - normal_arcana_count,
+        )
         used_rune_ids = {
             entry.rune_id
             for entry in existing_arcana_entries
             if getattr(entry, "rune_id", None)
         }
         for slot_offset in range(missing_arcana_count):
-            arcana_index = len(existing_arcana_entries) + slot_offset + 1
+            arcana_index = normal_arcana_count + slot_offset + 1
             field_name = f"learn_weapon_mastery_arcana_{school.id}_{arcana_index}"
             options = [
                 _build_decision_option(
@@ -655,6 +667,22 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             continue
         if state["is_choice_placeholder"]:
             continue
+        career_step = engine._career_steps_by_technique.get(
+            state["technique_id"]
+        )
+        if (
+            career_step
+            and not state["path_id"]
+            and state["school_level"] >= career_step.path.required_school_level
+        ):
+            if (
+                state["required_level"]
+                < career_step.path.required_school_level
+                or character.career_path_purchases.filter(
+                    path_id=career_step.path_id
+                ).exists()
+            ):
+                continue
         technique_choice_states.append(state)
         technique_groups.setdefault(state["school_name"], []).append(
             {
@@ -827,26 +855,37 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             if active_definitions:
                 for definition in active_definitions:
                     existing_count = len([choice for choice in existing_choices if choice.definition_id == definition.id])
-                    required_count = definition.min_choices if definition.is_required else 0
+                    required_count = (
+                        definition.min_choices if definition.is_required else 0
+                    )
                     missing_count = max(0, required_count - existing_count)
                     for missing_index in range(missing_count):
                         row = _build_choice_row(
                             technique=technique,
                             engine=engine,
                             target_kind=definition.target_kind,
-                            label=definition.name,
-                            description=definition.description or technique.selection_notes or "",
+                            label=(
+                                f"{definition.name} "
+                                f"({existing_count + missing_index + 1}/{required_count})"
+                                if required_count > 1
+                                else definition.name
+                            ),
+                            description=definition.description
+                            or technique.selection_notes
+                            or "",
                             definition_id=definition.id,
-                            slot_index=missing_index,
+                            slot_index=existing_count + missing_index,
                             skill_definitions=skill_definitions,
                             skill_categories=skill_categories,
                             item_definitions=item_definitions,
                             item_category_options=item_category_options,
                             allowed_skill_category_id=definition.allowed_skill_category_id,
-                            allowed_skill_family=definition.allowed_skill_family or "",
+                            allowed_skill_family=definition.allowed_skill_family
+                            or "",
                             group_name=technique.school.name,
                         )
                         if row is not None:
+                            row["choice_count"] = required_count
                             choice_groups.setdefault(technique.school.name, []).append(row)
             else:
                 existing_count = len([choice for choice in existing_choices if choice.definition_id is None])
@@ -856,10 +895,15 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         technique=technique,
                         engine=engine,
                         target_kind=technique.choice_target_kind,
-                        label=technique.name,
+                        label=(
+                            f"{technique.name} "
+                            f"({existing_count + missing_index + 1}/{technique.choice_limit})"
+                            if technique.choice_limit > 1
+                            else technique.name
+                        ),
                         description=technique.selection_notes or "",
                         definition_id=None,
-                        slot_index=missing_index,
+                        slot_index=existing_count + missing_index,
                         skill_definitions=skill_definitions,
                         skill_categories=skill_categories,
                         item_definitions=item_definitions,
@@ -869,6 +913,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         group_name=technique.school.name,
                     )
                     if row is not None:
+                        row["choice_count"] = technique.choice_limit
                         choice_groups.setdefault(technique.school.name, []).append(row)
 
     race = character.race
@@ -1094,11 +1139,17 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             decision_kind = "trait_choice"
             decision_title = f"Choice: {row['trait_name']}"
             selection_group_id = f"trait-choice:{row['trait_id']}:{row['definition_id']}"
-            decision_key = f"{row['trait_id']}-{row['definition_id']}-{row['slot_index']}"
+            decision_key = (
+                f"{row['trait_id']}-{row['definition_id']}-{row['slot_index']}"
+            )
         else:
             decision_prefix = "technique-choice"
             decision_kind = "technique_choice"
             decision_title = f"Choice: {row['technique_name']}"
+            if row.get("choice_count", 1) > 1:
+                decision_title += (
+                    f" ({row['slot_index'] + 1}/{row['choice_count']})"
+                )
             if row["target_kind"] == Technique.ChoiceTargetKind.SPECIALIZATION:
                 selection_group_id = f"technique-specialization:{row['school_id']}"
             else:
@@ -1277,6 +1328,8 @@ def _build_choice_row(
     field_name = choice_field_name(target_kind, technique.id, definition_id)
     if target_kind == Technique.ChoiceTargetKind.SPECIALIZATION:
         field_name += f"_{slot_index}"
+    elif field_name and slot_index:
+        field_name += f"_slot_{slot_index}"
     if not field_name:
         return {
             "field_name": "",
@@ -1342,6 +1395,23 @@ def _build_choice_row(
         ]
     elif target_kind == Technique.ChoiceTargetKind.TEXT:
         options = []
+
+    selected_field = {
+        Technique.ChoiceTargetKind.SKILL: "selected_skill_id",
+        Technique.ChoiceTargetKind.SKILL_CATEGORY: "selected_skill_category_id",
+        Technique.ChoiceTargetKind.ITEM: "selected_item_id",
+        Technique.ChoiceTargetKind.ITEM_CATEGORY: "selected_item_category",
+    }.get(target_kind)
+    if selected_field:
+        selected_values = {
+            str(getattr(choice, selected_field))
+            for choice in engine.technique_choices(technique)
+        }
+        options = [
+            option
+            for option in options
+            if str(option["value"]) not in selected_values
+        ]
 
     return {
         "field_name": field_name,

@@ -192,8 +192,15 @@ def learning_context(character):
     from charsheet.advanced_bonus_specializations import (
         learning_context as bonus_learning_context,
     )
+    from charsheet.advanced_weapon_mastery import (
+        learning_context as weapon_learning_context,
+    )
 
     bonus_context = bonus_learning_context(character)
+    weapon_context = weapon_learning_context(character)
+    from charsheet.career_paths import available_purchases
+
+    career_rows = available_purchases(character, include_planned=True)
     options = sorted(
         (
             option
@@ -214,10 +221,15 @@ def learning_context(character):
     ]
     return {
         **bonus_context,
+        **weapon_context,
+        "learn_career_path_rows": career_rows,
         "learn_advanced_options": options,
         "learn_advanced_owned": owned,
         "learn_advanced_tab_visible": bool(
             options or owned or bonus_context["learn_advanced_bonus_options"]
+            or weapon_context["learn_advanced_weapon_masteries"]
+            or weapon_context["learn_advanced_weapon_runes"]
+            or career_rows
         ),
     }
 

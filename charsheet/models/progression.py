@@ -1,7 +1,7 @@
 """School, specialization, and progression models."""
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models, transaction
 
 from ..constants import SCHOOL_ARCANE, SCHOOL_TYPE_CHOICES
@@ -119,33 +119,163 @@ class SchoolPath(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="paths")
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
+    additional_progression = models.BooleanField(default=False)
+    additional_only = models.BooleanField(default=False)
+    required_school_level = models.PositiveSmallIntegerField(
+        default=10, validators=[MinValueValidator(1)]
+    )
+    completion_purchase = models.BooleanField(default=False)
+    ep_cost = models.PositiveSmallIntegerField(default=20)
+    arcane_power_increase = models.PositiveSmallIntegerField(default=1)
 
     class Meta:
         ordering = ["school__name", "name"]
         constraints = [
-            models.UniqueConstraint(fields=["school", "name"], name="uniq_school_path_name")
+            models.UniqueConstraint(
+                fields=["school", "name"], name="uniq_school_path_name"
+            )
         ]
 
     def __str__(self) -> str:
         return f"{self.school.name}: {self.name}"
 
 
+class CareerPathTechnique(models.Model):
+    """An ordered career step reusing normal technique prerequisites."""
+
+    path = models.ForeignKey(
+        SchoolPath, on_delete=models.CASCADE, related_name="career_steps"
+    )
+    technique = models.OneToOneField(
+        "Technique", on_delete=models.PROTECT, related_name="career_step"
+    )
+    order = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    effective_level = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+
+    class Meta:
+        ordering = ["path", "order"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["path", "order"], name="uniq_career_step_order"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(effective_level__lte=10),
+                name="career_level_at_most_ten",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.path_id and self.technique_id:
+            if self.path.school_id != self.technique.school_id:
+                raise ValidationError(
+                    {"technique": "Die Technik muss zur Basisschule gehören."}
+                )
+            if (
+                self.technique.path_id
+                and self.technique.path_id != self.path_id
+            ):
+                raise ValidationError(
+                    {
+                        "technique": "Technik gehört zu einer anderen Laufbahn."
+                    }
+                )
+            others = (
+                type(self)
+                .objects.filter(path_id=self.path_id)
+                .exclude(pk=self.pk)
+            )
+            if (
+                others.filter(
+                    order__lt=self.order,
+                    effective_level__gt=self.effective_level,
+                ).exists()
+                or others.filter(
+                    order__gt=self.order,
+                    effective_level__lt=self.effective_level,
+                ).exists()
+            ):
+                raise ValidationError(
+                    {
+                        "effective_level": "Stufen müssen aufsteigend sein."
+                    }
+                )
+
+    def __str__(self):
+        return (
+            f"{self.path}: {self.technique.name} "
+            f"(Stufe {self.effective_level})"
+        )
+
+
+class CharacterCareerPathPurchase(models.Model):
+    """A null step records the final mastery purchase."""
+
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="career_path_purchases",
+    )
+    path = models.ForeignKey(
+        SchoolPath, on_delete=models.PROTECT, related_name="purchases"
+    )
+    step = models.ForeignKey(
+        CareerPathTechnique, on_delete=models.PROTECT, null=True, blank=True
+    )
+    paid_ep = models.PositiveSmallIntegerField(default=20)
+    arcane_power_increase = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "step"], name="uniq_character_career_step"
+            ),
+            models.UniqueConstraint(
+                fields=["character", "path"],
+                condition=models.Q(step__isnull=True),
+                name="uniq_character_career_completion",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.step_id and self.step.path_id != self.path_id:
+            raise ValidationError(
+                {"step": "Die Technik muss zur Laufbahn gehören."}
+            )
+
+
 class CharacterSchoolPath(models.Model):
     """The selected specialization path of a character within a school."""
 
-    character = models.ForeignKey("Character", on_delete=models.CASCADE, related_name="selected_school_paths")
-    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="character_path_choices")
-    path = models.ForeignKey(SchoolPath, on_delete=models.PROTECT, related_name="character_choices")
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="selected_school_paths",
+    )
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE, related_name="character_path_choices"
+    )
+    path = models.ForeignKey(
+        SchoolPath, on_delete=models.PROTECT, related_name="character_choices"
+    )
 
     class Meta:
         ordering = ["character", "school__type__name", "school__name"]
         constraints = [
-            models.UniqueConstraint(fields=["character", "school"], name="uniq_character_school_path")
+            models.UniqueConstraint(
+                fields=["character", "school"],
+                name="uniq_character_school_path",
+            )
         ]
 
     def clean(self):
         """Validate school ownership and that the character knows the school."""
         super().clean()
+        if self.path_id and self.path.additional_only:
+            raise ValidationError({"path": "Diese Laufbahn wird als zusätzlicher Fortschritt gelernt."})
         if self.path_id and self.school_id and self.path.school_id != self.school_id:
             raise ValidationError({"path": "The selected path must belong to the selected school."})
         if self.character_id and self.school_id and not CharacterSchool.objects.filter(
@@ -430,7 +560,7 @@ class CharacterWeaponMastery(models.Model):
         blank=True,
     )
     pick_order = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        validators=[MinValueValidator(1)],
         help_text="The order in which this concrete weapon was chosen on school levels 1-10.",
     )
     first_bonus_kind = models.CharField(
@@ -439,6 +569,7 @@ class CharacterWeaponMastery(models.Model):
         default=FirstBonusKind.MANEUVER,
         help_text="Whether the first granted point on this weapon went to maneuver or damage.",
     )
+    purchased_steps = models.PositiveSmallIntegerField(default=0)
     learned_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
 
@@ -458,6 +589,11 @@ class CharacterWeaponMastery(models.Model):
     def clean(self):
         """Validate school ownership and weapon-type specific item selection."""
         super().clean()
+        normal_steps = max(0, 11 - self.pick_order)
+        if normal_steps + self.purchased_steps > 10:
+            raise ValidationError({
+                "purchased_steps": "Weapon bonuses cannot exceed +5/+5.",
+            })
         if self.weapon_item_id and self.weapon_item.item_type != self.weapon_item.ItemType.WEAPON:
             raise ValidationError({"weapon_item": "Weapon mastery entries must point at weapon items."})
         if self.weapon_type_id is None and not self.weapon_item_id:
@@ -491,9 +627,9 @@ class CharacterWeaponMastery(models.Model):
 
     def progression_steps(self, school_level: int) -> int:
         """Return how many school-level grants this mastery currently received."""
-        if school_level < self.pick_order:
-            return 0
-        return school_level - self.pick_order + 1
+        normal_steps = max(0, min(school_level, 10) - self.pick_order + 1)
+        advanced_steps = self.purchased_steps if school_level >= 10 else 0
+        return min(10, normal_steps + advanced_steps)
 
     def maneuver_damage_bonus(self, school_level: int) -> tuple[int, int]:
         """Resolve current maneuver/damage bonuses from school level and starting side."""
@@ -530,6 +666,7 @@ class CharacterWeaponMasteryArcana(models.Model):
         related_name="character_weapon_mastery_arcana_entries",
     )
     kind = models.CharField(max_length=30, choices=ArcanaKind.choices)
+    paid_ep = models.PositiveSmallIntegerField(default=0)
     rune = models.ForeignKey(
         "charsheet.Rune",
         on_delete=models.PROTECT,
