@@ -495,7 +495,10 @@ class MagicEngine:
         spent = sum(int(source["spent"]) for source in source_summaries.values())
         summary.update(
             {
-                "magic_levels": sum(int(source["level"]) for source in source_summaries.values()),
+                "magic_levels": sum(
+                    1 if source["kind"] == "school" else int(source["level"])
+                    for source in source_summaries.values()
+                ),
                 "total": total,
                 "spent": spent,
                 "remaining": max(0, total - spent),
@@ -511,21 +514,21 @@ class MagicEngine:
         )
         sources: dict[str, dict[str, object]] = {}
         for entry in self._arcane_school_entries():
-            key = f"school:{entry.school_id}"
-            level = max(0, int(entry.level))
-            sources[key] = {
-                "key": key,
-                "kind": "school",
-                "id": entry.school_id,
-                "name": entry.school.name,
-                "symbol": str(getattr(entry.school, "panel_symbol", "") or "").strip() or "*",
-                "symbol_image_url": self._image_url(getattr(entry.school, "symbol_image", None)),
-                "level": level,
-                "slots_per_level": slots_per_level,
-                "total": level * slots_per_level,
-                "spent": 0,
-                "remaining": level * slots_per_level,
-            }
+            for level in range(1, max(0, int(entry.level)) + 1):
+                key = f"school:{entry.school_id}:level:{level}"
+                sources[key] = {
+                    "key": key,
+                    "kind": "school",
+                    "id": entry.school_id,
+                    "name": f"{entry.school.name} – Stufe {level}",
+                    "symbol": str(getattr(entry.school, "panel_symbol", "") or "").strip() or "*",
+                    "symbol_image_url": self._image_url(getattr(entry.school, "symbol_image", None)),
+                    "level": level,
+                    "slots_per_level": slots_per_level,
+                    "total": slots_per_level,
+                    "spent": 0,
+                    "remaining": slots_per_level,
+                }
         bonus_aspect_ids = CharacterSpell.objects.filter(
             character=self.character, source_kind=CharacterSpell.SourceKind.DIVINE_BONUS,
         ).values_list("spell__aspect_id", flat=True)
@@ -559,10 +562,37 @@ class MagicEngine:
                 CharacterSpell.SourceKind.DIVINE_BONUS,
             ),
         ).select_related("spell")
+        # Reserve explicit grants before assigning older, unbound selections.
+        slot_spells = sorted(slot_spells, key=lambda entry: (entry.granted_for_level is None, -entry.spell.grade, entry.pk))
         for entry in slot_spells:
             spell = entry.spell
             if spell.school_id:
-                key = f"school:{spell.school_id}"
+                if (
+                    entry.source_kind == CharacterSpell.SourceKind.ARCANE_EXTRA
+                    and entry.granted_for_level is None
+                    and entry.notes == "Für 2 EP gelernt."
+                ):
+                    continue
+                if entry.granted_for_level:
+                    key = f"school:{spell.school_id}:level:{entry.granted_for_level}"
+                else:
+                    # Existing slot purchases have no recorded source level.
+                    candidates = [
+                        source for source in sources.values()
+                        if source["kind"] == "school" and source["id"] == spell.school_id
+                        and int(source["level"]) >= int(spell.grade)
+                        and int(source["spent"]) < int(source["total"])
+                    ]
+                    if not candidates:
+                        # Keep historical excess grades from creating new claims.
+                        candidates = [
+                            source for source in sources.values()
+                            if source["kind"] == "school" and source["id"] == spell.school_id
+                            and int(source["spent"]) < int(source["total"])
+                        ]
+                    if not candidates:
+                        continue
+                    key = str(candidates[0]["key"])
             elif spell.aspect_id:
                 key = _aspect_spell_slot_source_key(spell.aspect_id, spell.grade)
             else:
@@ -604,9 +634,11 @@ class MagicEngine:
         slot_sources = self.get_spell_learning_slot_source_summaries()
 
         for school_entry in self._arcane_school_entries():
-            slot_source = slot_sources.get(f"school:{school_entry.school_id}", {})
-            if int(slot_source.get("remaining", 0) or 0) <= 0:
-                continue
+            school_sources = [
+                source for source in slot_sources.values()
+                if source["kind"] == "school" and source["id"] == school_entry.school_id
+                and int(source["remaining"]) > 0
+            ]
             rows: list[dict[str, object]] = []
             spells = (
                 Spell.objects.filter(
@@ -617,28 +649,59 @@ class MagicEngine:
                 .exclude(id__in=known_spell_ids)
                 .order_by("grade", "name")
             )
+            for slot_source in school_sources:
+                rows = []
+                for spell in spells:
+                    if int(spell.grade) > int(slot_source["level"]):
+                        continue
+                    rows.append(
+                        {
+                            "kind": "magic_spell",
+                            "spell_id": spell.id,
+                            "granted_level": int(slot_source["level"]),
+                            "name": spell.name,
+                            "owner_name": school_entry.school.name,
+                            **self._spell_owner_symbol_data(spell),
+                            "filter_source_key": f"school:{spell.school_id}",
+                            "filter_source_name": spell.school.name,
+                            "slot_source_key": str(slot_source.get("key", "")),
+                            "slot_source_name": str(slot_source.get("name", school_entry.school.name)),
+                            "slot_source_remaining": int(slot_source.get("remaining", 0) or 0),
+                            "grade": int(spell.grade),
+                            "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
+                            "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                            "search_tokens": f"{spell.name.lower()}"
+                            f"{school_entry.school.name.lower()} grad {int(spell.grade)} zauber arkane magie",
+                        }
+                    )
+                if rows:
+                    groups[str(slot_source["name"])] = rows
+
+            paid_rows = []
             for spell in spells:
-                rows.append(
-                    {
-                        "kind": "magic_spell",
-                        "spell_id": spell.id,
-                        "name": spell.name,
-                        "owner_name": school_entry.school.name,
-                        **self._spell_owner_symbol_data(spell),
-                        "filter_source_key": f"school:{spell.school_id}",
-                        "filter_source_name": spell.school.name,
-                        "slot_source_key": str(slot_source.get("key", "")),
-                        "slot_source_name": str(slot_source.get("name", school_entry.school.name)),
-                        "slot_source_remaining": int(slot_source.get("remaining", 0) or 0),
-                        "grade": int(spell.grade),
-                        "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
-                        "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                        "search_tokens": f"{spell.name.lower()}"
-                        f"{school_entry.school.name.lower()} grad {int(spell.grade)} zauber arkane magie",
-                    }
-                )
-            if rows:
-                groups[school_entry.school.name] = rows
+                if any(int(spell.grade) <= int(source["level"]) for source in school_sources):
+                    continue
+                paid_rows.append({
+                    "kind": "magic_spell",
+                    "spell_id": spell.id,
+                    "name": spell.name,
+                    "owner_name": school_entry.school.name,
+                    **self._spell_owner_symbol_data(spell),
+                    "filter_source_key": f"school:{spell.school_id}",
+                    "filter_source_name": school_entry.school.name,
+                    "slot_source_key": "",
+                    "slot_source_name": school_entry.school.name,
+                    "slot_source_remaining": 0,
+                    "slot_cost": 0,
+                    "slot_source_cost": 0,
+                    "learning_cost": 2,
+                    "grade": int(spell.grade),
+                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
+                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "search_tokens": f"{spell.name.lower()} {school_entry.school.name.lower()} grad {int(spell.grade)} zauber",
+                })
+            if paid_rows:
+                groups[f"{school_entry.school.name} – Zusatzzauber (2 EP)"] = paid_rows
 
         divine_rows_by_aspect: dict[str, list[dict[str, object]]] = {}
         spells = (
@@ -1191,29 +1254,32 @@ class MagicEngine:
         school_entry = next((entry for entry in self._arcane_school_entries() if entry.school_id == school_id), None)
         if school_entry is None:
             return {"school_id": school_id, "remaining": 0, "options": []}
-        used_free_count = self.character.known_spells.filter(
-            spell__school_id=school_id,
-            source_kind=CharacterSpell.SourceKind.ARCANE_FREE,
-        ).count()
-        capacity = max(0, int(school_entry.level) * 2)
-        remaining = max(0, capacity - used_free_count)
+        sources = [
+            source for source in self.get_spell_learning_slot_source_summaries().values()
+            if source["kind"] == "school" and source["id"] == school_id
+        ]
         known_spell_ids = set(self.character.known_spells.values_list("spell_id", flat=True))
-        options = list(
-            Spell.objects.filter(
-                school_id=school_id,
-                grade__lte=school_entry.level,
-            )
-            .exclude(id__in=known_spell_ids)
-            .order_by("grade", "name")
+        spells = list(
+            Spell.objects.filter(school_id=school_id, grade__lte=school_entry.level, is_divine_extra=False)
+            .exclude(id__in=known_spell_ids).order_by("grade", "name")
         )
+        levels = [
+            {
+                "granted_level": int(source["level"]),
+                "remaining": int(source["remaining"]),
+                "options": [spell for spell in spells if int(spell.grade) <= int(source["level"])],
+            }
+            for source in sources if int(source["remaining"]) > 0
+        ]
         return {
             "school_id": school_id,
             "school_name": school_entry.school.name,
             "school_level": int(school_entry.level),
-            "capacity": capacity,
-            "used": used_free_count,
-            "remaining": remaining,
-            "options": options,
+            "capacity": sum(int(source["total"]) for source in sources),
+            "used": sum(int(source["spent"]) for source in sources),
+            "remaining": sum(int(source["remaining"]) for source in sources),
+            "levels": levels,
+            "options": [spell for spell in spells if any(spell in level["options"] for level in levels)],
         }
 
     def get_available_bonus_spells(self) -> list[dict[str, object]]:

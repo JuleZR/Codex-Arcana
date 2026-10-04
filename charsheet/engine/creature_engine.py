@@ -2890,6 +2890,7 @@ def _creature_card_snapshot_values(creature: Creature, *, quality: Any | None = 
 
 def sync_character_creatures(character) -> list[CharacterCreature]:
     """Create/reactivate/deactivate concrete creature instances for one character."""
+    from charsheet.advanced_specializations import purchases
 
     character_items = list(
         CharacterItem.objects.filter(owner=character, amount__gt=0, stored=False)
@@ -2940,6 +2941,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                         owner=character,
                         source_binding=binding,
                         source_character_item=character_item,
+                        semantic_effect_key="",
                     ).first()
                     if existing is not None:
                         active_creature_ids.add(existing.pk)
@@ -2968,6 +2970,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                         owner=character,
                         source_binding=binding,
                         source_character_technique=source_technique,
+                        semantic_effect_key="",
                     ).first()
                     if existing is not None:
                         active_creature_ids.add(existing.pk)
@@ -3004,6 +3007,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                 source_binding=binding,
                 source_character_item=source["source_character_item"],
                 source_character_technique=source["source_character_technique"],
+                semantic_effect_key="",
                 defaults={
                     "creature": source_creature,
                     "quality": source["quality"],
@@ -3078,6 +3082,16 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                 "label": str(metadata.get("semantic_effect_label") or source_card.display_name)[:160],
             }
 
+    bindings_by_id = {binding.pk: binding for binding in bindings}
+    for entry, data in purchases(character):
+        binding = bindings_by_id.get(data.get("creature_source_binding_id"))
+        if binding is None or binding.technique_trigger_id not in active_technique_ids:
+            continue
+        card_grants[f"advanced-specialization:{entry.pk}"] = {
+            "target": "choice", "label": entry.specialization.name,
+            "source_binding": binding,
+        }
+
     fixed_creature_ids = {
         int(grant["target"])
         for grant in card_grants.values()
@@ -3091,7 +3105,12 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
         source_creature = None if is_choice else fixed_creatures.get(int(grant["target"])) if grant["target"].isdecimal() else None
         if not is_choice and source_creature is None:
             continue
-        quality = source_creature.quality if source_creature is not None else default_quality
+        source_binding = grant.get("source_binding")
+        quality = (
+            source_binding.quality if source_binding is not None
+            else source_creature.quality if source_creature is not None
+            else default_quality
+        )
         budgets = CharacterCreature.training_budget_defaults(quality)
         instance, created = CharacterCreature.objects.get_or_create(
             owner=character,
@@ -3102,6 +3121,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                 "active": True,
                 "semantic_effect_label": grant["label"],
                 "semantic_effect_is_choice": is_choice,
+                "source_binding": source_binding,
                 **budgets,
             },
         )

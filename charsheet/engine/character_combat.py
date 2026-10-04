@@ -19,7 +19,6 @@ from charsheet.constants import (
     POTENTIAL,
     WOUND_PENALTY_MOD,
     WOUND_PENALTY_IGNORE,
-    WOUND_STAGE,
     WOUND_STAGE_DEFINITIONS,
 )
 
@@ -58,6 +57,8 @@ def calculate_initiative(engine) -> int:
 
 def calculate_arcane_power(engine) -> int:
     """Calculate the character's arcane power value."""
+    from charsheet.advanced_specializations import arcane_power_bonus
+
     willpower = engine.attributes().get(ATTR_WILL, 0)
     school_levels = sum(entry.level for entry in engine._school_entries.values())
     aspect_levels = sum(
@@ -66,7 +67,11 @@ def calculate_arcane_power(engine) -> int:
         if entry.is_bonus_aspect
     )
     lesson_levels = engine.character.learned_lessons.count()
-    return willpower + school_levels + aspect_levels + lesson_levels + engine._resolve_stat_modifiers(ARCANE_POWER)
+    return (
+        willpower + school_levels + aspect_levels + lesson_levels
+        + arcane_power_bonus(engine.character)
+        + engine._resolve_stat_modifiers(ARCANE_POWER)
+    )
 
 
 def calculate_potential(engine) -> int:

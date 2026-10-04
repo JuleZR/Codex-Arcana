@@ -582,6 +582,8 @@ class ProgressionRule(models.Model):
             ("spell_choice", "Spell Choice"),
             ("aspect_access", "Aspect Access"),
             ("aspect_spell", "Aspect Spell"),
+            ("advanced_simple", "Zusätzliche einfache Spezialisierung"),
+            ("advanced_bonus", "Bonus-Spezialisierung steigern"),
         ],
     )
     amount = models.PositiveBigIntegerField(default=1)
@@ -592,3 +594,26 @@ class ProgressionRule(models.Model):
 
     def __str__(self):
         return f"{self.school_type} level {self.min_level}+ grants {self.amount} {self.grant_kind}"
+
+
+class CharacterAdvancedBonus(models.Model):
+    """Paid progress for exactly one target of a configured technique."""
+
+    character = models.ForeignKey(
+        "Character", on_delete=models.CASCADE, related_name="advanced_bonuses",
+    )
+    technique = models.ForeignKey("Technique", on_delete=models.PROTECT)
+    target = models.CharField(max_length=255)
+    label = models.CharField(max_length=255)
+    value = models.PositiveSmallIntegerField()
+    base_value = models.PositiveSmallIntegerField(default=0)
+    purchases = models.JSONField(default=list)
+    configuration = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "technique", "target"],
+                name="uniq_character_advanced_bonus_target",
+            ),
+        ]

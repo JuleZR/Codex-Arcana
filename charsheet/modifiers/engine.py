@@ -646,6 +646,9 @@ class ModifierEngine:
             collected.extend(self._active_specialization_semantic_modifiers)
             collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)
+            from charsheet.advanced_bonus_specializations import modifiers
+
+            collected.extend(modifiers(self.character_engine))
             collected.extend(self._active_daemonic_power_modifiers)
             collected.extend(self._active_vampire_trait_modifiers)
             collected.extend(self._active_item_semantic_modifiers)

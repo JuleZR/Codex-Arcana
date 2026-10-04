@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{% if edit_mode %}Charakter bearbeiten{% else %}Geburt einer Legende – Charaktererschaffung{% endif %}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261004traitrank">
   </head>
   <body class="charsheet-page {% if edit_mode %}character_edit_page{% else %}character_creation_page{% endif %}">
     {% if messages %}
@@ -91,7 +91,7 @@
                 {% if draft_phase > 1 %}
                   <section class="attribute_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="properties" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
                     {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Eigenschaft suchen" aria-label="Eigenschaft suchen" data-phase4-direct-filter>{% endif %}
-                    <table class="attribute_table" aria-label="Eigenschaften"><thead><tr><th class="a_header">Eigenschaften</th><th class="a_h_value">Wert</th>{% if draft_phase == 4 %}<th class="a_h_value">Ausbau</th>{% else %}<th class="a_h_value bm">Status</th>{% endif %}</tr></thead><tbody>{% if draft_phase == 4 %}{% for row in phase_4_attr_rows %}<tr data-phase4-direct-row data-search="{{ row.label|lower }}"><td class="attribute">{{ row.label }}</td><td class="value">{{ row.base_value }}</td><td class="mod"><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_value }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="attr" data-key="attr:{{ row.short_name }}"></td></tr>{% endfor %}{% else %}{% for row in phase_1_rows %}<tr><td class="attribute">{{ row.label }}</td><td class="value">{{ row.value }}</td><td class="mod"><span class="mod-badge">&#10003;</span></td></tr>{% endfor %}{% endif %}</tbody></table>
+                    <table class="attribute_table" aria-label="Eigenschaften"><thead><tr><th class="a_header">Eigenschaften</th><th class="a_h_value">Wert</th>{% if draft_phase == 4 %}<th class="a_h_value">Ausbau</th>{% else %}<th class="a_h_value bm">Status</th>{% endif %}</tr></thead><tbody>{% if draft_phase == 4 %}{% for row in phase_4_attr_rows %}<tr data-phase4-direct-row data-search="{{ row.label|lower }}"><td class="attribute">{{ row.label }}</td><td class="value" data-phase4-effective-value data-base="{{ row.base_value }}">{{ row.base_value|add:row.value }}</td><td class="mod"><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_value }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="attr" data-key="attr:{{ row.short_name }}"></td></tr>{% endfor %}{% else %}{% for row in phase_1_rows %}<tr><td class="attribute">{{ row.label }}</td><td class="value">{{ row.value }}</td><td class="mod"><span class="mod-badge">&#10003;</span></td></tr>{% endfor %}{% endif %}</tbody></table>
                   </section>
                 {% endif %}
 
@@ -99,7 +99,7 @@
                   <section class="skills_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="skills-languages" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
                     <div class="creation_section_heading"><h2>Fertigkeiten &amp; Sprachen</h2><span>Ausgefüllt</span></div>
                     {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Fertigkeit suchen" aria-label="Fertigkeit suchen" data-phase4-direct-filter>{% endif %}
-                    <table class="skills_table" aria-label="Gewählte Fertigkeiten"><thead><tr class="skills_title_row"><th class="skills_title">Fertigkeiten</th><th>Rang</th>{% if draft_phase == 4 %}<th>Ausbau</th>{% endif %}</tr></thead><tbody>{% if draft_phase == 4 %}{% for row in phase_4_skill_rows %}{% for entry in row.entries %}<tr data-phase4-direct-row data-search="{{ row.name|lower }} {{ entry.specification|lower }}"{% if entry.base_level > 0 %} data-phase4-base-selected="1"{% endif %}><td class="skill_name">{{ row.name }}{% if entry.specification %}: {{ entry.specification }}{% endif %}</td><td>{{ entry.base_level }}</td><td><input class="creation_sheet_value_input" type="number" min="0" max="10" value="{{ entry.value }}" data-phase4-sheet-value data-kind="skill" data-key="skill:{{ row.slug }}:{{ entry.specification }}"></td></tr>{% endfor %}{% endfor %}{% else %}{% for row in phase_2_skill_rows %}{% for entry in row.entries %}{% if entry.level > 0 %}<tr><td class="skill_name">{{ row.name }}{% if entry.specification %}: {{ entry.specification }}{% endif %}</td><td>{{ entry.level }}</td></tr>{% endif %}{% endfor %}{% endfor %}{% endif %}</tbody></table>
+                    <table class="skills_table" aria-label="Gewählte Fertigkeiten"><thead><tr class="skills_title_row"><th class="skills_title">Fertigkeiten</th><th>Rang</th>{% if draft_phase == 4 %}<th>Ausbau</th>{% endif %}</tr></thead><tbody>{% if draft_phase == 4 %}{% for row in phase_4_skill_rows %}{% for entry in row.entries %}<tr data-phase4-direct-row data-search="{{ row.name|lower }} {{ entry.specification|lower }}"{% if entry.base_level > 0 %} data-phase4-base-selected="1"{% endif %}><td class="skill_name">{% include "charsheet/partials/_creation_info_button.html" with category="Fertigkeit" %} {{ row.name }}{% if entry.specification %}: {{ entry.specification }}{% endif %}</td><td data-phase4-effective-value data-base="{{ entry.base_level }}">{{ entry.base_level|add:entry.value }}</td><td><input class="creation_sheet_value_input" type="number" min="0" max="10" value="{{ entry.value }}" data-phase4-sheet-value data-kind="skill" data-key="skill:{{ row.slug }}:{{ entry.specification }}"></td></tr>{% endfor %}{% endfor %}{% else %}{% for row in phase_2_skill_rows %}{% for entry in row.entries %}{% if entry.level > 0 %}<tr><td class="skill_name">{% include "charsheet/partials/_creation_info_button.html" with category="Fertigkeit" %} {{ row.name }}{% if entry.specification %}: {{ entry.specification }}{% endif %}</td><td>{{ entry.level }}</td></tr>{% endif %}{% endfor %}{% endfor %}{% endif %}</tbody></table>
                   </section>
                   <section class="language_wrapper creation_language_summary creation_sheet_section creation_sheet_section--complete" data-creation-section="languages-summary"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
                     <h2>Sprachen</h2>{% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Sprache suchen" aria-label="Sprache suchen" data-phase4-direct-filter>{% endif %}<ul class="language_list" aria-label="Gewählte Sprachen">{% if draft_phase == 4 %}{% for row in phase_4_language_rows %}<li data-phase4-direct-row data-search="{{ row.name|lower }}"{% if row.base_level > 0 or row.base_write or row.base_mother %} data-phase4-base-selected="1"{% endif %}><span class="language_name" title="{{ row.name }}">{{ row.name }}</span><span class="language_dots" aria-hidden="true"><span class="dot{% if row.current_level >= 1 %} is-filled{% endif %}"></span><span class="dot{% if row.current_level >= 2 %} is-filled{% endif %}"></span><span class="dot{% if row.current_level >= 3 %} is-filled{% endif %}"></span><span class="dot literacy_dot{% if row.base_write or row.write_add %} is-filled{% endif %}"></span></span><label class="creation_language_level" title="Stufe"><input class="creation_sheet_value_input" type="number" min="{{ row.base_level }}" max="{{ row.max_level }}" value="{{ row.current_level }}" data-phase4-sheet-value data-phase4-language-level data-base="{{ row.base_level }}" data-kind="lang" data-key="lang:{{ row.slug }}" aria-label="{{ row.name }} Stufe"></label><label class="creation_language_write" title="Schrift"><input type="checkbox" data-phase4-sheet-write data-key="lang:{{ row.slug }}"{% if row.base_write or row.write_add %} checked{% endif %}{% if row.base_write %} disabled{% endif %}><span>S</span></label></li>{% endfor %}{% else %}{% for row in phase_2_language_rows %}{% if row.level > 0 or row.write or row.mother %}<li><span class="language_name">{{ row.name }}</span><span class="language_dots" aria-hidden="true"><span class="dot{% if row.level >= 1 %} is-filled{% endif %}"></span><span class="dot{% if row.level >= 2 %} is-filled{% endif %}"></span><span class="dot{% if row.level >= 3 %} is-filled{% endif %}"></span><span class="dot literacy_dot{% if row.write %} is-filled{% endif %}"></span></span></li>{% endif %}{% endfor %}{% endif %}</ul>
@@ -109,7 +109,7 @@
                 {% if draft_phase > 3 %}
                   <section class="traits_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="traits" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
                     <div class="creation_section_heading"><h2>Vorzüge &amp; Schwächen</h2><span>Ausgefüllt</span></div>
-                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}"><span class="trait_line_text" data-phase4-effective-label data-name="{{ row.name }}">{{ row.name }}{% if row.value > 0 %} ({{ row.effective_value }}){% endif %}</span><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value > 0 %}<span class="trait_line"><span class="trait_line_text">{{ row.name }} ({{ row.value }})</span></span>{% endif %}{% endfor %}</div></div>
+                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}">{% include "charsheet/partials/_creation_info_button.html" with category="Vorzug" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank" data-phase4-effective-label>({{ row.effective_value }})</span></span><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value > 0 %}<span class="trait_line">{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank">({{ row.value }})</span></span></span>{% endif %}{% endfor %}</div></div>
                   </section>
                 {% endif %}
 
@@ -191,14 +191,14 @@
                                 {% if row.requires_specification %}
                                   {% for entry in row.entries %}
                                     <tr data-creation-phase2-skill-row data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-specification="{{ entry.specification }}" data-search="{{ row.name|lower }} {{ entry.specification|lower }} {{ group.grouper|lower }}">
-                                      <td>{{ row.name }}: {{ entry.specification }}</td>
+                                      <td>{% include "charsheet/partials/_creation_info_button.html" with category="Fertigkeit" %} {{ row.name }}: {{ entry.specification }}</td>
                                       <td><input class="creation_sheet_value_input" type="number" min="{{ row.min_value }}" max="10" value="{{ entry.level }}" data-creation-phase2-skill-value></td>
                                     </tr>
                                   {% endfor %}
-                                  <tr class="creation_phase2_add_spec" data-creation-phase2-add-spec data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-search="{{ row.name|lower }} {{ group.grouper|lower }}" tabindex="0"><td colspan="2">{{ row.name }} <span>+ Spezifikation eintragen</span></td></tr>
+                                  <tr class="creation_phase2_add_spec" data-creation-phase2-add-spec data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-search="{{ row.name|lower }} {{ group.grouper|lower }}" tabindex="0"><td colspan="2">{% include "charsheet/partials/_creation_info_button.html" with category="Fertigkeit" %} {{ row.name }} <span>+ Spezifikation eintragen</span></td></tr>
                                 {% else %}
                                   <tr data-creation-phase2-skill-row data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-search="{{ row.name|lower }} {{ group.grouper|lower }}">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td>{% include "charsheet/partials/_creation_info_button.html" with category="Fertigkeit" %} {{ row.name }}</td>
                                     <td><input class="creation_sheet_value_input" type="number" min="{{ row.min_value }}" max="10" value="{{ row.value }}" data-creation-phase2-skill-value></td>
                                   </tr>
                                 {% endif %}
@@ -257,7 +257,7 @@
                                 <tbody>
                                   {% for row in group.list %}
                                     <tr data-phase2-skill-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}" data-requires-specification="{% if row.requires_specification %}1{% else %}0{% endif %}" data-phase2-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                      <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
+                                      <td>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
                                     </tr>
                                   {% endfor %}
                                 </tbody>
@@ -382,7 +382,7 @@
                               <tbody>
                                 {% for row in phase_3_rows %}
                                   <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
+                                    <td>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
                                     <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
@@ -401,7 +401,7 @@
                               {% for row in phase_3_rows %}
                                 {% if row.value > 0 %}
                                   <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
-                                    <td><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
+                                    <td>{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %} <span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
                                      <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% if row.specification_options %}<label class="phase4_choice_block"><span>Spezifikation</span><select class="dashboard_input" name="dis_spec_option_{{ row.slug }}" required><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="phase4_choice_block"><span>Spezifikation</span><input class="dashboard_input" name="dis_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}</td>
                                     <td data-phase3-dis-cost>0</td>
                                     <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Schwäche entfernen" title="Entfernen">X</button></td>
@@ -428,7 +428,7 @@
                         <tbody id="phase3DisCartBody">
                           {% for row in phase_3_rows %}
                             <tr data-phase3-dis-cart-item data-phase3-sheet-row data-phase3-search="{{ row.name|lower }} schwäche" data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
-                              <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
+                              <td>{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %} <span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
                               <td>
                                 <input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>
                                 {% for choice in row.attribute_choice_definitions %}<label class="creation_sheet_choice"><span>{{ choice.name }}</span><select name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}
@@ -514,10 +514,13 @@
                     </div>
                   </section>
                   <section class="creation_phase4_direct_fields">
-                    <section class="creation_phase4_direct_group" data-phase4-filter-scope><div class="creation_phase2_fieldset_header"><h3>Schulen</h3></div><input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Schule suchen" aria-label="Schule suchen" data-phase4-direct-filter><div class="creation_phase4_direct_list">{% for row in phase_4_school_rows %}<label class="creation_phase4_direct_row" data-phase4-direct-row data-search="{{ row.name|lower }}"><span>{{ row.name }}</span><input class="creation_sheet_value_input" type="number" min="0" value="{{ row.value }}" data-phase4-sheet-value data-kind="school" data-key="school:{{ row.id }}"></label>{% endfor %}</div></section>
-                    <section class="creation_phase4_direct_group" data-phase4-filter-scope><div class="creation_phase2_fieldset_header"><h3>Lektionen</h3></div><input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Lektion suchen" aria-label="Lektion suchen" data-phase4-direct-filter><div class="creation_phase4_direct_list">{% for row in phase_4_lesson_rows %}<label class="creation_phase4_direct_row" data-phase4-direct-row data-phase4-lesson-row data-lesson-id="{{ row.id }}" data-phase4-available="{% if row.available %}1{% else %}0{% endif %}" data-search="{{ row.name|lower }} {{ row.requirements_display|lower }}"{% if not row.available %} hidden{% endif %}><span>{{ row.name }} <small>{{ row.purchase_cost }} CP</small></span><input type="checkbox" {% if row.selected %}checked{% endif %}{% if not row.available %} disabled{% endif %} data-phase4-sheet-toggle data-kind="lesson" data-key="lesson:{{ row.id }}"></label>{% endfor %}</div></section>
+                    <section class="creation_phase4_direct_group" data-phase4-filter-scope><div class="creation_phase2_fieldset_header"><h3>Schulen</h3></div><input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Schule suchen" aria-label="Schule suchen" data-phase4-direct-filter><div class="creation_phase4_direct_list">{% for row in phase_4_school_rows %}<label class="creation_phase4_direct_row" data-phase4-direct-row data-search="{{ row.name|lower }}"><span>{% include "charsheet/partials/_creation_info_button.html" with category="Schule" %} {{ row.name }}</span><input class="creation_sheet_value_input" type="number" min="0" value="{{ row.value }}" data-phase4-sheet-value data-kind="school" data-key="school:{{ row.id }}"></label>{% endfor %}</div></section>
+                    <section class="creation_phase4_direct_group" data-phase4-filter-scope><div class="creation_phase2_fieldset_header"><h3>Lektionen</h3></div><input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Lektion suchen" aria-label="Lektion suchen" data-phase4-direct-filter><p class="dashboard_hint" data-phase4-lesson-status role="status" hidden></p><div class="creation_phase4_direct_list">{% for row in phase_4_lesson_rows %}<label class="creation_phase4_direct_row" data-phase4-direct-row data-phase4-lesson-row data-lesson-id="{{ row.id }}" data-phase4-available="{% if row.available %}1{% else %}0{% endif %}" data-search="{{ row.name|lower }} {{ row.requirements_display|lower }}"{% if not row.available %} hidden{% endif %}><span>{% include "charsheet/partials/_creation_info_button.html" with category="Lektion" %} {{ row.name }} <small>{{ row.purchase_cost }} CP</small></span><input type="checkbox" {% if row.selected %}checked{% endif %}{% if not row.available %} disabled{% endif %} data-phase4-sheet-toggle data-kind="lesson" data-key="lesson:{{ row.id }}"></label>{% endfor %}</div></section>
                   </section>
                   <section class="phase2_section_card creation_phase4_legacy_shop" aria-hidden="true">
+                    {% for row in phase_4_lesson_rows %}
+                      <button type="button" hidden data-phase4-source data-kind="lesson" data-key="lesson:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-cost="{{ row.purchase_cost }}" data-phase4-available="{% if row.available %}1{% else %}0{% endif %}"></button>
+                    {% endfor %}
                     <h3>Technische Ausbauauswahl</h3>
                     <div class="phase2_shop_layout">
                       <section class="phase2_shop_panel">
@@ -540,7 +543,7 @@
                               <tbody>
                                 {% for row in phase_4_adv_rows %}
                                   <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
@@ -556,14 +559,14 @@
                               <tbody>
                                 {% for row in phase_4_vampire_trait_rows %}
                                   <tr data-phase4-source data-kind="vampire-trait" data-key="vampire-trait:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-trait-type="{{ row.trait_type }}" data-point-value="5" data-phase4-search="{{ row.name|lower }} vampir trait" tabindex="0" role="button" aria-label="{{ row.name }} hinzufügen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td>{{ row.name }}</td>
                                     {% if row.grants_strength_extension %}<template data-vampire-strength-extension-marker></template>{% endif %}
                                     <td class="phase2_lang_meta">{% if row.trait_type == 'disadvantage' %}+5 CP{% else %}5 CP{% endif %}</td>
                                   </tr>
                                 {% endfor %}
                                 {% for row in phase_4_vampire_power_rows %}
                                   <tr data-phase4-source data-kind="vampire-power" data-key="vampire-power:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-point-value="15" data-cost-without-weakness="20" data-associated-weakness="{{ row.weakness }}" data-phase4-search="{{ row.name|lower }} vampir kraft {{ row.weakness|lower }}" tabindex="0" role="button" aria-label="{{ row.name }} hinzufügen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}<small>Schwäche: {{ row.weakness }}</small></td>
+                                    <td>{{ row.name }}<small>Schwäche: {{ row.weakness }}</small></td>
                                     {% if row.grants_strength_extension %}<template data-vampire-strength-extension-marker></template>{% endif %}
                                     <td class="phase2_lang_meta">15 / 20 CP</td>
                                   </tr>
@@ -592,7 +595,7 @@
                                     role="button"
                                     aria-label="{{ row.name }} hinzufügen"
                                   >
-                                    <td class="db_tooltip_anchor" data-db-tooltip="{{ row.description }}{% if row.requirements_display %}&#10;Voraussetzungen: {{ row.requirements_display }}{% endif %}{% if row.costs_display %}&#10;Anwendung: {{ row.costs_display }}{% endif %}">{{ row.name }}</td>
+                                    <td>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">{{ row.purchase_cost }} CP</td>
                                   </tr>
                                 {% endfor %}
@@ -625,7 +628,7 @@
                               <tbody>
                                 {% for row in phase_4_skill_rows %}
                                   <tr data-phase4-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-requires-specification="{% if row.requires_specification %}1{% else %}0{% endif %}" data-phase4-search="{{ row.name|lower }} skill add" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">Basis {{ row.base_level }}</td>
                                   </tr>
                                 {% endfor %}
@@ -657,7 +660,7 @@
                               <tbody>
                                 {% for row in phase_4_school_rows %}
                                   <tr data-phase4-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-vampire-capacity="{% if row.counts_for_vampire_capacity %}1{% else %}0{% endif %}" data-phase4-search="{{ row.name|lower }} schule school" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">8 Punkte / Level</td>
                                   </tr>
                                 {% endfor %}
@@ -771,25 +774,26 @@
                         </div>
                       </section>
                     </div>
+                  </section>
                     {% if phase_4_weapon_mastery_school and phase_4_weapon_mastery_rows %}
-                      <section class="phase2_section_card">
-                        <h4>{{ phase_4_weapon_mastery_school.name }}: Zusatzentscheidungen</h4>
-                        <p class="dashboard_hint">Fuer jede Stufe in Waffenmeister wird ein Waffentyp und eine arkane Meisterschaft festgelegt.</p>
+                      <section class="phase2_section_card creation_weapon_masteries" data-creation-weapon-masteries data-school-key="school:{{ phase_4_weapon_mastery_school.id }}" hidden>
+                        <h4>{{ phase_4_weapon_mastery_school.name }}</h4>
+                        <p class="dashboard_hint">Pro Stufe: Waffe, Startbonus und Arkanum.</p>
                         <table class="dashboard_table">
                           <thead>
                             <tr>
-                              <th>Slot</th>
-                              <th>Waffentyp</th>
-                              <th>Erster Bonus</th>
+                              <th>Stufe</th>
+                              <th>Waffe</th>
+                              <th>Startbonus</th>
                               <th>Arkanum</th>
                             </tr>
                           </thead>
                           <tbody>
                             {% for row in phase_4_weapon_mastery_rows %}
-                              <tr>
+                              <tr data-creation-weapon-slot="{{ row.slot }}"{% if not row.active %} hidden{% endif %}>
                                 <td>{{ row.slot }}</td>
                                 <td>
-                                  <select class="dashboard_input" name="{{ row.weapon_name }}">
+                                  <select class="dashboard_input" name="{{ row.weapon_name }}"{% if not row.active %} disabled{% endif %}>
                                     <option value=""></option>
                                     {% for option in row.weapon_options %}
                                       <option value="{{ option.value }}"{% if row.selected_weapon_id == option.value %} selected{% endif %}>{{ option.label }}</option>
@@ -797,16 +801,16 @@
                                   </select>
                                 </td>
                                 <td>
-                                  <select class="dashboard_input" name="{{ row.first_name }}">
+                                  <select class="dashboard_input" name="{{ row.first_name }}"{% if not row.active %} disabled{% endif %}>
                                     <option value=""></option>
-                                    <option value="maneuver"{% if row.selected_first_bonus_kind == "maneuver" %} selected{% endif %}>Manoever zuerst</option>
-                                    <option value="damage"{% if row.selected_first_bonus_kind == "damage" %} selected{% endif %}>Schaden zuerst</option>
+                                    <option value="maneuver"{% if row.selected_first_bonus_kind == "maneuver" %} selected{% endif %}>Manöver</option>
+                                    <option value="damage"{% if row.selected_first_bonus_kind == "damage" %} selected{% endif %}>Schaden</option>
                                   </select>
                                 </td>
                                 <td>
-                                  <select class="dashboard_input" name="{{ row.arcana_name }}">
+                                  <select class="dashboard_input" name="{{ row.arcana_name }}"{% if not row.active %} disabled{% endif %}>
                                     <option value=""></option>
-                                    <option value="bonus_capacity"{% if row.selected_value == "bonus_capacity" %} selected{% endif %}>+1/+1 Bonuskapazitaet</option>
+                                    <option value="bonus_capacity"{% if row.selected_value == "bonus_capacity" %} selected{% endif %}>+1/+1 Kapazität</option>
                                     {% for rune in row.rune_options %}
                                       <option value="rune:{{ rune.id }}"{% if rune.selected %} selected{% endif %}>Rune: {{ rune.name }}</option>
                                     {% endfor %}
@@ -819,7 +823,6 @@
                       </section>
                     {% endif %}
 
-                  </section>
                 {% endif %}
                 </section>
 
@@ -940,6 +943,10 @@
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
 
+    <script type="module">
+      import { initTooltips } from "{% static 'js/charsheet/tooltip.js' %}?v=20261004creation";
+      initTooltips();
+    </script>
     <script src="{% static 'js/charsheet_tooltips.js' %}"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
@@ -977,6 +984,27 @@
         const advancementSection = document.querySelector('[data-creation-section="advancement"]');
         if (advancementMount && advancementSection) {
           advancementMount.appendChild(advancementSection);
+        }
+
+        const weaponMasteries = document.querySelector("[data-creation-weapon-masteries]");
+        if (weaponMasteries) {
+          const schoolControl = document.querySelector(
+            `[data-phase4-sheet-value][data-key="${weaponMasteries.dataset.schoolKey}"]`,
+          );
+          const syncWeaponMasteries = function () {
+            const count = Math.min(10, Math.max(0, Number.parseInt(schoolControl?.value || "0", 10) || 0));
+            weaponMasteries.hidden = count === 0;
+            weaponMasteries.querySelectorAll("[data-creation-weapon-slot]").forEach(function (row) {
+              const active = Number(row.dataset.creationWeaponSlot) <= count;
+              row.hidden = !active;
+              row.querySelectorAll("select").forEach(function (select) {
+                select.disabled = !active;
+              });
+            });
+          };
+          schoolControl?.addEventListener("input", syncWeaponMasteries);
+          schoolControl?.addEventListener("change", syncWeaponMasteries);
+          syncWeaponMasteries();
         }
 
         const characterType = document.getElementById("characterType");
@@ -1772,6 +1800,9 @@
                 Boolean(input && toInt(input.value, 0) > 0),
               );
             });
+            if (phase3DisCartBody.contains(document.activeElement)) {
+              return;
+            }
             rows.sort(function (left, right) {
               const leftInput = left.querySelector("[data-phase3-dis-level]");
               const rightInput = right.querySelector("[data-phase3-dis-level]");
@@ -1788,6 +1819,9 @@
             });
           };
 
+          phase3DisCartBody.addEventListener("focusout", function () {
+            window.setTimeout(arrangeSelectedWeaknesses, 0);
+          });
           phase3DisCartBody.addEventListener("input", function (event) {
             if (event.target.matches("[data-phase3-dis-level]")) {
               arrangeSelectedWeaknesses();
@@ -2689,6 +2723,9 @@
               }
             });
             parents.forEach(function (parent) {
+              if (parent.contains(document.activeElement)) {
+                return;
+              }
               rows.filter(function (row) {
                 return row.parentElement === parent;
               }).sort(function (left, right) {
@@ -2708,6 +2745,9 @@
           };
 
           phase4DirectScopes.forEach(function (scope) {
+            scope.addEventListener("focusout", function () {
+              window.setTimeout(function () { refreshPhase4DirectScope(scope); }, 0);
+            });
             const filter = scope.querySelector("[data-phase4-direct-filter]");
             if (filter) {
               filter.addEventListener("input", function () {
@@ -2731,15 +2771,12 @@
               control.value = String(purchaseValue);
               const effectiveLabel = control.closest(".trait_line")?.querySelector("[data-phase4-effective-label]");
               if (effectiveLabel) {
-                const name = effectiveLabel.dataset.name || "";
                 const effectiveValue = traitCostForLevel(
                   purchaseValue,
                   toInt(control.dataset.ppl, 0),
                   control.dataset.pointCurve || "",
                 );
-                effectiveLabel.textContent = purchaseValue > 0
-                  ? `${name} (${effectiveValue})`
-                  : name;
+                effectiveLabel.textContent = `(${effectiveValue})`;
               }
             } else if (kind === "lang") {
               const baseValue = toInt(control.dataset.base, 0);
@@ -2772,6 +2809,13 @@
             if (cartInput) {
               cartInput.value = String(purchaseValue);
               cartInput.dispatchEvent(new Event("input", { bubbles: true }));
+              if (kind !== "lang") {
+                control.value = cartInput.value;
+              }
+            }
+            const effectiveValue = control.closest("tr")?.querySelector("[data-phase4-effective-value]");
+            if (effectiveValue) {
+              effectiveValue.textContent = String(toInt(effectiveValue.dataset.base, 0) + toInt(control.value, 0));
             }
             exposePhase4SheetChoices(control, cartRow);
           };
@@ -2780,10 +2824,12 @@
             control.addEventListener("input", function () {
               syncPhase4SheetValue(control);
               refreshPhase4DirectControl(control);
+              schedulePhase4LessonRefresh();
             });
             control.addEventListener("change", function () {
               syncPhase4SheetValue(control);
               refreshPhase4DirectControl(control);
+              schedulePhase4LessonRefresh();
             });
             const cartRow = findPhase4SheetCartRow(control.dataset.kind || "", control.dataset.key || "");
             if (cartRow) {
@@ -2840,8 +2886,10 @@
 
           const phase4DraftForm = document.getElementById("creationDraftForm");
           const phase4LessonScope = document.querySelector("[data-phase4-lesson-row]")?.closest("[data-phase4-filter-scope]");
+          const phase4LessonStatus = phase4LessonScope?.querySelector("[data-phase4-lesson-status]");
           let phase4LessonRefreshTimer = null;
           let phase4LessonRefreshController = null;
+          let phase4LessonRefreshVersion = 0;
           const refreshPhase4LessonOptions = function () {
             if (!phase4DraftForm || !phase4LessonScope) {
               return;
@@ -2850,9 +2898,14 @@
               phase4LessonRefreshController.abort();
             }
             phase4LessonRefreshController = new AbortController();
+            const version = phase4LessonRefreshVersion;
             const payload = new FormData(phase4DraftForm);
             payload.set("action", "lesson_options");
-            fetch(phase4DraftForm.action || window.location.href, {
+            document.querySelectorAll('[data-phase4-sheet-value][data-kind="school"]').forEach(function (control) {
+              const schoolId = control.dataset.key.split(":")[1];
+              payload.set(`school_${schoolId}`, String(Math.max(0, toInt(control.value, 0))));
+            });
+            fetch(phase4DraftForm.getAttribute("action") || window.location.href, {
               method: "POST",
               body: payload,
               signal: phase4LessonRefreshController.signal,
@@ -2863,6 +2916,12 @@
               }
               return response.json();
             }).then(function (data) {
+              if (version !== phase4LessonRefreshVersion) {
+                return;
+              }
+              if (data.ok !== true || !Array.isArray(data.available_lesson_ids)) {
+                throw new Error("lesson-options-response");
+              }
               const availableIds = new Set((data.available_lesson_ids || []).map(String));
               Array.from(document.querySelectorAll("[data-phase4-lesson-row]")).forEach(function (row) {
                 const available = availableIds.has(row.dataset.lessonId || "");
@@ -2880,14 +2939,23 @@
                 source.dataset.phase4Available = availableIds.has(source.dataset.id || "") ? "1" : "0";
               });
               refreshPhase4DirectScope(phase4LessonScope);
+              if (phase4LessonStatus) {
+                phase4LessonStatus.hidden = true;
+              }
             }).catch(function (error) {
-              if (error.name !== "AbortError") {
+              if (error.name !== "AbortError" && version === phase4LessonRefreshVersion) {
                 phase4LessonRefreshController = null;
+                if (phase4LessonStatus) {
+                  phase4LessonStatus.textContent = "Lektionen konnten nicht aktualisiert werden. Bitte den Schulwert erneut ändern.";
+                  phase4LessonStatus.hidden = false;
+                }
               }
             });
           };
 
           const schedulePhase4LessonRefresh = function () {
+            phase4LessonRefreshVersion += 1;
+            phase4LessonRefreshController?.abort();
             window.clearTimeout(phase4LessonRefreshTimer);
             phase4LessonRefreshTimer = window.setTimeout(refreshPhase4LessonOptions, 180);
           };
@@ -2903,6 +2971,7 @@
                 schedulePhase4LessonRefresh();
               }
             });
+            schedulePhase4LessonRefresh();
           }
 
           ensureEmptyRow();
@@ -2948,7 +3017,10 @@
         });
 
         Array.from(document.querySelectorAll("[data-creation-phase2-add-spec]")).forEach(function (row) {
-          const addSpecification = function () {
+          const addSpecification = function (event) {
+            if (event?.target.closest(".tooltip_target")) {
+              return;
+            }
             const source = Array.from(document.querySelectorAll("[data-phase2-skill-source]")).find(function (candidate) {
               return candidate.dataset.slug === row.dataset.slug;
             });
@@ -2971,6 +3043,10 @@
                 const nameCell = cartRow.querySelector("td");
                 const cartInput = cartRow.querySelector("[data-phase2-skill-level]");
                 sheetRow.innerHTML = `<td>${escapeHtml(nameCell ? nameCell.textContent.trim() : specification)}</td><td><input class="creation_sheet_value_input" type="number" min="0" max="10" value="${escapeHtml(cartInput ? cartInput.value : "1")}" data-creation-phase2-skill-value></td>`;
+                const infoButton = row.querySelector(".tooltip_target");
+                if (infoButton) {
+                  sheetRow.querySelector("td").prepend(infoButton.cloneNode(true));
+                }
                 const sheetInput = sheetRow.querySelector("[data-creation-phase2-skill-value]");
                 sheetInput.addEventListener("input", function () { syncSheetSkillRow(sheetRow); });
                 sheetInput.addEventListener("change", function () { syncSheetSkillRow(sheetRow); });
@@ -2980,6 +3056,9 @@
           };
           row.addEventListener("click", addSpecification);
           row.addEventListener("keydown", function (event) {
+            if (event.target.closest(".tooltip_target")) {
+              return;
+            }
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               addSpecification();
@@ -3038,7 +3117,7 @@
 
         const phase2SkillSheetBody = document.querySelector(".creation_phase2_skills_table tbody");
         const arrangeSelectedSkills = function () {
-          if (!phase2SkillSheetBody) {
+          if (!phase2SkillSheetBody || phase2SkillSheetBody.contains(document.activeElement)) {
             return;
           }
           const previousSelectedHeader = phase2SkillSheetBody.querySelector("[data-selected-skills-heading]");
@@ -3082,6 +3161,9 @@
         };
 
         if (phase2SkillSheetBody) {
+          phase2SkillSheetBody.addEventListener("focusout", function () {
+            window.setTimeout(arrangeSelectedSkills, 0);
+          });
           phase2SkillSheetBody.addEventListener("input", function (event) {
             if (event.target.matches("[data-creation-phase2-skill-value]")) {
               arrangeSelectedSkills();

@@ -8,7 +8,7 @@ const renderOpenSpellSlotMarkup = (remaining) => {
     return "";
   }
   const label = `${count} offener Slot${count === 1 ? "" : "s"}`;
-  return `<span class="learn_magic_slot_cell_open" title="${label}" aria-label="${label}">&#10022;${count > 1 ? `<span class="learn_magic_slot_cell_count">${count}</span>` : ""}</span>`;
+  return `<span class="learn_magic_slot_cell_open" title="${label}" aria-label="${label}">${count}</span>`;
 };
 
 function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn) {
@@ -72,7 +72,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         return;
       }
       const sourceKey = row.getAttribute("data-slot-source-key") || "";
-      const grade = row.getAttribute("data-slot-grade") || "";
+      const grade = sourceKey.match(/:level:(\d+)$/)?.[1] || row.getAttribute("data-slot-grade") || "";
       const input = row.querySelector("[data-learn-value]");
       const value = input instanceof HTMLInputElement ? readInt(input.value, 0) : 0;
       const slotCost = readInt(row.getAttribute("data-slot-source-cost") || row.getAttribute("data-slot-cost") || "1", 1);
@@ -85,12 +85,12 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   };
 
   const syncSpellSlotTable = () => {
-    const table = document.querySelector("[data-learn-slot-table]");
-    if (!(table instanceof HTMLElement)) {
+    const cells = document.querySelectorAll("[data-learn-slot-table] [data-learn-slot-cell]");
+    if (!cells.length) {
       return;
     }
     const selectedBySourceGrade = selectedSpellSlotsBySourceGrade();
-    Array.from(table.querySelectorAll("[data-learn-slot-cell]")).forEach((cell) => {
+    Array.from(cells).forEach((cell) => {
       if (!(cell instanceof HTMLElement)) {
         return;
       }
@@ -306,9 +306,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
-    } else if (kind === "brew") {
+    } else if (["brew", "advanced-buy", "advanced-remove", "advanced-bonus"].includes(kind)) {
       const hidden = row.querySelector("[data-learn-hidden]");
-      value = clamp(value, 0, 1);
+      value = clamp(value, 0, readInt(row.getAttribute("data-max"), 1));
       cost = value * readInt(row.getAttribute("data-unit-cost"), 0);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
@@ -363,7 +363,40 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     let invalidWrite = false;
     const spentSpellSlotsBySource = new Map();
     const spellSlotSourceLimits = new Map();
-    getRows().forEach((row) => {
+    getRows().sort((a, b) => (
+      readInt(b.getAttribute("data-slot-grade"), 0) - readInt(a.getAttribute("data-slot-grade"), 0)
+    )).forEach((row) => {
+      const freeSourceKey = row.getAttribute("data-free-source-key") || "";
+      if (freeSourceKey) {
+        const choices = JSON.parse(row.getAttribute("data-free-sources") || "null") || [{
+          key: freeSourceKey,
+          remaining: readInt(row.getAttribute("data-slot-source-remaining"), 0),
+          input_name: row.getAttribute("data-free-input-name"),
+          label: row.getAttribute("data-free-source-label"),
+          name: row.getAttribute("data-slot-source-name"),
+        }];
+        const choice = choices.find((option) => (spentSpellSlotsBySource.get(option.key) || 0) < option.remaining);
+        const paid = !choice;
+        row.setAttribute("data-unit-cost", paid ? "2" : "0");
+        row.setAttribute("data-slot-cost", paid ? "0" : "1");
+        row.setAttribute("data-slot-source-cost", paid ? "0" : "1");
+        row.setAttribute("data-slot-source-key", choice?.key || "");
+        if (choice) {
+          row.setAttribute("data-slot-source-remaining", String(choice.remaining));
+          row.setAttribute("data-slot-source-name", choice.name || "");
+        }
+        row.setAttribute("data-cost-label", paid ? "2 EP" : "1 Slot");
+        const hidden = row.querySelector("[data-learn-hidden]");
+        if (hidden instanceof HTMLInputElement) {
+          hidden.name = paid
+            ? `learn_arcane_extra_spell_${row.getAttribute("data-spell-id")}`
+            : choice.input_name;
+        }
+        const label = row.querySelector("[data-learn-spell-source-label]");
+        if (label) {
+          label.textContent = paid ? "Zusatzzauber" : choice.label;
+        }
+      }
       const result = syncRow(row);
       spent += result.cost;
       spentSpellSlots += result.spellSlots;
@@ -378,6 +411,18 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           name: result.spellSlotSourceName || result.spellSlotSourceKey,
           remaining: result.spellSlotSourceRemaining,
         });
+      }
+    });
+    document.querySelectorAll('[data-learn-source][data-input-name^="learn_arcane_free_spell_"]').forEach((source) => {
+      const sourceKey = source.getAttribute("data-slot-source-key") || "";
+      const remaining = readInt(source.getAttribute("data-slot-source-remaining"), 0);
+      const choices = JSON.parse(source.getAttribute("data-free-sources") || "null");
+      const paid = choices?.length
+        ? !choices.some((choice) => (spentSpellSlotsBySource.get(choice.key) || 0) < choice.remaining)
+        : (spentSpellSlotsBySource.get(sourceKey) || 0) >= remaining;
+      const cost = source.querySelector("[data-learn-spell-offer-cost]");
+      if (cost) {
+        cost.textContent = paid ? "2 EP" : "1 Slot";
       }
     });
     const budget = getBudget();
@@ -897,6 +942,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
 
     if (kind === "magic-spell") {
       const spellId = source.getAttribute("data-id") || "";
+      row.setAttribute("data-spell-id", spellId);
+      const sourceLabel = source.getAttribute("data-source-label") || "";
       const ownerName = source.getAttribute("data-owner-name") || "";
       const ownerSymbol = source.getAttribute("data-owner-symbol") || "*";
       const ownerSymbolImageUrl = source.getAttribute("data-owner-symbol-image-url") || "";
@@ -910,6 +957,15 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const slotSourceName = source.getAttribute("data-slot-source-name") || ownerName;
       const slotSourceRemaining = source.getAttribute("data-slot-source-remaining") || "0";
       const slotSourceCost = source.getAttribute("data-slot-source-cost") || String(slotCost);
+      if (inputName.startsWith("learn_arcane_free_spell_")) {
+        row.setAttribute("data-free-source-key", slotSourceKey);
+        const freeSources = source.getAttribute("data-free-sources");
+        if (freeSources && freeSources !== "[]") {
+          row.setAttribute("data-free-sources", freeSources);
+        }
+        row.setAttribute("data-free-input-name", inputName);
+        row.setAttribute("data-free-source-label", sourceLabel);
+      }
       const symbolMarkup = ownerSymbolImageUrl
         ? `<img class="learn_spell_symbol__image" src="${escapeHtml(ownerSymbolImageUrl)}" alt="" width="18" height="18">`
         : escapeHtml(ownerSymbol);
@@ -926,6 +982,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           <span class="learn_meta_value learn_cart_spell_meta" aria-label="${escapeHtml(ownerName)}, Grad ${escapeHtml(gradeLabel)}">
             <span class="learn_spell_symbol" title="${escapeHtml(ownerName)}" aria-hidden="true">${symbolMarkup}</span>
             <span class="learn_spell_grade">Grad ${escapeHtml(gradeLabel)}</span>
+            ${sourceLabel ? `<span data-learn-spell-source-label>${escapeHtml(sourceLabel)}</span>` : ""}
           </span>
           <input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden>
         </td>
@@ -940,15 +997,20 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       return row;
     }
 
-    if (kind === "brew") {
+    if (["brew", "advanced-buy", "advanced-remove", "advanced-bonus"].includes(kind)) {
       const itemId = source.getAttribute("data-id") || "";
       const unitCost = readInt(source.getAttribute("data-unit-cost"), 0);
+      const max = readInt(source.getAttribute("data-max"), 1);
+      const inputName = source.getAttribute("data-input-name") || `learn_brew_${itemId}`;
       row.setAttribute("data-unit-cost", String(unitCost));
+      row.setAttribute("data-max", String(max));
       row.innerHTML = `
-        <td><span>${safeName}</span><input type="hidden" name="learn_brew_${itemId}" value="1" data-learn-hidden></td>
+        <td><span>${safeName}</span><input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
-            <input class="shop_cart_qty_input" type="number" min="0" max="1" value="1" data-learn-value readonly>
+            ${max > 1 ? '<button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Anzahl verringern">-</button>' : ""}
+            <input class="shop_cart_qty_input" type="number" min="0" max="${max}" value="1" data-learn-value ${max > 1 ? "" : "readonly"}>
+            ${max > 1 ? '<button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Anzahl erhöhen">+</button>' : ""}
           </div>
         </td>
         <td data-learn-cost>${unitCost} EP</td>
@@ -998,7 +1060,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       return;
     }
     if (key) {
-      const existing = cartBody.querySelector(`[data-learn-cart-item][data-key="${key}"]`);
+      const existing = kind === "magic-spell"
+        ? cartBody.querySelector(`[data-learn-cart-item][data-spell-id="${source.getAttribute("data-id")}"]`)
+        : cartBody.querySelector(`[data-learn-cart-item][data-key="${key}"]`);
       if (existing) {
         const input = existing.querySelector("[data-learn-value]");
         if (input instanceof HTMLInputElement) {

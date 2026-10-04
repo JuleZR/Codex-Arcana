@@ -361,6 +361,15 @@
   gap: 8px;
 }
 
+#learnWindow .shop_item_price--meta .learn_meta_inline--spell {
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+#learnWindow .shop_table tr[data-kind="magic-spell"] td {
+  padding: 4px 10px;
+}
+
 .learn_spell_symbol {
   display: inline-flex;
   align-items: center;
@@ -2627,7 +2636,6 @@
 
 .learn_magic_slot_table {
   width: 100%;
-  min-width: 340px;
   table-layout: fixed;
   border-collapse: collapse;
   border: 1px solid rgba(154, 116, 72, 0.18);
@@ -2643,8 +2651,9 @@
 
 .learn_magic_slot_table th,
 .learn_magic_slot_table td {
+  min-width: 24px;
   height: 30px;
-  padding: 4px 5px;
+  padding: 4px 3px;
   border-bottom: 1px solid rgba(154, 116, 72, 0.14);
   text-align: center;
   vertical-align: middle;
@@ -2659,8 +2668,19 @@
 }
 
 .learn_magic_slot_table th:first-child {
-  width: 42px;
+  width: 34px;
   text-align: center;
+}
+
+.learn_magic_slot_table + .learn_magic_slot_table {
+  margin-top: 6px;
+}
+
+.learn_magic_slot_table caption {
+  padding: 0 0 5px;
+  text-align: left;
+  font-size: 0.7rem;
+  color: rgba(82, 58, 33, 0.82);
 }
 
 .learn_magic_slot_table tbody th {
@@ -2685,12 +2705,14 @@
 .learn_magic_slot_row_symbol {
   width: 24px;
   font-size: 1.12rem;
+  vertical-align: middle;
 }
 
 .learn_magic_slot_cell_open {
   color: rgba(139, 98, 44, 0.86);
   font-family: "Cinzel", Georgia, serif;
-  font-size: 1.05rem;
+  font-size: 0.85rem;
+  font-weight: 700;
   line-height: 1;
 }
 

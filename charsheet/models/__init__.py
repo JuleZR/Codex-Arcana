@@ -135,6 +135,7 @@ from .transfers import (
     ItemTransferNotification,
 )
 from .progression import (
+    CharacterAdvancedBonus,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
@@ -218,6 +219,7 @@ __all__ = [
     "CharacterLanguage",
     "CharacterLesson",
     "CharacterRaceChoice",
+    "CharacterAdvancedBonus",
     "CharacterSchool",
     "CharacterSchoolPath",
     "CharacterSkill",

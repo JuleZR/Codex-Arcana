@@ -812,11 +812,95 @@
   font: 0.68rem/1.2 "Cormorant Garamond", Georgia, serif;
 }
 
-.creation_trait_input_line {
+.character_creation_page .trait_col > .trait_line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 5px;
+}
+
+.character_creation_page .trait_col > .creation_trait_input_line {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.character_creation_page .trait_line_text.creation_trait_label {
+  display: flex;
+  gap: 3px;
+  overflow: visible;
+}
+
+.creation_trait_name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.creation_trait_rank {
+  flex: 0 0 auto;
+}
+
+.character_creation_page .creation_weapon_masteries {
+  margin-top: 6px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  background: transparent;
+  box-shadow: none;
+}
+
+.creation_weapon_masteries h4 {
+  margin: 0 0 3px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant: normal;
+}
+
+.creation_weapon_masteries .dashboard_hint {
+  margin: 0 0 4px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  font-variant: normal;
+}
+
+.creation_weapon_masteries .dashboard_table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.creation_weapon_masteries .dashboard_table th,
+.creation_weapon_masteries .dashboard_table td {
+  padding: 3px;
+  font-size: 0.74rem;
+  font-variant: normal;
+}
+
+.creation_weapon_masteries .dashboard_table th {
+  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.creation_weapon_masteries th:first-child {
+  width: 8%;
+}
+
+.creation_weapon_masteries th:nth-child(2) {
+  width: 35%;
+}
+
+.creation_weapon_masteries th:nth-child(3) {
+  width: 23%;
+}
+
+.creation_weapon_masteries select {
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font: 0.76rem/1.2 "Cormorant Garamond", Georgia, serif;
 }
 
 .creation_phase4_inline_choices {

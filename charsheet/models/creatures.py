@@ -1534,6 +1534,7 @@ class CharacterCreature(models.Model):
                     source_binding__isnull=False,
                     source_character_item__isnull=True,
                     source_character_technique__isnull=True,
+                    semantic_effect_key="",
                     ),
                 name="uniq_character_creature_source_binding_legacy",
             ),

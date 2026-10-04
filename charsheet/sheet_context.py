@@ -8203,6 +8203,7 @@ def _build_learning_rows(
         character,
         magic_engine=magic_engine,
         synchronize=synchronize,
+        group_by_spell_grade=True,
     ):
         rows = []
         for row in group["rows"]:
@@ -8227,7 +8228,15 @@ def _build_learning_rows(
         magic_groups[group["name"]] = rows
 
     magic_slot_summary = magic_engine.get_spell_learning_slot_summary()
-    magic_slot_table_columns = list(range(1, 11))
+    matrix_sources = [
+        source for source in magic_slot_summary.get("sources", {}).values()
+        if source.get("kind") in {"school", "aspect"}
+    ]
+    matrix_max_level = max((
+        int(source.get("level" if source["kind"] == "school" else "grade", 0))
+        for source in matrix_sources
+    ), default=0)
+    magic_slot_table_columns = list(range(1, matrix_max_level + 1))
     spent_spell_slots_by_source_grade: dict[tuple[str, int], int] = defaultdict(int)
     slot_spells = CharacterSpell.objects.filter(
         character=character,
@@ -8271,7 +8280,7 @@ def _build_learning_rows(
     for source in magic_slot_summary.get("sources", {}).values():
         source_key = str(source.get("key", "") or "")
         source_kind = str(source.get("kind", "") or "")
-        if source_kind in {"school", "divine_arcane"}:
+        if source_kind == "divine_arcane":
             remaining_total = max(0, int(source.get("remaining", 0) or 0))
             if remaining_total > 0:
                 magic_school_slot_sources.append(
@@ -8284,10 +8293,12 @@ def _build_learning_rows(
                     }
                 )
         else:
-            grade = int(source.get("grade", 0) or 0)
+            grade = int(source.get("level" if source_kind == "school" else "grade", 0) or 0)
             if grade not in magic_slot_table_columns:
                 continue
             source_label = str(source.get("name", "") or "")
+            if source_kind == "school":
+                source_label = source_label.rsplit(" – Stufe ", 1)[0]
             label = source_label.rsplit(" Grad ", 1)[0] if " Grad " in source_label else source_label
             row_key = f"{source_kind}:{source.get('id', '')}"
             row = ensure_magic_slot_row(source, label, row_key)
@@ -8308,6 +8319,17 @@ def _build_learning_rows(
     ]
     magic_slot_summary["slot_table_columns"] = magic_slot_table_columns
     magic_slot_summary["slot_table_rows"] = magic_slot_rows
+    matrix_block_size = max(1, (len(magic_slot_table_columns) + 1) // 2)
+    magic_slot_summary["slot_table_blocks"] = [
+        {
+            "columns": magic_slot_table_columns[offset:offset + matrix_block_size],
+            "rows": [
+                {**row, "cells": row["cells"][offset:offset + matrix_block_size]}
+                for row in magic_slot_rows
+            ],
+        }
+        for offset in range(0, len(magic_slot_table_columns), matrix_block_size)
+    ]
     magic_slot_summary["school_slot_sources"] = magic_school_slot_sources
     learn_magic_grade_filters = sorted({
         int(row["grade"])
@@ -9569,14 +9591,12 @@ def build_character_sheet_context(
         )
         if is_pending_creature_choice:
             choice_label = (
-                "Kreatur"
-                if card.semantic_effect_is_choice
-                else (card.source_binding.choice_label or "Tiergestalt").strip()
+                (card.source_binding.choice_label or "Tiergestalt").strip()
+                if card.source_binding_id else "Kreatur"
             )
             template_queryset = (
-                Creature.objects.order_by("name", "id")
-                if card.semantic_effect_is_choice
-                else card.source_binding.creature_template_queryset()
+                card.source_binding.creature_template_queryset()
+                if card.source_binding_id else Creature.objects.order_by("name", "id")
             ).only("id", "name", "creature_type_id")
             tier_type_id = None
             if not card.semantic_effect_is_choice:

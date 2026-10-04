@@ -4490,7 +4490,8 @@ def create_character(request):
             }
 
         draft.state = state
-        draft.save(update_fields=["state"])
+        if action != "lesson_options":
+            draft.save(update_fields=["state"])
         engine = CharacterCreationEngine(draft)
 
         if action == "lesson_options":
@@ -4539,7 +4540,12 @@ def create_character(request):
             return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
 
         if action == "finalize":
-            if all([engine.validate_phase_1(), engine.validate_phase_2(), engine.validate_phase_3(), engine.validate_phase_4()]):
+            invalid_sections = [
+                CREATION_SECTION_LABELS[section]
+                for section, validate in phase_validators.items()
+                if not validate()
+            ]
+            if not invalid_sections:
                 try:
                     character = engine.finalize_character()
                     return redirect("character_sheet", character_id=character.id)
@@ -4549,8 +4555,16 @@ def create_character(request):
                 messages.error(
                     request,
                     "Charakter kann nicht finalisiert werden. "
-                    "Mindestens ein Bereich ist ungültig.",
+                    f"Ungültige Bereiche: {', '.join(invalid_sections)}.",
                 )
+                if not engine._phase_4_weapon_mastery_choices_are_valid():
+                    messages.error(
+                        request,
+                        "Waffenmeister: Bitte für jede Stufe einen eigenen "
+                        "Waffentyp, den ersten Bonus und ein Arkanum wählen. "
+                        "Runen dürfen nicht mehrfach gewählt werden. "
+                        "Die Auswahl steht unter Schulen und Lektionen.",
+                    )
             return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
 
     form = CharacterCreateForm()
@@ -4989,12 +5003,14 @@ def create_character(request):
     weapon_master_school = School.objects.filter(name__iexact="Waffenmeister").first()
     phase_4_weapon_mastery_rows = []
     if weapon_master_school is not None:
-        required_wm_count = min(phase_4_schools.get(str(weapon_master_school.id), 0), 10)
+        required_wm_count = min(
+            phase_4_schools.get(str(weapon_master_school.id), 0), 10,
+        )
         draft_weapon_masteries = engine.phase_4_weapon_masteries()
         draft_weapon_arcana = engine.phase_4_weapon_mastery_arcana()
         weapon_options = weapon_mastery_weapon_type_definitions()
         rune_options = list(Rune.objects.order_by("name").values("id", "name"))
-        for slot_index in range(required_wm_count):
+        for slot_index in range(10):
             mastery_payload = draft_weapon_masteries[slot_index] if slot_index < len(draft_weapon_masteries) else {}
             arcana_payload = draft_weapon_arcana[slot_index] if slot_index < len(draft_weapon_arcana) else {}
             selected_arcana_value = (
@@ -5009,6 +5025,7 @@ def create_character(request):
             phase_4_weapon_mastery_rows.append(
                 {
                     "slot": slot_index + 1,
+                    "active": slot_index < required_wm_count,
                     "weapon_name": f"wm_mastery_weapon_{slot_index + 1}",
                     "first_name": f"wm_mastery_first_{slot_index + 1}",
                     "selected_weapon_id": mastery_payload.get("weapon_type", ""),
@@ -5064,7 +5081,7 @@ def create_character(request):
                 CREATION_SECTION_LABELS[1],
             ),
             "character_type_label": (
-                "Nichtspielercharakter" if draft.is_npc else "Spielercharakter"
+                "NPC" if draft.is_npc else "Spielercharakter"
             ),
             "gender_label": dict(Character.Gender.choices).get(
                 meta.get("gender"),
@@ -6134,6 +6151,7 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         source_binding=binding,
         source_character_item=source_item,
         source_character_technique=source_technique,
+        semantic_effect_key="",
         defaults={
             "creature": selected_creature,
             "quality": source_quality,
@@ -6166,6 +6184,9 @@ def choose_semantic_effect_creature(request, pk: int):
     custom_name = ""
     if mode == "template":
         selected_creature = get_object_or_404(Creature, pk=request.POST.get("creature_id"))
+        if card.source_binding_id and not card.source_binding.allows_creature_template(selected_creature):
+            messages.error(request, "Diese Kreatur passt nicht zum Filter dieser Kreaturenwahl.")
+            return redirect("character_sheet", character_id=card.owner_id)
     elif mode == "free":
         custom_name = str(request.POST.get("custom_name") or "").strip()[:100]
         if not custom_name:
@@ -6178,7 +6199,7 @@ def choose_semantic_effect_creature(request, pk: int):
     card.creature = selected_creature
     card.name_override = custom_name
     card.source_selection_completed = True
-    if selected_creature is not None:
+    if selected_creature is not None and not card.source_binding_id:
         card.quality = selected_creature.quality
     card.save(update_fields=["creature", "name_override", "source_selection_completed", "quality"])
     messages.success(request, f"Kreatur „{card.display_name}“ wurde angelegt.")
@@ -6369,14 +6390,12 @@ def _render_pending_creature_choice_payload(
     replace_card_key: str = "",
 ) -> dict:
     choice_label = (
-        "Kreatur"
-        if card.semantic_effect_is_choice
-        else (card.source_binding.choice_label or "Tiergestalt").strip()
+        (card.source_binding.choice_label or "Tiergestalt").strip()
+        if card.source_binding_id else "Kreatur"
     )
     template_queryset = (
-        Creature.objects.order_by("name", "id")
-        if card.semantic_effect_is_choice
-        else card.source_binding.creature_template_queryset()
+        card.source_binding.creature_template_queryset()
+        if card.source_binding_id else Creature.objects.order_by("name", "id")
     ).only("id", "name", "creature_type_id")
     tier_type_id = None
     if not card.semantic_effect_is_choice:

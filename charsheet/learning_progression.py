@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import OrderedDict
 
 from django.db.models import Q
@@ -300,7 +301,8 @@ def _current_school_grade_filter_options(current_level: int) -> list[int]:
 
 
 def build_learning_magic_groups(
-    character, *, magic_engine=None, synchronize: bool = True
+    character, *, magic_engine=None, synchronize: bool = True,
+    group_by_spell_grade: bool = False,
 ) -> list[dict[str, object]]:
     """Build spell and aspect learning rows for the unified learning menu."""
     engine = magic_engine or character.get_magic_engine(refresh=True)
@@ -313,13 +315,28 @@ def build_learning_magic_groups(
         group_rows: list[dict[str, object]] = []
         for row in group["rows"]:
             spell_id = int(row["spell_id"])
+            granted_level = int(row.get("granted_level", 0))
+            school_id = int(row.get("filter_source_key", "school:0").split(":")[-1]) if granted_level else 0
+            cart_key = f"free:{school_id}:{granted_level}:{spell_id}" if granted_level else f"paid:{spell_id}"
+            input_name = (
+                f"learn_arcane_free_spell_{school_id}_{granted_level}_{spell_id}"
+                if granted_level else (
+                    f"learn_arcane_extra_spell_{spell_id}"
+                    if str(row.get("filter_source_key", "")).startswith("school:")
+                    else f"learn_magic_spell_{spell_id}"
+                )
+            )
             group_rows.append(
                 {
                     **row,
                     "kind": "magic_spell",
-                    "cart_key": f"paid:{spell_id}",
-                    "input_name": f"learn_magic_spell_{spell_id}",
-                    "source_label": "Göttlicher Zusatzzauber" if "learning_cost" in row else "Zauber-Slot",
+                    "cart_key": cart_key,
+                    "input_name": input_name,
+                    "source_label": (
+                        f"Kostenloser Zauber – Stufe {granted_level}" if granted_level
+                        else "Arkaner Zusatzzauber" if str(row.get("filter_source_key", "")).startswith("school:")
+                        else "Göttlicher Zusatzzauber"
+                    ),
                     "slot_cost": row.get("slot_cost", 1),
                     "cost_label": f"{row['learning_cost']} EP" if "learning_cost" in row else "1 Slot",
                 }
@@ -403,11 +420,53 @@ def build_learning_magic_groups(
             }
         )
 
-    return [{"name": name, "rows": rows} for name, rows in groups.items() if rows]
+    if group_by_spell_grade:
+        display_groups: OrderedDict[str, list[dict]] = OrderedDict()
+        display_spells = {}
+        for name, rows in groups.items():
+            for row in rows:
+                if not str(row.get("cart_key", "")).startswith(("free:", "paid:")) or not str(
+                    row.get("filter_source_key", "")
+                ).startswith("school:"):
+                    display_groups.setdefault(name, []).append(row)
+                    continue
+                spell_id = int(row["spell_id"])
+                if spell_id not in display_spells:
+                    display_row = {**row, "free_sources": []}
+                    display_spells[spell_id] = display_row
+                    display_name = f"{row['filter_source_name']} – Stufe {row['grade']}"
+                    display_groups.setdefault(display_name, []).append(display_row)
+                if row.get("granted_level"):
+                    display_spells[spell_id]["free_sources"].append({
+                        "key": row["slot_source_key"],
+                        "name": row["slot_source_name"],
+                        "remaining": row["slot_source_remaining"],
+                        "input_name": row["input_name"],
+                        "label": row["source_label"],
+                    })
+        for row in display_spells.values():
+            row["free_sources_json"] = json.dumps(row.pop("free_sources"))
+        groups = display_groups
+
+    spell_groups = [
+        {
+            "name": name,
+            "rows": sorted(rows, key=lambda row: (
+                int(row.get("grade", 0)), str(row["name"]).casefold(),
+            )),
+        }
+        for name, rows in groups.items() if rows
+    ]
+    return sorted(spell_groups, key=lambda group: (
+        min(int(row.get("grade" if group_by_spell_grade else "granted_level", 1000)) for row in group["rows"]),
+        str(group["name"]).casefold(),
+    ))
 
 
 def build_learning_progression_context(character, *, engine, synchronize: bool = True) -> dict[str, object]:
     """Build open progression decisions for the learning window."""
+    from charsheet.advanced_specializations import learning_context
+
     path_groups: OrderedDict[str, list[dict]] = OrderedDict()
     technique_groups: OrderedDict[str, list[dict]] = OrderedDict()
     specialization_groups: OrderedDict[str, list[dict]] = OrderedDict()
@@ -1172,6 +1231,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
         )
 
     return {
+        **learning_context(character),
         "learn_school_path_groups": [{"name": name, "rows": rows} for name, rows in path_groups.items()],
         "learn_school_path_rows": [row for rows in path_groups.values() for row in rows],
         "learn_school_path_count": sum(len(rows) for rows in path_groups.values()),
