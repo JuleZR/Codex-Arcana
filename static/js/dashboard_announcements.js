@@ -4,6 +4,58 @@ const region = document.querySelector('.dashboard_announcements');
 const editor = region?.querySelector('.announcement_editor');
 const form = editor?.querySelector('[data-announcement-form]');
 const createUrl = form?.action;
+const reader = region ? document.createElement('dialog') : null;
+let activeToggle;
+
+if (reader) {
+  reader.id = 'announcement-reader';
+  reader.className = 'announcement_reader';
+  reader.setAttribute('aria-labelledby', 'announcement-reader-title');
+  reader.innerHTML = '<header class="announcement_reader_header">'
+    + '<h2 id="announcement-reader-title">Nachricht</h2>'
+    + '<button type="button" class="announcement_icon" aria-label="Schließen" title="Schließen">&times;</button>'
+    + '</header><div class="announcement_reader_body"></div>';
+  document.body.appendChild(reader);
+  const closeReader = () => {
+    reader.close();
+    activeToggle?.setAttribute('aria-expanded', 'false');
+    activeToggle?.focus();
+  };
+  reader.querySelector('button').addEventListener('click', closeReader);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && reader.open && !editor?.open) {
+      event.preventDefault();
+      closeReader();
+    }
+  });
+  const header = reader.querySelector('header');
+  let drag;
+  const moveReader = (left, top) => {
+    reader.style.margin = '0';
+    reader.style.left = `${Math.max(12, Math.min(left, window.innerWidth - reader.offsetWidth - 12))}px`;
+    reader.style.top = `${Math.max(12, Math.min(top, window.innerHeight - reader.offsetHeight - 12))}px`;
+  };
+  header.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.target.closest('button')) return;
+    const rect = reader.getBoundingClientRect();
+    drag = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    header.setPointerCapture(event.pointerId);
+    moveReader(rect.left, rect.top);
+    event.preventDefault();
+  });
+  header.addEventListener('pointermove', (event) => {
+    if (drag) moveReader(event.clientX - drag.x, event.clientY - drag.y);
+  });
+  header.addEventListener('lostpointercapture', () => { drag = null; });
+  header.addEventListener('pointerup', (event) => {
+    if (header.hasPointerCapture(event.pointerId)) header.releasePointerCapture(event.pointerId);
+  });
+  window.addEventListener('resize', () => {
+    if (!reader.open) return;
+    const rect = reader.getBoundingClientRect();
+    moveReader(rect.left, rect.top);
+  });
+}
 
 region?.querySelectorAll('[data-announcement]').forEach((toast) => {
   const body = toast.querySelector('[data-announcement-body]');
@@ -12,12 +64,21 @@ region?.querySelectorAll('[data-announcement]').forEach((toast) => {
   // Preserve safe Markdown formatting, including bold titles, when collapsed.
   preview.replaceChildren(...body.cloneNode(true).childNodes);
   const toggle = toast.querySelector('[data-announcement-toggle]');
+  toggle.setAttribute('aria-controls', reader.id);
+  toggle.setAttribute('aria-haspopup', 'dialog');
   toggle.addEventListener('click', () => {
-    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
-    toggle.setAttribute('aria-expanded', String(expanded));
-    toggle.textContent = expanded ? 'Weniger anzeigen' : 'Mehr anzeigen';
-    preview.hidden = expanded;
-    body.hidden = !expanded;
+    activeToggle?.setAttribute('aria-expanded', 'false');
+    activeToggle = toggle;
+    toggle.setAttribute('aria-expanded', 'true');
+    reader.className = `announcement_reader ${Array.from(toast.classList).find((name) => name.startsWith('announcement--')) || ''}`;
+    reader.querySelector('#announcement-reader-title').textContent =
+      body.querySelector('h1, h2, h3, h4, h5, h6')?.textContent.trim() || 'Nachricht';
+    reader.querySelector('.announcement_reader_body').replaceChildren(...body.cloneNode(true).childNodes);
+    reader.style.removeProperty('left');
+    reader.style.removeProperty('top');
+    reader.style.removeProperty('margin');
+    if (!reader.open) reader.show();
+    reader.querySelector('button').focus();
   });
 });
 
