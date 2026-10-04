@@ -103,8 +103,14 @@ class Character(models.Model):
 
     personal_fame_point = models.PositiveIntegerField(default=0, validators=[MaxValueValidator(10)])
     personal_fame_rank = models.PositiveIntegerField(default=0)
+    reputation_personal_points = models.PositiveIntegerField(default=0)
+    reputation_group_points = models.PositiveIntegerField(default=0)
     sacrifice_rank = models.PositiveIntegerField(default=0)
-    artefact_rank = models.PositiveIntegerField(default=0)
+    artefact_rank = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Dauerhaft in Artefakte investierte Ruhmränge",
+        help_text="Der aktive Artefaktrang entsteht ausschließlich durch SemanticEffects.",
+    )
 
     class Meta:
         ordering = ["name"]

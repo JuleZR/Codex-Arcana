@@ -12,6 +12,7 @@ from django.db import transaction
 
 from charsheet.constants import (
     ARCANE_POWER,
+    ARTIFACT_RANK,
     DEADLY,
     DEFENSE_GW,
     DEFENSE_SR,
@@ -30,6 +31,10 @@ from charsheet.constants import (
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
+    WOUND_STAGE,
+    WOUND_STAGE_POSITION_CHOICES,
+    WOUND_STAGE_POSITION_METADATA_KEY,
+    WOUND_STAGE_TARGET_PREFIX,
 )
 from charsheet.engine import ItemEngine
 from charsheet.magic_effects import TEXT_TARGET_KIND
@@ -232,7 +237,7 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
 
     try:
         value = int(raw_value or 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         value = 0
 
     payload: dict[str, object] = {
@@ -322,11 +327,49 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
-    elif target_kind == TARGET_KIND_STAT:
+    elif target_kind in {TARGET_KIND_STAT, "combat"}:
         target_slug = str(row_data.get("target_stat") or "").strip()
+        if (
+            target_slug == WOUND_STAGE
+            or target_slug.startswith(WOUND_STAGE_TARGET_PREFIX)
+        ):
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Bitte Wundstufe einfügen und eine konkrete "
+                    "Position auswählen."
+                ),
+            })
         if not target_slug:
             return None
+        payload["target_kind"] = TARGET_KIND_STAT
         payload["target_slug"] = target_slug
+    elif target_kind == "wound_stage":
+        position = str(row_data.get("target_wound_stage_position") or "")
+        if position not in dict(WOUND_STAGE_POSITION_CHOICES):
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Bitte eine konkrete Wundposition auswählen."
+                ),
+            })
+        try:
+            count = Decimal(str(raw_value))
+            valid_count = (
+                count.is_finite() and count >= 1 and count == int(count)
+            )
+        except (InvalidOperation, ValueError, OverflowError):
+            valid_count = False
+        if not valid_count:
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Zusätzliche Wundstufen müssen eine "
+                    "positive ganze Zahl sein."
+                ),
+            })
+        payload["target_slug"] = f"{WOUND_STAGE_TARGET_PREFIX}{position}"
+        payload["target_wound_stage_position"] = position
+        payload["value"] = int(count)
+    elif target_kind == ARTIFACT_RANK:
+        payload["target_slug"] = ARTIFACT_RANK
     elif target_kind == TARGET_KIND_MOVEMENT:
         target_slug = str(row_data.get("target_movement") or "").strip()
         if not target_slug:
@@ -386,6 +429,9 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
         post_data.get("magic_modifier_value", 0),
         {
             "target_stat": post_data.get("magic_modifier_target_stat"),
+            "target_wound_stage_position": post_data.get(
+                "magic_modifier_wound_stage_position"
+            ),
             "target_movement": post_data.get("magic_modifier_target_movement"),
             "target_rule_flag": post_data.get("magic_modifier_target_rule_flag"),
             "target_attribute": post_data.get("magic_modifier_target_attribute"),
@@ -633,7 +679,20 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
 
     if target_kind == TARGET_KIND_ATTRIBUTE:
         target_domain = TargetDomain.ATTRIBUTE
+    elif target_kind == ARTIFACT_RANK:
+        target_domain = TargetDomain.RESOURCE
+        target_key = ARTIFACT_RANK
+    elif target_kind == "wound_stage":
+        target_domain = TargetDomain.DERIVED_STAT
+        operator = ModifierOperator.FLAT_ADD
     elif target_kind == TARGET_KIND_STAT:
+        if target_slug == WOUND_STAGE:
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Bitte Wundstufe einfügen und eine konkrete "
+                    "Position auswählen."
+                ),
+            })
         if target_slug in {value for value, _label in RULE_FLAG_CHOICES}:
             target_domain = TargetDomain.RULE_FLAG
             operator = ModifierOperator.SET_FLAG if int(payload.get("value") or 0) else ModifierOperator.UNSET_FLAG
@@ -673,6 +732,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "legacy_target_slug": target_slug,
         "base_item_effect_id": payload.get("base_item_effect_id"),
     }
+    if target_kind == "wound_stage":
+        metadata[WOUND_STAGE_POSITION_METADATA_KEY] = (
+            payload["target_wound_stage_position"]
+        )
     effect_description = str(payload.get("effect_description") or "").strip()
     rules_text = str(payload.get("rules_text") or "").strip()
     if target_domain == TargetDomain.DERIVED_STAT and target_key in CONDITIONAL_CORE_STAT_TARGETS and effect_description:

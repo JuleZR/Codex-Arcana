@@ -1,0 +1,12 @@
+<fieldset class="magic-condition-picker" data-condition-picker>
+  <legend><label><input type="checkbox" data-condition-toggle> {{ condition_label }}</label></legend>
+  <select multiple hidden data-condition-source data-effect-condition-{{ condition_kind }} data-magic-condition-{{ condition_kind }}>{% for choice in condition_choices %}<option value="{{ choice.pk }}">{{ choice.name }}</option>{% endfor %}</select>
+  <div class="magic-condition-picker__lists" data-condition-fields hidden>
+    <label class="sl-editor-field shop_item_form_row"><span>Verf&uuml;gbar</span><select multiple size="5" data-condition-available></select></label>
+    <div class="magic-condition-picker__actions">
+      <button type="button" class="shop_step_btn" data-condition-add title="Markierte Eintr&auml;ge hinzuf&uuml;gen" aria-label="Markierte Eintr&auml;ge hinzuf&uuml;gen">&rarr;</button>
+      <button type="button" class="shop_step_btn" data-condition-remove title="Markierte Eintr&auml;ge entfernen" aria-label="Markierte Eintr&auml;ge entfernen">&larr;</button>
+    </div>
+    <label class="sl-editor-field shop_item_form_row"><span>Ausgew&auml;hlt <span data-condition-count>(0)</span></span><select multiple size="5" data-condition-selected></select></label>
+  </div>
+</fieldset>

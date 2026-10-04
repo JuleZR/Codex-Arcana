@@ -1,55 +1,33 @@
-import { loadJsonStorage, saveJsonStorage } from "./utils.js";
-
 export function initReputationPanel() {
-  const reputationWrapper = document.querySelector(".reputation_wrapper");
   const reputationList = document.getElementById("reputationList");
-  const reputationEditBtn = document.getElementById("reputationEditBtn");
-  if (!reputationWrapper || !reputationList || !reputationEditBtn) {
+  if (!reputationList) {
     return;
   }
 
-  const reputationInputs = Array.from(reputationList.querySelectorAll(".reputation_input"));
-  const characterId = reputationList.dataset.characterId || "0";
-  const storageKey = `charsheet.reputation.${characterId}`;
-
-  const saveReputation = () => {
-    const payload = {};
-    reputationInputs.forEach((input) => {
-      const key = input.dataset.reputationKey || "";
-      if (key) {
-        payload[key] = input.value || "";
-      }
-    });
-    saveJsonStorage(storageKey, payload);
-  };
-
-  const setEditMode = (isEditing) => {
-    reputationWrapper.classList.toggle("is-editing", isEditing);
-    reputationInputs.forEach((input) => {
-      input.readOnly = !isEditing;
-    });
-    reputationEditBtn.setAttribute("aria-pressed", String(isEditing));
-    if (isEditing && reputationInputs.length) {
-      reputationInputs[0].focus();
-    }
-    if (!isEditing) {
-      saveReputation();
-    }
-  };
-
-  const persisted = loadJsonStorage(storageKey, {});
-  reputationInputs.forEach((input) => {
-    const key = input.dataset.reputationKey || "";
-    input.value = key && Object.prototype.hasOwnProperty.call(persisted, key) ? (persisted[key] || "") : "";
-    input.addEventListener("input", () => {
-      if (reputationWrapper.classList.contains("is-editing")) {
-        saveReputation();
+  document.addEventListener("charsheet:reputation-points-updated", (event) => {
+    const points = event.detail;
+    if (!points) return;
+    document.querySelectorAll("#reputationList [data-reputation-points]").forEach((form) => {
+      const value = points[form.dataset.reputationPoints];
+      if (value !== undefined) form.querySelector("span").textContent = String(value);
+      if (form.dataset.reputationPoints === "artefact") {
+        form.querySelector('button[value="1"]').disabled = Number(points.availablePersonalRank) < 1;
       }
     });
   });
 
-  setEditMode(false);
-  reputationEditBtn.addEventListener("click", () => {
-    setEditMode(!reputationWrapper.classList.contains("is-editing"));
+  const updateArtifactDisplay = () => {
+    const fame = document.getElementById("sheetFamePanel");
+    const form = document.querySelector('[data-reputation-points="artefact"]');
+    if (!fame || !form) return;
+    form.querySelector("span").textContent = fame.dataset.artifactInvestment || "0";
+    form.querySelector('button[value="1"]').disabled =
+      document.body.dataset.readOnly === "1" || Number(fame.dataset.availablePersonalRank) < 1;
+  };
+  document.addEventListener("charsheet:partials-applied", updateArtifactDisplay);
+  document.addEventListener("sheet:action-success", (event) => {
+    if (event.target.matches('[data-reputation-points="artefact"]')) {
+      queueMicrotask(updateArtifactDisplay);
+    }
   });
 }

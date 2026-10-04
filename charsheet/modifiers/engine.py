@@ -17,6 +17,7 @@ from charsheet.modifiers.definitions import (
     TargetDomain,
 )
 from charsheet.constants import (
+    ARTIFACT_RANK,
     MELEE_MANEUVERS,
     PROFICIENCY_GROUP_FOREIGN_LANGUAGES,
     RUNE_CRAFTER_LEVEL,
@@ -306,7 +307,7 @@ class ModifierEngine:
 
     @cached_property
     def _active_item_semantic_modifiers(self) -> list[BaseModifier]:
-        """Build semantic modifiers from equipped magic base items and item instances."""
+        """Build equipped effects and owned artefact-rank effects."""
         if self.character_engine is None:
             return []
         equipped_items = list(
@@ -356,6 +357,11 @@ class ModifierEngine:
 
         for character_item in equipped_items:
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
+                if not character_item.equipped and not (
+                    effect.target_domain == "resource"
+                    and effect.target_key == ARTIFACT_RANK
+                ):
+                    continue
                 if (int(character_item.id), int(effect.id)) in instance_base_effect_ids:
                     continue
                 if not is_character_item_effect_identified(character_item, effect):
@@ -382,6 +388,13 @@ class ModifierEngine:
                 for effect in instance_effects
                 if effect.active_flag
                 and is_character_item_effect_identified(effect.character_item, effect)
+                and (
+                    effect.character_item.equipped
+                    or (
+                        effect.target_domain == "resource"
+                        and effect.target_key == ARTIFACT_RANK
+                    )
+                )
             ),
         ]
 

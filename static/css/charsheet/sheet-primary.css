@@ -453,24 +453,8 @@
 
 .fame_adjust_form {
   display: grid;
-  grid-template-columns: 24px auto 24px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-}
-
-.fame_step_btn {
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgba(74, 55, 38, 0.42);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 252, 242, 0.95) 0%, rgba(240, 228, 201, 0.92) 100%);
-  color: #3f2d1f;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
 }
 
 .dot {
@@ -648,29 +632,6 @@
   gap: 8px;
 }
 
-.reputation_edit_btn {
-  width: 20px;
-  height: 20px;
-  border: 1px solid rgba(74, 55, 38, 0.35);
-  border-radius: 4px;
-  background: rgba(255, 250, 236, 0.76);
-  color: #3f2d1f;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  cursor: pointer;
-}
-
-.reputation_edit_btn svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .reputation_list {
   margin: 0;
   padding: 0;
@@ -679,7 +640,7 @@
 
 .reputation_list li {
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   min-height: 26px;
@@ -688,34 +649,59 @@
 .reputation_label {
   font-size: 0.73rem;
   color: #3f2d1f;
+  white-space: nowrap;
 }
 
-.reputation_input {
-  width: 100%;
-  min-height: 18px;
-  border: 0;
+.reputation_points {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  align-items: end;
+  gap: 3px;
+  min-width: 0;
+  min-height: 22px;
+  white-space: nowrap;
+}
+
+.reputation_points::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
   border-bottom: 1px solid rgba(74, 55, 38, 0.52);
-  background: transparent;
-  color: #3f2d1f;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 0.94rem;
-  padding: 0 2px;
-}
-
-.reputation_input[readonly] {
   pointer-events: none;
 }
 
-.reputation_wrapper.is-editing .reputation_input[readonly] {
-  pointer-events: auto;
+.reputation_points span {
+  grid-column: 2;
+  min-width: 2ch;
+  color: #3f2d1f;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.2rem;
+  font-style: italic;
+  line-height: 1;
+  text-align: center;
+  transform: translateY(-3px);
 }
 
-.reputation_wrapper.is-editing .reputation_input {
-  background: rgba(255, 250, 236, 0.44);
+.reputation_points button {
+  border: 0;
+  background: transparent;
+  color: #3f2d1f;
+  cursor: pointer;
+  opacity: 0;
 }
 
-.reputation_wrapper.is-editing .reputation_edit_btn {
-  background: rgba(228, 199, 131, 0.8);
+.reputation_list li:hover .reputation_points button,
+.reputation_points:focus-within button {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .reputation_points button {
+    opacity: 1;
+  }
 }
 
 .language_wrapper {
@@ -1565,7 +1551,7 @@ button.skill_manager_action {
 
 .traits_columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   min-height: 0;
   overflow-x: hidden;
@@ -1604,6 +1590,54 @@ button.skill_manager_action {
 .trait_spec_edit_btn {
   margin-right: 2px;
   margin-bottom: 1px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink-soft);
+  opacity: 0.65;
+  transition: color 140ms ease, opacity 140ms ease;
+}
+
+.trait_spec_edit_btn .skill_spec_edit_emoji {
+  font-size: 0.76rem;
+}
+
+.trait_spec_edit_btn:hover,
+.trait_spec_edit_btn:focus-visible {
+  color: var(--line);
+  opacity: 1;
+  transform: none;
+}
+
+.trait_details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.trait_details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.trait_details_label {
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+}
+
+.trait_details > summary:hover .trait_details_label,
+.trait_details > summary:focus-visible .trait_details_label {
+  text-decoration: underline;
+}
+
+.trait_specification {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 3px 7px 3px 8px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.28);
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  cursor: help;
 }
 
 

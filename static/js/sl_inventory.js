@@ -237,7 +237,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const target = row.querySelector(`[data-effect-target='${targetKind}'] select`);
         if (targetKind === "attribute") payload.target_attribute = target?.value || "";
-        if (targetKind === "stat") payload.target_stat = target?.value || "";
+        if (["stat", "combat"].includes(targetKind)) payload.target_stat = target?.value || "";
+        if (targetKind === "wound_stage") {
+          payload.target_wound_stage_position = target?.value || "";
+          payload.value = row.querySelector("[data-effect-value]")?.value || "";
+        }
         if (targetKind === "rule_flag") payload.target_rule_flag = target?.value || "";
         if (targetKind === "skill") payload.target_skill = target?.value || "";
         if (targetKind === "category") payload.target_skill_category = target?.value || "";
@@ -260,10 +264,16 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
       const valueRow = row.querySelector("[data-effect-value-row]");
+      const valueLabel = row.querySelector("[data-effect-value-label]");
+      if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
       const hasCalculation = !["text", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !hasCalculation;
       const valueInput = row.querySelector("[data-effect-value]");
-      if (valueInput) valueInput.disabled = !hasCalculation;
+      if (valueInput) {
+        valueInput.disabled = !hasCalculation;
+        valueInput.min = kind === "wound_stage" ? "1" : "";
+        valueInput.required = kind === "wound_stage";
+      }
       const scaleSource = row.querySelector("[data-effect-scale-source]");
       const scaleSourceRow = row.querySelector("[data-effect-scale-source-row]");
       const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
@@ -452,7 +462,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const target = row.querySelector(`[data-effect-target='${kind}'] select`)?.value || "";
         if (kind === "attribute") payload.target_attribute = target;
-        if (kind === "stat") payload.target_stat = target;
+        if (["stat", "combat"].includes(kind)) payload.target_stat = target;
+        if (kind === "wound_stage") {
+          payload.target_wound_stage_position = target;
+          payload.value = row.querySelector("[data-effect-value]")?.value || "";
+        }
         if (kind === "rule_flag") payload.target_rule_flag = target;
         if (kind === "skill") payload.target_skill = target;
         if (kind === "category") payload.target_skill_category = target;
@@ -475,10 +489,16 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
       const valueRow = row.querySelector("[data-effect-value-row]");
+      const valueLabel = row.querySelector("[data-effect-value-label]");
+      if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
       const calculated = !["text", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !calculated;
       const value = row.querySelector("[data-effect-value]");
-      if (value) value.disabled = !calculated;
+      if (value) {
+        value.disabled = !calculated;
+        value.min = kind === "wound_stage" ? "1" : "";
+        value.required = kind === "wound_stage";
+      }
       const scaleSource = row.querySelector("[data-effect-scale-source]");
       const scaleSourceRow = row.querySelector("[data-effect-scale-source-row]");
       const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
@@ -552,6 +572,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const targetValues = {
         attribute: payload.target_attribute,
         stat: payload.target_stat,
+        combat: payload.target_stat,
+        wound_stage: payload.target_wound_stage_position,
         rule_flag: payload.target_rule_flag,
         skill: payload.target_skill,
         category: payload.target_skill_category,

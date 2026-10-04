@@ -25,13 +25,21 @@ from charsheet.constants import (
 
 def fame_total(engine) -> int:
     """Return the combined fame-related score used by scaling rules."""
-    return (
+    personal_score = (
         max(0, int(engine.character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point")))
         + engine.auto_school_fame_points()
         + engine.auto_lesson_fame_points()
         + max(0, int(engine.character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")))
+    )
+    return (
+        max(
+            0,
+            personal_score
+            - int(engine.character.artefact_rank)
+            - int(engine.character.sacrifice_rank),
+        )
         + engine.character.sacrifice_rank
-        + max(0, int(engine.character.artefact_rank) + int(engine.resolve_resource("artefact_rank")))
+        + engine.artifact_rank()
     )
 
 

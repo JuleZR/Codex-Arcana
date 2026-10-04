@@ -151,6 +151,8 @@ export function initItemForm() {
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
     const isRuleFlag = selectedKind === "rule_flag";
+    const valueLabel = row.querySelector("[data-magic-value-label]");
+    if (valueLabel) valueLabel.textContent = selectedKind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
 
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
       if (!(targetRow instanceof HTMLElement)) {
@@ -168,6 +170,7 @@ export function initItemForm() {
 
     if (valueInput instanceof HTMLInputElement) {
       valueInput.setCustomValidity("");
+      valueInput.min = selectedKind === "wound_stage" ? "1" : "";
       if (valueRow instanceof HTMLElement) {
         valueRow.hidden = isTextOnly || isRuleFlag;
       }
@@ -229,6 +232,14 @@ export function initItemForm() {
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
         toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
+      payload.condition_races = Array.from(
+        row.querySelector("[data-magic-condition-races]")?.selectedOptions || [],
+        option => Number.parseInt(option.value, 10),
+      ).filter(value => Number.isInteger(value) && value > 0);
+      payload.condition_schools = Array.from(
+        row.querySelector("[data-magic-condition-schools]")?.selectedOptions || [],
+        option => Number.parseInt(option.value, 10),
+      ).filter(value => Number.isInteger(value) && value > 0);
       if (row.dataset.displayGroup) {
         payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
       }
@@ -261,6 +272,10 @@ export function initItemForm() {
         payload.target_attribute = String(attributeSelect?.value || "").trim();
       } else if (targetKind === "stat") {
         payload.target_stat = String(statSelect?.value || "").trim();
+      } else if (targetKind === "combat") {
+        payload.target_stat = String(row.querySelector("[data-magic-target-select='combat']")?.value || "").trim();
+      } else if (targetKind === "wound_stage") {
+        payload.target_wound_stage_position = String(row.querySelector("[data-magic-target-select='wound_stage']")?.value || "").trim();
       } else if (targetKind === "rule_flag") {
         payload.target_rule_flag = String(ruleFlagSelect?.value || "").trim();
       } else if (targetKind === "skill") {
@@ -414,6 +429,8 @@ export function initItemForm() {
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-condition-races]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-magic-condition-schools]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);

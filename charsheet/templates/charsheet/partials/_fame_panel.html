@@ -1,4 +1,4 @@
-<div class="fame_wrapper" id="sheetFamePanel">
+<div class="fame_wrapper" id="sheetFamePanel" data-artifact-investment="{{ character.artefact_rank }}" data-available-personal-rank="{{ effective_personal_fame_rank }}">
   <div class="fame_header">
     <h2>Ruhm</h2>
     <div class="fame_total_wrap">
@@ -16,19 +16,12 @@
     <span>Opferrang</span>
     <span>Artefaktrang</span>
   </div>
-  <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="fame_adjust_form" data-sheet-action>
-    {% csrf_token %}
-    <button type="submit" name="delta" value="-1" class="fame_step_btn" aria-label="Ruhmpunkt verringern">-</button>
+  <div class="fame_adjust_form">
     <div class="fame_dots" aria-label="Ruhmpunkte">
       {% for _ in '1234567890' %}
         <span class="dot{% if forloop.counter <= effective_personal_fame_point %} is-filled{% endif %}"></span>
       {% endfor %}
     </div>
-    <button type="submit" name="delta" value="1" class="fame_step_btn" aria-label="Ruhmpunkt erh&ouml;hen">+</button>
-  </form>
-  <p class="fame_hint">
-    <span class="fame_hint_manual">Davon Manuell: {{ manual_personal_fame_total }}</span>
-    <span class="fame_hint_auto">Automatisch: {{ auto_progression_fame_point }} (Schulen {{ auto_school_fame_point }}, Lektionen {{ auto_lesson_fame_point }})</span>
-    <span class="fame_hint_rule">10 Ruhmpunkte = 1 Pers&ouml;nlicher Rang</span>
-  </p>
+  </div>
+  <p class="fame_hint">Ruhmpunkte<br>(10 = 1 pers&ouml;nlicher Rang)</p>
 </div>

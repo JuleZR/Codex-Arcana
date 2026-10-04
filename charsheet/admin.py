@@ -72,6 +72,10 @@ from .admin_help import (
     TRAIT_CHOICE_HELP,
     WEAPON_CHOICE_HELP,
 )
+from .semantic_effect_ui import (
+    semantic_effect_area_optgroups, semantic_stat_choices,
+    semantic_stat_optgroups,
+)
 from .engine.item_engine import ItemEngine
 from .engine.creature_engine import CreatureEngine
 from .modifiers.registry import build_trait_semantic_modifiers
@@ -2484,6 +2488,18 @@ class SemanticRoundingAdminMixin:
             if name in self.fields:
                 self.fields[name].widget.attrs["data-semantic-rounding"] = name
 
+    def _post_clean(self):
+        if (
+            self.cleaned_data.get("target_domain") == "derived_stat"
+            and self.cleaned_data.get("target_key") == WOUND_STAGE
+        ):
+            self.add_error(
+                "simple_target",
+                "Bitte Wundstufe einfügen und eine konkrete "
+                "Position auswählen.",
+            )
+        super()._post_clean()
+
 
 class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
     """User-friendly item effect editor that maps dropdowns to semantic fields."""
@@ -2504,6 +2520,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("wound_stage", "Wundstufe einfügen"),
+        ("resource", "Ressource"),
         ("movement", "Bewegung"),
         ("creature_movement", "Kreaturenbewegung"),
         ("combat", "Kampf / Waffe"),
@@ -2558,7 +2575,11 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         ("unset_flag", "Flag entfernen"),
     )
 
-    effect_area = forms.ChoiceField(label="Was soll geändert werden?", choices=EFFECT_AREA_CHOICES, required=False)
+    effect_area = forms.ChoiceField(
+        label="Was soll geändert werden?",
+        choices=EFFECT_AREA_CHOICES,
+        required=False,
+    )
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = forms.CharField(label="Zahl", required=False)
@@ -2590,6 +2611,9 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["effect_area"].choices = (
+            semantic_effect_area_optgroups(self.EFFECT_AREA_CHOICES)
+        )
         self.fields["simple_target"].choices = self._simple_target_choices()
         self.fields["simple_weapon_type_filter"].queryset = WeaponType.objects.order_by(
             "sort_order",
@@ -2622,6 +2646,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
 
     def _simple_target_choices(self):
         choices = [("", "-")]
+        choices.append(("resource:artefact_rank", "Artefaktrang"))
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend(
             (f"derived_stat:{value}", label)
@@ -2670,6 +2695,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "override"))
             return
         domain_to_area = {
+            "resource": "resource",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "movement": "movement",
@@ -2848,6 +2874,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         if area == "wound_stage":
             return "derived_stat", f"{WOUND_STAGE_TARGET_PREFIX}{target_key}"
         return {
+            "resource": "resource",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "movement": "movement",
@@ -3063,7 +3090,23 @@ class TraitExcludedByInline(admin.TabularInline):
         return False
 
 
-class TechniqueChoiceDefinitionInline(admin.TabularInline):
+class SemanticTargetChoiceAdminMixin:
+    """Apply the shared target order to related rule-object selectors."""
+
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        field = super().formfield_for_choice_field(db_field, request, **kwargs)
+        if db_field.name == "target_kind":
+            field.choices = semantic_effect_area_optgroups(field.choices)
+        elif db_field.name in {
+            "allowed_derived_stat", "selected_derived_stat",
+        }:
+            field.choices = semantic_stat_optgroups(field.choices)
+        return field
+
+
+class TechniqueChoiceDefinitionInline(
+    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+):
     """Inline editor for persistent technique choice definitions."""
 
     model = TechniqueChoiceDefinition
@@ -3083,7 +3126,9 @@ class TechniqueChoiceDefinitionInline(admin.TabularInline):
     )
 
 
-class RaceChoiceDefinitionInline(admin.TabularInline):
+class RaceChoiceDefinitionInline(
+    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+):
     """Inline editor for persistent race choice definitions."""
 
     model = RaceChoiceDefinition
@@ -3105,7 +3150,9 @@ class RaceChoiceDefinitionInline(admin.TabularInline):
     )
 
 
-class TraitChoiceDefinitionInline(admin.TabularInline):
+class TraitChoiceDefinitionInline(
+    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+):
     """Inline editor for persistent trait choice definitions."""
 
     model = TraitChoiceDefinition
@@ -3467,19 +3514,7 @@ def _ordered_unique_semantic_choices(choices, area_choices):
 
 
 def _semantic_derived_stat_choices():
-    weapon_stat_keys = {
-        MELEE_MANEUVERS,
-        WEAPON_DAMAGE,
-        WEAPON_DAMAGE_DICE,
-        WEAPON_MANEUVER_DAMAGE,
-        WEAPON_MASTERY_BONUS,
-        WOUND_STAGE,
-    }
-    return [
-        (value, label)
-        for value, label in STAT_SLUG_CHOICES
-        if value not in weapon_stat_keys
-    ]
+    return semantic_stat_choices()
 
 
 class RuleSemanticEffectAdminForm(
@@ -3507,7 +3542,8 @@ class RuleSemanticEffectAdminForm(
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("wound_stage", "Wundstufe einfügen"),
-        ("combat", "Kampfwert / Schadenswert"),
+        ("resource", "Ressource"),
+        ("combat", "Kampf / Waffe"),
         ("movement", "Bewegung"),
         ("creature_movement", "Kreaturenbewegung"),
         ("damage_source", "Schadensart"),
@@ -3579,7 +3615,11 @@ class RuleSemanticEffectAdminForm(
         ("rune_crafter_level", "pro Runenmeister-Stufe"),
     )
 
-    effect_area = forms.ChoiceField(label="Was soll geaendert werden?", choices=EFFECT_AREA_CHOICES, required=False)
+    effect_area = forms.ChoiceField(
+        label="Was soll geändert werden?",
+        choices=EFFECT_AREA_CHOICES,
+        required=False,
+    )
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = CommaFloatField(label="Zahl", required=False)
@@ -3640,6 +3680,9 @@ class RuleSemanticEffectAdminForm(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["effect_area"].choices = (
+            semantic_effect_area_optgroups(self.EFFECT_AREA_CHOICES)
+        )
         self.fields["simple_target"].choices = self._simple_target_choices()
         self.fields["simple_scale_school"].queryset = School.objects.order_by("name")
         self.fields["simple_scale_skill"].queryset = Skill.objects.order_by("name")
@@ -3674,6 +3717,7 @@ class RuleSemanticEffectAdminForm(
 
     def _simple_target_choices(self):
         choices = [("", "-")]
+        choices.append(("resource:artefact_rank", "Artefaktrang"))
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend(
             (f"derived_stat:{value}", label)
@@ -3725,6 +3769,7 @@ class RuleSemanticEffectAdminForm(
             and (target_key == WOUND_STAGE or target_key.startswith(WOUND_STAGE_TARGET_PREFIX))
         )
         area = {
+            "resource": "resource",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "combat": "combat",
@@ -4007,6 +4052,7 @@ class RuleSemanticEffectAdminForm(
         if prefix != area:
             return "", ""
         mapping = {
+            "resource": "resource",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "combat": "combat",
@@ -4108,7 +4154,7 @@ class CreatureTraitSemanticEffectAdminForm(
         ("combat", "Angriff / Schaden"),
         ("rule_flag", "Regelflag"),
         ("choice", "Auswahl des Traits"),
-        ("choice_attack_damage", "Schaden der gewaehlten Angriffsart"),
+        ("choice_attack_damage", "Schaden der gewählten Angriffsart"),
         ("attack_type_damage", "Schaden nach Angriffsart"),
         ("creature_card", "Kreaturenkarte gewähren"),
     )
@@ -4154,7 +4200,11 @@ class CreatureTraitSemanticEffectAdminForm(
         ("max_value", "hoechstens"),
     )
 
-    effect_area = forms.ChoiceField(label="Was soll geaendert werden?", choices=EFFECT_AREA_CHOICES, required=False)
+    effect_area = forms.ChoiceField(
+        label="Was soll geändert werden?",
+        choices=EFFECT_AREA_CHOICES,
+        required=False,
+    )
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = CommaFloatField(label="Zahl", required=False)
@@ -4166,7 +4216,8 @@ class CreatureTraitSemanticEffectAdminForm(
 
     class Media:
         js = (
-            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
+            "?v=20261004",
             "charsheet/js/semantic_effect_rounding_v1.js",
         )
 
@@ -4175,10 +4226,14 @@ class CreatureTraitSemanticEffectAdminForm(
         if "target_key" in self.fields:
             self.fields["target_key"].required = False
         self.fields["simple_target"].choices = self._simple_target_choices()
+        area_choices = self.EFFECT_AREA_CHOICES
         if "target_choice_definition" not in self.fields:
-            self.fields["effect_area"].choices = tuple(
-                choice for choice in self.fields["effect_area"].choices if choice[0] != "choice"
+            area_choices = tuple(
+                choice for choice in area_choices if choice[0] != "choice"
             )
+        self.fields["effect_area"].choices = (
+            semantic_effect_area_optgroups(area_choices)
+        )
         self.fields["sort_order"].label = "Reihenfolge"
         self.fields["active_flag"].label = "Aktiv"
         self.fields["condition_text"].label = "Wann gilt der Effekt?"
@@ -4594,18 +4649,18 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
     """Simple semantic-effect editor shared by character and creature powers."""
 
     EFFECT_AREA_CHOICES = (
-        ("daemonic_power", "Daemonic power"),
-        ("attribute", "Attribute"),
-        ("defense", "Defense / resistance"),
-        ("movement", "Movement"),
-        ("movement_exclusion", "Exclude movement mode"),
-        ("skill", "Skill"),
-        ("skill_category", "Skill category"),
-        ("special_skill", "Creature skill"),
-        ("combat", "Attack / damage"),
-        ("rule_flag", "Rule flag"),
-        ("attack_type_damage", "Damage by attack type"),
-        ("creature_card", "Grant creature card"),
+        ("daemonic_power", "Dämonische Macht"),
+        ("attribute", "Eigenschaft"),
+        ("defense", "Verteidigung / Widerstand"),
+        ("movement", "Bewegung"),
+        ("movement_exclusion", "Bewegungsform ausschließen"),
+        ("skill", "Fertigkeit"),
+        ("skill_category", "Fertigkeitskategorie"),
+        ("special_skill", "Kreaturen-Fertigkeit"),
+        ("combat", "Angriff / Schaden"),
+        ("rule_flag", "Regelflag"),
+        ("attack_type_damage", "Schaden nach Angriffsart"),
+        ("creature_card", "Kreaturenkarte gewähren"),
     )
     DEFENSE_TARGET_CHOICES = (
         ("initiative", "Initiative"),
@@ -4650,8 +4705,10 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["effect_area"].label = "Effect area"
-        self.fields["effect_area"].choices = self.EFFECT_AREA_CHOICES
+        self.fields["effect_area"].label = "Was soll geändert werden?"
+        self.fields["effect_area"].choices = semantic_effect_area_optgroups(
+            self.EFFECT_AREA_CHOICES,
+        )
         self.fields["simple_target"].label = "Target"
         self.fields["simple_operator"].label = "Operator"
         self.fields["simple_operator"].choices = self.OPERATION_CHOICES
@@ -4715,20 +4772,20 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
     """Simple semantic-effect editor with vampire-specific scaling choices."""
 
     EFFECT_AREA_CHOICES = (
-        ("attribute", "Attribute"),
-        ("attribute_cap", "Attribute maximum"),
-        ("defense", "Defense / resistance"),
-        ("movement", "Movement"),
-        ("movement_exclusion", "Exclude movement mode"),
-        ("skill", "Skill"),
-        ("skill_category", "Skill category"),
-        ("special_skill", "Creature skill"),
-        ("combat", "Attack / damage"),
-        ("resource", "Resource"),
-        ("rule_flag", "Rule flag"),
-        ("disallow_schools", "Disallow schools"),
-        ("attack_type_damage", "Damage by attack type"),
-        ("creature_card", "Grant creature card"),
+        ("attribute", "Eigenschaft"),
+        ("attribute_cap", "Attributmaximum"),
+        ("defense", "Verteidigung / Widerstand"),
+        ("movement", "Bewegung"),
+        ("movement_exclusion", "Bewegungsform ausschließen"),
+        ("skill", "Fertigkeit"),
+        ("skill_category", "Fertigkeitskategorie"),
+        ("special_skill", "Kreaturen-Fertigkeit"),
+        ("combat", "Angriff / Schaden"),
+        ("resource", "Ressource"),
+        ("rule_flag", "Regelflag"),
+        ("disallow_schools", "Schulen sperren"),
+        ("attack_type_damage", "Schaden nach Angriffsart"),
+        ("creature_card", "Kreaturenkarte gewähren"),
     )
     DEFENSE_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.DEFENSE_TARGET_CHOICES
     MOVEMENT_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.MOVEMENT_TARGET_CHOICES
@@ -4774,8 +4831,10 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["effect_area"].label = "Effect area"
-        self.fields["effect_area"].choices = self.EFFECT_AREA_CHOICES
+        self.fields["effect_area"].label = "Was soll geändert werden?"
+        self.fields["effect_area"].choices = semantic_effect_area_optgroups(
+            self.EFFECT_AREA_CHOICES,
+        )
         self.fields["simple_target"].label = "Target"
         self.fields["simple_operator"].label = "Operator"
         self.fields["simple_operator"].choices = self.OPERATION_CHOICES
@@ -4813,7 +4872,11 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         current_domain = str(getattr(self.instance, "target_domain", "") or "")
         current_key = str(getattr(self.instance, "target_key", "") or "")
         current_value = f"{current_domain}:{current_key}"
-        if current_domain and current_key and not any(value == current_value for value, _label in choices):
+        if (
+            current_domain and current_key
+            and current_value != f"derived_stat:{WOUND_STAGE}"
+            and not any(value == current_value for value, _label in choices)
+        ):
             choices.append((current_value, current_key.replace("_", " ").title()))
         return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
@@ -4911,6 +4974,7 @@ class SpellAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["kp_cost"].required = False
         self.fields["ep_cost"].required = False
+        self.fields["personal_fame_rank_cost"].required = False
         self.fields["range_text"].label = "Textlabel"
         self.fields["duration_text"].label = "Textlabel"
         self.fields["duration2_text"].label = "Textlabel"
@@ -4959,6 +5023,7 @@ class SpellAdminForm(forms.ModelForm):
             self.add_error("divine_entities", "Aspekt oder Glaubensbindung erforderlich.")
         kp_cost = cleaned_data.get("kp_cost")
         ep_cost = cleaned_data.get("ep_cost")
+        personal_fame_rank_cost = cleaned_data.get("personal_fame_rank_cost")
         kp_cost_label = str(cleaned_data.get("kp_cost_label") or "").strip()
         ep_cost_label = str(cleaned_data.get("ep_cost_label") or "").strip()
         range_text = str(cleaned_data.get("range_text") or "").strip()
@@ -4976,8 +5041,8 @@ class SpellAdminForm(forms.ModelForm):
             cleaned_data["kp_cost"] = 0
             kp_cost = 0
 
-        if not kp_cost and not ep_cost:
-            message = "Setze KP-Kosten oder EP-Kosten."
+        if not kp_cost and not ep_cost and not personal_fame_rank_cost:
+            message = "Setze KP-, EP- oder Ruhmrang-Kosten."
             self.add_error("kp_cost", message)
             self.add_error("ep_cost", message)
 
@@ -6407,7 +6472,9 @@ class TechniqueChoiceBlockAdmin(admin.ModelAdmin):
 
 
 @admin.register(TechniqueChoiceDefinition)
-class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
+class TechniqueChoiceDefinitionAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     """Admin configuration for persistent technique choice definitions."""
 
     list_display = (
@@ -6501,7 +6568,9 @@ class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
 
 
 @admin.register(RaceChoiceDefinition)
-class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
+class RaceChoiceDefinitionAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     """Admin configuration for persistent race choice definitions."""
 
     list_display = (
@@ -6566,7 +6635,9 @@ class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
 
 
 @admin.register(TraitChoiceDefinition)
-class TraitChoiceDefinitionAdmin(admin.ModelAdmin):
+class TraitChoiceDefinitionAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     """Admin configuration for persistent trait choice definitions."""
 
     list_display = (
@@ -6659,14 +6730,18 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
         js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
 
 
-class SpecializationChoiceDefinitionInline(admin.StackedInline):
+class SpecializationChoiceDefinitionInline(
+    SemanticTargetChoiceAdminMixin, admin.StackedInline,
+):
     model = SpecializationChoiceDefinition
     extra = 0
     autocomplete_fields = ("allowed_skill_category",)
 
 
 @admin.register(SpecializationChoiceDefinition)
-class SpecializationChoiceDefinitionAdmin(admin.ModelAdmin):
+class SpecializationChoiceDefinitionAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     search_fields = ("name", "specialization__name")
     list_display = (
         "name",
@@ -7174,7 +7249,9 @@ class CharacterRaceChoiceAdmin(admin.ModelAdmin):
 
 
 @admin.register(CharacterTraitChoice)
-class CharacterTraitChoiceAdmin(admin.ModelAdmin):
+class CharacterTraitChoiceAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     """Admin configuration for persistent character trait choices."""
 
     list_display = (
@@ -8187,6 +8264,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("spell_attribute", "grade", "grade_adds_level"),
                     ("mw", "grade_adds_school_level", "resistance_value"),
                     ("kp_cost", "kp_cost_label", "ep_cost", "ep_cost_label"),
+                    ("personal_fame_rank_cost",),
                     ("extra_cost_type", "extra_cost_value"),
                     ("cast_time_number", "cast_time_unit"),
                     ("cast_time2_number", "cast_time2_unit"),
@@ -8913,7 +8991,9 @@ class CreatureTraitInline(admin.TabularInline):
         return _creature_trait_semantic_preview(obj.trait, level=obj.trait_level)
 
 
-class CreatureTraitChoiceInline(admin.TabularInline):
+class CreatureTraitChoiceInline(
+    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+):
     model = CreatureTraitChoice
     extra = 0
     fields = (
@@ -8945,7 +9025,9 @@ class CreatureTraitChoiceInline(admin.TabularInline):
     )
 
 
-class CharacterCreatureTraitChoiceInline(admin.TabularInline):
+class CharacterCreatureTraitChoiceInline(
+    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+):
     model = CharacterCreatureTraitChoice
     extra = 0
     fields = CreatureTraitChoiceInline.fields
@@ -8968,7 +9050,7 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
     allowed_derived_stat = forms.MultipleChoiceField(
         required=False,
         label="Allowed derived stat",
-        choices=STAT_SLUG_CHOICES,
+        choices=semantic_stat_optgroups(STAT_SLUG_CHOICES),
         help_text="Optional filter restricting derived-stat choices to one or more stats.",
     )
 
@@ -9076,7 +9158,9 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
         self.instance.allowed_skill_categories.set(self.cleaned_data.get("allowed_skill_categories", []))
 
 
-class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
+class CreatureTraitChoiceDefinitionInline(
+    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+):
     model = CreatureTraitChoiceDefinition
     form = CreatureTraitChoiceDefinitionAdminForm
     extra = 0
@@ -9111,7 +9195,10 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
     ordering = ("sort_order", "id")
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
+        js = (
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
+            "?v=20261004",
+        )
 
     fieldsets = (
         (
@@ -9140,7 +9227,10 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
     ordering = ("sort_order", "id")
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
+        js = (
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
+            "?v=20261004",
+        )
 
     fieldsets = (
         (
@@ -10124,7 +10214,10 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
+        js = (
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
+            "?v=20261004",
+        )
 
 
 @admin.register(CreatureSpecialSkillValue)
@@ -10150,14 +10243,19 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
+        js = (
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
+            "?v=20261004",
+        )
 
     def semantic_effect_preview(self, obj):
         return _creature_trait_semantic_preview(obj)
 
 
 @admin.register(CreatureTraitChoiceDefinition)
-class CreatureTraitChoiceDefinitionAdmin(admin.ModelAdmin):
+class CreatureTraitChoiceDefinitionAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     form = CreatureTraitChoiceDefinitionAdminForm
     list_display = ("trait", "name", "target_kind", "min_choices", "max_choices", "allow_duplicate_selections", "is_active")
     search_fields = ("trait__name", "trait__slug", "name", "description")
@@ -10279,7 +10377,9 @@ class CreatureTraitAdmin(admin.ModelAdmin):
 
 
 @admin.register(CreatureTraitChoice)
-class CreatureTraitChoiceAdmin(admin.ModelAdmin):
+class CreatureTraitChoiceAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     list_display = ("creature_trait", "definition", "selected_target_display")
     search_fields = ("creature_trait__creature__name", "creature_trait__trait__name", "definition__name")
     autocomplete_fields = CreatureTraitChoiceInline.autocomplete_fields
@@ -10312,7 +10412,9 @@ class CharacterCreatureTraitAdmin(admin.ModelAdmin):
 
 
 @admin.register(CharacterCreatureTraitChoice)
-class CharacterCreatureTraitChoiceAdmin(admin.ModelAdmin):
+class CharacterCreatureTraitChoiceAdmin(
+    SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
+):
     list_display = ("character_creature_trait", "definition", "selected_target_display")
     search_fields = (
         "character_creature_trait__creature__name_override",

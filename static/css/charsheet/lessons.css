@@ -53,5 +53,7 @@
 }
 
 .lesson_cost_separator {
+  flex-shrink: 0;
   font-size: .74rem;
+  white-space: nowrap;
 }

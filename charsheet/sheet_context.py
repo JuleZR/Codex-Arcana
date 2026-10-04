@@ -17,6 +17,7 @@ from charsheet.constants import (
     ARMOR_ENCUMBRANCE,
     ARMOR_PENALTY_IGNORE,
     ARCANE_POWER,
+    ARTIFACT_RANK,
     ATTRIBUTE_ORDER,
     ATTR_CHA,
     ATTR_GE,
@@ -51,6 +52,10 @@ from charsheet.constants import (
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
+    WOUND_STAGE_POSITION_CHOICES,
+)
+from charsheet.semantic_effect_ui import (
+    is_combat_stat, wound_stage_position,
 )
 from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
 from charsheet.engine.character_carry import CARRY_ATTRIBUTES
@@ -1840,10 +1845,23 @@ def _serialize_item_semantic_effect_payload(
         payload["target_kind"] = "attribute"
         payload["target_attribute"] = target_key
         payload["target_display"] = dict(ATTRIBUTE_ORDER).get(target_key, target_key)
+    elif target_domain == "resource" and target_key == ARTIFACT_RANK:
+        payload["target_kind"] = ARTIFACT_RANK
+        payload["target_display"] = "Artefaktrang"
     elif target_domain == "derived_stat":
-        payload["target_kind"] = "stat"
-        payload["target_stat"] = target_key
-        payload["target_display"] = dict(STAT_SLUG_CHOICES).get(target_key, target_key)
+        position = wound_stage_position(target_key, metadata)
+        if position:
+            payload["target_kind"] = "wound_stage"
+            payload["target_wound_stage_position"] = position
+            payload["target_display"] = (
+                dict(WOUND_STAGE_POSITION_CHOICES)[position]
+            )
+        else:
+            payload["target_kind"] = "stat"
+            payload["target_stat"] = target_key
+            payload["target_display"] = dict(STAT_SLUG_CHOICES).get(
+                target_key, target_key,
+            )
     elif target_domain == "movement":
         payload["target_kind"] = "movement"
         payload["target_movement"] = target_key
@@ -1863,7 +1881,9 @@ def _serialize_item_semantic_effect_payload(
             payload["target_kind"] = WEAPON_MANEUVER_DAMAGE
             payload["target_display"] = "Manöver und Schaden"
         else:
-            payload["target_kind"] = "stat"
+            payload["target_kind"] = (
+                "combat" if is_combat_stat(target_key) else "stat"
+            )
             payload["target_stat"] = target_key
             payload["target_display"] = dict(STAT_SLUG_CHOICES).get(target_key, target_key)
     elif target_domain == "skill":
@@ -5797,7 +5817,13 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             ),
         }
         if row["can_edit_specification"]:
-            row["display_name"] = display_name
+            row["specification_hidden"] = bool(
+                specification and len(display_name) > 40
+            )
+            row["display_name"] = (
+                entry.trait.name
+                if row["specification_hidden"] else display_name
+            )
             tooltip_title = (
                 display_name
                 if display_name != entry.trait.name
@@ -9036,7 +9062,7 @@ def build_inventory_partial_context(character: Character) -> dict[str, object]:
 
 def build_fame_partial_context(character: Character) -> dict[str, object]:
     """Build the minimal context needed to redraw the fame panel."""
-    engine = character.engine
+    engine = character.get_engine(refresh=True)
     manual_personal_fame_point = max(
         0,
         int(character.personal_fame_point)
@@ -9052,11 +9078,7 @@ def build_fame_partial_context(character: Character) -> dict[str, object]:
         int(character.personal_fame_rank)
         + int(engine.resolve_resource("personal_fame_rank")),
     )
-    effective_artefact_rank = max(
-        0,
-        int(character.artefact_rank)
-        + int(engine.resolve_resource("artefact_rank")),
-    )
+    effective_artefact_rank = engine.artifact_rank()
     auto_school_fame_point = engine.auto_school_fame_points()
     auto_lesson_fame_point = engine.auto_lesson_fame_points()
     auto_progression_fame_point = auto_school_fame_point + auto_lesson_fame_point
@@ -9065,9 +9087,12 @@ def build_fame_partial_context(character: Character) -> dict[str, object]:
         + auto_progression_fame_point
     )
     effective_personal_fame_point = total_personal_fame_point % 10
-    effective_personal_fame_rank = (
+    effective_personal_fame_rank = max(
+        0,
         base_personal_fame_rank
         + (total_personal_fame_point // 10)
+        - int(character.artefact_rank)
+        - int(character.sacrifice_rank),
     )
     fame_total_rank = (
         effective_personal_fame_rank
@@ -9562,16 +9587,18 @@ def build_character_sheet_context(
         0,
         int(character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")),
     )
-    effective_artefact_rank = max(
-        0,
-        int(character.artefact_rank) + int(engine.resolve_resource("artefact_rank")),
-    )
+    effective_artefact_rank = engine.artifact_rank()
     auto_school_fame_point = engine.auto_school_fame_points()
     auto_lesson_fame_point = engine.auto_lesson_fame_points()
     auto_progression_fame_point = auto_school_fame_point + auto_lesson_fame_point
     total_personal_fame_point = manual_personal_fame_point + auto_progression_fame_point
     effective_personal_fame_point = total_personal_fame_point % 10
-    effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
+    effective_personal_fame_rank = max(
+        0,
+        base_personal_fame_rank + (total_personal_fame_point // 10)
+        - int(character.artefact_rank)
+        - int(character.sacrifice_rank),
+    )
     fame_total_rank = effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank
 
     active_creature_cards = (
@@ -10013,7 +10040,10 @@ def build_character_sheet_context(
             (TEXT_TARGET_KIND, "Text"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
-            ("stat", "Wert auf dem Bogen"),
+            ("stat", "Abgeleiteter Wert"),
+            ("combat", "Kampf / Waffe"),
+            ("wound_stage", "Wundstufe einfügen"),
+            (ARTIFACT_RANK, "Artefaktrang"),
             ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
@@ -10025,7 +10055,10 @@ def build_character_sheet_context(
             (TEXT_TARGET_KIND, "Text"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
-            ("stat", "Wert auf dem Bogen"),
+            ("stat", "Abgeleiteter Wert"),
+            ("combat", "Kampf / Waffe"),
+            ("wound_stage", "Wundstufe einfügen"),
+            (ARTIFACT_RANK, "Artefaktrang"),
             ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),

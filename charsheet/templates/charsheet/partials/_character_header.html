@@ -110,25 +110,34 @@
     <div class="reputation_wrapper">
       <div class="reputation_header">
         <h2>Ruf</h2>
-        <button type="button" class="reputation_edit_btn" id="reputationEditBtn" aria-label="Ruftexte bearbeiten" title="Ruftexte bearbeiten">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
-            <path d="M13.8 6.2l4 4"></path>
-          </svg>
-        </button>
       </div>
       <ul class="reputation_list" id="reputationList" data-character-id="{{ character.id }}" aria-label="Rufbereiche">
         <li>
           <span class="reputation_label">Pers&ouml;nlich</span>
-          <input type="text" class="reputation_input" data-reputation-key="personal" maxlength="60" readonly>
+          <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="reputation_points" data-sheet-action data-ajax-only data-reputation-points="personal">
+            {% csrf_token %}<input type="hidden" name="category" value="personal">
+            <button type="submit" name="delta" value="-1" aria-label="Pers&ouml;nliche Ruhmpunkte verringern"{% if read_only %} disabled{% endif %}>−</button>
+            <span>{{ character.reputation_personal_points }}</span>
+            <button type="submit" name="delta" value="1" aria-label="Pers&ouml;nliche Ruhmpunkte erh&ouml;hen"{% if read_only %} disabled{% endif %}>+</button>
+          </form>
         </li>
         <li>
           <span class="reputation_label">Gruppe</span>
-          <input type="text" class="reputation_input" data-reputation-key="group" maxlength="60" readonly>
+          <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="reputation_points" data-sheet-action data-ajax-only data-reputation-points="group">
+            {% csrf_token %}<input type="hidden" name="category" value="group">
+            <button type="submit" name="delta" value="-1" aria-label="Gruppen-Ruhmpunkte verringern"{% if read_only %} disabled{% endif %}>−</button>
+            <span>{{ character.reputation_group_points }}</span>
+            <button type="submit" name="delta" value="1" aria-label="Gruppen-Ruhmpunkte erh&ouml;hen"{% if read_only %} disabled{% endif %}>+</button>
+          </form>
         </li>
         <li>
           <span class="reputation_label">Artefakt</span>
-          <input type="text" class="reputation_input" data-reputation-key="artefact" maxlength="60" readonly>
+          <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="reputation_points" data-sheet-action data-ajax-only data-reputation-points="artefact">
+            {% csrf_token %}<input type="hidden" name="category" value="artefact">
+            <button type="submit" name="delta" value="-1" aria-label="Investierten Artefaktrang reduzieren"{% if read_only %} disabled{% endif %}>−</button>
+            <span>{{ character.artefact_rank }}</span>
+            <button type="submit" name="delta" value="1" aria-label="Pers&ouml;nlichen Rang in ein Ruhmesartefakt investieren" title="Pers&ouml;nlichen Rang investieren"{% if read_only or not effective_personal_fame_rank %} disabled{% endif %}>+</button>
+          </form>
         </li>
       </ul>
     </div>
@@ -171,12 +180,23 @@
         <div class="trait_col">
           <h3>Vorz&uuml;ge</h3>
           {% for trait in advantage_rows %}
+            {% if trait.specification_hidden %}
+            <details class="trait_details">
+            <summary class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+            {% else %}
             <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
-              <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }})</span>
+            {% endif %}
+              <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }}){% if trait.specification_hidden %} <span class="trait_details_label">&middot; Details</span>{% endif %}</span>
               {% if trait.can_edit_specification %}
                 <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
               {% endif %}
+            {% if trait.specification_hidden %}
+            </summary>
+              <div class="trait_specification tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.specification }}">{{ trait.specification }}</div>
+            </details>
+            {% else %}
             </span>
+            {% endif %}
           {% empty %}
             <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
           {% endfor %}
@@ -184,12 +204,23 @@
         <div class="trait_col">
           <h3>Schw&auml;chen</h3>
           {% for trait in disadvantage_rows %}
+            {% if trait.specification_hidden %}
+            <details class="trait_details">
+            <summary class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+            {% else %}
             <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
-              <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }})</span>
+            {% endif %}
+              <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }}){% if trait.specification_hidden %} <span class="trait_details_label">&middot; Details</span>{% endif %}</span>
               {% if trait.can_edit_specification %}
                 <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
               {% endif %}
+            {% if trait.specification_hidden %}
+            </summary>
+              <div class="trait_specification tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.specification }}">{{ trait.specification }}</div>
+            </details>
+            {% else %}
             </span>
+            {% endif %}
           {% empty %}
             <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
           {% endfor %}

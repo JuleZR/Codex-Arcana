@@ -2,10 +2,10 @@
    Keep thematic rules in ./charsheet/*.css modules instead of growing this file again. */
 @import url("./responsive-foundation.css?v=20261001i");
 @import url("./charsheet/base.css");
-@import url("./charsheet/sheet-primary.css?v=20260731v");
+@import url("./charsheet/sheet-primary.css?v=20261004-artifact-effects");
 @import url("./charsheet/sheet-secondary.css?v=20261001-rune-layout2");
 @import url("./charsheet/windows.css");
-@import url("./charsheet/commerce.css?v=20261004-weapon-cart-bonus-row");
+@import url("./charsheet/commerce.css?v=20261004-shop-name-width");
 @import url("./charsheet/_card.css?v=20260630n");
 @import url("./charsheet/card-hand.css?v=20261001-mobile-tray2");
 @import url("./charsheet/responsive.css?v=20261004-4k-breakpoint");
@@ -16,7 +16,7 @@
 @import url("./charsheet/window-system.css");
 @import url("./charsheet/print.css?v=20260731p");
 @import url("./charsheet/item-transfers.css?v=20260924c");
-@import url("./charsheet/lessons.css?v=20260918a");
+@import url("./charsheet/lessons.css?v=20261004a");
 @import url("./charsheet/alchemist-almanac.css?v=20260908w");
 @import url("./charsheet/journal-book.css?v=20260917n");
 @import url("./item-transfer-window.css?v=20261001-mobile-post1");

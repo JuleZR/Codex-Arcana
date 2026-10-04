@@ -177,6 +177,7 @@ from .passkeys import (
     verify_registration as verify_passkey_registration,
 )
 from .constants import (
+    ARTIFACT_RANK,
     ATTRIBUTE_CODE_CHOICES,
     ATTRIBUTE_ORDER,
     ATTR_ST,
@@ -1804,18 +1805,19 @@ def _inventory_panel_response(request, character: Character) -> JsonResponse:
 
 
 def _fame_panel_response(request, character: Character) -> JsonResponse:
-    """Render only the fame panel after local fame-point mutations."""
+    """Render the fame panel and Ruf values after local point mutations."""
     context = build_fame_partial_context(character)
     context["request"] = request
-    open_item_transfer_count = ItemTransfer.objects.filter(
-        recipient=character,
-        status=ItemTransfer.Status.PENDING,
-    ).count()
     return JsonResponse(
         {
             "ok": True,
             "partials": _render_sheet_partials(request, context, ("fame_panel",)),
-            "openItemTransferCount": open_item_transfer_count,
+            "reputationPoints": {
+                "personal": character.reputation_personal_points,
+                "group": character.reputation_group_points,
+                "artefact": character.artefact_rank,
+                "availablePersonalRank": context["effective_personal_fame_rank"],
+            },
         }
     )
 
@@ -1899,6 +1901,8 @@ def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
             domain,
             ITEM_SEMANTIC_EFFECT_FALLBACK_PARTIAL_KEYS,
         )
+        if domain == "resource" and target_key == ARTIFACT_RANK:
+            keys = ("fame_panel",)
         for key in keys:
             if key not in selected_set:
                 selected_set.add(key)
@@ -2550,30 +2554,35 @@ def import_legacy_character_diary(request, character_id: int):
 @login_required
 @require_POST
 def adjust_personal_fame_point(request, character_id: int):
-    """Adjust personal fame points and convert 10 points into one personal fame rank."""
+    """Adjust Ruf points or transfer a personal rank to Artefaktrang."""
     character = _owned_character_or_404(request, character_id)
+    point_fields = {
+        "personal": "reputation_personal_points",
+        "group": "reputation_group_points",
+    }
+    category = request.POST.get("category")
     try:
         delta = int(request.POST.get("delta", "0"))
     except (TypeError, ValueError):
         delta = 0
+    if category not in (*point_fields, "artefact") or delta not in (-1, 1):
+        return JsonResponse({"ok": False}, status=400)
 
-    if delta > 0:
-        for _ in range(delta):
-            character.personal_fame_point = int(character.personal_fame_point) + 1
-            if int(character.personal_fame_point) >= 10:
-                character.personal_fame_point = 0
-                character.personal_fame_rank = int(character.personal_fame_rank) + 1
-    elif delta < 0:
-        for _ in range(abs(delta)):
-            points = int(character.personal_fame_point)
-            rank = int(character.personal_fame_rank)
-            if points > 0:
-                character.personal_fame_point = points - 1
-            elif rank > 0:
-                character.personal_fame_rank = rank - 1
-                character.personal_fame_point = 9
-
-    character.save(update_fields=["personal_fame_point", "personal_fame_rank"])
+    with transaction.atomic():
+        character = Character.objects.select_for_update().get(pk=character.pk)
+        if category == "artefact":
+            if delta > 0 and build_fame_partial_context(character)["effective_personal_fame_rank"] < 1:
+                return JsonResponse({"ok": False}, status=400)
+            character.artefact_rank = max(0, character.artefact_rank + delta)
+            character.save(update_fields=["artefact_rank"])
+        else:
+            field = point_fields[category]
+            setattr(character, field, max(0, getattr(character, field) + delta))
+            total = sum(getattr(character, name) for name in point_fields.values())
+            character.personal_fame_rank, character.personal_fame_point = divmod(total, 10)
+            character.save(update_fields=[
+                *point_fields.values(), "personal_fame_point", "personal_fame_rank",
+            ])
     if _is_partial_request(request):
         return _fame_panel_response(request, character)
     return redirect("character_sheet", character_id=character.id)
@@ -5927,7 +5936,11 @@ def remove_item(request, pk):
 
     owner_id = ci.owner_id
     was_equipped = bool(ci.equipped)
-    partial_keys = _equipment_action_partial_keys(ci) if was_equipped else ("inventory_panel",)
+    partial_keys = _equipment_action_partial_keys(ci)
+    if not was_equipped:
+        partial_keys = tuple(
+            key for key in partial_keys if key in {"inventory_panel", "fame_panel"}
+        )
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError(
             "item_pending", "Unterwegs befindliche Items können nicht entfernt werden.", status=409
@@ -5948,7 +5961,7 @@ def remove_item(request, pk):
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
-        if not was_equipped:
+        if not was_equipped and "fame_panel" not in partial_keys:
             return _inventory_panel_response(request, character)
         return _equipment_action_partials_response(
             request,
@@ -7728,7 +7741,8 @@ def cast_spell(request, character_id: int, spell_id: int):
     if not result.get("ok"):
         invalid_request_errors = {
             "unknown_spell", "not_enough_kp", "not_enough_ep",
-            "spell_not_found", "invalid_cost_selection",
+            "not_enough_personal_fame_rank", "spell_not_found",
+            "invalid_cost_selection",
         }
         status_code = (
             400 if result.get("error") in invalid_request_errors else 409
@@ -7742,7 +7756,10 @@ def cast_spell(request, character_id: int, spell_id: int):
         character.refresh_from_db()
         context = _build_sheet_context_for_request(request, character)
         partials = []
-        for key in ("damage_panel", "spell_panel", "experience_panel"):
+        partial_keys = ["damage_panel", "spell_panel", "experience_panel"]
+        if result.get("spent_personal_fame_rank"):
+            partial_keys.append("fame_panel")
+        for key in partial_keys:
             target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
             partials.append(
                 {
@@ -7750,10 +7767,20 @@ def cast_spell(request, character_id: int, spell_id: int):
                     "html": render_to_string(template_name, context, request=request),
                 }
             )
-        return JsonResponse({**result, "partials": partials})
+        payload = {**result, "partials": partials}
+        if result.get("spent_personal_fame_rank"):
+            payload["reputationPoints"] = {
+                "personal": character.reputation_personal_points,
+                "group": character.reputation_group_points,
+                "artefact": character.artefact_rank,
+                "availablePersonalRank": context["effective_personal_fame_rank"],
+            }
+        return JsonResponse(payload)
 
     cost_label = (
-        f"{result['spent_ep']} EP" if result.get("spent_ep")
+        f"{result['spent_personal_fame_rank']} Persönlicher Ruhmrang"
+        if result.get("spent_personal_fame_rank")
+        else f"{result['spent_ep']} EP" if result.get("spent_ep")
         else f"{result['spent_kp']} KP"
     )
     messages.success(
@@ -8037,7 +8064,16 @@ def activate_character_lesson(request, character_id: int, lesson_id: int):
                     "html": render_to_string(template_name, context, request=request),
                 }
             )
-        return JsonResponse({**result, "partials": partials})
+        return JsonResponse({
+            **result,
+            "partials": partials,
+            "reputationPoints": {
+                "personal": character.reputation_personal_points,
+                "group": character.reputation_group_points,
+                "artefact": character.artefact_rank,
+                "availablePersonalRank": context["effective_personal_fame_rank"],
+            },
+        })
 
     manual = result.get("manual_costs") or []
     suffix = f" Manuell zu behandeln: {', '.join(manual)}." if manual else ""

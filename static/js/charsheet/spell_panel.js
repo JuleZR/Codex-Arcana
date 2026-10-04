@@ -339,6 +339,11 @@ export function initSpellPanel() {
         if (Array.isArray(payload.partials) && payload.partials.length) {
           applySheetPartials(payload);
         }
+        if (payload.reputationPoints) {
+          document.dispatchEvent(new CustomEvent("charsheet:reputation-points-updated", {
+            detail: payload.reputationPoints,
+          }));
+        }
       } catch (_error) {
         rollbackOptimisticArcaneMeter(optimisticArcaneSnapshot);
         window.alert("Zauber konnte nicht gewirkt werden.");

@@ -9,6 +9,7 @@ from typing import Iterable, Mapping
 from django.db import transaction
 from django.db.models import Prefetch
 
+from charsheet.fame import spend_personal_fame_rank
 from charsheet.models.lessons import (
     CharacterLesson,
     Lesson,
@@ -109,6 +110,21 @@ class FameLessonCostHandler(LessonCostHandler):
         return available >= amount, "Nicht genug RP für diese Lektion."
 
     def deduct(self, character, costs, context):
+        manual_total = character.personal_fame_rank * 10 + character.personal_fame_point
+        category_total = sum(getattr(character, name) for name in (
+            "reputation_personal_points",
+            "reputation_group_points",
+        ))
+        if category_total < manual_total:
+            character.reputation_personal_points += manual_total - category_total
+        cost = sum(int(cost.value) for cost in costs)
+        for name in (
+            "reputation_personal_points",
+            "reputation_group_points",
+        ):
+            deducted = min(getattr(character, name), cost)
+            setattr(character, name, getattr(character, name) - deducted)
+            cost -= deducted
         remaining = (
             character.personal_fame_rank * 10 + character.personal_fame_point
             - sum(int(cost.value) for cost in costs)
@@ -117,8 +133,56 @@ class FameLessonCostHandler(LessonCostHandler):
             remaining, 10
         )
         character.save(
-            update_fields=["personal_fame_rank", "personal_fame_point"]
+            update_fields=[
+                "personal_fame_rank", "personal_fame_point",
+                "reputation_personal_points", "reputation_group_points",
+            ]
         )
+
+
+class PersonalFameRankLessonCostHandler(LessonCostHandler):
+    cost_type = LessonCost.CostType.PERSONAL_FAME_RANK
+
+    def display(self, cost: LessonCost) -> str:
+        amount = int(cost.value)
+        unit = "Persönlicher Ruhmrang" if amount == 1 else "Persönliche Ruhmränge"
+        return f"{amount} {unit}"
+
+    def is_available(self, character, costs, context):
+        from charsheet.sheet_context import build_fame_partial_context
+
+        amount = sum(int(cost.value) for cost in costs)
+        point_cost = int(context.get("fame_point_cost", 0))
+        available = build_fame_partial_context(character)[
+            "effective_personal_fame_rank"
+        ]
+        if point_cost:
+            remaining = (
+                character.personal_fame_rank * 10
+                + character.personal_fame_point - point_cost
+            )
+            engine = context["engine"]
+            base_rank = max(
+                0, remaining // 10
+                + int(engine.resolve_resource("personal_fame_rank")),
+            )
+            points = max(
+                0, remaining % 10
+                + int(engine.resolve_resource("personal_fame_point")),
+            )
+            available = max(
+                0,
+                base_rank + (
+                    points + engine.auto_school_fame_points()
+                    + engine.auto_lesson_fame_points()
+                ) // 10 - character.artefact_rank - character.sacrifice_rank,
+            )
+        return available >= amount, "Nicht genug freier Persönlicher Ruhmrang."
+
+    def deduct(self, character, costs, context):
+        for _ in range(sum(int(cost.value) for cost in costs)):
+            if not spend_personal_fame_rank(character):
+                raise LessonRuleError("Nicht genug freier Persönlicher Ruhmrang.")
 
 
 LESSON_COST_HANDLERS: dict[str, LessonCostHandler] = {}
@@ -134,6 +198,7 @@ def register_lesson_cost_handler(handler: LessonCostHandler) -> None:
 register_lesson_cost_handler(ArcanePowerLessonCostHandler())
 register_lesson_cost_handler(ExperienceLessonCostHandler())
 register_lesson_cost_handler(FameLessonCostHandler())
+register_lesson_cost_handler(PersonalFameRankLessonCostHandler())
 
 
 def format_requirement(requirement: LessonRequirement) -> str:
@@ -678,6 +743,10 @@ def activate_lesson(
         "current_arcane_power": current,
         "current_arcane_power_max": current_max,
         "resource_type": resource_type,
+        "fame_point_cost": sum(
+            int(cost.value)
+            for cost in automatic_by_type.get(LessonCost.CostType.FAME, [])
+        ),
     }
     for cost_type, costs in automatic_by_type.items():
         handler = LESSON_COST_HANDLERS[cost_type]

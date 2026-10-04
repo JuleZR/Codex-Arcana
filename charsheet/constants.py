@@ -219,6 +219,8 @@ RESOURCE_KEY_CHOICES = [
     ("sacrifice_rank", "Opferrang"),
 ]
 
+ARTIFACT_RANK = "artefact_rank"
+
 PROFICIENCY_GROUP_CHOICES = [
     (SKILL_FINE_MOTOR, "Feinmotorische Fertigkeiten"),
     (SKILL_GROSS_MOTOR, "Grobmotorische Fertigkeiten"),

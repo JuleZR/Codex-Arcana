@@ -553,6 +553,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
     const isRuleFlag = selectedKind === "rule_flag";
+    const valueLabel = row.querySelector("[data-magic-value-label]");
+    if (valueLabel) valueLabel.textContent = selectedKind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
       if (!(targetRow instanceof HTMLElement)) {
         return;
@@ -567,6 +569,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
     if (valueInput instanceof HTMLInputElement) {
       valueInput.setCustomValidity("");
+      valueInput.min = selectedKind === "wound_stage" ? "1" : "";
       if (valueRow instanceof HTMLElement) {
         valueRow.hidden = isTextOnly || isRuleFlag;
       }
@@ -669,6 +672,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_attribute = String(row.querySelector("[data-magic-target-select='attribute']")?.value || "").trim();
       } else if (targetKind === "stat") {
         payload.target_stat = String(row.querySelector("[data-magic-target-select='stat']")?.value || "").trim();
+      } else if (targetKind === "combat") {
+        payload.target_stat = String(row.querySelector("[data-magic-target-select='combat']")?.value || "").trim();
+      } else if (targetKind === "wound_stage") {
+        payload.target_wound_stage_position = String(row.querySelector("[data-magic-target-select='wound_stage']")?.value || "").trim();
       } else if (targetKind === "rule_flag") {
         payload.target_rule_flag = String(row.querySelector("[data-magic-target-select='rule_flag']")?.value || "").trim();
       } else if (targetKind === "skill") {
@@ -874,6 +881,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const targetFieldMap = {
         attribute: "target_attribute",
         stat: "target_stat",
+        combat: "target_stat",
+        wound_stage: "target_wound_stage_position",
         rule_flag: "target_rule_flag",
         skill: "target_skill",
         category: "target_skill_category",

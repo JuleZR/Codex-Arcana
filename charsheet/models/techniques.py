@@ -2326,6 +2326,10 @@ class Spell(models.Model):
     kp_cost_label = models.CharField("KP-Label", max_length=50, blank=True, default="")
     ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
     ep_cost_label = models.CharField("EP-Label", max_length=50, blank=True, default="")
+    personal_fame_rank_cost = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)],
+        verbose_name="Persönliche Ruhmränge",
+    )
 
     class ExtraCostType(models.TextChoices):
         WOUND_GRADE = "wound_grade", "Wundgrad"
@@ -2429,11 +2433,11 @@ class Spell(models.Model):
                 raise ValidationError("A spell must belong to either a school or an aspect.")
             if self.school_id and self.aspect_id:
                 raise ValidationError("A spell cannot belong to both a school and an aspect.")
-        if not self.kp_cost and not self.ep_cost:
+        if not self.kp_cost and not self.ep_cost and not self.personal_fame_rank_cost:
             raise ValidationError(
                 {
-                    "kp_cost": "Setze KP-Kosten oder EP-Kosten.",
-                    "ep_cost": "Setze KP-Kosten oder EP-Kosten.",
+                    "kp_cost": "Setze KP-, EP- oder Ruhmrang-Kosten.",
+                    "ep_cost": "Setze KP-, EP- oder Ruhmrang-Kosten.",
                 }
             )
 

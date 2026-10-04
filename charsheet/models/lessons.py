@@ -89,6 +89,7 @@ class LessonCost(models.Model):
         LIFE_POINTS = "lp", "LP"
         EXPERIENCE = "ep", "EP"
         FAME = "fame", "Ruhmpunkt"
+        PERSONAL_FAME_RANK = "personal_fame_rank", "Persönlicher Ruhmrang"
         CUSTOM = "custom", "Frei definiert"
 
     lesson = models.ForeignKey(

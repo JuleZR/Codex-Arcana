@@ -13,6 +13,7 @@ from . import character_combat, character_equipment, character_learning, charact
 from .item_engine import ItemEngine
 from . import character_carry
 from charsheet.constants import (
+    ARTIFACT_RANK,
     ATTR_SPEC,
     CHARACTER_SIZE_CLASS,
     GK_AVERAGE,
@@ -534,9 +535,20 @@ class CharacterEngine:
 
     @cached_property
     def _equipped_items_for_semantic_effects(self):
-        """Cache equipped owned items that can contribute item semantic effects."""
+        """Cache equipped effects and owned fame artefacts."""
         return (
-            CharacterItem.objects.filter(owner=self.character, equipped=True)
+            CharacterItem.objects.filter(owner=self.character)
+            .filter(
+                Q(equipped=True)
+                | Q(
+                    item__semantic_effects__target_domain="resource",
+                    item__semantic_effects__target_key=ARTIFACT_RANK,
+                )
+                | Q(
+                    semantic_effects__target_domain="resource",
+                    semantic_effects__target_key=ARTIFACT_RANK,
+                )
+            )
             .select_related("item")
             .filter(
                 Q(item__is_magic=True)
@@ -1020,6 +1032,10 @@ class CharacterEngine:
     def resolve_resource(self, resource_key: str, context: dict | None = None) -> int:
         """Resolve one resource key through the central modifier engine."""
         return self.modifier_engine.resolve_resource(resource_key, context=context)
+
+    def artifact_rank(self) -> int:
+        """Return the rank supplied by currently active artefact effects."""
+        return max(0, int(self.resolve_resource(ARTIFACT_RANK)))
 
     def resolve_resistances(self, context: dict | None = None):
         """Resolve resistance and immunity state through the central modifier engine."""

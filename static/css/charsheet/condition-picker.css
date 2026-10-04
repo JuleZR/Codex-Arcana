@@ -1,0 +1,128 @@
+.magic-condition-pickers {
+  display: grid;
+  gap: 12px;
+  padding: 8px 10px;
+}
+
+.magic-condition-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.magic-condition-picker legend {
+  padding: 0 0 5px;
+  color: #55391f;
+  font: inherit;
+}
+
+.magic-condition-picker__lists {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.magic-condition-pickers .magic-condition-picker .sl-editor-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.magic-condition-picker__lists select {
+  width: 100%;
+  min-width: 0;
+  height: 140px;
+  box-sizing: border-box;
+}
+
+.magic-condition-picker__actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.magic-condition-picker__actions button {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+
+.magic-condition-picker [data-condition-source] {
+  display: none !important;
+}
+
+.magic-condition-picker [data-condition-fields][hidden],
+.magic-effect-group [data-effect-group-fields][hidden] {
+  display: none !important;
+}
+
+.magic-condition-picker legend label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.magic-condition-picker legend input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.magic-effect-target {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 0;
+}
+
+.magic-effect-target [data-effect-target][hidden] {
+  display: none !important;
+}
+
+.magic-effect-group,
+.magic-effect-group__fields,
+.magic-item-card-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.magic-effect-group,
+.magic-item-card-options {
+  padding: 8px 10px;
+}
+
+.shop_magic_effect_card .magic-effect-group .sl-editor-field,
+.shop_magic_effect_card .magic-item-card-options .sl-editor-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.shop_magic_effect_card .magic-effect-target .sl-editor-field {
+  padding: 0;
+}
+
+.magic-effect-group__fields .shop_item_form_row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.magic-effect-group__fields input[type="number"] {
+  width: 5em;
+  min-width: 0;
+}
+
+.magic-effect-group input[type="checkbox"],
+.magic-item-card-options input[type="checkbox"] {
+  width: auto;
+  flex-shrink: 0;
+}

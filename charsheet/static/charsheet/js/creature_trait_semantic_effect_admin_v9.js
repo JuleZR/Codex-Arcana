@@ -37,21 +37,35 @@
   function readAllAreaOptions(select) {
     if (!select._daemonicAllAreaOptions) {
       select._daemonicAllAreaOptions = Array.prototype.map.call(select.options, function (option) {
-        return { value: option.value, text: option.text };
+        return {
+          value: option.value,
+          text: option.text,
+          group: option.parentElement.tagName === "OPTGROUP" ? option.parentElement.label : null
+        };
       });
     }
     return select._daemonicAllAreaOptions;
   }
 
   function rebuildOptions(select, options, currentValue) {
-    while (select.options.length) {
-      select.remove(0);
+    while (select.firstChild) {
+      select.removeChild(select.firstChild);
     }
+    var groups = Object.create(null);
     options.forEach(function (option) {
       var node = document.createElement("option");
       node.value = option.value;
       node.text = option.text;
-      select.add(node);
+      if (option.group) {
+        if (!groups[option.group]) {
+          groups[option.group] = document.createElement("optgroup");
+          groups[option.group].label = option.group;
+          select.appendChild(groups[option.group]);
+        }
+        groups[option.group].appendChild(node);
+      } else {
+        select.add(node);
+      }
     });
     select.value = options.some(function (option) { return option.value === currentValue; }) ? currentValue : "";
   }

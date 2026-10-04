@@ -1155,6 +1155,15 @@
   width: auto;
 }
 
+#shopWindow .shop_cart_table th:first-child,
+#shopWindow .shop_cart_table tr[data-cart-key] > td:first-child {
+  min-width: 140px;
+}
+
+#shopWindow .shop_cart_table th:first-child {
+  white-space: nowrap;
+}
+
 .shop_cart_remove_btn {
   width: 20px;
   height: 20px;

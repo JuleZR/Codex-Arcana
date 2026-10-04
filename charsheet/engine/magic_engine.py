@@ -144,6 +144,10 @@ def _build_spell_tooltip(
         cost_parts.append(f"{int(spell.kp_cost)} KP{kp_cost_label}")
     if spell.ep_cost:
         cost_parts.append(f"{int(spell.ep_cost)} EP{ep_cost_label}")
+    if spell.personal_fame_rank_cost:
+        amount = int(spell.personal_fame_rank_cost)
+        unit = "Persönlicher Ruhmrang" if amount == 1 else "Persönliche Ruhmränge"
+        cost_parts.append(f"{amount} {unit}")
     cost_label = " [[SUB:oder ]]".join(cost_parts)
     if extra_cost:
         cost_label += f" [[SUB:und {extra_cost}]]"
@@ -1425,16 +1429,29 @@ class MagicEngine:
             return {"ok": False, "error": "spell_not_found", "message": "Zauber nicht gefunden."}
         if not CharacterSpell.objects.filter(character=self.character, spell=spell_obj).exists():
             return {"ok": False, "error": "unknown_spell", "message": "Der Charakter kennt diesen Zauber nicht."}
-        if cost_type not in {"kp", "ep"} or (
+        if cost_type not in {"kp", "ep", "rank"} or (
             cost_type == "kp" and int(spell_obj.kp_cost) <= 0
         ) or (
             cost_type == "ep" and not spell_obj.ep_cost
+        ) or (
+            cost_type == "rank" and not spell_obj.personal_fame_rank_cost
         ):
             return {
                 "ok": False,
                 "error": "invalid_cost_selection",
                 "message": "Ungültige Kostenauswahl für diesen Zauber.",
             }
+        if cost_type == "rank":
+            from charsheet.sheet_context import build_fame_partial_context
+
+            available = build_fame_partial_context(self.character)["effective_personal_fame_rank"]
+            if available < int(spell_obj.personal_fame_rank_cost):
+                return {
+                    "ok": False,
+                    "error": "not_enough_personal_fame_rank",
+                    "message": "Nicht genug freier Persönlicher Ruhmrang.",
+                }
+            return {"ok": True, "spell": spell_obj}
         if cost_type == "ep":
             if (
                 not self.character.is_npc
@@ -1471,6 +1488,22 @@ class MagicEngine:
                 return result
             spell_obj = result["spell"]
             roll_load_penalty = engine.spell_roll_load_penalty()
+            if cost_type == "rank":
+                from charsheet.fame import spend_personal_fame_rank
+
+                spent_rank = int(spell_obj.personal_fame_rank_cost)
+                for _ in range(spent_rank):
+                    if not spend_personal_fame_rank(character):
+                        raise ValueError("Persönlicher Ruhmrang nicht verfügbar.")
+                return {
+                    "ok": True,
+                    "spell_id": spell_obj.id,
+                    "spell_name": spell_obj.name,
+                    "roll_load_penalty": roll_load_penalty,
+                    "spent_kp": 0,
+                    "spent_ep": 0,
+                    "spent_personal_fame_rank": spent_rank,
+                }
             if cost_type == "ep":
                 spent_ep = int(spell_obj.ep_cost)
                 if character.is_npc:
@@ -1593,6 +1626,12 @@ class MagicEngine:
                                     if spell.ep_cost
                                     else ""
                                 ),
+                                (
+                                    f"{int(spell.personal_fame_rank_cost)} "
+                                    + ("Persönlicher Ruhmrang" if int(spell.personal_fame_rank_cost) == 1 else "Persönliche Ruhmränge")
+                                    if spell.personal_fame_rank_cost
+                                    else ""
+                                ),
                             )
                             if part
                         )
@@ -1658,6 +1697,16 @@ class MagicEngine:
                         "label": (
                             f"{int(spell.ep_cost)} EP"
                             f"{str(spell.ep_cost_label or '').strip()}"
+                        ),
+                    })
+                if spell.personal_fame_rank_cost:
+                    amount = int(spell.personal_fame_rank_cost)
+                    row["cost_groups"].append({
+                        "type": "rank",
+                        "kp_cost": 0,
+                        "label": (
+                            f"{amount} "
+                            + ("Persönlicher Ruhmrang" if amount == 1 else "Persönliche Ruhmränge")
                         ),
                     })
                 row["extra_cost_display"] = ""

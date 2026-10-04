@@ -240,6 +240,11 @@ export function initSheetActions() {
       if (Array.isArray(payload.partials) && payload.partials.length) {
         applySheetPartials(payload);
       }
+      if (payload.reputationPoints) {
+        document.dispatchEvent(new CustomEvent("charsheet:reputation-points-updated", {
+          detail: payload.reputationPoints,
+        }));
+      }
       updateLearningBudgetFromPayload(payload);
       updateCultistCorruptionFromPayload(payload);
       updateLearningFormFromPayload(payload);
