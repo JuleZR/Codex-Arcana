@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{% if edit_mode %}Charakter bearbeiten{% else %}Geburt einer Legende – Charaktererschaffung{% endif %}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261004traitrank">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261006-template-delete-dialog">
   </head>
   <body class="charsheet-page {% if edit_mode %}character_edit_page{% else %}character_creation_page{% endif %}">
     {% if messages %}
@@ -20,6 +20,40 @@
           </div>
         {% endfor %}
       </aside>
+    {% endif %}
+    {% if not edit_mode and not archetype_confirmation %}
+      {% if archetypes or creation_templates %}
+        <aside class="creation_budget_rail creation_template_rail" aria-label="Charaktervorlagen">
+          <h2>Vorlagen</h2>
+          <div class="creation_budget_rail_body">
+            {% if archetypes %}
+              <div class="form_row">
+                <label for="creationArchetype">Archetyp</label>
+                <select id="creationArchetype" name="archetype_slug" form="creationStartForm" class="dashboard_input">
+                  <option value="">Archetyp wählen</option>
+                  {% for archetype in archetypes %}<option value="{{ archetype.slug }}">{{ archetype.name }}</option>{% endfor %}
+                </select>
+                <div class="form_actions">
+                  <button type="submit" name="action" value="use_archetype" form="creationStartForm" formnovalidate class="dashboard_button">Archetyp übernehmen …</button>
+                </div>
+              </div>
+            {% endif %}
+            {% if creation_templates %}
+              <div class="form_row">
+                <label for="creationTemplate">Eigene Vorlage</label>
+                <select id="creationTemplate" name="template_id" form="creationStartForm" class="dashboard_input">
+                  <option value="">Vorlage wählen</option>
+                  {% for template in creation_templates %}<option value="{{ template.pk }}">{{ template.name }}</option>{% endfor %}
+                </select>
+                <div class="form_actions">
+                  <button type="submit" name="action" value="use_template" form="creationStartForm" formnovalidate class="dashboard_button">Mit Vorlage beginnen</button>
+                  <button type="button" class="dashboard_button dashboard_button--danger" data-delete-creation-template disabled>Vorlage löschen …</button>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </aside>
+      {% endif %}
     {% endif %}
     {% if draft and not edit_mode and not edit_creation_basics %}
       <aside class="creation_budget_rail" id="creationBudgetRail" aria-label="Punkteabrechnung">
@@ -34,7 +68,22 @@
       <article class="page creation_page" id="sheetCharacterHeader" aria-label="Erste Seite des Charakterbogens">
         <section class="creation_sheet{% if edit_mode %} creation_sheet--edit{% endif %}" aria-label="Interaktiver Charakterbogen">
           <div class="creation_sheet_body">
-            {% if edit_mode %}
+            {% if archetype_confirmation %}
+              <form method="post" class="character_form">
+                {% csrf_token %}
+                <input type="hidden" name="archetype_slug" value="{{ archetype_confirmation.slug }}">
+                <input type="hidden" name="character_type" value="{% if is_npc %}npc{% else %}player{% endif %}">
+                <h1>Archetyp wirklich übernehmen?</h1>
+                <p>„{{ archetype_confirmation.name }}“ wird mit den vorgegebenen Werten direkt als {% if is_npc %}NPC{% else %}Spielercharakter{% endif %} erstellt. Anschließend öffnet sich der Charakterbogen.</p>
+                <label for="archetypeCharacterName">Charaktername</label>
+                <input id="archetypeCharacterName" name="archetype_character_name" value="{{ archetype_character_name }}" class="dashboard_input" maxlength="100" required>
+                {% if archetype_confirmation.description %}<p>{{ archetype_confirmation.description }}</p>{% endif %}
+                <div class="form_actions">
+                  <button type="submit" name="action" value="confirm_archetype" class="dashboard_button dashboard_button--primary">Jetzt als {% if is_npc %}NPC{% else %}Spielercharakter{% endif %} erstellen</button>
+                  <a href="{% url 'create_character' %}" class="dashboard_button">Abbrechen</a>
+                </div>
+              </form>
+            {% elif edit_mode %}
               <form method="post" class="character_form character_form--wizard{% if draft_phase == 2 or draft_phase == 3 %} character_form--phase2{% endif %}">
                 {% csrf_token %}
                 <div class="form_row">
@@ -844,16 +893,16 @@
                     <button type="submit" name="action" value="finalize" class="dashboard_button dashboard_button--primary">Finalisieren</button>
                   {% endif %}
                   <a href="{% url 'dashboard' %}" class="dashboard_button">Später fortsetzen</a>
+                  <button type="button" class="dashboard_button" data-save-creation-template>Als Vorlage speichern</button>
                   <a href="{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1" class="dashboard_button dashboard_button--danger" aria-label="Charaktererschaffung verwerfen">Verwerfen</a>
                 </div>
               </div>
 
             {% else %}
-              <form method="post" class="character_form">
+              <form method="post" class="character_form" id="creationStartForm">
                 {% csrf_token %}
                 {% if edit_creation_basics %}
                   <input type="hidden" name="draft_id" value="{{ draft.id }}">
-                  <input type="hidden" name="action" value="save_basics">
                 {% else %}
                   <input type="hidden" name="start_creation" value="1">
                 {% endif %}
@@ -887,7 +936,8 @@
 
                 {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
                 <div class="form_actions">
-                  <button type="submit" class="dashboard_button dashboard_button--primary">{% if edit_creation_basics %}Stammdaten übernehmen{% else %}Charaktererschaffung beginnen{% endif %}</button>
+                  <button type="submit"{% if edit_creation_basics %} name="action" value="save_basics"{% endif %} class="dashboard_button dashboard_button--primary">{% if edit_creation_basics %}Stammdaten übernehmen{% else %}Charaktererschaffung beginnen{% endif %}</button>
+                  {% if edit_creation_basics %}<button type="button" class="dashboard_button" data-save-creation-template>Als Vorlage speichern</button>{% endif %}
                   <a href="{% if edit_creation_basics %}{% url 'create_character' %}?draft={{ draft.id }}{% else %}{% url 'dashboard' %}{% endif %}" class="dashboard_button">Zurück</a>
                 </div>
               </form>
@@ -939,6 +989,39 @@
       </form>
     {% endif %}
 
+    {% if creation_templates or template_delete_confirmation %}
+      <dialog id="creationTemplateDeleteDialog" class="creation_template_dialog" aria-labelledby="creationTemplateDeleteTitle"{% if template_delete_confirmation %} data-open-on-load{% endif %}>
+        <form method="post" class="character_form">
+          {% csrf_token %}
+          <input type="hidden" name="template_id" value="{{ template_delete_confirmation.pk }}" data-delete-template-id>
+          {% if draft %}<input type="hidden" name="draft_id" value="{{ draft.id }}">{% endif %}
+          <h2 id="creationTemplateDeleteTitle">Vorlage löschen?</h2>
+          <p>Die eigene Vorlage „<span data-delete-template-name>{{ template_delete_confirmation.name }}</span>“ wird dauerhaft gelöscht. Bereits daraus erstellte Charaktere und laufende Charaktererschaffungen bleiben erhalten.</p>
+          <div class="form_actions">
+            <button type="submit" name="action" value="confirm_delete_template" class="dashboard_button dashboard_button--danger">Vorlage endgültig löschen</button>
+            <button type="button" class="dashboard_button" data-close-template-delete autofocus>Abbrechen</button>
+          </div>
+        </form>
+      </dialog>
+    {% endif %}
+
+    {% if draft and not edit_mode %}
+      <dialog id="creationTemplateDialog" class="creation_template_dialog" aria-labelledby="creationTemplateTitle">
+        <form method="post" class="character_form">
+          {% csrf_token %}
+          <input type="hidden" name="draft_id" value="{{ draft.id }}">
+          <h2 id="creationTemplateTitle">Als Vorlage speichern</h2>
+          <p>Der aktuelle Stand deiner laufenden Charaktererschaffung wird als private Vorlage übernommen.</p>
+          <label for="creationTemplateName">Vorlagenname</label>
+          <input id="creationTemplateName" name="template_name" class="dashboard_input" maxlength="100" autofocus{% if not edit_creation_basics %} form="creationDraftForm"{% endif %}>
+          <div class="form_actions">
+            <button type="submit" name="action" value="save_template" formnovalidate{% if not edit_creation_basics %} form="creationDraftForm"{% endif %} class="dashboard_button dashboard_button--primary">Vorlage speichern</button>
+            <button type="button" class="dashboard_button" data-close-creation-template>Abbrechen</button>
+          </div>
+        </form>
+      </dialog>
+    {% endif %}
+
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
@@ -950,6 +1033,36 @@
     <script src="{% static 'js/charsheet_tooltips.js' %}?v=20261005-item-types"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        const templateSelect = document.getElementById("creationTemplate");
+        const templateDeleteButton = document.querySelector("[data-delete-creation-template]");
+        const templateDeleteDialog = document.getElementById("creationTemplateDeleteDialog");
+        if (templateSelect && templateDeleteButton) {
+          const syncTemplateDeleteButton = function () {
+            templateDeleteButton.disabled = !templateSelect.value;
+          };
+          templateSelect.addEventListener("change", syncTemplateDeleteButton);
+          window.addEventListener("pageshow", syncTemplateDeleteButton);
+          syncTemplateDeleteButton();
+          templateDeleteButton.addEventListener("click", function () {
+            if (!templateSelect.value || !templateDeleteDialog) return;
+            templateDeleteDialog.querySelector("[data-delete-template-id]").value = templateSelect.value;
+            templateDeleteDialog.querySelector("[data-delete-template-name]").textContent = templateSelect.selectedOptions[0].textContent;
+            templateDeleteDialog.showModal();
+          });
+        }
+        document.querySelector("[data-close-template-delete]")?.addEventListener("click", function () {
+          templateDeleteDialog.close();
+        });
+        if (templateDeleteDialog?.hasAttribute("data-open-on-load")) {
+          templateDeleteDialog.showModal();
+        }
+        const templateDialog = document.getElementById("creationTemplateDialog");
+        document.querySelectorAll("[data-save-creation-template]").forEach(function (button) {
+          button.addEventListener("click", function () { templateDialog.showModal(); });
+        });
+        document.querySelector("[data-close-creation-template]")?.addEventListener("click", function () {
+          templateDialog.close();
+        });
         document.querySelectorAll("[data-creation-toast]").forEach(function (toast) {
           const dismiss = function () {
             if (toast.classList.contains("is-leaving")) {

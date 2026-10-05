@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "slug": "grw-arborim-blattschuetze",
+  "name": "Arborim – Blattschütze",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "page": 188
+  },
+
+  "race": "Arborim",
+
+  "state": {
+    "meta": {
+      "name": "Arborim – Blattschütze",
+      "gender": "",
+      "country_of_origin": "Arborea",
+      "starting_experience": 0
+    },
+
+    "phase_1": {
+      "attributes": {
+        "ST": 6,
+        "KON": 5,
+        "GE": 10,
+        "WA": 6,
+        "INT": 4,
+        "WILL": 4,
+        "CHA": 4
+      }
+    },
+
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_bow",
+          "level": 8,
+          "specification": ""
+        },
+        {
+          "slug": "craft_bowyer",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_climbing",
+          "level": 7,
+          "specification": ""
+        },
+        {
+          "slug": "skill_orientation",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_sneak",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_tracking",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_survival",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_hide",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 5,
+          "specification": ""
+        }
+      ],
+
+      "languages": {
+        "elandril": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 2,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+
+    "phase_3": {
+      "disadvantages": {
+        "dis_fanatic": 1,
+        "dis_senseofduty": 1
+      },
+      "trait_specifications": {
+        "dis_senseofduty": {
+          "text": "Arborea"
+        }
+      },
+      "trait_choices": {}
+    },
+
+    "phase_4": {
+      "advantages": {},
+      "trait_specifications": {},
+      "trait_choices": {},
+
+      "attribute_adds": {},
+
+      "skill_adds": [
+        {
+          "slug": "skill_bow",
+          "add": 2,
+          "specification": ""
+        },
+        {
+          "slug": "craft_bowyer",
+          "add": 1,
+          "specification": ""
+        }
+      ],
+
+      "language_adds": {},
+      "language_write_adds": {},
+
+      "schools": {
+        "Blattschuss": 4
+      },
+
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Köcher mit 30 Pfeilen",
+      "amount": 1
+    },
+    {
+      "name": "Langbogen",
+      "amount": 1,
+      "quality": "gut"
+    },
+    {
+      "name": "Lederrüstung",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    }
+  ],
+
+  "money_km": 75
+}

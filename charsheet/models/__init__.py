@@ -1,6 +1,7 @@
 """Domain models grouped by concern for the charsheet app."""
 
 from .announcement import DashboardAnnouncement
+from .creation_templates import CharacterCreationTemplate
 from .auth_security import AccountSecurityEvent, AuthenticationThrottle
 from .user import PasskeyCredential, TwoFactorRecoveryCode, UserSettings
 from .character import (
@@ -233,6 +234,7 @@ __all__ = [
     "CharacterLesson",
     "CharacterRaceChoice",
     "CharacterAdvancedBonus",
+    "CharacterCreationTemplate",
     "CharacterSchool",
     "CharacterSchoolPath",
     "CharacterSkill",

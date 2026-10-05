@@ -4,6 +4,7 @@ import binascii
 import hashlib
 import json
 import random
+from copy import deepcopy
 from smtplib import SMTPException
 from urllib.parse import urlencode
 from uuid import uuid4
@@ -48,6 +49,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from webauthn import base64url_to_bytes
 from webauthn.helpers.exceptions import WebAuthnException
 from .engine import CharacterCreationEngine
+from .creation_templates import load_archetypes
 from .engine.creature_engine import CreatureEngine, sync_character_creatures
 from .engine.dice_engine import DiceEngine
 from .engine.item_engine import ItemEngine
@@ -91,6 +93,7 @@ from .models import (
     CharacterTechnique,
     CharacterTrait,
     CharacterCreationDraft,
+    CharacterCreationTemplate,
     CharacterCreature,
     CharacterCreatureAttack,
     CharacterCreatureAttributeIncrease,
@@ -4020,7 +4023,157 @@ def create_character(request):
         messages.info(request, "Charaktererschaffung wurde abgebrochen.")
         return redirect("dashboard")
 
-    if request.method == "POST" and request.POST.get("start_creation") == "1":
+    action = (request.POST.get("action") or "").strip()
+    template_delete_confirmation = None
+    if request.method == "POST" and action == "save_template":
+        if draft is None:
+            raise Http404
+        name = (request.POST.get("template_name") or "").strip()
+        if not name or len(name) > 100:
+            messages.error(
+                request,
+                "Bitte einen Vorlagennamen mit 1–100 Zeichen angeben.",
+            )
+            return redirect(
+                f"{reverse_lazy('create_character')}?draft={draft.id}",
+            )
+        if "phase" not in request.POST:
+            CharacterCreationTemplate.objects.create(
+                owner=request.user, name=name, race=draft.race,
+                state=deepcopy(draft.state),
+            )
+            messages.success(request, "Private Charaktervorlage gespeichert.")
+            return redirect(
+                f"{reverse_lazy('create_character')}?draft={draft.id}",
+            )
+
+    if request.method == "POST" and action in {
+        "delete_template", "confirm_delete_template",
+    }:
+        if not request.POST.get("template_id"):
+            messages.error(request, "Bitte zuerst eine eigene Vorlage wählen.")
+            if draft:
+                return redirect(
+                    f"{reverse_lazy('create_character')}?draft={draft.id}"
+                    "&edit_basics=1",
+                )
+            return redirect("create_character")
+        template = get_object_or_404(
+            CharacterCreationTemplate,
+            pk=_parse_positive_int(request.POST.get("template_id")),
+            owner=request.user,
+        )
+        if action == "delete_template":
+            template_delete_confirmation = template
+        else:
+            template.delete()
+            messages.success(request, "Private Charaktervorlage gelöscht.")
+            if draft:
+                return redirect(
+                    f"{reverse_lazy('create_character')}?draft={draft.id}"
+                    "&edit_basics=1",
+                )
+            return redirect("create_character")
+
+    if request.method == "POST" and action == "use_template":
+        template = get_object_or_404(
+            CharacterCreationTemplate,
+            pk=_parse_positive_int(request.POST.get("template_id")),
+            owner=request.user,
+        )
+        draft = CharacterCreationDraft.objects.create(
+            owner=request.user, race=template.race,
+            state=deepcopy(template.state), current_phase=1,
+            is_npc=request.POST.get("character_type") == "npc",
+        )
+        return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
+
+    if request.method == "POST" and action in {
+        "use_archetype", "confirm_archetype",
+    }:
+        archetype = next((
+            item for item in load_archetypes()
+            if item["slug"] == request.POST.get("archetype_slug")
+        ), None)
+        if archetype is None:
+            messages.error(
+                request,
+                "Der Archetyp ist nicht mehr verfügbar oder ungültig.",
+            )
+            return redirect("create_character")
+        is_npc = request.POST.get("character_type") == "npc"
+        if action == "use_archetype":
+            base_name = archetype["state"]["meta"]["name"]
+            name = base_name
+            suffix = 2
+            while Character.objects.filter(
+                owner=request.user, name=name,
+            ).exists():
+                ending = f" ({suffix})"
+                name = base_name[:100 - len(ending)] + ending
+                suffix += 1
+            return render(request, "charsheet/create_character.html", {
+                "archetype_confirmation": archetype,
+                "archetype_character_name": name,
+                "is_npc": is_npc,
+            })
+        try:
+            state = deepcopy(archetype["state"])
+            name = request.POST.get(
+                "archetype_character_name", state["meta"]["name"],
+            )
+            name = name.strip()
+            if not name or len(name) > 100:
+                raise ValueError(
+                    "Bitte einen Namen mit 1–100 Zeichen angeben.",
+                )
+            if Character.objects.filter(
+                owner=request.user, name=name,
+            ).exists():
+                raise ValueError(
+                    "Du hast bereits einen Charakter mit diesem Namen.",
+                )
+            state["meta"]["name"] = name
+            with transaction.atomic():
+                archetype_draft = CharacterCreationDraft.objects.create(
+                    owner=request.user, race=archetype["race"],
+                    state=state,
+                    is_npc=is_npc, current_phase=4,
+                )
+                engine = CharacterCreationEngine(archetype_draft)
+                invalid_sections = []
+                for phase in range(1, 5):
+                    try:
+                        valid = getattr(engine, f"validate_phase_{phase}")()
+                    except (
+                        ValueError, TypeError, KeyError, AttributeError,
+                        ValidationError,
+                    ):
+                        valid = False
+                    if not valid:
+                        invalid_sections.append(CREATION_SECTION_LABELS[phase])
+                if invalid_sections:
+                    raise ValueError(
+                        "Ungültige Bereiche: " + ", ".join(invalid_sections)
+                    )
+                character = engine.finalize_character()
+            return redirect("character_sheet", character_id=character.id)
+        except (
+            ValueError, TypeError, KeyError, AttributeError,
+            ValidationError, IntegrityError,
+        ) as exc:
+            messages.error(
+                request,
+                f"Archetyp „{archetype['name']}“ konnte nicht erstellt "
+                f"werden: {exc}",
+            )
+            return redirect("create_character")
+
+    if (
+        request.method == "POST"
+        and request.POST.get("start_creation") == "1"
+        and action != "delete_template"
+    ):
         form = CharacterCreateForm(request.POST)
         if form.is_valid():
             name = (form.cleaned_data.get("name") or "").strip()
@@ -4064,7 +4217,7 @@ def create_character(request):
                     },
                 )
                 return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
-    elif request.method == "POST" and draft:
+    elif request.method == "POST" and draft and action != "delete_template":
         action = (request.POST.get("action") or "next").strip()
         if action == "back" and draft.current_phase == 1:
             state = dict(draft.state or {})
@@ -4170,6 +4323,12 @@ def create_character(request):
                 {
                     "draft": draft,
                     "edit_creation_basics": True,
+                    "archetypes": load_archetypes(),
+                    "creation_templates": (
+                        CharacterCreationTemplate.objects.filter(
+                            owner=request.user,
+                        )
+                    ),
                     "form": form,
                     "starting_experience_levels": (
                         CharacterCreationEngine.STARTING_EXPERIENCE_LEVELS
@@ -4529,7 +4688,14 @@ def create_character(request):
             }
 
         draft.state = state
-        if action != "lesson_options":
+        if action == "save_template":
+            CharacterCreationTemplate.objects.create(
+                owner=request.user, race=draft.race,
+                name=request.POST["template_name"].strip(),
+                state=deepcopy(state),
+            )
+            messages.success(request, "Private Charaktervorlage gespeichert.")
+        elif action != "lesson_options":
             draft.save(update_fields=["state"])
         engine = CharacterCreationEngine(draft)
 
@@ -4636,6 +4802,11 @@ def create_character(request):
             "charsheet/create_character.html",
             {
                 "form": form,
+                "archetypes": load_archetypes(),
+                "template_delete_confirmation": template_delete_confirmation,
+                "creation_templates": CharacterCreationTemplate.objects.filter(
+                    owner=request.user,
+                ),
                 "starting_experience_levels": (
                     CharacterCreationEngine.STARTING_EXPERIENCE_LEVELS
                 ),
@@ -5095,7 +5266,10 @@ def create_character(request):
             )
 
     meta = draft.state.get("meta", {})
-    edit_creation_basics = request.GET.get("edit_basics") == "1"
+    edit_creation_basics = (
+        request.GET.get("edit_basics") == "1"
+        or template_delete_confirmation is not None
+    )
     basics_form = CharacterCreateForm(
         initial={
             "name": meta.get("name", ""),
@@ -5123,6 +5297,12 @@ def create_character(request):
         {
             "draft": draft,
             "edit_creation_basics": edit_creation_basics,
+            "template_delete_confirmation": template_delete_confirmation,
+            "archetypes": load_archetypes() if edit_creation_basics else [],
+            "creation_templates": (
+                CharacterCreationTemplate.objects.filter(owner=request.user)
+                if edit_creation_basics else []
+            ),
             "form": basics_form,
             "is_npc": draft.is_npc,
             "draft_phase": draft.current_phase,

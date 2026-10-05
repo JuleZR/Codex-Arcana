@@ -1315,6 +1315,35 @@
   text-align: center;
 }
 
+.creation_template_rail .form_row label {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.creation_template_rail .dashboard_input {
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 7px;
+  font-size: 0.8rem;
+  background: rgba(255, 250, 236, 0.65);
+}
+
+.creation_template_rail .form_row + .form_row {
+  margin-top: 3px;
+  border-top: 1px solid rgba(74, 55, 38, 0.24);
+  padding-top: 8px;
+}
+
+.creation_template_rail [data-delete-creation-template]:disabled {
+  border-color: rgba(74, 55, 38, 0.18);
+  color: rgba(63, 45, 31, 0.45);
+  background: rgba(190, 183, 169, 0.3);
+  box-shadow: none;
+  opacity: 1;
+  filter: none;
+  cursor: not-allowed;
+}
+
 @keyframes creation-toast-timer {
   to {
     transform: scaleX(0);
@@ -1687,6 +1716,55 @@
 
 .phase_counter_value.is-equal {
   color: #254f25;
+}
+
+.character_creation_page .creation_template_dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid rgba(74, 55, 38, 0.4);
+  border-radius: 12px;
+  color: var(--ink);
+  background:
+    linear-gradient(180deg, rgba(242, 239, 232, 0.66), rgba(227, 222, 212, 0.62)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 12px 36px var(--paper-shadow);
+}
+
+.character_creation_page .creation_template_dialog::backdrop {
+  background: rgba(31, 24, 17, 0.38);
+}
+
+.character_creation_page .creation_template_dialog .character_form {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: none;
+}
+
+.character_creation_page .creation_template_dialog h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.character_creation_page .creation_template_dialog p {
+  margin: 0 0 4px;
+  color: var(--ink-soft);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.character_creation_page .creation_template_dialog .form_actions {
+  position: static;
+  z-index: auto;
+  margin-top: 4px;
+  padding-top: 10px;
+  background: none;
 }
 
 
