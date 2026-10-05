@@ -1,0 +1,2892 @@
+[
+{
+  "model": "charsheet.divineentitytype",
+  "pk": 3,
+  "fields": {
+    "name": "Ahnengeist",
+    "slug": "ancestor-spirit",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.divineentitytype",
+  "pk": 6,
+  "fields": {
+    "name": "Dämonenfürst",
+    "slug": "demon-lord",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.divineentitytype",
+  "pk": 1,
+  "fields": {
+    "name": "Gott",
+    "slug": "god",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.divineentitytype",
+  "pk": 5,
+  "fields": {
+    "name": "Kami",
+    "slug": "kami",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.divineentitytype",
+  "pk": 2,
+  "fields": {
+    "name": "Krafttier",
+    "slug": "power-animal",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.divineentitytype",
+  "pk": 4,
+  "fields": {
+    "name": "Naturgeist",
+    "slug": "nature-spirit",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.pantheon",
+  "pk": 3,
+  "fields": {
+    "name": "Dämonenfürsten",
+    "slug": "damonenfursten",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.pantheon",
+  "pk": 2,
+  "fields": {
+    "name": "Elfischer Panthon",
+    "slug": "elfischer-panthon",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.pantheon",
+  "pk": 1,
+  "fields": {
+    "name": "Pantheon der Stählernen Königreiche",
+    "slug": "pantheon-der-stahlernen-konigreiche",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.pantheon",
+  "pk": 4,
+  "fields": {
+    "name": "Pantheon der Zwerge",
+    "slug": "pantheon-der-zwerge",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.pantheon",
+  "pk": 5,
+  "fields": {
+    "name": "Pantheon von Veruna",
+    "slug": "pantheon-von-veruna",
+    "description": ""
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 1,
+  "fields": {
+    "name": "Altharus",
+    "slug": "altharus",
+    "card_name": "Altharus, Herr allen Wissens",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 32,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Göttlicher Archivar, Herr allen Wissens, Meister der Legenden und Schutzherr der Magie.\r\nSeine Domäne ist die Magie, gesammeltes Wissen, Zeit, Schrift und Kontrolle.",
+    "vow": "Ich gelobe das Wissen, welches ich erlange zu mehren, zu archivieren und zu erhalten, mir niemals voreilig ein Urteil zu bilden und im Zweifelsfall lieber zu beobachten, als unbedacht einzugreifen.",
+    "fluff": "Nichts geht verloren. Jeder Gedanke, jedes Wort und jede Tat finden ihren Platz in der Chronik der Ewigkeit.",
+    "description": "Altharus ist der Älteste aller bekannten Götter. Er ist der Geschichtsschreiber, der alles, was jemals gesprochen wurde, geschehen ist oder auch nur gedacht wurde, in einer niemals endenden Chronik der Legenden niederschreibt. Man sagt, er würde die Geschehnisse in der umgekehrten Reihenfolge niederschreiben, beginnend mit dem Ende aller Dinge, bis zurück zum Anfang. Altharus schützt die Arkane Magie und ist abgesehen von Koros der einzige Gott, der die Ausübung arkaner Magie gut heißt und unterstützt.",
+    "goals": "Als göttlicher Archivar beeinflusst Altharus niemals direkt den Lauf der Geschichte, indem er erscheint. Es sind lediglich Legenden bekannt, in denen er seinen Priestern Visionen sendet.",
+    "allies_and_enemies": "Zwar gehört Altharus lose dem Pantheon der Stählernen Königreiche an, da er in diesen Regionen vor allem verehrt wird, durch seine eisern eingehaltene Neutralität in Bezug auf alles außer der Arkanen Magie, hat Altharus sich jedoch unter den Göttern wenig Freunde gemacht. In Veruna wurde sein Glaube als Ketzerei verdammt, und seine Tempel von den Inquisitoren des Myrmidon niedergebrannt. Und auch die Götter des Pantheons der Stählernen Königreiche sehen mit Misstrauen seine tolerante Haltung zu dem selbsternannten Feuergott Erillios in Khoras.",
+    "worshippers": "Arkane Magier aller Schulen, sowie Schreiber und Gelehrte aus den Stählernen Königreichen beten zu Altharus. Seine Gefolgsleute sind außerhalb der Erleuchteten Bibliothek in Rham nur selten anzutreffen. Khoras ist aus diesem Grund die Hochburg des Altharus-Glauben.",
+    "doctrines": "Die heilige Aufgabe eines jeden Priesters von Altharus oder Skriptoren, wie sie auch genannt werden, ist es, ein genaues und vollständiges Tagebuch zu führen, sowie vor jedem Initiierungsritual eine Queste zu unternehmen, um neues Wissen anzusammeln und der großen Bibliothek zugänglich zu machen. Die Kirche der Skriptoren kommt dabei in einem vernünftigen Rahmen für die Aufwendungen der Expedition auf.",
+    "granted_abilities": "Priester des Altharus erhalten zwar nur einen Aspekt, dürfen sich jedoch auf jeder neuen Stufe einen beliebigen Zauber einer Arkanen Magieschule aussuchen, dessen Grad genauso hoch ist wie ihre neu erreichte Stufe. Diesen können sie nach ihrem Aufstiegsritual fortan wie einen Priesterzauber mit ihrer Priesterstufe als Magieschulstufe sprechen, ohne das Risiko, bei einem Kritischen Fehler auf der Fehlschlagstabelle würfeln zu müssen.",
+    "g_ability": "Priester des Altharus wählen bei jedem Stufenaufstieg einen arkanen Zauber, dessen Grad der neuen Stufe entspricht. Dieser Zauber zählt als Priesterzauber, nutzt deren Priesterstufe und erzeugt bei einem Kritischen Fehler keinen Wurf auf der Fehlschlagstabelle.",
+    "symbol_image": "divine_entities/Altharus_symbol.png",
+    "god_image": "divine_entities/Altharus_rpj8Rdp.png",
+    "grants_arcane_spell_choice_per_level": true
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 2,
+  "fields": {
+    "name": "Anaranth",
+    "slug": "anaranth",
+    "card_name": "Anaranth, Die vielarmige Schlächterin",
+    "entity_type": 1,
+    "pantheon": 2,
+    "school": 38,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Die Vielarmige Schlächterin, die Blutdurstige, Dunkle Herrscherin mit den sechs Armen, Mutter der Schattenelfen, die Abtrünnige.\r\n\r\nIhre Domäne ist Hinterlist, Grausamkeit, Erbarmungslosigkeit, Hass auf fremde Rassen, Kampf, Aggression, Sklaverei und Rache",
+    "vow": "Mir ist bewusst, dass die Frauen den Männern und die Morai den übrigen Rassen überlegen sind, und dass Anaranth die rechtmäßige Göttin aller Elfen ist. Es ist meine Pflicht, das Matriarchat und die rechtmäßige Herrschaft Anaranths sowie der überlegenen Rasse über die anderen Völker mit allen Mitteln zu fördern. Ich werde den schändlichen Verrat der Arborim und Sidhe am wahren elfischen Volk rächen. Mit Blutopfern werde ich meiner Göttin meinen Respekt erweisen und ihre Feinde vernichten.",
+    "fluff": "Wer sich nicht beugt, wird gebrochen. Wer nicht dient, wird geopfert.",
+    "description": "Anaranth manifestiert sich als eine schöne, schwarzhaarige Dunkelelfe mit sechs Armen. Sie trägt entweder einen schwarzen Einteiler mit Lendenschurz, der die Beine freilässt, oder erscheint völlig unbekleidet.",
+    "goals": "Anaranths Ziel ist die Stärkung der Morai, die Schwächung und Versklavung aller anderen Rassen, sowie die baldige und vollständige Vernichtung der verräterischen Sidhe und Arborim. Vor der Spaltung der elfischen Rasse in die drei Unterarten war sie die höchste aller elfischen Göttinnen. Dann stellten die Rodung der Wälder und das massive Vordringen der Menschen in ihren Lebensraum die elfische Rasse vor die Entscheidung, ihre letzten Ressourcen für einen Krieg aufzuwenden oder sich zurückzuziehen. Die anderen Elfengötter, darunter auch ihr Mann Auris, entschieden sich für die zweite Variante, während Anaranths Gefolgsleute, die heutigen Morai, den Krieg wählten. Diesen feigen Verrat, aufgrund dessen es zum Bruderkrieg zwischen Morai und Sidhe kam, hat sie Auris und allen anderen Männern nie verziehen.",
+    "allies_and_enemies": "Anaranth hat keine Verbündeten unter den anderen Göttern, aber dafür um so mehr Feinde. Vor allem die Götter anderer elfischer Pantheons sind mit ihr seit dem Bruderkrieg verfeindet. Unter all ihren Feinden nehmen ihr früherer Gatte Auris, der Herr des Pantheons der Sidhe, und Liondrielle eine besondere Rolle ein. Auch Yaal, den Waldgott der Arborim, verachtet sie für seine Schwäche.",
+    "worshippers": "Hexenkriegerinnen, Krieger, Sklavenhalter, Hexer und fast alle übrigen Morai verehren Anaranth. Sie toleriert keine Gefolgsleute anderer Rassen.",
+    "doctrines": "Die Glaubensvorschriften von Anaranth sind einfach und hart: Nur die Starken überleben. Sie diktiert eine strikte und gnadenlose, matriarchalische Gesellschaft. Priesterinnen von Anaranth müssen ihrer Göttin regelmäßig Blutopfer in Form von intelligenten Lebewesen darbringen. Die Glaubensgemeinschaft der Priesterinnen bildet gleichzeitig die Regierung des Großteils des dunkelelfischen Volkes. Regelmäßige Teilnahme an Ritualen und ständiges politisches Intrigieren sind die Voraussetzungen, um in der dunkelelfischen Gesellschaft aufzusteigen. Nur Frauen können als Priesterinnen die Gunst Anaranths erlangen. Ihre Kleidung und ihr Auftreten sind den Darstellungen Anaranths nachempfunden.",
+    "granted_abilities": "Priesterinnen der Anaranth erhalten auf der 2ten, der 4ten, der 6ten und der 8ten Stufe die Fähigkeit, sich innerhalb einer Runde für jede dieser erreichten Stufen jeweils einen zusätzlichen Arm wachsen zu lassen. Auf der 8. Stufe kann eine Priesterin also bis zu 4 zusätzliche Arme erhalten. Diese wieder verschwinden zu lassen dauert ebenfalls eine Runde. Die zusätzlichen Arme bescheren keine freien, zusätzlichen Aktionen, ermöglichen jedoch vielseitige Manöver, z.B. einen Gegner gleichzeitig festhalten und angreifen zu können.",
+    "g_ability": "Priesterinnen der Anaranth lassen auf der 2., 4., 6. und 8. Stufe je einen zusätzlichen Arm wachsen. Das Erschaffen oder Verbergen dauert eine Runde. Die Arme gewähren keine zusätzlichen Aktionen, ermöglichen aber vielseitige Manöver, wie das gleichzeitige Festhalten und Angreifen eines Gegners.",
+    "symbol_image": "divine_entities/Anaranth_symbol.png",
+    "god_image": "divine_entities/Anaranth_VGKa3oO.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 25,
+  "fields": {
+    "name": "Asmodeus",
+    "slug": "asmodeus",
+    "card_name": "Asmodeus der Gehörnte  Mond",
+    "entity_type": 6,
+    "pantheon": 3,
+    "school": 61,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 1,
+    "is_customizable": false,
+    "divine_function": "Herrscher der finsteren Heerscharen, Herr der Gewalt, Versuchung und Schwelgerei, Gebieter des Gehörnten Mondes",
+    "vow": "Kein Verbot überlebt die Nacht, in der ihr begreift, dass es euch nur aus Angst auferlegt wurde.",
+    "fluff": "Ich befehle dir nicht, mir zu folgen. Ich nehme dir lediglich den Grund, noch umzukehren.",
+    "description": "Asmodeus herrscht über die finsteren Heerscharen des Abyss. Er verkörpert Gewalt, Versuchung und Schwelgerei. Seine Gestalt ist die eines verführerischen, muskulösen und geflügelten Mannes. Dunkle Tentakel umspielen seinen Körper, während eine Krone aus Hörnern sein Haupt ziert.\r\n\r\nEr erscheint nicht als gedankenloses Ungeheuer. Asmodeus verbindet körperliche Gewalt mit Verführung, Macht mit Genuss und Herrschaft mit freiwilliger Unterwerfung. Er bietet seinen Anhängern Freiheit von Gesetzen, Göttern und Gewissen an, bindet sie jedoch durch Begierde, Stolz und dämonische Macht umso fester an sich.\r\n\r\nDer Kult des Gehörnten Mondes geht auf Andeimos den Ketzer zurück. Seine Anhänger bestreiten das Recht der Götter, über die Sterblichen zu herrschen. Sie streben nach Unsterblichkeit und göttlicher Macht, wollen die Siegel der Verdammnis brechen und suchen nach dem Arkanen Kodex sowie den acht Kristallen der Macht. Ihre Gruppen werden fast überall verfolgt und agieren deshalb meist als kleine, voneinander getrennte Zirkel.\r\n\r\nUnter Asmodeus’ Dienern befinden sich Sukkubi und Inkubi. Sukkubi verführen Sterbliche unter einer menschlichen Hülle und jagen sie anschließend. Die selteneren Inkubi dienen als Generäle und Spione in Asmodeus’ Armeen und werden der Überlieferung nach persönlich von ihm ausgebildet. Brecher und Drughs bilden dagegen das schwere Fußvolk seiner Höllenscharen.\r\n\r\nEine öffentlich zugängliche Fanpublikation stellt Asmodeus außerdem als Vorsitzenden eines gewaltigen höllischen Schiedsgerichts dar, der über den Wortlaut eines Seelenpaktes urteilt. Diese Darstellung ist kein gesicherter Regelwerkskanon, erweitert ihn aber um ein passendes Motiv: Asmodeus achtet Verträge nicht aus Gerechtigkeit, sondern weil präzise geschlossene Pakte seine Herrschaft sichern.",
+    "goals": "Asmodeus will die Siegel öffnen und seine Heerscharen dauerhaft auf die materielle Ebene führen. Dabei genügt ihm keine bloße Eroberung. Die Sterblichen sollen ihre Fesseln selbst zerbrechen, ihre Götter verwerfen und den Untergang als Befreiung begrüßen.\r\n\r\nEr fördert Gewalt, die aus Kränkung entsteht, Genuss ohne Maß, Versuchung ohne Erfüllung und Freiheit ohne Verantwortung. Jede überschrittene Grenze soll die nächste bedeutungslos machen, bis nur noch der Wille des Stärkeren gilt.",
+    "allies_and_enemies": "Monsugroth ist sein General und führt die Höllenscharen in der offenen Schlacht. Der Kult des Gehörnten Mondes sowie Hexer, Dämonenpaktierer, Sukkubi, Inkubi, Brecher und Drughs bilden seine wichtigsten Werkzeuge.\r\n\r\nSeine Feinde sind die Götter Kreijors, die Verteidiger der Siegel und alle Orden, die sich auf den kommenden Kataklysmus vorbereiten. Der Widerstand richtet sich besonders gegen den Arkanen Kodex, die Kristalle der Macht und jeden Versuch, ein weiteres Tor zum Abyss zu öffnen.",
+    "worshippers": "Asmodeus wird von Hexern, Kriegsherren, Verführern, Dekadenten und Menschen verehrt, die sich von göttlichen oder weltlichen Gesetzen betrogen fühlen. Viele treten seinem Kult nicht aus Liebe zum Abyss bei, sondern weil sie glauben, durch ihn ihre Selbstbestimmung zurückzugewinnen.",
+    "doctrines": "Kein Gott besitzt ein angeborenes Recht, über Sterbliche zu herrschen.\r\nMacht gehört demjenigen, der den Mut besitzt, sie zu ergreifen.\r\nVerbotene Begierden sind Ketten, solange sie unerfüllt bleiben.\r\nEin Pakt bindet durch seinen Wortlaut, nicht durch seine Absicht.\r\nDie Siegel müssen fallen und der Gehörnte Mond über einer freien Welt stehen.\r\nDer Arkane Kodex und die Kristalle der Macht gehören dem Kult.\r\nWer Freiheit verlangt, muss bereit sein, sie mit Blut zu bezahlen.",
+    "granted_abilities": "",
+    "g_ability": "Asmodeus ist der Herrscher der finsteren Heerscharen und der Herr der Gewalt, der Versuchung und der Schwelgerei.",
+    "symbol_image": "divine_entities/asmodeus_symbol.png",
+    "god_image": "divine_entities/asmodeus.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 3,
+  "fields": {
+    "name": "Auris",
+    "slug": "auris",
+    "card_name": "Auris, Herr der Zeit",
+    "entity_type": 1,
+    "pantheon": 2,
+    "school": 39,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Erschaffer, Schutzgott der Sidhe, Quelle der Unsterblichkeit, Herr der Zeit\r\n\r\nSeine Domäne ist Krieg, Schutz der Sidhe, Wahrheit, Herrschaft, Glanz, Autorität, Weisheit, Zeit, Ewige Jugend",
+    "vow": "Ich gelobe mit meinem Leben zwischen Uliath und jeder Gefahr für unser Land zu stehen, Sidhe vor Vertretern anderer Völker zu schützen, das Wissen unseres Volkes zu mehren und stets die Wahrheit zu sprechen.",
+    "fluff": "Die Krone ist kein Recht zu herrschen, sondern die Pflicht zu schützen.",
+    "description": "Obwohl Auris die Sidhe auch in den Krieg führt, wird er auf den meisten Abbildungen nicht während des Kampfes dargestellt. Vielmehr steht er ruhig und betrachtend, in manchen Darstellungen gleichzeitig gütig lächelnd und weinend, dem Geschehen gegenüber. Dennoch trägt er fast immer eine silbrige, filigran erscheinende Kettenrüstung und führt ein Langschwert bei sich. Gerüchten zufolge soll es noch einige wenige Gegenstände aus der Zeit geben, bevor die elfische Rasse sich spaltete, auf denen Auris als Gelehrter mit Robe und Buch abgebildet ist.",
+    "goals": "Seit die elfische Rasse sich in die Sidhe, die Arborim und die Morai aufgespaltet hat, wird Auris nur noch von den Sidhe angebetet. Stets ist es sein vorrangiges Ziel die Elfen, die ihm treu geblieben sind, zu schützen, ebenso wie ihr Land, die Insel Uliath, auf die sie sich zurückgezogen haben. Weniger bekannt ist Auris zweiter Wunsch, der darin besteht die Waldelfen und Dunkelelfen zurück in den Schoß der hochelfischen Rasse zu führen, oder, falls dies nicht möglich ist, sie zu vernichten.",
+    "allies_and_enemies": "Liondrielle, die elfische Göttin der Anmut, ist Auris engste Verbündete, und sie stehen sich seit der Trennung von Auris und Anaranth auch persönlich nahe. Anaranth ist seitdem zu Auris gefährlichster Feindin geworden. Yaal, der Waldgott der Arborim, wird von ihm nicht wirklich als Gottheit anerkannt.",
+    "worshippers": "Auris ist der höchste Gott aller Sidhe und wird auf Uliath ausschließlich von ihnen verehrt.",
+    "doctrines": "Elfen beiderlei Geschlechts können zu Priestern oder Priesterinnen von Auris werden. Er ist theoretisch imstande, Wald- oder Dunkelelfen, die wahrhaft ohne eigennützige Hintergedanken zu ihm bekehrt werden, ihre Ewige Jugend, und mit ihr auch die Empfindlichkeit gegenüber Eisen, zurückzugeben. Priester von Auris haben vor allem anderen die Pflicht, die Sidhe und die Insel Uliath notfalls mit ihrem eigenen Leben zu schützen. Daher hassen viele Priester des Auris ihre dunkelelfischen Vettern, die bereits so viele Sidhe getötet haben. Abgesehen von ihrem Hass auf die Dunkelelfen und alle anderen Feinde der Sidhe gehört Friedfertigkeit gegenüber Unschuldigen ebenso wie das Eintreten für Respekt vor hochelfischen Autoritäten, Wahrheit und Ehrlichkeit, sowie die ständige Suche nach Wissen zu den wichtigsten Glaubensedikten der Aurispriester. Im Alltag sollen sie versuchen anderen Sidhe bei ihrer Suche nach Wissen beizustehen.",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "divine_entities/Auris_symbol.png",
+    "god_image": "divine_entities/Auris_YqEMEQZ.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 23,
+  "fields": {
+    "name": "Baelith",
+    "slug": "baelith",
+    "card_name": "Baelith, Herrin der Perversion",
+    "entity_type": 6,
+    "pantheon": 3,
+    "school": 61,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 1,
+    "is_customizable": false,
+    "divine_function": "Herrin der Perversion, Verunreinigerin des Geistes, Mutter der Schmerztrinker, Herrin der Erlösung",
+    "vow": "",
+    "fluff": "Deine Seele zerbricht nicht an meinen Händen. Sie zerbricht an dem, wonach sie sich im Verborgenen sehnt.",
+    "description": "Baelith bringt das Verderben der Seele und die Verunreinigung des Geistes über die Sterblichen. Ihre Macht richtet sich nicht vorrangig gegen den Körper. Sie greift Erinnerungen, Überzeugungen, Bindungen und das Selbstbild ihrer Opfer an. Unter ihrem Einfluss werden Liebe zu Abhängigkeit, Gewissen zu Schuld, Hoffnung zu Selbsttäuschung und Vertrauen zu einem Werkzeug der Beherrschung.\r\n\r\nBaeliths Wirken beginnt häufig dort, wo ein Sterblicher glaubt, Hilfe zu erhalten. Sie tritt nicht zwingend als offen dämonische Herrscherin auf, sondern kann sich hinter der Gestalt einer verständnisvollen Ratgeberin, Heilerin oder Erlöserin verbergen. In einem öffentlich zugänglichen Wettbewerbsbeitrag erscheint sie einem grausamen Anstaltsleiter in seinen Träumen als schöne und überaus kluge Frau, die ihm neue Methoden zur angeblichen Heilung dämonischer Einflüsse zuflüstert. Diese Darstellung entstammt einer Fanarbeit und ist kein verbindlicher Kanon, passt jedoch ausgesprochen gut zu ihrer offiziellen Domäne.\r\n\r\nZu ihren Kindern gehören die Schmerztrinker. Diese großen, insektenartigen Dämonen gleichen gewaltigen Gottesanbeterinnen mit Chitinpanzern und klingenartigen Mundwerkzeugen. Sie töten ihre Opfer nur ungern, denn Schmerz ist ihre Nahrung. Besonders schätzen sie geistige Qualen. Sie erkennen Ängste und Schwächen, treiben Gefangene gegeneinander auf und nähren sich an Verzweiflung, Schuld und gegenseitigem Hass",
+    "goals": "Baelith strebt nicht lediglich den Tod ihrer Opfer an. Ihr Werk ist vollendet, wenn ein Sterblicher seine eigenen Werte verrät und die Zerstörung seiner Seele selbst als Befreiung begrüßt. Sie will beweisen, dass jede Tugend gebrochen, jede Liebe vergiftet und jeder Wille durch das richtige Maß aus Hoffnung, Angst und Schmerz umgeformt werden kann.\r\n\r\nIhre Kulte sollen Orte schaffen, an denen Menschen freiwillig ihre Selbstbestimmung aufgeben: Heilanstalten, Erlösungsorden, geheime Gemeinschaften, Schulen der Läuterung und abgeschlossene Zirkel, in denen Abhängigkeit als Hingabe ausgegeben wird.",
+    "allies_and_enemies": "Baelith dient keinem erkennbaren gemeinsamen Ideal mit den anderen Dämonenfürsten, doch ihre Ziele ergänzen häufig deren Wirken. Asmodeus liefert ihr Versuchung und enthemmte Begierde, Zaagrasch körperliches Leiden und Monsugroth Angst, Gefangene und zerstörte Gemeinschaften.\r\n\r\nIhre natürlichen Gegner sind Priester, die Seelen und Geist schützen, sowie all jene, die dämonische Manipulation erkennen und Bindungen zwischen Menschen bewahren. Besonders gefährlich sind für ihren Kult Personen, die seine Versprechen nicht bekämpfen, sondern seine verborgenen Abhängigkeiten offenlegen.",
+    "worshippers": "Baelith wird von Verführern, Folterern, fanatischen Erziehern, falschen Heilern, Sektenführern und Menschen verehrt, die Macht über das Innenleben anderer erlangen wollen. Unter ihren Anhängern finden sich auch Personen, die ursprünglich tatsächlich Trost, Heilung oder Erkenntnis gesucht haben.\r\n\r\nDer bekannteste ihr zugeordnete Bund ist der Orden der Erlösung. Dieser gibt vor, den Sterblichen inneren Frieden zu bringen, ermutigt zur Lossagung von weltlichen Dingen und predigt Gewaltlosigkeit. Seine Anhänger werden jedoch mit der Droge Seelentöter abhängig gemacht, während dämonische Kräfte zunehmend Besitz von ihnen ergreifen. Das Grundregelwerk verbindet den Orden mit Baeliths Einfluss; auch in der öffentlichen Community wird er regelmäßig ihrem Kult zugerechnet.",
+    "doctrines": "Jeder Geist besitzt einen Riss. Finde ihn.\r\nHoffnung ist wertvoller als Schmerz, denn erst Hoffnung macht Verzweiflung möglich.\r\nNimm deinem Opfer niemals alles. Lass ihm stets etwas, das es aus eigener Hand opfern kann.\r\nSchuld bindet stärker als Eisen.\r\nErlösung besteht nicht darin, frei zu werden, sondern den eigenen Willen nicht länger zu benötigen.\r\nZerstöre keine Seele, die Baelith noch dienen kann.",
+    "granted_abilities": "",
+    "g_ability": "Baelith bringt das Verderben der Seele und die Verunreinigung des Geistes über die Sterblichen.",
+    "symbol_image": "divine_entities/baelith_symbol.png",
+    "god_image": "divine_entities/baelith_8gwMAPF.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 4,
+  "fields": {
+    "name": "Coliante",
+    "slug": "coliante",
+    "card_name": "Coliante die Muttergöttin",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 40,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Erdmutter, Nährende, Muttergöttin, Schützerin des reifen Korns .\r\n\r\nIhre Domäne ist Ackerbau, Ernte, Aussaat, Nahrung, Heim, Herd, Mütterlichkeit uns Zuflucht",
+    "vow": "Ich schwöre den Bauern der Stählernen Königreiche und ihren Familien beizustehen, Schwangere und Kinder zu beschützen, mit meiner Treue zu meinem eigenen Partner ein Beispiel zu geben und das Korn als Geschenk der Göttin zu ehren und zu hüten.",
+    "fluff": "Die Erde vergisst weder die fleißige Hand noch das liebevolle Herz.",
+    "description": "Coliante wird als mütterliche Menschenfrau in erdfarbenen Gewändern dargestellt. Die Erde selbst wird ebenfalls als Teil von Coliante betrachtet. Da sie auch die Mutter einiger Götter der Stählernen Königreiche ist, und zudem als Schutzpatronin der Bauern gilt, wird kaum ein anderer Gott so häufig angerufen wie Coliante. Die meisten Bauern beten täglich zu ihr und bitten sie um Schutz für ihre Familien und Felder. Es ist nicht bekannt, wie häufig Coliante selbst bei weltlichen Angelegenheiten interveniert. Ihre Erscheinungen traten bislang fast ausschließlich bei Kornfesten oder bei der Aussaat auf. Allerdings gibt es einige Berichte, laut denen sie bei Plünderungen erschien und verunische Soldaten mit Gewittern und Regen daran hinderte, die Felder zu verbrennen.",
+    "goals": "Coliantes Ziel besteht darin, zu nähren. In ihren Bemühungen die Ernte ihrer Anhänger gedeihen zu lassen, ist sie sehr beständig. Jedoch verzichtet sie auf aufsehenerregende Effekte. Nicht immer erhält auch derjenige die üppigste Ernte, der am häufigsten betete, denn Coliante schätzt die fleißige Arbeit auf dem Feld mindestens ebenso wie jedes fromme Gebet. Sie selbst ist bekannt für ihre Toleranz gegenüber Verehrern anderer Götter und für ihre Weigerung, die Feinde der Stählernen Königreiche mit Missernten zu strafen.",
+    "allies_and_enemies": "Coliante gehört dem **Pantheon der Stählernen Königreiche** an und ist mit ihrem Gatten Peiron und ihrem Sohn Karndt eng verbunden. Heimlich unterhält sie auch Beziehungen zu ihrem verstoßenen Sohn Ryse. Es kommt bei ihr nicht selten zu Auseinandersetzungen mit Naturgottheiten, Krafttieren und Göttern fremder Rassen oder dem Waldgott Yaal, da die stetig wachsende Menschheit in ihrem Namen immer mehr Wälder für die Nutzung als Ackerland rodet. Coliante und ihre Anhänger reagieren mit Zorn auf Unsterbliche oder Personen, welche die Zerstörung von Feldern veranlassen, die unter dem Schutz der Göttin stehen. Doch ist sie bekannt dafür, nicht nachtragend zu sein und wenn irgend möglich nach einem friedlichen Ausweg zu suchen. Druiden, welche sie und ihre Anhänger als einige ihrer ärgsten Gegner betrachten, halten dieses sanfte, aber stetige Vordringen Coliantes für gefährlicher als jeden Kriegsgott mit seinen Soldaten.",
+    "worshippers": "Den größten Anteil von Coliantes Gefolgschaft stellen Bauern aus den Stählernen Königreichen. Neben den Bitten, die die Ernte betreffen, wird auch häufig bei Geburten zu ihr gebetet. Aus diesem Grund besteht ihre Anhängerschaft in den Städten überwiegend aus Frauen, doch es wird auch insgesamt nur wenige Menschen in den Stählernen Königreichen geben, die nicht schon den Rat eines ihrer Priester gesucht hätten.",
+    "doctrines": "Coliante erwartet von ihren Priestern und Priesterinnen, die fast ausschließlich menschlichen Ursprungs sind, der Landbevölkerung der Stählernen Königreiche beizustehen. In den kleinen, ländlichen Tempeln bauen die Priester selbst Korn an und sind bekannt für ihre Bemühungen, neue, ergiebigere Arten von Gemüse, Obst und Getreide zu züchten. Da sie viel auf den Feldern arbeiten, tragen sie, außer zu den Erntefesten und ähnlichen Gelegenheiten, meist nur einfache braune Kutten. Es ist den Priestern Coliantes erlaubt, zu heiraten und Familien zu gründen, allerdings legt Coliante auch hier großen Wert auf Treue und Beständigkeit. Es wird im Orden als selbstverständlich betrachtet, die Nahrung, und hierbei insbesondere die pflanzliche Nahrung, zu schätzen und zu schützen. Obwohl aggressive Handlungen von Priestern Coliantes normalerweise nicht gerne gesehen werden, so werden sie vom Orden geduldet, sofern die Verteidigung von Wehrlosen, die Selbstverteidigung oder der Schutz der Felder der Grund für sie war.",
+    "granted_abilities": "Pro Stufe erhalten Priester von Coliante einen Bonus von +1 auf die Berufsfertigkeit „Ackerbau“. Hierdurch können auch Fertigkeitswerte über 10 zustande kommen.",
+    "g_ability": "Pro Stufe erhalten Priester von Coliante einen Bonus von +1 auf die Berufsfertigkeit „Ackerbau“. Hierdurch können auch Fertigkeitswerte über 10 zustande kommen.",
+    "symbol_image": "divine_entities/Coliante_symbol.png",
+    "god_image": "divine_entities/Coliante_vYtGy32.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 5,
+  "fields": {
+    "name": "Dargred",
+    "slug": "dargred",
+    "card_name": "Dargred, der wahnsinnige Berserker",
+    "entity_type": 1,
+    "pantheon": 4,
+    "school": 41,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Schlachtenwüter, Der Zorn des Sturms, Der wahnsinnige Berserker, Drachentöter\r\n\r\nSeine Domäne ist Gewalt, Wahnsinn, Jähzorn und sinnloses Gemetzel.",
+    "vow": "Ich gelobe das zwergische Volk zu verteidigen, Drachen zu töten, dem Zorn nachzugeben, mich furchtlos in die Schlacht zu werfen und mich niemals feige hinter einer Rüstung zu verbergen.",
+    "fluff": "Der Tod kommt für jeden. Also zwinge ihn, dich auf einem Berg aus Feinden zu holen.",
+    "description": "Dargred steht für unkontrollierbaren Jähzorn und Blutdurst. Seine an Wahnsinn grenzende Unbeherrschtheit und sein sinnloser Zorn verkörpern die dunklen Aspekte der zwergischen Seele. Er sieht aus wie ein besonders muskulöser, einäugiger Zwerg, dessen rotes, geflochtenes Haar um sein wutverzerrtes Gesicht wirbelt. Seine Waffen sind zwei gewaltige Äxte.",
+    "goals": "Die Ziele Dargreds, des ehemaligen Kriegsgottes der Zwerge, waren einst der Schutz und die Unterstützung seines Volkes. Nachdem er im Kampf gegen seinen Erzfeind, den Urwyrm Gwyrmangar durch dessen giftigen Biss wahnsinnig wurde, vernebelten sich seine Sinne mit dunklen Träumen von Zerstörung und Gewalt. Der Fluch des sterbenden Urdrachen sollte die Tugenden des Gottes auslöschen und sein Herz vergiften.",
+    "allies_and_enemies": "Durgador kontrolliert seinen zerstörerischen Bruder Dargred und hält ihn zurück, so gut er es vermag.",
+    "worshippers": "Viele Zwerge, die Dargred verehren, haben in ihrer Vergangenheit Erfahrungen mit Dämonen gesammelt, sind von ihnen markiert oder stehen mit ihnen im Bunde. Manche treten in seinen Kult ein, um durch ihren ehrenvollen, furchtlosen Tod im Kampf gegen einen möglichst mächtigen Gegner die eigene Ehre oder die ihrer Familie wieder herzustellen. Die meisten von ihnen sind Berserker. Der Orden Dargreds ist lose organisiert, und es gibt nur einen großen Tempel, in dem Zwerge initiiert werden.",
+    "doctrines": "Zwerge, die Dargred folgen, werden früher oder später von seinem Jähzorn überwältigt. Ihr einziges Ideal ist die selbstmörderische Furchtlosigkeit und das Ignorieren von Schmerz, wenn sie sich in die Schlacht werfen. Bei vielen Gefolgsleuten Dargreds gilt Gnade als Schwäche. Außerhalb des Kampfes halten sich Dargredpriester eher zurück und fressen ihre Wut in sich hinein. Auf Außenstehende könnten diese wandelnden Killer daher einen täuschend friedfertigen Eindruck machen, wenn ihr meist ungepflegtes und beängstigendes Äußeres sie nicht verraten würde. Dargredpriester tätowieren ihre Körper, färben und rasieren ihre Haare und spitzen ihre Zähne an. Das Tragen von Rüstung gilt als feige und ist verpönt.",
+    "granted_abilities": "Priester Dargreds erhalten einen Bonus von +1 pro Stufe auf den Schaden, den ihre Äxte verursachen, solange sie mit einer Waffe in jeder Hand kämpfen und keine Rüstung tragen. Sie erhalten diesen Bonus mit jeder beliebigen Waffe, wenn sie gegen Drachen kämpfen.",
+    "g_ability": "Priester Dargreds erhalten einen Bonus von +1 pro Stufe auf den Schaden, den ihre Äxte verursachen, solange sie mit einer Waffe in jeder Hand kämpfen und keine Rüstung tragen. Sie erhalten diesen Bonus mit jeder beliebigen Waffe, wenn sie gegen Drachen kämpfen.",
+    "symbol_image": "divine_entities/Dargred_symbol.png",
+    "god_image": "divine_entities/Dargred_ybfr7cl.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 38,
+  "fields": {
+    "name": "Das Eichhörnchen",
+    "slug": "iora_der_zirkel_der_freude",
+    "card_name": "Das Eichhörnchen",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Freude ist kein Zufall. Man muss nur flink genug sein, sie überall aufzulesen.",
+    "description": "Der verloren geglaubte Zirkel der Iora ist auf der Suche nach seinem Krafttier aus Mordain in den Wald von Ealorn in Gwynor bis nach Ilyrien gewandert. Dort erfreute er sich unter den Feen schon bald großer Beliebtheit und verbreitete sich in Windeseile. Die Druiden haben eine optimistische Weltsicht und versuchen ihrem Leben so viel Freude wie möglich abzuringen. Sie gelten als verspielt und freundlich, neugierig und weltoffen, nicht selten sind sie auch Barden.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Eichhoernchen.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 33,
+  "fields": {
+    "name": "Das Pferd",
+    "slug": "each_der_zirkel_des_schutzes",
+    "card_name": "Das Pferd",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Der Weg des Pferdes endet nie am Horizont – denn hinter jeder Grenze wartet eine neue Geschichte.",
+    "description": "Die Druiden von Each reisen als einzige Mitglieder der Zirkel durch das Land und kümmern sich um die Belange der Bevölkerung. Sie sind am weitesten entfernt von der Natur und vollständig in die Gesellschaft der Menschen von Mordain integriert. Berühmt sind die Anhänger Eachs auch für ihre Neugier.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Pferd.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 45,
+  "fields": {
+    "name": "Das Stinktier",
+    "slug": "scunc_der_zirkel_der_schelme",
+    "card_name": "Das Stinktier",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Der beste Schelm gewinnt nicht den Kampf – sondern sorgt dafür, dass niemand merkt, dass einer stattgefunden hat.",
+    "description": "Die Druiden des Scunczirkels sind wahre Lebenskünstler. Oft reisen sie mit Spielleuten durch die Lande und verdienen sich als Schausteller ihren Lebensunterhalt. Sie sind in Aquitaine, Drakia und Khoras zu Hause. Verführung und Blendung sind die Waffen dieser Druiden, die oft auch Schelme genannt werden.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Stinktier.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 27,
+  "fields": {
+    "name": "Der Bär",
+    "slug": "ard_der_zirkel_der_urkraft",
+    "card_name": "Der Bär",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Wo die Wälder Gwynors bedroht werden, erhebt sich der Bär – standhaft wie die Erde und unerbittlich wie der Sturm.",
+    "description": "Die Urkraft des Bären lässt die Druiden dieses Zirkels zu schlagkräftigen, spirituellen Kriegern werden. Ihr Ziel ist der Schutz des Waldes Ealorn in Gwynor. Der Zirkel bildet den kriegerischen, aber ausgeglichenen Gegenpart zu den berserkerhaften Druiden des Eberzirkels. Anders als die Anhänger der übrigen Krafttiere leben die meisten Anhänger Ards auf dem Festland.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Die unterirdischen Kanalisationen Aquitaines, Goremounds, der Skarlande und aller großen Städte bilden die Heimat der Mhordruiden. Als die Götter die Krafttiere bekämpften, zogen sich die Druiden des Rattenzirkels in den Untergrund zurück. Während der Zerstörung Morkheims überlebten nur die Ratten. Seither gelten Zähigkeit und Überlebenswille als größte Stärken der bescheiden mit ihren Krafttieren lebenden Stadtdruiden. Die Druiden des Mhor stehen im Ruf, ein langes Gedächtnis für Feindschaften zu haben. Sie gelten als rachsüchtig und absonderlich, zugleich aber auch als schlau, opferbereit und loyal.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Bär.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 28,
+  "fields": {
+    "name": "Der Biber",
+    "slug": "beabhar_der_zirkel_der_baumeister",
+    "card_name": "Der Biber",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Wo andere nur Holz und Wasser sehen, erkennt der Biber bereits das Werk, das daraus entstehen wird.",
+    "description": "Biberdruiden leben verstreut in Großfamilien in allen Flüssen und Seen, besonders in Arborea und Aquitaine. Sie gelten als handwerklich begabt, ausdauernd, sparsam und kreativ, aber auch als geizig und pedantisch. Holzbauten sind ihre große Leidenschaft. Der Biber lehrt Planung und Voraussicht, Fleiß und erfolgreiche Zusammenarbeit in der Gruppe. Er ist bekannt für seine Heimatliebe und seinen Familiensinn. Nur selten ist er alleine unterwegs.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Biber.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 50,
+  "fields": {
+    "name": "Der Eber",
+    "slug": "torc_der_zirkel_des_krieges",
+    "card_name": "Der Eber",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Die Tapferkeit des Ebers endet erst dort, wo sein Herz aufhört zu schlagen.",
+    "description": "Der blutdurstige Zirkel des Krieges besteht zum größten Teil aus Druiden, die in der Kampfkunst gut geschult sind. Sie zeichnen sich aus durch ihren zerstörerischen Kriegergeist und ihren Willen zur Führung. Ihre Methoden sind mutig und direkt, meist geleitet von berserkerhaftem Zorn und temperamentvollen Emotionen. Die Druiden des Zirkels sind bekannt für ihre legendäre Opferbereitschaft und Tapferkeit, die manchmal schon fast an Dummheit grenzt.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Eber.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 46,
+  "fields": {
+    "name": "Der Falke",
+    "slug": "seabhac_der_zirkel_des_adels",
+    "card_name": "Der Falke",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Der Falke herrscht nicht durch Stärke allein, sondern durch den Anspruch, über den Dingen zu stehen.",
+    "description": "Der stolze Zirkel des Sonnenvogels legt besonders viel Wert auf seinen Einfluss innerhalb des Rates. Nur Menschen von adeliger Geburt oder große Helden werden in diesem Zirkel aufgenommen. Neben dem Zirkel von Morwen hat der des Seabhac die meisten Stimmen im Rat.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Falke.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 47,
+  "fields": {
+    "name": "Der Fuchs",
+    "slug": "sionnach_der_zirkel_der_wildheit",
+    "card_name": "Der Fuchs",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Am Tag spricht der Fuchs von Frieden. In der Nacht erinnert er sich an seine Zähne.",
+    "description": "Die Druiden des Sionnach-Zirkels führen ein Doppelleben. Sie sind die Berater und Diplomaten ihres Volkes. Als Meister der Tarnung leben sie ihre wilden, kriegerischen Gelüste in den Schatten der Nacht aus. Sie sind bekannt für ihre Gerissenheit und ihren klaren Verstand",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Fuchs.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 48,
+  "fields": {
+    "name": "Der Hai",
+    "slug": "siorc_der_zirkel_des_raubes",
+    "card_name": "Der Hai",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Das Meer kennt keine Mauern. Darum bewacht der Hai seine Grenzen mit Zähnen.",
+    "description": "Die geheimnisvollen Druiden des Siorc Zirkels verbringen den Großteil ihrer Zeit in den Tiefen der Meere. Es handelt sich dabei um einen der ältesten Zirkel Kreijors, der sich vor allem als Wächter vor Invasionen Mordains versteht. Obwohl Druiden des Zirkels in allen Meeren Kreijors zu finden sind, leben die meisten von ihnen in der Nähe Mordains. Die Philosophie des Zirkels lautet fressen oder gefressen werden. Die Druiden spüren zwar eine starke Verbundenheit ihrem Volk und den Alten Göttern gegenüber, doch die Zivilisierung menschlicher Emotionen ist fast spurlos an ihnen vorbeigezogen. So wird die Rangordnung im Zirkel vom Recht des Stärkeren bestimmt. Jeder nimmt sich, was er kann. Jeweils der beste Druide führt die einzelnen kleinen Gruppen an, in denen die Siorc umherziehen. Abhängig von der Haiart, der die Druiden angehören, fallen diese Gruppen traditionell aufgrund vorhandener Nahrung und Jagdtechniken größer oder kleiner aus. Hammerhaie ziehen meist in größeren Rotten, Tigerhaie wenigstens in Gruppen von fünf oder mehr, während die großen Weißen als Kleinfamilien oder Einzelgänger unterwegs sind. Seltener sind Pärchen anzutreffen.\r\n\r\nDie Waffen der Siorc sind Netze und Harpunen. Gelegentlich überfallen sie kleinere Schiffe. Ihre Körper sind oft von Narben übersäht, denn die Älteren führen regelmäßig rituelle Kämpfe aus, in denen sie versuchen die Führung über eine fremde Rotte zu übernehmen.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Die Siorc gehören zu den ältesten Zirkeln Kreijors und leben überwiegend in den Meeren um Mordain, das sie vor Eindringlingen schützen. Ihre Philosophie lautet „fressen oder gefressen werden“; Stärke bestimmt Rang und Führung. Je nach Haiart ziehen sie in unterschiedlich großen Gruppen umher. Bewaffnet mit Netzen und Harpunen überfallen sie mitunter kleinere Schiffe. Rituale Kämpfe um die Führung hinterlassen bei vielen Druiden zahlreiche Narben.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Hai.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 36,
+  "fields": {
+    "name": "Der Hase",
+    "slug": "gearr_der_zirkel_des_gleichgewichts",
+    "card_name": "Der Hase",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Im Rascheln der Blätter und im Sprung des Hasen offenbart sich das Gleichgewicht der Welt.",
+    "description": "Die Druiden des Gearr streben die Erhaltung des Status Quo und des natürlichen Gleichgewichts an. Ihre Vorgehensweise ist meist subtil und auf langfristigen Erfolg ausgelegt. Sie sind durch ihre intuitive Feinfühligkeit die Orakel ihres Volkes, und man sagt ihnen nach, dass sie Glück bringen.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Hase.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 32,
+  "fields": {
+    "name": "Der Hirsch",
+    "slug": "damh_der_zirkel_der_reinheit",
+    "card_name": "Der Hirsch",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Wo andere nur Leben sehen, erkennt der Hirsch dessen Zerbrechlichkeit – und seinen unermesslichen Wert.",
+    "description": "Die Druiden des Damh sind ein friedfertiger, unabhängiger und würdevoller Zirkel, der sich besonders auf die Bewahrung des Lebens spezialisiert hat.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Hirsch.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 37,
+  "fields": {
+    "name": "Der Igel",
+    "slug": "grainneog_der_zirkel_der_sammler",
+    "card_name": "Der Igel",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Der Igel wirft nichts fort. Was heute wertlos scheint, kann morgen den Winter überleben helfen.",
+    "description": "Igeldruiden leben in kleinen Gruppen in den Wäldern Ilyriens und Arboreas, oder in Gwynor. Die meisten von ihnen sind Waldelfen oder Halblinge. Sie haben eine offene Einstellung, obwohl sie als schüchtern, schweigsam und zurückgezogen gelten. Ihren Ruf als gierige und neugierige Sammler haben sie nicht zu Unrecht. Es ist Tradition die Haare hoch zu toupieren und einen Igelschnitt als Frisur zu tragen. Im Winter werden die sonst aktiven Sammler träge und suchen sich eine sichere Bleibe, in der sie Vorräte für die Überwinterung sammeln. Ihr Sammeltrieb beschränkt sich jedoch nicht nur auf Essbares.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Igeldruiden leben meist in kleinen Gruppen in Ilyrien, Arborea und Gwynor und sind überwiegend Waldelfen oder Halblinge. Sie gelten als offen, aber schüchtern, schweigsam und zurückgezogen. Bekannt sind sie vor allem für ihre Neugier und ihren ausgeprägten Sammeltrieb, der sich keineswegs nur auf Nahrung beschränkt. Im Winter ziehen sie sich mit ihren Vorräten an sichere Orte zurück.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Igel.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 40,
+  "fields": {
+    "name": "Der Otter",
+    "slug": "madra_der_zirkel_der_spiele",
+    "card_name": "Der Otter",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Für den Otter ist das Leben ein Spiel – und wer die Regeln kennt, weiß auch, wann man sie brechen darf.",
+    "description": "Die Druiden des Madra Zirkels leben verteilt an den Flüssen der Grenzlanden über Arborea am Elberon und Lauron, in den Seenlandschaften Aquitaines, und im Sommer sogar am Drachenatemsee, sowie an den Küsten Vargothias, Sirrias und Aquitaines. Sie gelten als ruhelose Wanderer, die in kleinen Gruppen oder sogar als Einzelgänger unterwegs sind. Sie lieben es zu beobachten und sich unbemerkt in die Angelegenheiten anderer einzumischen. Otterdruiden sind für ihren enorm starken Familiensinn bekannt, für ihre Leidenschaft für Spiele und ihre Hilfsbereitschaft.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Otter.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 42,
+  "fields": {
+    "name": "Der Rabe",
+    "slug": "morwen_der_zirkel_des_todes",
+    "card_name": "Der Rabe",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Begabt mit der Magie des Raben, schließt er den Kreis, den die Zwölf gebildet haben.",
+    "description": "Der Zirkel des Todes glaubt an den finsteren Aspekt der Natur. Der Rabe überquert die Schwelle der materiellen Ebene zur Geisterwelt und geleitet die Seelen der Verstorbenen auf ihrer letzten Reise. Die Druiden dieses Zirkels hegen eine tiefe Abneigung gegen alle Nicht–Mordainer und sind für ihre dunklen Rituale und Menschenopfer bekannt.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Rabe.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 34,
+  "fields": {
+    "name": "Der Schwan",
+    "slug": "eala_der_zirkel_der_anmut",
+    "card_name": "Der Schwan",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Wo die Stimme des Schwans erklingt, finden selbst gebrochene Seelen den Weg zurück ins Licht.",
+    "description": "Der Zirkel hütet die Kunst und Schönheit des Volkes von Mordain. Seine Mitglieder haben sich das Ziel gesetzt, die Seele und den Körper der Menschen zu heilen.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Schwan.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 44,
+  "fields": {
+    "name": "Der Seehund",
+    "slug": "ron_der_zirkel_der_see",
+    "card_name": "Der Seehund",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Die Wellen erzählen viele Geschichten. Die Druiden Rons verraten nur wenige davon.",
+    "description": "on ist der Schutzpatron der Mordainer auf See. Seine Druiden sind bekannt für ihre Hilfsbereitschaft, Fröhlichkeit, Zuverlässigkeit und Weitsicht. Sie leben auf Dargudir, nahe den Inseln der Alten Götter. Es wird vermutet, dass sie mehr über diese geheimnisvollen Inseln wissen, als es nach außen hin den Anschein hat.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Seehund.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 31,
+  "fields": {
+    "name": "Der Waschbär",
+    "slug": "cuilceach_der_zirkel_des_widerstands",
+    "card_name": "Der Waschbär",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Manche Mauern schützen ein Volk. Andere müssen fallen, damit es weiterleben kann.",
+    "description": "Waschbären kommt aus Arborea. Die Druiden leben integriert in die waldelfische Gesellschaft als religiöse Führer der Stämme der Waschbären. Ihre Aufgaben erstrecken sich vor allem auf die Wahrung des waldelfischen Ahnenkultes, aber auch auf die anderen Aspekte des religiösen Lebens. In den letzten Jahren sind die Stämme der Waschbären nach Ilyrien gezogen, um dort in den Waldgebieten die neben den Grenzlanden liegen der Bedrohung durch die Menschen entgegenzutreten. Sie gelten als die Wahrer uralter Traditionen die sich jedweder Reform verschließen. Ihr Erzdruide Kaine Nachtsee, Bruder des berüchtigten Drurias ist ein glühender Befürworter des rücksichtslosen Guerillakrieges gegen die Menschen.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Der kriegerische Waschbärenzirkel stammt aus Arborea und ist fest in die waldelfische Gesellschaft eingebunden. Seine Druiden führen die Stämme religiös und bewahren vor allem Ahnenkult und alte Traditionen. In jüngerer Zeit zogen viele nach Ilyrien, um dort der menschlichen Bedrohung entgegenzutreten. Reformen lehnt der Zirkel weitgehend ab. Erzdruide Kaine Nachtsee, Bruder des berüchtigten Drurias, befürwortet einen rücksichtslosen Guerillakrieg gegen die Menschen.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Waschbär.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 39,
+  "fields": {
+    "name": "Der Wolf",
+    "slug": "madadh_alaidh_der_zirkel_des_jagers",
+    "card_name": "Der Wolf",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Allein mag der Wolf jagen. Doch nur das Rudel vermag den Winter zu überstehen.",
+    "description": "Die Druiden dieses Zirkels sind kämpferische Individuen, die dennoch in einer Gesellschaft, die einem Rudel gleicht, miteinander gemeinsame Ziele verfolgen können. Sie sind bekannt für ihre Treue, Stärke und Intuition.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Wolf.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 29,
+  "fields": {
+    "name": "Die Eule",
+    "slug": "cailleach_der_zirkel_der_weisheit",
+    "card_name": "Die Eule",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Wer den Rat der Eule sucht, erhält selten die Antwort, die er erwartet – aber oft die, die er braucht.",
+    "description": "Cailleach ist der Zirkel der Weisen und Gelehrten von Mordain. Seine Mitglieder haben sich auf die Sammlung von Wissen spezialisiert und agieren im Rat eher aus dem Hintergrund. Oft werden sie wegen Weissagungen und Fragen in allen Lebenslagen aufgesucht.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Eule.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 49,
+  "fields": {
+    "name": "Die Fledermaus",
+    "slug": "slacan_der_zirkel_der_nacht",
+    "card_name": "Die Fledermaus",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Die Nacht gehört nicht denen, die sie fürchten – sondern denen, die gelernt haben, sich lautlos in ihr zu bewegen.",
+    "description": "Seit Urzeiten ist der Zirkel der Fledermaus in Drakia beheimatet. Er verbreitete sich jüngst nach Arborea, Vargothia, Saphiria, und Veruna. In einem Krieg vor dem zweiten Kataklysmus gelang es den Zirkeln Mordains die Druiden aus ihrem Land zu verbannen, die sich der Finsternis zugewandt hatten. Seitdem gilt der Zirkel als verloren. Die Druiden halten ihre Existenz in Drakia geheim und pflegen das Gerücht ihr Zirkel wäre vor Jahrhunderten ausgelöscht worden. Sie streben nach Macht und gelten als intrigante Usurpatoren, die sich mit jedem verbünden würden, aber auch als Patrioten. Der Zirkel lehrt die Verborgenheit, die Geduld und die Manipulation. Viele der Druiden sind auch Graue Eminenzen.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Der seit Urzeiten in Drakia beheimatete Fledermauszirkel gilt seit seiner Vertreibung aus Mordain vor dem zweiten Kataklysmus als verloren. Tatsächlich verbirgt er seine Existenz und hat sich inzwischen bis nach Arborea, Vargothia, Saphiria und Veruna ausgebreitet. Seine Druiden streben nach Macht, gelten als intrigant und patriotisch und lehren Verborgenheit, Geduld und Manipulation. Viele von ihnen sind zugleich Graue Eminenzen.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Fledermaus.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 30,
+  "fields": {
+    "name": "Die Katze",
+    "slug": "cat_der_zirkel_der_sinnlichkeit",
+    "card_name": "Die Katze",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Die Katze kennt jeden Schatten – und weiß, wann sie darin verschwinden und wann sie daraus hervortreten muss.",
+    "description": "Der Zirkel der Katzendruiden stammt ursprünglich aus Ilyrien, wo sie gejagt und verbannt wurden, bis sie nach Mordain kamen. Dies geschah vor dem ersten Kataklysmus. Die wachsamen Katzendruiden gelten als leidenschaftlich, unvoreingenommen und sinnlich, doch auch als launisch, grausam und faul. Ihr Interesse am Okkulten und den Ritualen fremder Magieschulen hat den Zirkel in der Vergangenheit oft in Schwierigkeiten gebracht. Sie wurden über die Jahrhunderte von vielen Regierungen der westlichen Königreiche Kreijors als Sündenböcke missbraucht und bis zur Ausrottung gejagt. Seitdem Rachaidh, der Cath Sith (der Katzenkönig) die Führung übernommen hat, erlebt der Zirkel einen neuen Aufschwung. Die Lehren der Katze sind Vorsicht und Sinnlichkeit. Die Druiden gelten als geheimnisvolle Wächter der Unterwelt. Durch ihre Konkurrenzstellung zu Morwen war ihre Stellung auch in Mordain gefährdet. Deshalb fühlen sich oft gesellschaftlich Ausgestoßene dem Katzenkult zugetan und bitten die größtenteils weiblichen Mitglieder um Hilfe.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Der aus Ilyrien stammende Zirkel wurde nach Mordain vertrieben und über Jahrhunderte verfolgt. Seine meist weiblichen Druiden gelten als sinnlich, wachsam und geheimnisvoll, beschäftigen sich mit Okkultem und wachen über die Unterwelt. Unter Rachaidh, dem Cath Sith, erstarkt der Zirkel erneut.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Katze.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 41,
+  "fields": {
+    "name": "Die Ratte",
+    "slug": "mhor_der_zirkel_des_uberlebens",
+    "card_name": "Die Ratte",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Nicht der Stärkste überdauert den Untergang, sondern der, der sich anzupassen weiß.",
+    "description": "Die unterirdische Kanalisation Aquitaines, Goremounds, der Skarlande, sowie aller großen Städte bildet die Heimat der Mhordruiden. Als die Götter die Krafttiere bekämpften, gingen die Druiden des Rattenzirkels in den Untergrund. Während der Zerstörung Morkheims überlebten nur die Ratten. So ist es auch die Zähigkeit und der Überlebenswille, der die bescheiden mit ihren Krafttieren zusammenlebenden Stadtdruiden als größte Fähigkeit auszeichnet. Die Druiden des Mhor stehen in dem Ruf ein sehr langes Gedächtnis für Feindschaften zu haben. Sie gelten als rachsüchtig und absonderlich, aber auch als schlau, opferbreit und loyal.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Die Kanalisationen der großen Städte bilden die Heimat der Mhordruiden. Als die Götter die Krafttiere bekämpften, flohen die Druiden des Rattenzirkels in den Untergrund. Während der Zerstörung Morkheims überlebten nur die Ratten. Seither stehen Zähigkeit und Überlebenswille für die bescheidenen Stadtdruiden. Sie gelten als rachsüchtig und absonderlich, zugleich aber als schlau, opferbereit und loyal und sind für ihr langes Gedächtnis für Feindschaften bekannt.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Ratte.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 51,
+  "fields": {
+    "name": "Die Schildkröte",
+    "slug": "turtar_der_zirkel_der_ewigkeit",
+    "card_name": "Die Schildkröte",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Die Schildkröte eilt nicht. Sie weiß, dass alles Dauerhafte Zeit braucht.",
+    "description": "Die Druiden des Turtar Zirkels stammen aus Vrai Kor. Sie sind die Priester des Omanth, des Schlafenden Gottes. Sie sehen sich als Bewahrer der Traditionen und des Wohles ihres Volkes. Sie gelten als friedfertig, weise, neugierig und aufgeschlossen, obwohl man ihren Zielen zufolge auf Dogmatiker schließen könnte. Die Meere um Vrai Kor herum sind ihr Zuhause. Als Späher warnen sie ihr Volk vor Sklavenjägern und anderen Eindringlingen. Gelegentlich treten Druiden des Turtar lange Reisen an, doch kehren sie stets zu ihrem Geburtsort zurück.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Die Turtar stammen aus Vrai Kor und dienen Omanth, dem Schlafenden Gott, als Priester. Sie verstehen sich als Bewahrer von Tradition und Volk, gelten zugleich als friedfertig, weise und aufgeschlossen. In den Meeren um Vrai Kor warnen sie als Späher vor Sklavenjägern und Eindringlingen. Auch nach langen Reisen kehren sie stets in ihre Heimat zurück.",
+    "symbol_image": "",
+    "god_image": "druid_cults/Schildkröte.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 43,
+  "fields": {
+    "name": "Die Schlange",
+    "slug": "nathair_der_zirkel_der_wiedergeburt",
+    "card_name": "Die Schlange",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Wer die Schlange fürchtet, fürchtet nicht ihr Gift, sondern die Veränderung, die sie bringt.",
+    "description": "Die Kraft der Schlange gibt den Mut zur Veränderung. Skrupellos benutzen sie ihre verführerische Energie, um an ihre Ziele zu gelangen. Viele Anhänger Nathairs sind Frauen. Der Zirkel der Wiedergeburt strebt die Veränderung der sozialen Strukturen an und legt Wert auf seine Machtposition innerhalb des Rates.",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "druid_cults/Schlange.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 6,
+  "fields": {
+    "name": "Durgador",
+    "slug": "durgador",
+    "card_name": "Durgador, der Vater der Zwerge",
+    "entity_type": 1,
+    "pantheon": 4,
+    "school": 42,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Weltenschmied, Vater aller Zwerge, Herr des verborgenen Erzes in der Tiefe\r\n\r\nSeide Domäne ist Bergbau, Schmiedefertigkeit, Ausdauer, Beharrlichkeit, Ehre, Ahnenverehrung, Fleiß, Berge, Burgenbau, Schutz vor Dämonen und Runen",
+    "vow": "Ich gelobe das zwergische Volk zu beschützen, Streit zwischen Drakodrim zu schlichten, keinen der meinen zu bestehlen, noch das Ansehen meines Tempels durch Lügen oder heimtückischen Mord in Verruf zu bringen. Stets will ich die Schmiede achten, und vor den weisen Älteren mein Haupt in Ehrfurcht senken.",
+    "fluff": "Ein guter Zwerg wird nicht an seinen Worten gemessen, sondern an dem, was nach seinem Tod noch von ihm steht.",
+    "description": "Der Schutzgott der Zwerge ist in die zeremonielle Robe eines Schmiedes gekleidet. Sein Haar und sein prachtvoller Bart sind grau und wallend. Seine Gesichtszüge vermitteln einen strengen, aber väterlichen Eindruck. Er trägt seinen Hammer als Waffe und hat fast immer Schmiedewerkzeug bei sich. In der anderen Hand hält er einen silbernen, spiegelnden Rundschild.",
+    "goals": "Als Vater der zwergischen Rasse versucht Durgador seine Schützlinge vor den Dämonen zu bewahren und ihnen reiche Erzvorkommen zu bescheren. Trotz seiner legendären Beharrlichkeit ist er kein sturer Gott, sondern sieht es für die Zwerge als Notwendigkeit an, mit den anderen Rassen in Kontakt zu treten, wenn auch mit großem Misstrauen. Er ist einer der ältesten existierenden Götter und verkörpert die höchsten Tugenden der Zwerge. Seine Priesterschaft ermutigt er in dem Streben nach Weisheit und körperlicher, aber auch künstlerischer Perfektion.",
+    "allies_and_enemies": "Seine Verbündeten sind ausschließlich die übrigen Götter des zwergischen Pantheons und Karndt, mit dem Durgador auf gutem Fuß steht. Er selbst muss innerhalb seines Pantheons auf seinen Bruder Dargred achten, damit dessen zerstörerische Triebe die Zwerge nicht in einen Strom der Vernichtung reißen.",
+    "worshippers": "Ausschließlich Zwerge beten zu Durgador in fast allen Lebenssituationen. Seine Priester sind meist die direkten Berater der Könige und genießen ein besonders hohes Ansehen in ihrer Gesellschaft. Es gibt kaum einen Zwerg, der einem Priester Durgadors seine Hilfe verweigern würde. Vor allem im Kampf gegen Dämonen und Untote, aber auch wenn es darum geht, Händel zu schlichten oder Schmiedekunst zu beurteilen, sowie in Hinsicht auf die Kenntnis der Legenden der zwergischen Ahnen sind die Priester wichtige Berater ihres Volkes.",
+    "doctrines": "Priester Durgadors sind die Ratgeber und Beschützer ihres Volkes. Sie sind dazu verpflichtet, als Richter Streit unter den Zwergen zu schlichten. Unehrenhafte Handlungen sind ihnen ein Gräuel, und obwohl die zwergische Gesellschaft mit von Dämonen befleckten Individuen toleranter umgeht als die Anhänger vieler menschlicher Götter, sind die Priester des Durgador auch die Inquisitoren ihres Volkes. Jedoch ist ihr Vorgehen dabei nicht fanatisch oder brutal, sondern sie fungieren eher als Wächter und Beobachter. In den zahlreichen Tempeln Durgadors nehmen seine Priester an vielen zeremoniellen Ritualen teil, während ihr Alltag entweder der Schmiedekunst oder dem Archivieren von Wissen geweiht ist. Kriminalität und Unehrlichkeit gegenüber Zwergen, sowie die Zerstörung von zwergischen Kulturgütern führen zum Ausstoß aus dem Tempel Durgadors. Der priesterliche Ehrenkodex verbietet Lügen, Meuchelmord und andere unehrenhafte Handlungen.",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "divine_entities/Durgador_symbol.png",
+    "god_image": "divine_entities/Durgador_eOohJRV.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 35,
+  "fields": {
+    "name": "[Eigener Zirkel erstellen]",
+    "slug": "eigener_zirkel_erstellen",
+    "card_name": "",
+    "entity_type": 2,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "",
+    "description": "",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "",
+    "god_image": "",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 7,
+  "fields": {
+    "name": "Gemmon",
+    "slug": "gemmon",
+    "card_name": "Händlergott Gemmon",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 43,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Wucherer, Schmeichler, Händlergott, Raffgieriger, Feilscher, Künstler des Überredens\r\n\r\nSeine Domäne ist Geld, Handel, Gewinn, Schutz der Karawanen, Glück bei Investitionen, Zielstrebigkeit, Vermehrung des Besitzes, Reichtümer, Schutz vor Dieben und Räubern",
+    "vow": "Ich schwöre nach bestem Wissen niemals etwas unter Wert zu verkaufen, zu versuchen den Reichtum des Tempels Gemmons ebenso zu mehren, wie meinen eigenen und daher ein Viertel meiner Einnahmen an den Tempel zu zahlen. Sollte ich der Schwäche der Mildtätigkeit erliegen, so werde ich dem Tempel diesen Verlust mit Zinseszins ausgleichen. Bis an mein Lebensende will ich meine Reichtümer zu mehren suchen und hiernach will ich dem Tempel mindestens ein Viertel dieser vererben.",
+    "fluff": "Alles hat seinen Preis. Weisheit besteht darin, dafür zu sorgen, dass ihn jemand anderes bezahlt.",
+    "description": "Bei seinen seltenen Manifestationen nimmt Gemmon das Aussehen eines beleibten Mannes mittleren Alters mit listigen kleinen Augen, einer erstaunlich beweglichen Mimik und einem rosafarbenen Gesicht an. Seine Kleidung ist stets bequem, von erlesener Qualität und reich verziert. Obwohl er selten selbst erscheint, greift Gemmon des Öfteren indirekt ein, um Händlern, die ihn verehren, beizustehen. Dabei hilft er bevorzugt solchen Händlern, die ihm zuvor größere Geschenke in Form von Spenden in einem seiner zahlreichen Tempeln dargebracht haben. Meist besteht seine Hilfe aber darin, dass einige Gemmonpriester die Karawanen solcher Wohltäter begleiten. Dummheit in Sachen finanzieller Geschäfte oder überflüssige Mildtätigkeit sind Gemmon ein Gräuel, und ein Händler, der von einem anderen übervorteilt wird, erhält nach Ansicht des Gottes genau das, was er für seine Unvorsichtigkeit verdient.",
+    "goals": "Die Wirtschaft in den Ländern, in denen er verehrt wird, zum Florieren zu bringen und andere Länder als mögliche Absatzmärkte und Lieferanten wichtiger Rohstoffe zu erschließen sind die wichtigsten Ziele Gemmons. Daher sorgen seine zahlreichen Priester zusammen mit angeworbenen Söldnern, für das entsprechende Entgelt dafür, dass die Handelsgüter sicher an ihren Bestimmungsort gelangen und die Reichtümer in seinen Tempeln sich mehren.",
+    "allies_and_enemies": "Auf seine Weise ist Gemmon mit allen übrigen Göttern der Stählernen Königreiche verbündet, jedenfalls solange sich ihre Herrschaft als gewinnversprechend und vor allem stabil erweist. Für rückständige und „unzivilisierte“ Religionen und Gesellschaften hat Gemmon wenig übrig, und er sieht das Pantheon der Stählernen Königreiche als die Zukunft an. Großen Respekt hat er auch vor dem Zwergischen Pantheon, wo er allerdings in Konkurrenz zu Gombar steht.",
+    "worshippers": "Insbesondere Händler aus den Stählernen Königreichen verehren Gemmon. Allerdings ist er stets darauf bedacht, seinen Einflussbereich und damit das Handelsgebiet zu vergrößern. Die meisten seiner Anhänger sind Menschen, doch Gemmon schätzt ebenfalls den Fleiß und die Ausdauer der Zwerge und die Geschicklichkeit der Halblinge. Grundsätzlich ist Gemmon allen Rassen gegenüber offen, sofern sich dies für ihn und seine Anhänger in barer Münze auszahlt.",
+    "doctrines": "Die oberste Glaubensvorschrift der Gemmonpriester lautet: Verkaufe niemals etwas unter Wert und erziele stets einen Profit. Die Priester des Gottes leben keineswegs asketisch. Im Gegenteil, sie werden dazu ermutigt, Reichtümer anzuhäufen, jedoch müssen sie ein Viertel aller Einnahmen an ihren Tempel abtreten. Außerdem müssen vor allem junge oder weniger wohlhabende Priester häufig die Karawanen von Händlern begleiten. Dafür kann der Tempelvorstand Priestern Kredite zu einem günstigeren Zinssatz als gewöhnlichen Händlern gewähren, und selbstverständlich zu einem weitaus günstigeren Zinssatz als Abenteurern. Diejenigen, die es trotz ihrer intensiven Ausbildung nicht schaffen, ihren Besitz und den des Tempels zu mehren, werden von den übrigen Priestern zutiefst verachtet. Sollte ein Priester Gemmons seinem Tempel in größerem Ausmaß finanziellen Schaden zufügen, so wird dies in den meisten Fällen zu einem zeitweiligen Verlust seiner priesterlichen Fähigkeiten führen, bis er seine Schuld abgeglichen hat.",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "divine_entities/Gemmon_symbol.png",
+    "god_image": "divine_entities/Gemmon_EuMeZV7.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 8,
+  "fields": {
+    "name": "Gombar",
+    "slug": "gombar",
+    "card_name": "Gombar, Herr der Schlüssel",
+    "entity_type": 1,
+    "pantheon": 4,
+    "school": 44,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Göttlicher Schatzmeister, Bewahrer des goldenen Hortes, Herr der Schlüssel, Meister der Labyrinthe\r\n\r\nSeine Domäne ist Handel, Bergbau, Goldgier, Braukunst, Schatzhorte, Labyrinthe",
+    "vow": "Ich gelobe die Reichtümer der zwergischen Gesellschaft sicher zu verwahren, die Geheimnisse der Labyrinthe meines Ordens für mich zu behalten und Reserven für schlechte Zeiten anzulegen.",
+    "fluff": "Ein wahrer Schatz besteht nicht darin, Gold zu finden, sondern es tausend Jahre lang zu behalten.",
+    "description": "Gombar ist der zwergische Gott des Wohlstands, des Handels und der Braukunst. Sein Erscheinungsbild ist das eines fröhlichen Zwerges in reicher Festtagskleidung. Auf vielen Darstellungen reitet er auf einem Bierfass einen Berg aus Goldmünzen hinunter, oder liegt mit offenem Mund unter einem angestochenen Fass und lässt sich vollaufen. Bei ernsteren Anlässen ist Gombar der Wächter zwergischer Errungenschaften und Schätze, die er in seinen geheimnisvollen Labyrinthen tief in den Bergen sicher verwahrt. Auf solchen Darstellungen hat er einen verschlagenen Gesichtausdruck und versteckt einen großen, kristallenen Schlüssel vor dem Betrachter.",
+    "goals": "Der Reichtum der zwergischen Rasse, der allgemeine Wohlstand und das Anhäufen von Schätzen, sowie der Schutz des Handwerks sind die Hauptziele Gombars. Seine Priester betreiben seit Jahrtausenden einen besonders paranoiden Aufwand bezüglich der Aufbewahrung ihrer Schätze. Die Erbauung gigantischer Todeslabyrinthe ist in der zwergischen Gesellschaft eine traditionell angesehene Kunstform.",
+    "allies_and_enemies": "Gemmon ist Gombars direkter Konkurrent und dringt immer häufiger in seinen Einflussbereich vor. Unterstützung erfährt Gombar von Durgador.",
+    "worshippers": "Zwerge sind die einzigen Gefolgsleute Gombars, dafür jedoch in großer Zahl und aus allen sozialen Schichten der Gesellschaft. Vor allem Handwerker und Händler beten zu ihm. Außerdem wird er gerne bei großen Festen angerufen.",
+    "doctrines": "Sicherheit und die Anhäufung von Reichtümern als Reserve für schwere Zeiten sind Ziele eines jeden Gombarpriesters. Ihr Alltag besteht meist in Forschung, sowie der Ausübung handwerklicher Künste, vor allem der Architektur. Gelegentlich arbeiten die Priester sogar mit Magiern zusammen, wenn es um den Bau magischer Fallen geht. Durch ihren Kodex sind sie der zwergischen Rasse verpflichtet, obwohl sie es mit der Ehrenhaftigkeit nicht allzu genau nehmen. Bei allem Ernst vergisst ein wahrer Gombarpriester es nie, mit seinen Freunden zu feiern und zu trinken.",
+    "granted_abilities": "Priester des Gombar erhalten einen Bonus von +1 pro Stufe auf die Fertigkeiten Handwerk: Braukunst, Bergbau, Architektur und Fallen stellen/entschärfen. Hierdurch können auch Fertigkeitswerte über 10 zustande kommen.",
+    "g_ability": "Priester des Gombar erhalten einen Bonus von +1 pro Stufe auf die Fertigkeiten Handwerk: Braukunst, Bergbau, Architektur und Fallen stellen/entschärfen. Hierdurch können auch Fertigkeitswerte über 10 zustande kommen.",
+    "symbol_image": "divine_entities/Gombar_symbol.png",
+    "god_image": "divine_entities/Gombar_G1C3dCq.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 9,
+  "fields": {
+    "name": "Helftan",
+    "slug": "helftan",
+    "card_name": "Helftan der tückische Wanderer",
+    "entity_type": 1,
+    "pantheon": null,
+    "school": 45,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Glücksbringer, Glückspilz, Sammler, Finder, Erfinder, Streuner, Spieler, Tückischer Wanderer, Lachender Dieb, Schelm, Fröhliche Säufer\r\n\r\nSeine Domäne ist Glück, Betrug, kleine Gaunereien, Wanderschaft, Taschendiebstahl, Glücksspiel, Fröhlichkeit, Genuss von gutem Essen, Bier und Gesellschaft des anderen Geschlechts, Erfindungen, Einfallsreichtum, Reisen, Unterhaltung uns Erzählen von Geschichten mit fragwürdigen Details",
+    "vow": "Ich schwöre meinen Humor und meine Fröhlichkeit niemals für lange Zeit einzubüßen, niemals dauerhaft sesshaft zu werden, Geschichten zu erfinden, dem Glücksspiel zu frönen und zu saufen, anderen Streunern beizustehen, wenn mir dies möglich ist, und allen anderen Wesen gegenüber nicht unnötig grausam zu sein.",
+    "fluff": "Ein guter Streich ist wie ein guter Wein – er wird besser, je öfter man davon erzählt.",
+    "description": "Helftan erscheint als kleiner, vierschrötiger männlicher Halbling, der sich erstaunlich schnell zu bewegen vermag. Meist tritt er zu seinem persönlichen Vergnügen in Tavernen auf, und die meisten, die ihn sehen, kommen nicht im Traum auf den Gedanken, es könne sich bei ihm um eine Gottheit handeln. Seine Kleidung ist einfach, und seine gesamte Erscheinung entspricht eher dem Mittelmaß. Solange er nicht redet, wird er häufig übersehen, was ihm nur recht ist, wenn es um seine Streiche geht. Sobald er jedoch zu sprechen beginnt, werden die meisten schnell von dem hypnotisierenden Klang seiner Stimme in den Bann gezogen. Seine Streiche und die seiner Anhänger haben nicht Wenige in den Ruin getrieben, während sie anderen das Leben retteten. Auch seine Hilfeleistung für seine Anhänger, die alles andere als verlässlich ist, besteht selten in direktem Beistand im Kampf, sondern häufiger in Tricks und Hinterlist, ohne dass Helftan dabei selbst in Erscheinung tritt. So sprach ein König aus den Stählernen Königreichen einst, er wolle noch diesen einen Humpen Bier austrinken, dann könne man mit der Hinrichtung eines berüchtigten Diebes beginnen. Doch obwohl der König Liter um Liter des Bieres trank, leerte sich der Humpen nicht. Als man den Kelch daraufhin untersuchte und ein eingraviertes Kleeblatt fand, ließ der König den Dieb zurück in die Kerker und den Kelch in die Schatzkammer bringen. Am nächsten Morgen waren allerdings sowohl der Dieb als auch der Bierkrug verschwunden.",
+    "goals": "Gemeinhin ist es Helftans Ziel, Gemeinschaftssinn und Kameradschaftsgefühle in allen denkenden Wesen zu wecken. Häufig besitzt er allerdings scheinbar auch kein anderes Interesse als sein persönliches Vergnügen. Seine Theorie, dass niemand sein Herz allzu sehr an materielle Güter hängen sollte, unterstreicht er nicht selten, indem er sich Güter von Sterblichen und Göttern gleichermaßen unrechtmäßig, aber stets stilvoll aneignet. Um die Spannung zu steigern und die Abenteuerlust zu fördern, versteckt er diese häufig und bringt eine Vielzahl richtiger und falscher Teile von Schatzkarten mit ebensolchen Hinweisen in Umlauf. Die Halblinge, die kein eigenes Reich besitzen, sondern inmitten von größeren Rassen durch Cleverness und Agilität um ihr Dasein kämpfen müssen, sind Helftan besonders an sein Herz gewachsen.",
+    "allies_and_enemies": "Gemeinhin ist es Helftans Ziel, Gemeinschaftssinn und Kameradschaftsgefühle in allen denkenden Wesen zu wecken. Häufig besitzt er allerdings scheinbar auch kein anderes Interesse als sein persönliches Vergnügen. Seine Theorie, dass niemand sein Herz allzu sehr an materielle Güter hängen sollte, unterstreicht er nicht selten, indem er sich Güter von Sterblichen und Göttern gleichermaßen unrechtmäßig, aber stets stilvoll aneignet. Um die Spannung zu steigern und die Abenteuerlust zu fördern, versteckt er diese häufig und bringt eine Vielzahl richtiger und falscher Teile von Schatzkarten mit ebensolchen Hinweisen in Umlauf. Die Halblinge, die kein eigenes Reich besitzen, sondern inmitten von größeren Rassen durch Cleverness und Agilität um ihr Dasein kämpfen müssen, sind Helftan besonders an sein Herz gewachsen.",
+    "worshippers": "Bis auf wenige Ausnahmen wird Helftan nur von Halblingen angebetet. Insbesondere die Wanderer, Glücksritter, Scharlatane, Abenteurer und Unterhaltungskünstler unter ihnen ersehnen seinen Beistand. Aber auch die sesshaften Halblinge haben Helftans Namen stets dann auf den Lippen, wann immer sie auf Glück hoffen.",
+    "doctrines": "Die wichtigste Richtlinie von Helftans Priestern lautet: Sei fröhlich und vertraue auf dein Glück. Es existieren nur wenige Tempel zu Ehren des Gottes, da die meisten seiner Priester durch die Lande ziehen und während ihrer Wanderschaft Novizen ausbilden. Die wenigen Tempel, die es gibt, ähneln eher Spielhallen oder Wirtshäusern, und es herrscht in ihnen ein reges Kommen und Gehen aller Rassen. Ein wichtiger Grundsatz lautet, bei aller Freude niemanden absichtlich ernsthaft zu verletzen. Es mag zu kleineren Gaunereien von Seiten der Priester Helftans kommen, doch selten zu wirklich schweren Verbrechen. Dennoch genießen die Priester Helftans was Diebstahl und Betrug angeht keine gerichtliche Immunität und nicht wenige von ihnen verbringen ebenso viel Zeit im Gefängnis wie in Kneipen. Aber die meisten folgen auch bei Wasser und Brot Helftans Grundsatz, nie den Humor zu verlieren. Außerdem hat es sich in vielen Fällen als schwierig herausgestellt, einen Priester Helftans über längere Zeit an einem Ort festzuhalten, sofern er dies nicht will.",
+    "granted_abilities": "Zu Beginn jeder Spielsitzung würfelt der Spielleiter heimlich zweimal auf der folgenden Tabelle. Der Priester erhält auf die erwürfelte Fertigkeit +1 pro Stufe, bei einem Doppelwurf +2 pro Stufe. Fertigkeitswerte können dadurch 10 übersteigen.\r\n\r\n| --- | ----------------------- |\r\n|1-2 | Taschendiebstahl       |\r\n|3-4 | Rennen                      |\r\n|5-6 | Tanzen                        |\r\n|7-8 | Suchen                       |\r\n|9    | Verbergen                   |\r\n|10  | Geschichten erzählen |",
+    "g_ability": "Zu Beginn jeder Spielsitzung würfelt der Spielleiter heimlich zweimal auf der Tabelle. Die erwürfelte Fertigkeit erhält +1 pro Stufe (+2 bei Doppelwurf). Werte über 10 sind möglich.\r\n\r\n1 - 2  Taschendiebstahl \r\n3 - 4  Rennen\r\n5 - 6  Tanzen \r\n7 - 8  Suchen \r\n9 Verbergen \r\n10 Geschichten erzählen",
+    "symbol_image": "divine_entities/Helftan_symbol.png",
+    "god_image": "divine_entities/Heftan.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 10,
+  "fields": {
+    "name": "Karndt",
+    "slug": "karndt",
+    "card_name": "Karndt, Göttlicher Kriegsfürst",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 46,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Göttlicher Kriegsfürst, Herr der Söldner, Kampfgefährte\r\n\r\nSeine Domäne ist Kampf, Schlachten, Tapferkeit, Söldner und Ehre",
+    "vow": "Ein Eid geschworen im Kampf ist ein Gelübde gesegnet von Stahl! Ich schwöre meinen Eid nie zu brechen, jede Queste bis zu meinem Tod auszuführen, niemals aus Feigheit aus einer Schlacht zu flüchten, nie heimtückisch zu töten, sondern jedem Gegner die Chance auf einen offenen Kampf zu geben, und jeden zu strafen, der vor mir den Namen Karndts beleidigt.",
+    "fluff": "Wenn alle Gründe zu fliehen vernünftig erscheinen, beginnt die Stunde der Ehre.",
+    "description": "Karndt wird meist in seiner bevorzugten Erscheinungsform dargestellt: als muskulöser Krieger in schlichter Kleidung und Rüstung, der stets ein Schwert mit sich führt. Den Sagen nach manifestiert sich Karndt ausschließlich auf dem Schlachtfeld oder bei epischen Kämpfen. Er steht in dem Ruf, vergleichsweise häufig in das weltliche Geschehen einzugreifen.",
+    "goals": "Der Schutz aller Menschen der Stählernen Königreiche und ihrer Verbündeten ist Karndts erklärtes Ziel. Zudem verachtet er wortbrüchige Söldner, Feiglinge und andere unehrenhafte Gestalten zutiefst und versucht die Ideale der Ehrlichkeit und Tapferkeit aufrecht zu erhalten.",
+    "allies_and_enemies": "Karndt gehört zum Pantheon der Stählernen Königreiche. Sein finsterer Zwillingsbruder Ryse ist Karndts ärgster Feind, und seine Verachtung für ihn wird nur noch von seiner Loyalität zu seinem Vater Peiron übertroffen. Ein weiterer Feind ist ihm in Erillios erwachsen, dem Feuermagier aus Khoras, der sich selbst zum Feuer- und Kriegsgott hat ausrufen und seine Tempel niederbrennen lassen.",
+    "worshippers": "Karndt wird vor allem von den Menschen der Stählernen Königreichen verehrt. Vor allem Söldner, aber auch adelige Ritter, Seefahrer und die normale Bevölkerung beten zu ihm. Fast in jeder größeren Stadt der Stählernen Königreiche befindet sich einer der großen, spartanisch eingerichteten, jedoch gut befestigten Tempel Karndts. Der prunkvolle, gewaltige Karndtdom in Vargoth zählt jedoch zu den architektonisch aufwendigsten Gebäuden Kreijors.",
+    "doctrines": "In vielerlei Hinsicht stimmt das Gelübde der Karndtpriester mit dem Ehrenkodex der Söldner überein. Meuchelmord gilt unter ihnen als Todsünde und auch der unbegründete Angriff auf wehrlose oder deutlich unterlegene Gegner wird verachtet. Das Wort eines Karndtpriesters ist stets bindend. Eine einmal angenommene Aufgabe oder Queste wird immer bis zum Ende ausgeführt, wenn es sein muss bis in den Tod. Niemals lässt ein Priester Karndts einen verletzten Gefährten im Kampf zurück oder benimmt sich feige (obwohl auch die meisten von ihnen vernünftig genug sind ihr Leben nicht grundlos wegzuwerfen). Als bevorzugte Waffe verwenden die Ordensmitglieder das Schwert und lässt man ihnen die Wahl, so ziehen sie den Nahkampf stets dem Fernkampf vor.",
+    "granted_abilities": "Da Karndt relativ häufig ins weltliche Geschehen eingreift, können seine treuen Priester einmal im Monat, wenn es darum geht, ein Wunder zu erbitten, für den Prozentwurf ihre Chance mit fünf multiplizieren.",
+    "g_ability": "Da Karndt relativ häufig ins weltliche Geschehen eingreift, können seine treuen Priester einmal im Monat, wenn es darum geht, ein Wunder zu erbitten, für den Prozentwurf ihre Chance mit fünf multiplizieren.",
+    "symbol_image": "divine_entities/Karndt_symbol.png",
+    "god_image": "divine_entities/karndt.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 11,
+  "fields": {
+    "name": "Koros",
+    "slug": "koros",
+    "card_name": "Koros der Todesbote",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 47,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Stählerner Schnitter, Ewiger Schlaf, Todesbote, Sensemann, Gevatter Tod\r\n\r\nSeine Domäne ist Tod, Krankheit, Trauer, Wissensdurst, Macht und Ehrgeiz",
+    "vow": "Ich sterbe hiermit für den Rest der Welt und gelobe, dass mit meinem Tod meine Pflicht beginnt und jede Erinnerung an mein früheres Leben erlischt. Ich werde Körper für die Armee meines Herrn sammeln, den Glauben an ihn durch Predigten mehren, die Ordnung Goremounds, der heiligen Stadt, aufrecht erhalten, und seine Stätten bewachen, bis er mich heim holt.",
+    "fluff": "Meine Kinder, entledigt euch eurer Schwächen. \r\nVerlasst eure sterblichen Hüllen und lasst eure Seelen \r\nunbesiegbar auf den bleichen Schwingen des Todes gleiten.",
+    "description": "Koros Seelenbrecher war in der Zeit des II. Kataklysmus ein mächtiger, menschlicher Nekromant. Der Legende nach gründete er die Stadt Goremound und erschuf das magische Artefakt, welches heute noch die Gesellschaft der dort lebenden Nekromantenfraktionen bestimmt und der Knochenmarkt genannt wird. Er stieg zum Gott auf, als er seinen Vorgänger, den Todesgott Klemonochess im Zweikampf mit dem Schwert Seelenbrecher, das seitdem Gotttöter genannt wird, erschlug, nachdem er Wissen aus dem Arkanen Kodex erlangt hatte. Seine Erscheinung ist die eines prunkvoll gerüsteten Nekromanten mit vier Sensen, die als Banner aus seiner Rüstung ragen, oder die eines machtvollen, skelettartigen Geistes mit wehenden weißen Haaren, der eine Sense trägt. Auf älteren Darstellungen ist Koros mit seinem Zweihänder Seelenbrecher abgebildet.",
+    "goals": "Koros hat sich während seiner vielen Reisen durch die Ebenen von den Geschehnissen Kreijors zurückgezogen, ohne dabei jedoch seine Priester zu vernachlässigen. Sein Ziel ist es, dass sich in Goremound eine Macht manifestiert, die solche Stärke besitzt, dass er damit für den letzten Kataklysmus gewappnet ist.",
+    "allies_and_enemies": "Der finstere Koros ist ein Außenseiter unter den Göttern. Obwohl er zum Pantheon der Stählernen Königreiche gehört, ist er ein Einzelgänger und hält sich, wenn er nicht gerade auf Reisen ist, auf der Ebene der Geister auf, wo er der unumstrittene Herrscher ist. Die anderen Götter beobachten ihn aufmerksam, denn viele hassen den Emporkömmling, doch sie fürchten den Ehrgeiz des mächtigen Gottes, der einst ein Sterblicher war.",
+    "worshippers": "Koros wird in fast allen Reichen der nördlichen Hemisphäre von den Menschen und auch einigen Mitgliedern anderer Rassen als Todesgott mehr gefürchtet, als verehrt. Eine Ausnahme bildet Goremound, die Stadt der Nekromanten. Anders als viele andere Götter befürwortet Koros die Arkane Magie und dabei besonders die Nekromantie. Viele Nekromanten huldigen ihm daher. Seine prominenteste Gefolgschaft ist die Korosgarde in Goremound, ein Kult seiner elitären Priester, die unter der Stadt eine völlig abgeschottete Gesellschaft bilden und sehr kriegerisch orientiert sind. Sie sorgen dafür, dass die Gesetze des Gottes in seiner Stadt nicht in Vergessenheit geraten und bewachen in den endlosen, dunklen Katakomben sein gewaltiges Sanctum. Seine Priester sammeln auf ihren langen Pilgerfahrten die Gebeine der Toten ein, von denen sich die örtlichen Bewohner trennen wollen. Manchmal geschieht dies jedoch auch unfreiwillig. Es scheint fast, als müssten die Priester regelmäßig bestimmte Mengen an Knochen in ihren geheimen Tempeln abliefern, wo sie die Toten in zeitaufwendigen Ritualen präparieren.",
+    "doctrines": "Der Glaube an Koros sieht vor, dass der Priester sein Leben dem Schutz der heiligen Stätten seines Gottes, der Verbreitung seines Glaubens durch Predigten und dem Sammeln und Anhäufen von Gebeinen in Koros geheimen Gewölben weiht.",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "divine_entities/Koros_symbol.png",
+    "god_image": "divine_entities/Koros_jOJ6Qbc.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 12,
+  "fields": {
+    "name": "Liondrielle",
+    "slug": "liondrielle",
+    "card_name": "Liondrielle die Unvergleichliche",
+    "entity_type": 1,
+    "pantheon": 2,
+    "school": 48,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Verheißungsvolle, Zarte, Liebliche Dame, Anmutige, Grazie, Unvergleichliche\r\n\r\nIhre Domäne ist Schönheit, Anmut, höfischer Gesang und Tanz, die Hohe Liebe, Minne, Kunst, Feinheit des Lebensstils der Sidhe und Inbegriff der elfischen Weiblichkeit",
+    "vow": "Ich schwöre meine Erscheinung zu pflegen und stets an mir selbst zu arbeiten, um meine Anmut bis zur Perfektion zu steigern, niemals mit weniger als der Vollendung völlig zufrieden zu sein, sowie der Kunst und der Kultur zu huldigen und diese zu schützen. Weiterhin gelobe ich die elfische Rasse mit Schönheit zu inspirieren und mich der Hässlichkeit niemals freiwillig hinzugeben.",
+    "fluff": "Die Ewigkeit schenkt uns Zeit genug, die Vollkommenheit zu suchen – nicht, sie zu finden.",
+    "description": "Liondrielle erscheint als wunderschöne elfische Dame, deren über alle Maßen anmutiger, zarter, weißer Körper in ebenso zarte und durchscheinende weiße Seidengewänder gehüllt ist. Es ist bei ihrem Anblick offensichtlich, dass ihre überwältigende Erscheinung nicht weltlichen Ursprungs sein kann, und obwohl sie sich nicht auffällig in den Vordergrund drängt, zieht ihre Anwesenheit augenblicklich alle Blicke auf sich. Ein zartes, weißes Licht umhüllt sie, durch dessen Schein man die Perfektion ihres Körpers zu erahnen vermag. Häufig führt sie ihr bevorzugtes Instrument, eine Harfe, mit sich, und es wird gesagt, dass jene, die das Glück hatten, ihren überirdischen Gesang und ihr Spiel zu hören, zu großen künstlerischen Taten inspiriert wurden. Bei den meisten ihrer Erscheinungen ist Liondrielle allerdings nicht wirklich körperlich anwesend, sondern nur ein geisterhafter Schatten ihrer selbst, und selbst dies ist seit Arminions Tod sehr selten geworden. Arminion war ein elfischer Dichter, dessen höfische Liebe zu Liondrielle legendär ist. Er widmete der Göttin sein Leben, da er keine Frau lieben konnte, die ihr nicht an Schönheit gleich kam. Schließlich beging er, da er die Einsamkeit nicht ertragen konnte, mit ihrem Namen auf den Lippen Selbstmord. Als er im Sterben lag, soll ihm Liondrielle erschienen sein und auf seiner Harfe eine Melodie von solch vollendetem Klang gespielt haben, wie sie die Welt niemals zuvor gehört hat, und auch niemals wieder hören sollte. Arminions Harfe steht noch heute im königlichen Schloss der Sidhe und darf einmal im Jahr von dem würdigsten elfischen Harfenspieler gespielt werden, um an Arminion zu erinnern, der im Sterben die Liebe einer Göttin gewann.",
+    "goals": "Liondrielles Ziel ist es, die Sehnsucht nach Schönheit und Perfektion in allen Dingen im hochelfischen Volk zu erwecken und aufrecht zu erhalten. Ihrer Ansicht nach sind die Hochelfen aufgrund ihrer natürlichen Anmut und unbegrenzten Lebensspanne die einzigen, die wahrhafte Schönheit zu erkennen vermögen.",
+    "allies_and_enemies": "Liondrielle ist Teil des Pantheons der Sidhe und als solche mit Auris verbündet. Obwohl Liondrielle um Surias Eifersucht weiß, ist sie selbst viel zu sehr Dame, als dass sie sich dazu hinreißen lassen würde, ihrer Rivalin ihre Schönheit zu neiden und dies offensichtlich werden zu lassen. Da der Kampf die Zerstörung von Schönheit mit sich bringt, richtet sich Liondrielles Ärger gegen Gottheiten und Völker, die den Frieden oder die Kultur der Sidhe gefährden. Ihre ärgste Feindin ist daher Anaranth.",
+    "worshippers": "Aufgrund von Liondrielles Vorurteilen gegenüber anderen Rassen besteht ihre Anhängerschaft ausschließlich aus Sidhe. Unter ihren glühendsten Huldigern befinden sich vor allem Höflinge, Künstler, Tänzer, Musiker und Poeten.Die Vorstellung Liondrielles vom stetigen Streben nach Anmut und Perfektion in jeder Lebenslage haben jedoch das gesamte Denken der Sidhe maßgeblich geprägt.",
+    "doctrines": "Die Priorität der Priester Liondrielles besteht darin, Kunstwerke von großer Schönheit zu erschaffen und zu erhalten. Schönheit ist bei ihnen das einzig Erstrebenswerte, und es gibt kein Opfer, nicht einmal den Tod, das zu groß wäre, um einen Augenblick der Perfektion zu erreichen. Nur Sidhe können Priester Liondrielles werden, und auch unter ihnen nur jene, die selbst außergewöhnliche Anmut besitzen oder aber die außergewöhnliche Begabung haben, etwas von großer Schönheit zu erschaffen. Sollte ein Priester Liondrielles ein Objekt außergewöhnlicher Schönheit zerstören, so wird er wahrscheinlich seine Kräfte verlieren und aus seinem Orden ausgestoßen werden, bis er die Gunst seiner Göttin zurück gewonnen hat.",
+    "granted_abilities": "Um wahrhafte Perfektion erreichen zu können, darf ein Priester Liondrielles künstlerische, gesellschaftliche und musische Fähigkeiten, wie zum Beispiel Singen, Tanzen, Musizieren, Malen, Handwerk: Bildhauer oder Mode, für alle 2 Stufen, die er in der Magieschule besitzt, um einen Rang über das normale Maximum von 10 erhöhen. Das bedeutet ein Priester der 2. Stufe darf jede dieser Fertigkeiten auf einen Rang von 11, ein Priester der 4. Stufe auf einen Rang von 12, ein Priester der 6. Stufe auf einen Rang von 13, ein Priester der 8. Stufe auf einen Rang von 14 und ein Priester der 10. Stufe auf einen Rang von 15 steigern. Pro Fertigkeit kostet ihn jede Steigerung des Ranges um 1 über 10 hinaus jeweils 4 CP oder 8 EP.",
+    "g_ability": "Priester Liondrielles erhöhen das Maximum für künstlerische, gesellschaftliche und musische Fertigkeiten pro zwei Magieschulstufen um 1 Rang über 10 hinaus. Jede Steigerung über 10 kostet pro Fertigkeit 4 CP oder 8 EP.",
+    "symbol_image": "divine_entities/Liondrielle_symbol.png",
+    "god_image": "divine_entities/Liondrielle_WFTffjK.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 13,
+  "fields": {
+    "name": "Maya",
+    "slug": "maya",
+    "card_name": "Maya, Heilende Mutter",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 49,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Heilende Mutter, Trösterin, Halblingsmutter, Beschützerin der Halblinge, Gute Seele, Fröhliche Maid\r\n\r\nIhre Domäne ist Heim und Herd, Schutz vor Bösem, Familie, Backen und Kochen, Heimat, Beständigkeit, Fröhlichkeit, Wiederaufbau und Hoffnung",
+    "vow": "Ich schwöre anderen Halblingen stets zu helfen, ihnen Heilung, Nahrung und Obdach zu gewähren und sie niemals anzulügen oder zu betrügen. Keiner Person will ich ein körperliches Leid zufügen, sofern ich nicht mich, meine Freunde oder andere Halblinge vor ihr schützen muss.",
+    "fluff": "Die Stärke eines Volkes misst sich nicht an seinen Mauern, sondern an den Händen, die einander aufhelfen.",
+    "description": "Maya erscheint meist als mütterliche Halblingsfrau mit warmen, herzlichen Gesichtszügen. Sie trägt stets Kleidung aus derber Baumwolle oder Wolle, die meist in den Farben grün, weiß, gelb und blau gehalten ist. Bekannt ist Maya bei ihrem Volk unter anderem auch für ihre Maskeraden, in denen sie oder einer ihrer Priester sich als mittellos ausgibt und andere Halblinge auf ihre Gastfreundlichkeit hin prüft. Ein Haus, das sie beherbergt, steht weiterhin unter ihrem Schutz, während ein Haus, das sie abweist, bei ihr in Ungnade fällt. Der Glaube daran ist einer der Gründe für die Gastfreundlichkeit und den Zusammenhalt von Halblingen untereinander.",
+    "goals": "Maya ist eine friedliche Göttin und wünscht sich Harmonie unter allen Lebewesen. Diese Haltung ändert sich, wenn ihre „Kinder“, die Halblinge, in Gefahr sind. In diesem Fall erlaubt sie ihren Priestern aggressive Handlungen. Gleiches gilt für die Selbstverteidigung. Die Halblinge zu schützen, von denen es heißt, sie habe die ersten von ihnen selbst geboren, ist stets Mayas primäres Ziel. Deshalb drängt sie auch auf Zusammenhalt ihres Volkes, denn sonst würde dies, so ihr Argument, noch von den größeren Rassen niedergetrampelt.",
+    "allies_and_enemies": "Maya gehört zum Halblingpantheon der Stählernen Königreiche und ist damit auch mit dem menschlichen Pantheon der Stählernen Königreiche, und dabei insbesondere mit Gemmon, lose alliiert. Obwohl sie mit ihm nicht in jeder Hinsicht übereinstimmt, ist Maya mit dem flatterhafteren Helftan verbündet. Ansonsten wechseln ihre Feinde und Freunde und richten sich stets danach, welche Götter eine Gefahr für das Kleine Volk darstellen.",
+    "worshippers": "Fast alle zivilisierten Halblinge, aber vor allem Frauen und Familien mit „ruhigeren“ Berufen beten zu Maya. Sie soll eine besondere Verbindung zu Köchen und Krankenpflegern besitzen. Abgesehen von den Halblingen hat Maya so gut wie keine Anhänger.",
+    "doctrines": "Nur Halblinge können Priester von Maya werden. Der Kodex besagt, dass Gewalt nur zum Schutz von Leben angewendet werden darf, und unnötige Grausamkeiten sind auf das Höchste verpönt. Außerdem muss ein Priester der Maya sich stets hilfsbereit gegenüber allen redlichen Halblingen erweisen. Das bedeutet, dass er sie verteidigen, ihnen nach Möglichkeit Nahrung und Obdach gewähren, und verletzten Halblingen, die nichts besitzen, auch kostenlos ärztliche Hilfe zukommen lassen muss. Um den Zusammenhalt seiner Rasse zu stärken, sollte ein Maya-Priester keine anderen Halblinge belügen oder hintergehen.",
+    "granted_abilities": "Als einfühlsame Trösterin und Gourmet verleiht Maya ihren Priestern einen Bonus von +1 pro Stufe auf die Fertigkeiten Empathie und Kochen. Hierdurch können auch Fertigkeitswerte über 10 zu Stande kommen. Zudem wird ihre Chance ein Wunder zu wirken einmal im Monat verdoppelt.",
+    "g_ability": "Als einfühlsame Trösterin und Gourmet verleiht Maya ihren Priestern einen Bonus von +1 pro Stufe auf die Fertigkeiten Empathie und Kochen. Hierdurch können auch Fertigkeitswerte über 10 zu Stande kommen. Zudem wird ihre Chance ein Wunder zu wirken einmal im Monat verdoppelt.",
+    "symbol_image": "divine_entities/Maya_symbol.png",
+    "god_image": "divine_entities/Maya_XpUK2UL.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 26,
+  "fields": {
+    "name": "Monsugroth",
+    "slug": "monsugroth",
+    "card_name": "Monsugroth der Vernichter",
+    "entity_type": 6,
+    "pantheon": 3,
+    "school": 61,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 1,
+    "is_customizable": false,
+    "divine_function": "General der dämonischen Heerscharen, General der Höllenscharen, Dämonenprinz des Krieges, der Eberfürst",
+    "vow": "Impertinenter Sterblicher, ich erschlug bereits Götter vor dem Anbeginn der Zeit. Krieche vor mir in Demut!",
+    "fluff": "Impertinenter Sterblicher, ich erschlug bereits Götter vor dem Anbeginn der Zeit. Krieche vor mir in Demut!",
+    "description": "Monsugroth ist Asmodeus’ General. Er erscheint als gewaltiges, vierbeiniges und vierarmiges Monstrum mit humanoidem Oberkörper und einem Gesicht, das dem eines Ebers ähnelt. Anders als die meisten Dämonenfürsten hat er die materielle Ebene bereits betreten.\r\n\r\nNachdem im Jahr 1403 VZ das Zweite Siegel der Verdammnis gebrochen worden war, führte Monsugroth gewaltige Dämonenmassen nach Kreijor. Seine Heerscharen trafen in den Nördlichen Brachen auf die vereinten Streitkräfte Vargothias, Gwynors und khorasischer Söldner. Trolle und Zwerge griffen unter Otmar von Asgoth schließlich in die Schlacht ein.\r\n\r\nMonsugroth forderte Otmar zur Unterwerfung auf und behauptete, bereits vor Anbeginn der Zeit Götter erschlagen zu haben. Der Zweikampf zwischen ihnen dauerte der Überlieferung nach mehrere Stunden. Otmar wurde so schwer verwundet, dass er beinahe starb, konnte den Dämonenprinzen jedoch mit Eisatem besiegen und zurück in den Abyss schicken. Der Sieg begründete Otmars Herrschaft als Löwe des Nordens.",
+    "goals": "Monsugroth ist kein subtiler Verderber. Er verkörpert die Vernichtung organisierter Gegenwehr. Städte, Tempel, Armeen und Reiche sollen nicht schleichend verfallen, sondern in einer einzigen, überwältigenden Demonstration dämonischer Überlegenheit zerschlagen werden.\r\n\r\nSein Krieg dient Asmodeus, besitzt aber zugleich einen eigenen Zweck: Monsugroth will beweisen, dass jede Ordnung nur so lange besteht, bis eine stärkere Gewalt erscheint. Er sucht Gegner, deren Fall ein Zeitalter beendet. Ein wehrloses Dorf ist Beute; ein geeintes Königreich ist eine würdige Opfergabe.",
+    "allies_and_enemies": "Sein oberster Verbündeter und Herr ist Asmodeus. Unter ihm stehen die Höllenscharen, insbesondere Brecher, Drughs und andere für den offenen Krieg geschaffene Dämonen. Sterbliche Kriegskulte, verräterische Feldherren und Herrscher, die durch einen Pakt den Sieg erzwingen wollen, können zu seinen Werkzeugen werden.\r\n\r\nSein bekanntester sterblicher Feind ist Otmar von Asgoth. Eisatem ist nicht bloß eine gefährliche Waffe, sondern das Symbol seiner historischen Niederlage. Auch die Bündnisse der Menschen, Trolle und Drakodrim stellen für ihn eine besondere Herausforderung dar, weil gerade ihre Einigkeit seinen Feldzug beendete.",
+    "worshippers": "Ein eigenständiger Kult Monsugroths wird im Grundregelwerk nicht beschrieben. Eine Ausarbeitung als vollwertige Religion muss daher rekonstruiert werden.\r\n\r\nSeine Anhänger dürften sich vor allem unter Söldnern, brutalen Heerführern, Belagerungsmeistern, Plünderern und Kriegern finden, die Sieg mit Recht gleichsetzen. Anders als Asmodeus’ Verführer oder Baeliths Sektenführer suchen sie selten gesellschaftliche Tarnung. Ihre Zirkel können innerhalb von Armeen, Gladiatorenschulen oder Räuberhorden entstehen.\r\n\r\nEin Priester Monsugroths wäre weniger Prediger als Kriegsherr. Sein Ansehen bemisst sich an besiegten Gegnern, eroberten Befestigungen und der Zahl jener, die unter seinem Befehl kämpfen.",
+    "doctrines": "Stärke bedarf keiner Rechtfertigung.\r\nGehorsam endet erst mit Sieg oder Tod.\r\nEin Feind, der sich erhebt, muss so vollständig gebrochen werden, dass niemand seinem Beispiel folgt.\r\nMauern, Bündnisse und Gesetze sind Herausforderungen an den Vernichter.\r\nLass den Schwachen leben, wenn sein Bericht größere Furcht verbreitet als sein Tod.\r\nSuche den stärksten Gegner auf dem Feld und erschlage ihn vor den Augen seiner Gefolgsleute.\r\nDie Niederlage Monsugroths war kein Ende, sondern ein noch nicht beglichener Schwur.",
+    "granted_abilities": "",
+    "g_ability": "Ein riesiges, vierbeiniges und vierarmiges Monstrum mit humanoidem Oberkörper und dem Gesicht eines Ebers. Ihm gelang es bereits, auf der materiellen Ebene zu erscheinen.",
+    "symbol_image": "divine_entities/Monsugroth_symbol.png",
+    "god_image": "divine_entities/monsugroth.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 14,
+  "fields": {
+    "name": "Myrmidon",
+    "slug": "myrmidon",
+    "card_name": "Myrmidon der Standhafte",
+    "entity_type": 1,
+    "pantheon": 5,
+    "school": 50,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Göttlicher Schutzherr des Imperiums, Der Standhafte, Kriegsfürst siegreicher Heerscharen, Der Ruhmreiche\r\n\r\nSeine Domäne ist Taktik, Strategie, Kriegshandwerk, Sieg und Ruhm.",
+    "vow": "Ich gelobe die Arkane Magie zu bekämpfen, wann immer ich ihrer ansichtig werde, den Ruhm Myrmidons zu mehren, und die verunischen Legionen in ihrem Kampf zu unterstützen.",
+    "fluff": "Ein wahrer Soldat fragt nicht, ob sein Opfer notwendig ist. Er sorgt dafür, dass es nicht vergebens war.",
+    "description": "Myrmidon erscheint als siegreicher Zenturio in goldener Rüstung mit wehendem, roten Helmbusch, in einem goldenen Streitwagen, gezogen von vier weißen, edlen Kriegspferden. Seine Waffe ist ein riesiger Speer aus dunklem Holz.",
+    "goals": "Myrmidons Ziel ist die Ausrottung der Arkanen Magie, insbesondere der Nekromantie und Hexerei. Die Menschen haben sich schon einmal mittels Arkaner Magie zu unglaublicher Macht aufgeschwungen, und Myrmidon setzt alles daran, dass es wieder allein den Göttern gegeben ist, ihren Gefolgsleuten Zugriff auf Magie zu gewähren. Die Wiederherstellung der Vorherrschaft der Götter auf Kreijor, insbesondere des verunischen Pantheons, und das Erlangen von ewigem Ruhm sind daher seine Ziele. Da die Veruner ihn dabei unterstützen, ist die Expansion seines erwählten Volkes ein weiteres Ziel.",
+    "allies_and_enemies": "Myrmidon ist der Herr des verunischen Pantheons. Er gilt als dominant, fanatisch und selbstherrlich. Dennoch toleriert er die Verehrung anderer Götter in seinem Herrschaftsbereich, zumindest bis zu einem gewissen Grad. Die wahre Gefahr sieht er vor allem in den Magiern, die er aufs Äußerste bekämpft.",
+    "worshippers": "Myrmidon wird vor allem in Veruna und von den Soldaten im gesamten verunischen Imperium verehrt, sowie von den meisten angeheuerten Söldnereinheiten, die für das Imperium kämpfen und seine Grenzen verteidigen.",
+    "doctrines": "Priester des Myrmidon leben in einer militärisch straff organisierten Hierarchie. Ihr Motto lautet: Gewinnen um jeden Preis. Myrmidon belohnt nur die Erfolgreichen. Um das Ansehen seiner Kirche zu wahren, gestattet er seinen Gefolgsleuten keine unehrenhaften Handlungen, zumindest wenn diese offensichtlich wären. Myrmidons Priester sind am stärksten in die verunische Gesellschaft integriert. Sein Kult hat dort eine nicht unbeachtliche politische Macht erlangt, und seine fanatischen Inquisitoren sorgen dafür, dass die Arkane Magie aus der verunischen Gesellschaft verbannt bleibt.",
+    "granted_abilities": "Myrmidon verleiht seinen Priestern einen Bonus von +1 pro Stufe auf die Fertigkeiten Taktik, Spiele und \r\nRhetorik.",
+    "g_ability": "Myrmidon verleiht seinen Priestern einen Bonus von +1 pro Stufe auf die Fertigkeiten Taktik, Spiele und \r\nRhetorik.",
+    "symbol_image": "divine_entities/Myrmidon_symbol.png",
+    "god_image": "divine_entities/Myrmidon_yJGxSw6.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 15,
+  "fields": {
+    "name": "Nebemchepet",
+    "slug": "nebemchepet",
+    "card_name": "Nebemchepet, Richter der Totenwaage",
+    "entity_type": 1,
+    "pantheon": null,
+    "school": 51,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Herr über Leben und Tod, Krokodilgott, Quelle des Ur, Fluss des Lebens, Richter der Totenwaage, Vater des Ra und des Tygron\r\n\r\nSeine Domäne ist Tod, Leben, Flüsse, Fruchtbarkeit, Genesung, Ernte, Missernte, Seuchen und Balsamierkunst",
+    "vow": "Ich gelobe mich jeden Tag mit gesegnetem, lebensspendenden Wasser zu waschen, Nebemchepet jeden Monat ein Opfer zu bringen, das den Tod durch meine Klinge findet. Ich will dafür Sorge tragen, dass jeder Gläubige in die Heimat gebracht wird, damit seine Familie für sein Nachleben sorgen kann. Grabplünderer will ich strafen und die Ruhe der Toten, die einst Gläubige waren, achten und bewachen.",
+    "fluff": "Wer nur das Leben verehrt, versteht den Tod nicht. Wer nur den Tod verehrt, versteht das Leben nicht.",
+    "description": "Nebemchepet wird als krokodilköpfiger, muskulöser Mann mit zwei herrschaftlichen Symbolen dargestellt. Oft wird er mit zwei Fischen, zwei Krügen mit Weizen, zwei Ziegen oder zwei Krummstäben dargestellt. Die Zahl zwei hat besondere Bedeutung, denn Nebemchepet ist sowohl der Gott des Todes, als auch der des Lebens. Als Gott des Lebens lässt er den Ra und den Tygron aus dem Plateau von Ur entspringen und schenkt damit dem trockenen Khem Fruchtbarkeit. Doch genauso entspringen dem Fluss Seuchen oder Überschwemmungen ziehen den Tod nach sich. Als Gott des Todes wiegt Nebemchepet die Seelen der Toten und richtet darüber, wer des Paradieses würdig ist.",
+    "goals": "Das Ziel Nebemchepets ist der Schutz des khemnitischen Volkes, das momentan unter verunischer Herrschaft steht. Zudem will er die Ruhe der würdigen Toten sichern und das größte Geheimnis Kreijors in der Onyx-Pyramide wahren: Den Arkanen Kodex.",
+    "allies_and_enemies": "Nebemchepet ist nicht daran interessiert, Bündnisse mit anderen Gottheiten einzugehen. Er hat sich von den anderen Göttern isoliert, soll jedoch angeblich mit dem Krafttier der Krokodile einen Pakt geschlossen haben. Myrmidon ist als Gott der Eroberer sein Feind.",
+    "worshippers": "Nebemchepet wird ausschließlich in Khem verehrt, dort jedoch von allen Einheimischen, ob Troll oder Mensch. Es heißt, auch die Krokodile würden ihn verehren. Seine Hohepriesterin Prinzessin Chunmet, die wahre Herrscherin Khems, achtet streng auf die Einhaltung seiner Gebote.",
+    "doctrines": "Als Gott des Lebens schätzt Nebemchepet es nicht, wenn dieses ohne seine Erlaubnis geraubt wird. Gläubige bitten daher in seinen Tempeln für die Erlaubnis ein Leben zu nehmen oder die Vergebung, wenn sie dies ohne seine Zustimmung getan haben. Ihm zu Ehren schätzt Nebemchepet dagegen die Darbringung spezieller Opfertiere und auch das Opfern von Personen intelligenter Rassen ist nicht unbekannt. Da das Leben und das Grabmal mit seinen Beigaben großen Einfluss darauf hat, in welchen Verhältnissen Nebemchepet eine zu sich gerufene Seele im Paradies bestehen lässt, werden oft bombastische Pyramiden und Denkmäler für die einbalsamierten Toten errichtet. Auch werden ihnen Speisen, rituelle Gegenstände, Waffen und sogar Tiere und Sklaven mit in den Tod gegeben, auf das Nebemchepet sie ihnen im Paradies zukommen lässt. Bei all diesen kostbaren Gaben spielt das Achten der Totenruhe für die Gläubigen eine wichtige Rolle. Neben Opfern, rituellen Gebeten, Festen, die ihm zu Ehren gereichen und Waschungen, erwartet er von seinen Priestern die Verteidigung Khems und besonders der heiligen Orte und Pyramiden der Toten.",
+    "granted_abilities": "Priester Nebemchepets können ab der dritten Stufe innerhalb von einer Aktion ihren Kopf in den eines Krokodils verwandeln und umgekehrt. Das Maul des Krokodilkopfes verursacht im waffenlosen Kampf 1w10+Stärkebonus T-Schaden. Der Kopf hat zudem einen natürlichen Rüstungsschutz von 4 (GRS: 1).",
+    "g_ability": "Priester Nebemchepets können ab der dritten Stufe innerhalb von einer Aktion ihren Kopf in den eines Krokodils verwandeln und umgekehrt. Das Maul des Krokodilkopfes verursacht im waffenlosen Kampf 1w10+Stärkebonus T-Schaden. Der Kopf hat zudem einen natürlichen Rüstungsschutz von 4.",
+    "symbol_image": "divine_entities/Nebemchepet_symbol.png",
+    "god_image": "divine_entities/Nebemchepet_CksQU1R.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 16,
+  "fields": {
+    "name": "Nialla",
+    "slug": "nialla",
+    "card_name": "Nialla die Feenmutter",
+    "entity_type": 1,
+    "pantheon": null,
+    "school": 52,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Feenmutter, Sternfängerin, Mondtänzerin\r\n\r\nIhre Domäne ist Leben, Flug, Liebe, Feste, Übermut, Gesundheit",
+    "vow": "Ich gelobe die Feen und Ilyrien vor allen anderen zu verteidigen, die Freude in das Leben meines Volkes zu bringen, und außer zur Selbstverteidigung oder der Verteidigung anderer Wesen keine Person zu töten.",
+    "fluff": "Tanze unter den Sternen, solange du kannst. Kein Sommer dauert ewig, doch jede Erinnerung an ihn ist unsterblich.",
+    "description": "Nialla sieht aus wie eine wunderschöne Feenfrau mit Schmetterlingsflügeln. Sie ist in farbenfrohe Blütenblätter oder andere luftige Gewänder gekleidet, die ihren prachtvoll in allen Regenbogenfarben schimmernden Flügeln genug Raum zum Fliegen lassen. Nialla befindet sich ständig in Bewegung, daher erscheint sie ungern in engen Räumen, sondern zieht den freien Himmel vor. Da die Sternfängerin den Sinnesfreuden zugeneigt ist, geschah dies meist auf fröhlichen Festen. Es sind jedoch auch viele Geschichten bekannt, in denen sie erscheint, um das Volk der Feenwesen vor großem Leid zu bewahren.",
+    "goals": "Nialla beschützt ihre Kinder, die Feenwesen. Das beinhaltet auch den Schutz des Waldes, dem bevorzugten Lebensraum vieler Feenwesen, was für andere Rassen oft unangenehme und unverständliche Züge annimmt. Um ihren Kindern ein ungestörtes Leben zu ermöglichen vertreiben Priester der Nialla auf Wunsch ihrer Göttin manchmal Mitglieder anderer Völker, die in den Wald vordringen, indem sie ihnen „unnötige“, gefährliche oder interessante Gegenstände entwenden und Sabotage betreiben. Meist geschieht dies im Schutze der Nacht, während die ahnungslosen Opfer schlafen. Obwohl Nialla sehr neugierig ist, scheint sie für ihr Volk ein abgeschiedenes Waldleben dem rauhen Stadtleben vorzuziehen.",
+    "allies_and_enemies": "Um Wald- und Feenwesen zu schützen, verbündet sich Nialla manchmal mit Yaal, dem Herrn der Wälder, oder anderen Naturentitäten. Regelmäßig kommt es zu kleineren Konflikten mit Gottheiten, deren Anhänger die Wildnis kultivieren und die dort ansässigen Feenwesen vertreiben wollen. Abgesehen davon pflegt Nialla nur wenig Kontakte mit anderen Gottheiten.",
+    "worshippers": "Nialla ist die Muttergöttin aller Feenwesen und wird daher von fast allen von ihnen verehrt. Da Niallas Schutz und Zuneigung ausschließlich auf das Volk der Feenwesen beschränkt ist, sind keine Mitglieder anderer Rassen bekannt, die sie anbeten.",
+    "doctrines": "Nur Feen beiderlei Geschlechts können Priester von Nialla werden. Ebenso wie für ihre Göttin ist der Schutz des Feenvolkes ihre vorrangige Aufgabe. Hierzu gehört die Hilfe im Fall eines Krieges genauso wie die tägliche Verpflegung von Kranken und Verwundeten, vor allem aber die Organisation der großen und fröhlichen zeremoniellen Feste. Die Feenpriesterinnen sind berühmt für ihre legendären Orgien, die manchmal mehrere Tage andauern können. Ohne triftigen Grund, wie z.B. der Verteidigung des eigenen Lebens oder anderer Lebewesen, darf ein Niallapriester kein intelligentes Lebewesen töten. Im Zweifelsfall gilt das Leben eines Feenwesens jedoch mehr als das Leben jedes anderen Wesens. Von allen Niallapriestern wird erwartet, dass sie Freude in das Leben anderer bringen und auch für sich selbst das Glück suchen.",
+    "granted_abilities": "Bevor ein Priester der Nialla die dritte Stufe der priesterlichen Magie erreicht, muss er eine Prüfung bestehen, die ihm sein Orden auferlegt. Diese Prüfung wird von den Niallapriestern sehr ernst genommen, und ein Versagen hat zur Folge, dass der Prüfling keine weitere priesterliche Magie erlernen kann. Manchmal soll Nialla ganz besonderen Individuen ein Zeichen, und damit eine zweite Chance geben, aber meist bedeutet das Versagen bei der Queste auch das Ende der priesterlichen Karriere. Die Priester jedoch, welche diese Prüfung erfolgreich bewältigen, werden bei ihrer Rückkehr in das Heiligtum der Nialla einem Ritual unterzogen, bei dem sie in einer Art Koma für drei Wochen in Seidenfäden eingesponnen werden. Wenn sie nach Ablauf dieser Zeit aus ihrem Kokon kriechen, haben sie eine Metamorphose durchlaufen, bei der ihre Flügel sich in Schmetterlingsflügel verwandelt haben. Gewöhnlich lassen sich aus den Farben und Mustern darauf Hinweise auf die bewältigte Queste erahnen. Priester der Nialla mit Schmetterlingsflügeln werden von anderen Feenwesen mit besonderem Respekt behandelt.",
+    "g_ability": "Vor dem Aufstieg zur 3. Stufe müssen Priester der Nialla eine Ordensprüfung bestehen, deren Versagen ihre Karriere beendet. Bei Erfolg folgt ein Ritual, das sie für drei Wochen in einen Seidenkokon einspinnt. Sie erwachen mit Schmetterlingsflügeln, die Hinweise auf ihre Queste liefern und ihnen den Respekt anderer Feenwesen einbringen.",
+    "symbol_image": "divine_entities/Nialla_symbol.png",
+    "god_image": "divine_entities/Nialla_Sg9VYIu.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 17,
+  "fields": {
+    "name": "Peiron",
+    "slug": "peiron",
+    "card_name": "Peiron, Vater der Götter",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 53,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Götterkönig, Vater der Götter, Sonnengott, Erschaffer, Heldenvater, Vernichter des Unnatürlichen, Paladin, Ewige Sonne\r\n\r\nSeine Domäne ist Gerechtigkeit, Macht, Kampf, Schöpfung, Majestät, Stolz, Kraft, Herrlichkeit, Adel, Mut, Geradlinigkeit, Ehrenhaftigkeit, Wahrheit, Weisheit, Aufrichtigkeit, Güte und Wärmende Sonne",
+    "vow": "Ich werde die 7 Gebote Peirons befolgen: \r\n1) Suche stets nach der Wahrheit. \r\n2) Handle stets und unbeirrt so, wie du es für richtig hältst. \r\n3) Täusche niemals jemanden, indem du dich oder deine Worte in Schatten hüllst. \r\n4) Verhalte dich stets ehrenhaft, auf dass du anderen ein Beispiel bist. \r\n5) Toleriere niemals Ungerechtigkeit, Unterdrückung oder das Unnatürliche. \r\n6) Verteidige diejenigen, die deiner Hilfe bedürfen. \r\n7) Verleugne niemals deinen Glauben an die Wahrheiten Peirons, sondern erscheine stets als das, was du bist: ein Streiter Peirons für die Wahrheit.",
+    "fluff": "Die Wahrheit ist kein Schwert, das wir führen. Sie ist das Licht, in dem wir stehen.",
+    "description": "Bei seinen wenigen Erscheinungen sieht Peiron aus wie ein älterer, aber dennoch kräftiger, bärtiger Mann, der von einer hell strahlenden Aura umgeben ist. Kein untotes Wesen kann seinen Anblick ertragen, und diejenigen, die in seinen direkten Umkreis geraten, werden entweder wieder lebendig oder zerfallen zu Staub. Väterlich sieht seine ehrfurchtgebietende Gestalt sowohl auf die Fehler und Kämpfe der Sterblichen, als auch auf die Fehden der Götter herab.",
+    "goals": "Der Schutz der Stählernen Königreiche und aller lebenden Wesen vor dem Unnatürlichen, insbesondere vor Untoten und Dämonen, ist Peirons oberstes Ziel. Obwohl er bereit ist, wenn es sein muss für das Erreichen dieses Ziels zu kämpfen, versucht er stets, den Kampf vermeiden. Mit weisen Worten der Wahrheit und des Friedens will er wie durch ein helles Licht den Gegner sehend machen. Sein persönlicher Ehrgeiz besteht darin, den Machtbereich seines Pantheons zu vergrößern. Böse Zungen behaupten, dass er die Paladine, die sein Zeichen als das ihre wählten, missbrauche, um nicht nur die Botschaft der Gerechtigkeit, sondern auch die der Macht Peirons und seines Pantheons in allen Ländern zu verbreiten.",
+    "allies_and_enemies": "Alle Götter des Pantheons der Stählernen Königreiche sind Alliierte Peirons. Seine engsten Verbündeten sind jedoch seine Frau Coliante und sein Sohn Karndt. Zwischen ihm und seinem Sohn Ryse, den er wegen seines Verrats verstieß, besteht eine Art Hass-Liebe. Obwohl er die Taten und die Lebenseinstellung seines Sohnes nicht tolerieren kann, bricht es ihm das Herz, diesen als Feind zu wissen. Aufgrund seiner Versuche, die Menschen unter seinem Pantheon zu einen, gerät er teilweise in Konflikt mit Krafttieren, Vanar und anderen Göttern, welche nicht zu diesem zählen.",
+    "worshippers": "Als Schöpfer und Hauptgottheit der Stählernen Königreiche wird Peiron von fast allen Menschen dort verehrt. Außerhalb davon besitzt er nur wenige Anhänger, und abgesehen von zahlreichen Paladinen, die seinen Ruf vernahmen, gibt es nur wenige Mitglieder anderer Rassen, die sich zu ihm bekennen. Aufgrund seiner Weisheit wird er auch von Gelehrten verehrt. In fast jeder Stadt der Stählernen Königreiche gibt es einen Tempel Peirons, der von Priestern und gläubigen Paladinen geschützt wird und in Krisenzeiten allen Hilfesuchenden offen steht, solange sie sich an die Gebote des Gottes halten. Der Orden Peirons ist zudem bekannt für die enge Zusammenarbeit mit allen anderen Tempeln, die Gottheiten der Stählernen Königreiche gewidmet sind (von Ryse abgesehen).",
+    "doctrines": "Sowohl seine Priester, als auch die Paladine, die ihm folgen, müssen die Gebote Peirons genau befolgen, wenn sie nicht seinen Zorn auf sich ziehen wollen.",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "divine_entities/Peiron_symbol.png",
+    "god_image": "divine_entities/Peiron_yQEveob.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 18,
+  "fields": {
+    "name": "Ryse",
+    "slug": "ryse",
+    "card_name": "Ryse, Wahnsinniger Narr",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 54,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Witwenmacher, Dunkler Zwilling, Meuchler, Wahnsinniger Narr\r\n\r\nSeine Domäne ist Meuchelmord, Raub, Wahnsinn und Hinterhältigkeit",
+    "vow": "Ich schwöre der Kirche des Ryse die Treue zu halten, und mich frei von Skrupeln der Erlangung ihrer und meiner Ziele zu widmen.",
+    "fluff": "Die Tugendhaften unterscheiden sich von uns nur dadurch, dass sie ihre Wünsche besser verbergen.",
+    "description": "Auf älteren Darstellungen wird Ryse als ein schlanker junger Mann mit fast katzenhaften Zügen dargestellt, der sich in einen Kapuzenmantel gehüllt, leicht gebückt mit einem Dolch in der Hand fort schleicht. Bekannt ist, dass er sich nur nachts manifestiert und selten in das Geschehen Sterblicher eingreift, (jedenfalls wird es nur selten offensichtlich, dass er eingegriffen hat). Auf neueren Darstellungen ist er meist als der schwarze Schatten eines Mannes mit einer Narrenkappe in der Finsternis dargestellt. Dies soll nach den wenigen Augenzeugenberichten, die es von seinen Erscheinungen gibt, auch seine Manifestierungsform sein.",
+    "goals": "Den verbissenen Hass, den Ryse in sich fühlt, versucht er auf die Welt der Sterblichen zu übertragen, indem er diese zu Hinterhältigkeit, Raub und Mord verführt. Die Beseitigung jedweder Skrupel ist es, die sowohl Sterbliche, als auch Götter laut Ryse erst richtig frei werden lässt. Sein persönliches Ziel ist zudem die Vernichtung seines Zwillingsbruders Karndt und seiner Anhänger, den er mehr hasst, als jeden anderen.",
+    "allies_and_enemies": "Ryse ist der verstoßene Sohn von Peiron und Coliante und zudem der Zwillingsbruder des strahlenden Kriegsgottes Karndt. Die Mitglieder seiner Familie und seines eigenen Pantheons sind zu Ryses ärgsten Feinden geworden. Seinen Vater Peiron, der einst, bevor das Blut der Wyrmmutter seine Adern durchfloss, sein leuchtendes Vorbild war, hasst und liebt er zugleich. Von Zeit zu Zeit lässt sich Ryse auf kurzfristige Bündnisse mit fremden Göttern ein, die das Pantheon der Stählernen Königreiche schwächen möchten. Doch er erweist sich selten als verlässlicher Bündnispartner und sucht stets nur den eigenen Vorteil.",
+    "worshippers": "Nur skrupellose Meuchelmörder, Wahnsinnige oder sehr hasserfüllte Menschen, äußerst selten Mitglieder anderer Rassen, beten zu Ryse. Da sein Kult in den Stählernen Königreichen verboten ist und außerhalb der Stählernen Königreiche kaum Anhänger besitzt, wird Ryse nur von wenigen regional organisierten Geheimgesellschaften verehrt. Die meisten seiner Anhänger versprechen sich für ihre Treue Vorteile, falls Ryse wieder in das Pantheon der Stählernen Königreiche aufgenommen wird, oder verfolgen mit den dunklen Kräften, die er seinen Priestern gewährt, ihre eigenen Zwecke. Ryses Tempel sind in den Kellern von Wohnhäusern verborgen oder liegen außerhalb der großen Städte. Viele seiner Anhänger lassen sich Tränen auf die Handfläche, über das Herz oder unter das linke Auge tätowieren, um ihre Zugehörigkeit zu verdeutlichen.",
+    "doctrines": "Anders als die Priester anderer Gottheiten gibt es für die Anhänger von Ryse keine andere Vorschrift, als außerhalb der Gemeinde keine Skrupel beim Erlangen der eigenen Ziele zuzulassen und der Kirche die Treue zu halten. Mit wachsender Macht des Priesters werden die Einflüsterungen des wahnsinnigen Gottes, der seine Anhänger stets zu sinnlosen Gräueltaten anstiftet, jedoch immer stärker.",
+    "granted_abilities": "",
+    "g_ability": "",
+    "symbol_image": "divine_entities/Ryse_symbol.png",
+    "god_image": "divine_entities/Ryse_icI7JOu.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 19,
+  "fields": {
+    "name": "Suria",
+    "slug": "suria",
+    "card_name": "Suria, Schönste aller Weiber",
+    "entity_type": 1,
+    "pantheon": 1,
+    "school": 55,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Liebreizende, Lustvolle, Verführerin, Schönste aller Weiber\r\n\r\nIhre Domöne ist Lust, Liebe, Sexualität, Fruchtbarkeit, Erotik, Schönheit, Weiblichkeit, erotischer Tanz, Schöne Künste, Rausch, Eifersucht, Sinnlichkeit, Verführung, Musik und Genuss",
+    "vow": "Mein Fleisch ist der Schrein meiner Göttin. Ich gelobe diesen Schrein zu pflegen, zu nutzen und in Ehren zu halten. Stets werde ich meinen Gefühlen folgen, mir und anderen sinnliche Genüsse bereiten und versuchen, die verloren gegangene Schönheit in Gedanken, Gebilden und Wesen wieder aufleben zu lassen.",
+    "fluff": "Ein Kuss kann Wahrheiten offenbaren, die tausend Gelehrte niemals finden würden.",
+    "description": "Suria erscheint ausnahmslos als eine blondgelockte, blauäugige Schönheit. Es ist bekannt, dass sie dies manchmal für kurze Zeit bei rauschenden Festen tut, insbesondere bei welchen, die ihr zu Ehren gehalten werden. Gerüchten zufolge soll sie bereits bei mehreren Gelegenheiten einen der Tänzer oder Musikanten, an dem sie Gefallen gefunden hat, auf eine ganz spezielle Art und Weise belohnt haben. Dagegen ist sie bei Schlachten und ähnlich lebensbedrohlichen Situationen äußerst selten anzutreffen. \r\nEs ist eine gebräuchliche Redenwendung, zu sagen, Surias Geist sei in eine Person gefahren, wenn diese vollkommen verliebt ist. In Liebesdingen soll sie bereits einigen unglücklich Verliebten, die zu ihr beteten und ihr Blumen, Juwelen und Düfte geopfert haben, geholfen haben. Doch ist sie in ihren Taten ebenso wechselhaft und launisch, wie bei ihren Liebespartnern.",
+    "goals": "Indem Suria die schönen Künste und besonders die Musik und den Tanz fördert, versucht sie das Verlangen nach Schönheit und Erotik in allen intelligenten Wesen zu wecken und aufrecht zu erhalten.",
+    "allies_and_enemies": "Suria gehört dem Pantheon der Stählernen Königreiche an und ist mit allen zugehörigen Göttern verbündet. Mit allen männlichen Göttern und Wesen versteht sich Suria, sofern sie nicht gerade massiv ihrem Pantheon oder Anhängern schaden, auffallend gut, und auch die sterblichen Frauen, die sich nach Schönheit sehnen, ihrer Göttlichkeit jedoch nicht das Wasser reichen können, hat sie in ihr Herz geschlossen. Liondrielle, die Göttin der Anmut, die von der elfischen Rasse verehrt wird, hat jedoch Surias Eifersucht und damit ihren Hass geweckt. Suria weiß um Liondrielles Schönheit, die der ihren gleicht und duldet in dieser Sache keine Konkurrentin neben sich. Doch da weder sie selbst noch Liondrielle das Schlachtfeld und den Kampf lieben, und Liondrielle ausschließlich von Elfen verehrt wird, widmet Suria ihre Zeit lieber angenehmeren Dingen und wartet auf eine Chance, um die Rivalin mit den Waffen einer Frau zu bekämpfen.",
+    "worshippers": "Tänzerinnen, Konkubinen, Vertreter der schönen Künste, aber auch alle Menschen, Könige ebenso wie Bauern, die sich in dem süßen Stadium der Verliebtheit befinden, beten zu Suria. Sie wird besonders in den Stählernen Königreichen verehrt.",
+    "doctrines": "Obwohl Menschen beiderlei Geschlechts zur Priesterschaft Surias gehören können, sind es traditionell fast ausschließlich Frauen, die Suria in ihren reichen Tempeln ihren Dienst erweisen. Die Priesterinnen der Suria verehren Schönheit in jeder Form. Aus diesem Grund sind sie bemüht, stets alle Objekte von außergewöhnlicher Schönheit in ihren Tempeln auszustellen. Obwohl die Suriapriesterinnen einen gewissen Ruf hinsichtlich des freizügigen Auslebens ihrer Sexualität und ihrer lockeren Anschauung in Sachen Sittlichkeit besitzen, herrscht innerhalb des Ordens eine strenge Hierarchie, und entgegen allen Gerüchten sind die Suria-Tempel keine Bordelle. Allerdings leben Suria Priesterinnen ihre Gefühle und auch ihre Lust freier aus, als dies die bürgerlichen Moralvorstellungen erlauben würden. In den meisten Ländern, in denen die Göttin verehrt wird, nehmen ihre Priesterinnen daher eine Sonderrolle ein, und ihr Verhalten wird nicht an den Verhaltensnormen gewöhnlicher Frauen gemessen. Obwohl sie ihre Sexualität frei ausleben dürfen, ist es ihnen untersagt zu heiraten, solange sie noch eine aktive Rolle im Tempel Surias spielen. Entscheidet sich eine Frau, eine Ehe einzugehen, behält sie zwar ihre besonderen magischen Fähigkeiten, wenn sie Suria und dem Orden weiterhin treu dient, sie muss jedoch all ihre Habe im Tempel zurücklassen, kann fortan keine höhere Funktion innerhalb des Ordens ausübe und kann den Weg Surias nicht weiter verfolgen, als sie ihn bislang gegangen ist. Das bedeutet, dass sie keine höhere Stufe als Priesterin Surias erlangen kann. \r\nMeist werden die Tempel von den Novizinnen peinlichst sauber gehalten und sind mit ihren geschmackvollen Galerien fast ebenso schön zu betrachten wie die Priesterinnen selbst. Unordentlichkeit, Duelle zwischen Verehrern oder sexuelle Handlungen gegen Bezahlung werden bei keiner Priesterin Surias geduldet. Es wird von jeder einzelnen erwartet, der Göttin zu dienen, indem sie ihren Körper pflegt und sich bemüht, das Verlangen nach Schönheit in allen zu erwecken, die sie betrachten. Außerdem muss jede Priesterin zu Beginn ihrer Ausbildung mindestens eine Kunst wählen, mit der sie versucht der Schönheit Gestalt zu verleihen. Nicht wenige von ihnen wählen hierbei die Wiederherstellung geschundener Körper, und viele Kranke und Verletzte kommen mit Kostbarkeiten von weit her, um in einem Tempel der Suria die Heilung von Körper und Geist zu finden.",
+    "granted_abilities": "Auf jeder Stufe erhalten Priesterinnen der Suria einen kumulativen Bonus von +1 auf alle Fertigkeitsproben, wenn es darum geht, Angehörige des anderen Geschlechts zu sexuellen Handlungen verführen. Außerdem erhalten sie durch die Gnade ihrer Göttin, die auch ihre sterblichen Priesterinnen mit einem Hauch ihrer Schönheit segnet, auf der 5. und der 10. Stufe jeweils eine zusätzliche Stufe des Vorzugs „Aussehen“. Hierdurch kann das Aussehen auch ins Übernatürliche gesteigert werden.",
+    "g_ability": "Priesterinnen der Suria erhalten pro Stufe einen kumulativen Bonus von +1 auf Proben zum Verführen des anderen Geschlechts zu sexuellen Handlungen. Auf der 5. und 10. Stufe erhalten sie zudem je eine Stufe des Vorzugs „Aussehen“, wodurch dieser auch übernatürliche Werte erreichen kann.",
+    "symbol_image": "divine_entities/Suria_symbol.png",
+    "god_image": "divine_entities/Suria_GpEixQc.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 20,
+  "fields": {
+    "name": "Tolak",
+    "slug": "tolak",
+    "card_name": "Tolak, Herr über die endlose Steppe",
+    "entity_type": 1,
+    "pantheon": null,
+    "school": 56,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Göttlicher Wind, Schwarzer Reiter, Herr über die endlose Steppe\r\n\r\nSeine Domäne ist: Kampf, Reiter, Pferde, Geschwindigkeit, Zorn, Mut, Kraft und Nomaden.",
+    "vow": "Ich gelobe nach Stärke, Mut und Aufrichtigkeit zu streben und für die Freiheit des orkischen Volkes, ohne zu zögern, mit meinem Leben einzustehen. Die Treue eines Freundes oder Reittiers, werde ich stets mit Treue entlohnen. Niemals will ich sesshaft werden, sondern stets mit dem Wind ziehen.",
+    "fluff": "Reite dem Horizont entgegen, auch wenn du weißt, dass du ihn niemals erreichen wirst. Nicht das Ziel macht einen Krieger groß, sondern der Mut, ihm dennoch zu folgen.",
+    "description": "Bei seinen Erscheinungen ist Tolak ein gigantischer Ork mit feurigen Augen und angespitzten Zähnen, der auf einem mächtigen Streitross reitet. Das Streitross ist ein schwarzer Hengst mit dem Namen Kornu Dorga, was in der Sprache der Orks Schwarzer Donner bedeutet. Seine Augen glühen rot, und seine Hufe sind hart wie Stahl und scharf wie Schwerter. Tolak erscheint ausschließlich bei großen Schlachten oder epischen Kämpfen. Seine bevorzugten Waffen sind die Lanze, die Axt und der Morgenstern. Es gibt unter den Orks die Legende, dass einem Reiter, der bei einem Kampf sein Pferd verliert und der trotzdem furchtlos in die Schlacht zieht, ein Ross zuläuft, das sich nach dem Aufsitzen in einen Nachtmahr mit Augen aus Feuer verwandelt.",
+    "goals": "Tolaks Ziel ist die Schaffung möglichst vieler Legenden und berühmter Helden innerhalb der orkischen Gesellschaft, sowie die Aufrechterhaltung der nomadischen Lebensart und der Ideale seines Steppenkultes.",
+    "allies_and_enemies": "Kornu Dorga, sein getreuer Gefährte, ist der engste Vertraute von Tolak. Es bleibt bisher ein ungelöstes Rätsel, ob sich der Geist Tolaks auch in dem schwarzen Hengst manifestiert, ob er Tolaks Avatar, ein Krafttier oder eine eigenständige Gottheit ist. Abgesehen von Kornu Dorga besitzt Tolak keine engen Verbündeten und er scheint auch kein Interesse daran zu haben, Götter anderer Rassen für sich einzunehmen. Grundsätzlich sind die Feinde der Orks auch die seinen. Allerdings geschieht es im Falle zweier sich bekriegender Orkstämme häufig, dass der Gott von beiden Seiten gleichermaßen angerufen wird. In solchen Fällen steht Tolak stets auf der Seite des Siegers, der sich in der Schlacht als der Stärkere bewiesen hat. Tolak ist kein gnädiger Gott und achtet bei Sterblichen ebenso wie bei göttlichen Wesen nichts als Stärke, Mut und Aufrichtigkeit.",
+    "worshippers": "Tolak ist der oberste Gott der Orks. Neben diesem Status verkörpert er mehr noch den Lebensstil und das Ideal vieler Angehöriger dieses Volkes. Auch Kornu Dorga, der schwarze Hengst, wird von den Orks der Steppe, die ein enges Band mit ihren Pferden verknüpft, fast wie eine eigenständige Gottheit verehrt.",
+    "doctrines": "Nur Orks können Priester des Tolak werden. Von diesen wird erwartet, dass sie ein Leben nach den orkischen Idealen führen: Ein Leben voller Risiken und Gefahren, aber auch voller Feste und Sinnesfreuden, bereit, jeden Tag im Kampf für die Freiheit und die orkische Rasse zu sterben. Unabhängig von Tempeln oder heiligen Stätten ziehen die meisten Tolakpriester mit ihren Stämmen über die Steppen und unterstützen die Krieger bei ihren Kämpfen. Sie sind die religiösen Führer ihrer Stämme und gemeinsam mit den Schamanen meist die Berater der Häuptlinge. Durch ihr großes reiterisches Können und die Nähe zu Tolak stehen sie bei den meisten Orks in hohem Ansehen. Tolakpriester stehen eisern zu einem einmal gegebenen Wort, da sie sonst leicht bei den anderen Orks an Ansehen verlieren würden. Die Queste, die jeder von ihnen zu seiner Initiierung erfüllen muss, wird von den älteren Priestern stets so gewählt, dass sie leicht den Tod mit sich bringen kann.",
+    "granted_abilities": "Priester des Tolak erhalten auf jeder Stufe einen Bonus von +1 auf die Fertigkeit Reiten. Hierdurch können auch Fertigkeitswerte über 10 zustande kommen. Außerdem können Tolak Priester einmal im Monat zusätzlich versuchen, ein ihr Reittier betreffendes Wunder von Kornu Dorga zu erbitten.",
+    "g_ability": "Priester des Tolak erhalten auf jeder Stufe einen Bonus von +1 auf die Fertigkeit Reiten. Hierdurch können auch Fertigkeitswerte über 10 zustande kommen. Außerdem können Tolak Priester einmal im Monat zusätzlich versuchen, ein ihr Reittier betreffendes Wunder von Kornu Dorga zu erbitten.",
+    "symbol_image": "divine_entities/Tolak_symbol.png",
+    "god_image": "divine_entities/Tolak.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 52,
+  "fields": {
+    "name": "Ursprung",
+    "slug": "ursprung",
+    "card_name": "",
+    "entity_type": 3,
+    "pantheon": null,
+    "school": null,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "",
+    "vow": "",
+    "fluff": "Hier ist Platz für ein kurzes Zitat. Falls ein Urheber bekannt ist, kann dieser unter dem Zitat mit „---“ angegeben werden. Falls kein Zitat verwendet werden soll, kann das Feld einfach leer bleiben.\r\n---\r\nJulez, Bewahrer des Kodex",
+    "description": "",
+    "goals": "",
+    "allies_and_enemies": "",
+    "worshippers": "",
+    "doctrines": "",
+    "granted_abilities": "",
+    "g_ability": "Beschreibe hier die spirituelle Herkunft deines Charakters. Der Ursprung kann die Gestalt eines Ahnengeistes, Totems, Krafttiers, Schutzgeistes oder einer anderen spirituellen Tradition annehmen und prägt die Verbindung des Charakters zur geistigen Welt. Wird keine Beschreibung gewünscht, kann das Feld einfach leer bleiben.",
+    "symbol_image": "",
+    "god_image": "",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 22,
+  "fields": {
+    "name": "Vanar",
+    "slug": "vanar",
+    "card_name": "Vanar, Herr der Stürme und des Donners",
+    "entity_type": 1,
+    "pantheon": null,
+    "school": 58,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Herr der Stürme und des Donners, Ehrenvoller Wächter der Ahnenhalle\r\n\r\nSeine Domäne ist Ehre, Stärke, Mut, Stolz, Kampf, Treue, Vernunft, Kraft, Willensstärke, Wetter, Donner, Blitz und Gewitter",
+    "vow": "Ich schwöre meine Stärke und meinen Mut im Kampf zu beweisen, mich meinem Gegner gegenüber stets ehrenvoll zu benehmen, und mein einmal gegebenes Wort um jeden Preis zu halten.",
+    "fluff": "Wenn der Sturm kommt, suche keinen Schutz. Richte dich auf, blicke ihm entgegen und erinnere ihn daran, dass auch du ein Sohn des Donners bist.",
+    "description": "Vanar erscheint als ein kräftiger, bärtiger Troll oder Mensch in den mittleren Jahren, eine mächtige Gestalt, die riesenhaft über allem anderen aufragt und einen mit Runen bedeckten Hammer schwingt. Seine Autorität wird durch seine sagenumwobene, tiefe und donnernde Stimme unterstrichen, die wie ein Sturm tobt, wenn er wütend ist. Den Legenden zufolge, die sich um ihn ranken, kann Vanar mit einem einzigen Schrei die Erde erbeben lassen und Berge zum Einsturz bringen.",
+    "goals": "Vanars Ziel ist es, die Trolle Vanarheims und Menschen Rhunirs in großen Schlachten zum Sieg zu führen und ihnen dabei zu helfen, sich den Platz in der Welt zu erkämpfen, der ihnen aufgrund ihrer Kraft und Ehre gebührt.",
+    "allies_and_enemies": "Vanars Verbündete und Feinde wechseln mit den Kriegen der Trolle des Nordens. Niemals jedoch verbündet er sich mit offensichtlich unehrenhaften Göttern oder Wesenheiten, und stets verfolgt sein Hass diejenigen, die mittels Tricks und Betrügereien versuchen, sein auserwähltes Volk zu übervorteilen. Bei Sterblichen ebenso wie bei Göttern respektiert er Stärke, Ehre und Entschlossenheit.",
+    "worshippers": "Vor allem Trolle aus Vanarheim und die Menschen aus Rhunir beten Vanar an. Im hohen Norden gilt er als Herr aller Götter und wird von allen inbrünstig verehrt. Die meisten Trolle und Nordmänner schwören bei Vanar und den Taten ihrer Vorfahren, wenn sie einen Eid ablegen.",
+    "doctrines": "Nur Trolle oder Menschen beiderlei Geschlechts, die ihre Stärke bereits im Kampf bewiesen haben, können Priester von Vanar werden. Es wird von ihnen erwartet, dass sie Vanars Kodex befolgen, ehrenvoll zu leben, offen zu sprechen und ein einmal gegebenes Wort um jeden Preis zu halten. Auserwählte Vanars gehören meist zu den größten und stärksten Exemplaren ihrer Rasse, dem Himmel und den Gewittern am nächsten. Es wird von ihnen erwartet, dass sie ihren Artgenossen ein gutes Beispiel geben.",
+    "granted_abilities": "Erreicht ein Priester des Vanar die dritte Stufe, so kann er den Zauber „Stimme des Donners“ wirken, ohne dafür KP ausgeben zu müssen.",
+    "g_ability": "Erreicht ein Priester des Vanar die dritte Stufe, so kann er den Zauber „Stimme des Donners“ wirken, ohne dafür KP ausgeben zu müssen.",
+    "symbol_image": "divine_entities/Vanar_symbol.png",
+    "god_image": "divine_entities/Vanar.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 21,
+  "fields": {
+    "name": "Yaal",
+    "slug": "yaal",
+    "card_name": "Yaal, Herr der Wälder",
+    "entity_type": 1,
+    "pantheon": null,
+    "school": 57,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2,
+    "is_customizable": false,
+    "divine_function": "Herr der Wälder, Der Geheimnisvolle, Weißer Hirsch\r\n\r\nSeine Domäne ist Wald, Natur, Reinheit, Leben, Wachstum und Kreislauf des Lebens",
+    "vow": "Ich schwöre die Wälder und die Natur zu schützen, die Schonzeiten zu achten, seltene Arten vor der Ausrottung zu bewahren, niemals ein Lebewesen zu töten, außer als Nahrung oder zum Schutze eines anderen, und stets die Wahrheit zu sprechen.",
+    "fluff": "Tief unter den Wurzeln schlafen Erinnerungen, älter als Könige, älter als Götterkriege, älter als die ersten Worte der Sterblichen.",
+    "description": "Yaal wurde bislang ausschließlich innerhalb von Wäldern oder in den umliegenden Auenlandschaften gesehen. Einmal im Jahr manifestiert er sich im Dornenwald. Seine Erscheinungsform ist immer die eines riesigen, weißen Hirsches.",
+    "goals": "Yaals Schutz gilt allen Lebewesen, aber vorrangig denen, die im Einklang mit der Natur leben. Er verabscheut Jäger, die mehr jagen, als sie für sich und die Ihrigen zum Leben benötigen, und die Rodung der Wälder für die Landwirtschaft ist ihm besonders verhasst. Mit einem geradezu fanatischen Zorn verfolgt er, meist durch seine Priester, Untote, Dämonen und andere unnatürliche Geschöpfe, die sich in seinen Wäldern bewegen. Mit Schonzeiten, in denen bestimmte selten gewordene Tierarten in manchen Gebieten nicht gejagt werden dürfen, dem Setzen von Baumschösslingen und dem entschiedenen Vorgehen gegen Brände, Wilderer und Rodungen, versuchen die Priester Yaals die Wünsche ihres Gottes in die Tat umzusetzen. Ein langfristiges Ziel von Yaal ist die Rückkehr aller intelligenten Lebewesen zu einem primitiveren, naturverbundenen Leben, ohne jegliche Agrarkultur.",
+    "allies_and_enemies": "Yaal verbündet sich manchmal mit Nialla, seltener mit anderen Göttern des Lichts oder anderen Naturentitäten. Dies geschieht jedoch ausschließlich in Notsituationen. Von anderen Gottheiten hält er sich fern, obwohl es heißt, dass er vor der Trennung der Waldelfen von den Sidhe engen Kontakt mit Auris pflegte. Zwischen Yaal und Coliante kommt es wegen Bauern, die Brandrodung betreiben oder die in unbewohnte Gebiete vordringen, häufig zum Konflikt. Aus demselben Grund kommt es von Zeit zu Zeit auch zu Auseinandersetzungen zwischen ihm und anderen Gottheiten. Meist trägt Yaal derartige Streitigkeiten aber nicht direkt aus, sondern bemüht sich, mit seinen Priestern und Anhängern das betreffende Land von allen Versuchen, es urbar zu machen, zu heilen. Es gibt zahlreiche Geschichten über Waldstücke, in denen Bäume nach der Rodung jede Nacht nachgewachsen sind, die auf Yaals Einfluss zurückgeführt werden. Eine Hilfe sind ihm dabei die Krafttiere und ihre Druiden, mit denen er engen Kontakt pflegt. Auch die Ahnengeister der Schamanen werden von ihm weitaus mehr respektiert, als die Götter.",
+    "worshippers": "Der mit Abstand größte Teil von Yaals Anhängern besteht aus Waldelfen, die ihn als ihre wichtigste Gottheit verehren. Einige Feenwesen folgen ebenfalls seinen Grundsätzen. Unter den Angehörigen anderer Rassen besitzt Yaal einige wenige Anhänger, die seiner Lehre folgen und den Einklang mit der Natur suchen.",
+    "doctrines": "Yaal ist offen gegenüber allen intelligenten Kreaturen, die auch das Leben anderer Lebewesen, seien es Tiere, Monster oder Pflanzen, respektieren und nicht grundlos oder aus unredlichen Motiven zerstören. Seine Priester können männlich oder weiblich sein und jeder Rasse angehören. Es ist den Priestern nach einem Gebet an den Geist des Tiers oder der Pflanze, erlaubt zu jagen und Pflanzen zu pflücken, um sich und andere zu ernähren. Jedoch sollte stets nur das genommen werden, was zum Überleben gebraucht wird. Ebenso selbstverständlich müssen sich Priester des Yaal an seine Schonzeiten halten, in denen Tiere ihre Jungen bekommen, und seltene Tierund Pflanzenarten schützen. Es ist ihre Pflicht, dafür Sorge zu tragen, dass auch andere diese Regeln beachten, gleichgültig ob sie an Yaal glauben oder nicht. Der Schutz der Natur und die Vernichtung von Widernatürlichem, wie z.B. Untoten, hat stets oberste Priorität zu sein. Zur Durchsetzung dieser Ziele, zum Schutz des eigenen Lebens oder dem anderer Kreaturen, niemals jedoch zum Spaß oder aus anderen Motiven heraus, darf ein Priester des Yaal auch andere intelligente Lebewesen töten. Um das Licht in ihrer Seele rein zu halten, wird von den Yaalpriestern erwartet, dass sie immer die Wahrheit sprechen und sich selbst und anderen gegenüber aufrichtig sind. Sollte ein Priester des Yaal jedoch gegen diesen Grundsatz verstoßen, um Leben zu schützen, so wird über derartige kleine Fehler meist hinweggesehen.",
+    "granted_abilities": "Priester des Yaal erhalten auf jeder Stufe einen Bonus von +1 auf die Fertigkeit Wissen: Naturkunde, während sie immer tiefer in die Geheimnisse des Lebens vordringen. Auf der dritten Stufe erlangt ein Priester des Yaal zudem die Fähigkeit, sich innerhalb von 1 Aktion ein Hirschgeweih aus dem Kopf wachsen zu lassen, mit welchem er bei einem waffenlosen Angriff 1w10 + Stärkebonus T-Schaden verursachen kann. Das Geweih verschwinden zu lassen dauert ebenfalls 1 Aktion.",
+    "g_ability": "Priester des Yaal erhalten pro Stufe +1 auf Wissen: Naturkunde. Ab der 3. Stufe können sie als Aktion ein Hirschgeweih wachsen oder verschwinden lassen. Ein waffenloser Angriff damit verursacht 1w10 + Stärkebonus T-Schaden.",
+    "symbol_image": "divine_entities/Yaal_symbol.png",
+    "god_image": "divine_entities/Yaal_Hei9IQ1.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.divineentity",
+  "pk": 24,
+  "fields": {
+    "name": "Zaagrasch",
+    "slug": "zaagrasch",
+    "card_name": "Zaagrasch der Seuchenmeister",
+    "entity_type": 6,
+    "pantheon": 3,
+    "school": 61,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 1,
+    "is_customizable": false,
+    "divine_function": "Herr des Verfalls, Vater der Seuchen, Fürst der faulenden Brut, Gebieter der Seuchenpropheten",
+    "vow": "",
+    "fluff": "Alles Fleisch trägt den Verfall bereits in sich. Ich lehre es nur, sich daran zu erinnern.",
+    "description": "Zaagrasch labt sich an körperlichem Verfall, Krankheit und Schmerzen. Wo Baelith den Geist zersetzt, richtet Zaagrasch sein Werk gegen das Fleisch. Für ihn ist jeder lebende Körper lediglich ein vorübergehender Zustand zwischen Geburt und Fäulnis. Krankheit ist in seiner Lehre kein Fehler der Schöpfung, sondern ihre ehrlichste Offenbarung.\r\n\r\nSein Kult gehört zu den am weitesten verbreiteten dämonischen Glaubensgemeinschaften Kreijors. Seine Anhänger werden als Seuchenpropheten bezeichnet. Sie tragen Krankheiten in Städte, vergiften Brunnen, verunreinigen Vorräte und verkünden den körperlichen Verfall als unvermeidliche Wahrheit. Selbst wenn sie keinen großen Ausbruch verursachen können, hinterlassen sie Geschwüre, verdorbenes Vieh, Fehlbildungen und langwierige Leiden.\r\n\r\nZu Zaagraschs Dienern gehören die Seucher. Diese riesigen, schneckenartigen Aasfresser sind von Schleim, offenen Geschwüren und Eiterblasen bedeckt. Ihre Klauen lassen Fleisch verfaulen, und ihre dämonische Macht kann Krankheiten durch Berührung oder Atem übertragen. Heilende Magie ist für sie besonders gefährlich und fügt ihnen ein Mehrfaches ihrer gewöhnlichen Wirkung als Schaden zu.",
+    "goals": "Zaagrasch will die materielle Welt in einen Ort verwandeln, an dem nichts Gesundes Bestand hat. Seine Siege bestehen nicht allein aus Toten. Eine überlebende Stadt, deren Bewohner einander aus Angst vor Ansteckung meiden, deren Felder verdorben und deren Kinder krank geboren werden, gilt seinem Kult als weit wertvolleres Werk.\r\n\r\nSeine Seuchen sollen gesellschaftliche Ordnung zersetzen. Wenn Heiler überfordert, Priester angezweifelt, Kranke verstoßen und Vorräte gegeneinander verteidigt werden, hat die körperliche Verseuchung zugleich den Geist einer Gemeinschaft erreicht.",
+    "allies_and_enemies": "Zaagrasch profitiert von Kriegen, Hungersnöten, Belagerungen und Flüchtlingsströmen. Die Heere Monsugroths bereiten ihm daher einen fruchtbaren Boden. Baeliths Diener nutzen die Verzweiflung der Erkrankten, während Asmodeus’ Kulte in Zeiten des drohenden Todes Ausschweifung und Rücksichtslosigkeit fördern.\r\n\r\nSeine erbittertsten Gegner sind Heiler, Alchemisten, Seuchenkundige und Priester heilender oder schützender Mächte. Auch einfache Brunnenmeister, Kräuterkundige und Totengräber können für seinen Kult gefährlich werden, wenn sie die Ausbreitungswege einer Seuche erkennen.",
+    "worshippers": "Zaagrasch zieht Aussätzige, verbitterte Kranke, Giftmischer, gescheiterte Heiler, Leichenräuber und Menschen an, die sich an einer Gesellschaft rächen wollen, welche sie verstoßen hat. Andere Anhänger suchen Schutz vor Krankheiten und glauben, der Seuchenmeister werde jene verschonen, die ihm neue Opfer bringen.\r\n\r\nDie Seuchenpropheten arbeiten häufig allein oder in kleinen Zellen. Ein einzelner Kultist kann wirkungsvoller sein als ein ganzer Tempel, wenn er Zugang zu einem Brunnen, einem Kornspeicher oder einem Hospital besitzt. Größere Zirkel entstehen meist während Epidemien und zerfallen anschließend wieder, sobald die Überlebenden einander verdächtigen.",
+    "doctrines": "Alles Fleisch verfällt. Wer dies leugnet, verdient eine schmerzhafte Belehrung.\r\nKrankheit ist Zaagraschs Schrift auf dem Körper.\r\nVerschone niemanden aus Mitleid; Mitleid verlängert nur die Lüge der Gesundheit.\r\nVerbirg die Seuche, bis sie nicht mehr aufzuhalten ist.\r\nDer Kranke soll den Gesunden fürchten und der Gesunde den Kranken hassen.\r\nBewahre besonders vollkommene Krankheiten und trage sie weiter.",
+    "granted_abilities": "",
+    "g_ability": "Zaagrasch labt sich an körperlichem Verfall, Krankheit und Schmerzen. Sein Kult ist weit verbreitet und trägt ein Wappen aus stilisierten Tentakeln und krabbenartigen Scheren.",
+    "symbol_image": "divine_entities/zaagrasch_symbol.png",
+    "god_image": "divine_entities/zaagrasch.png",
+    "grants_arcane_spell_choice_per_level": false
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 1,
+  "fields": {
+    "name": "Ard, der Zirkel der Urkraft",
+    "slug": "ard_der_zirkel_der_urkraft",
+    "entity": 27,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 17,
+  "fields": {
+    "name": "Beabhar, der Zirkel der Baumeister",
+    "slug": "beabhar_der_zirkel_der_baumeister",
+    "entity": 28,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 2,
+  "fields": {
+    "name": "Cailleach, der Zirkel  der Weisheit",
+    "slug": "cailleach_der_zirkel_der_weisheit",
+    "entity": 29,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 18,
+  "fields": {
+    "name": "Cat, der Zirkel der Sinnlichkeit",
+    "slug": "cat_der_zirkel_der_sinnlichkeit",
+    "entity": 30,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 19,
+  "fields": {
+    "name": "Cuilceach, der Zirkel  des Widerstands",
+    "slug": "cuilceach_der_zirkel_des_widerstands",
+    "entity": 31,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 3,
+  "fields": {
+    "name": "Damh, der Zirkel  der Reinheit",
+    "slug": "damh_der_zirkel_der_reinheit",
+    "entity": 32,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 4,
+  "fields": {
+    "name": "Each, der Zirkel des Schutzes",
+    "slug": "each_der_zirkel_des_schutzes",
+    "entity": 33,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 5,
+  "fields": {
+    "name": "Eala, der Zirkel der Anmut",
+    "slug": "eala_der_zirkel_der_anmut",
+    "entity": 34,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 14,
+  "fields": {
+    "name": "[Eigener Zirkel erstellen]",
+    "slug": "eigener_zirkel_erstellen",
+    "entity": 35,
+    "school": 59,
+    "is_customizable": true,
+    "aspect_selection_mode": "free",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 6,
+  "fields": {
+    "name": "Gearr, der Zirkel des Gleichgewichts",
+    "slug": "gearr_der_zirkel_des_gleichgewichts",
+    "entity": 36,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 20,
+  "fields": {
+    "name": "Grainneog, der Zirkel der Sammler",
+    "slug": "grainneog_der_zirkel_der_sammler",
+    "entity": 37,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 21,
+  "fields": {
+    "name": "Iora, der Zirkel der Freude",
+    "slug": "iora_der_zirkel_der_freude",
+    "entity": 38,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 7,
+  "fields": {
+    "name": "Madadh Alaidh, der Zirkel des Jägers",
+    "slug": "madadh_alaidh_der_zirkel_des_jagers",
+    "entity": 39,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 22,
+  "fields": {
+    "name": "Madra, der Zirkel der Spiele",
+    "slug": "madra_der_zirkel_der_spiele",
+    "entity": 40,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 16,
+  "fields": {
+    "name": "Mhor, der Zirkel des Überlebens",
+    "slug": "mhor_der_zirkel_des_uberlebens",
+    "entity": 41,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 8,
+  "fields": {
+    "name": "Morwen, der Zirkel des Todes",
+    "slug": "morwen_der_zirkel_des_todes",
+    "entity": 42,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 9,
+  "fields": {
+    "name": "Nathair, der Zirkel der Wiedergeburt",
+    "slug": "nathair_der_zirkel_der_wiedergeburt",
+    "entity": 43,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 10,
+  "fields": {
+    "name": "Ron, der Zirkel der See",
+    "slug": "ron_der_zirkel_der_see",
+    "entity": 44,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 23,
+  "fields": {
+    "name": "Scunc, der Zirkel der Schelme",
+    "slug": "scunc_der_zirkel_der_schelme",
+    "entity": 45,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 11,
+  "fields": {
+    "name": "Seabhac, der Zirkel des Adels",
+    "slug": "seabhac_der_zirkel_des_adels",
+    "entity": 46,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 12,
+  "fields": {
+    "name": "Sionnach, der Zirkel der Wildheit",
+    "slug": "sionnach_der_zirkel_der_wildheit",
+    "entity": 47,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 24,
+  "fields": {
+    "name": "Siorc, der Zirkel des Raubes",
+    "slug": "siorc_der_zirkel_des_raubes",
+    "entity": 48,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 25,
+  "fields": {
+    "name": "Slacan, der Zirkel der Nacht",
+    "slug": "slacan_der_zirkel_der_nacht",
+    "entity": 49,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 13,
+  "fields": {
+    "name": "Torc, der Zirkel des Krieges",
+    "slug": "torc_der_zirkel_des_krieges",
+    "entity": 50,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.druidcult",
+  "pk": 26,
+  "fields": {
+    "name": "Turtar, der Zirkel der Ewigkeit",
+    "slug": "turtar_der_zirkel_der_ewigkeit",
+    "entity": 51,
+    "school": 59,
+    "is_customizable": false,
+    "aspect_selection_mode": "fixed",
+    "starting_aspect_count": 2
+  }
+},
+{
+  "model": "charsheet.shamanpatron",
+  "pk": 1,
+  "fields": {
+    "name": "Ursprung",
+    "slug": "ursprung",
+    "entity": 52,
+    "school": 60,
+    "is_customizable": true,
+    "aspect_selection_mode": "free",
+    "starting_aspect_count": 2,
+    "aspects": []
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 1,
+  "fields": {
+    "entity": 1,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 2,
+  "fields": {
+    "entity": 2,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 3,
+  "fields": {
+    "entity": 2,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 4,
+  "fields": {
+    "entity": 2,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 55,
+  "fields": {
+    "entity": 25,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 5,
+  "fields": {
+    "entity": 3,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 6,
+  "fields": {
+    "entity": 3,
+    "aspect": 5,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 7,
+  "fields": {
+    "entity": 3,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 54,
+  "fields": {
+    "entity": 23,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 8,
+  "fields": {
+    "entity": 4,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 9,
+  "fields": {
+    "entity": 4,
+    "aspect": 11,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 10,
+  "fields": {
+    "entity": 4,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 12,
+  "fields": {
+    "entity": 5,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 11,
+  "fields": {
+    "entity": 5,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 13,
+  "fields": {
+    "entity": 6,
+    "aspect": 5,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 14,
+  "fields": {
+    "entity": 6,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 15,
+  "fields": {
+    "entity": 6,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 16,
+  "fields": {
+    "entity": 7,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 17,
+  "fields": {
+    "entity": 7,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 18,
+  "fields": {
+    "entity": 7,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 19,
+  "fields": {
+    "entity": 8,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 20,
+  "fields": {
+    "entity": 8,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 21,
+  "fields": {
+    "entity": 9,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 22,
+  "fields": {
+    "entity": 9,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 23,
+  "fields": {
+    "entity": 10,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 24,
+  "fields": {
+    "entity": 10,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 25,
+  "fields": {
+    "entity": 11,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 26,
+  "fields": {
+    "entity": 11,
+    "aspect": 9,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 27,
+  "fields": {
+    "entity": 11,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 28,
+  "fields": {
+    "entity": 12,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 29,
+  "fields": {
+    "entity": 12,
+    "aspect": 5,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 30,
+  "fields": {
+    "entity": 13,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 31,
+  "fields": {
+    "entity": 13,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 56,
+  "fields": {
+    "entity": 26,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 32,
+  "fields": {
+    "entity": 14,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 33,
+  "fields": {
+    "entity": 14,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 51,
+  "fields": {
+    "entity": 15,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 52,
+  "fields": {
+    "entity": 15,
+    "aspect": 9,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 34,
+  "fields": {
+    "entity": 16,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 35,
+  "fields": {
+    "entity": 16,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 36,
+  "fields": {
+    "entity": 16,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 37,
+  "fields": {
+    "entity": 17,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 38,
+  "fields": {
+    "entity": 17,
+    "aspect": 5,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 39,
+  "fields": {
+    "entity": 17,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 40,
+  "fields": {
+    "entity": 18,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 41,
+  "fields": {
+    "entity": 18,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 42,
+  "fields": {
+    "entity": 18,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 43,
+  "fields": {
+    "entity": 19,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 44,
+  "fields": {
+    "entity": 19,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 45,
+  "fields": {
+    "entity": 20,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 46,
+  "fields": {
+    "entity": 20,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 49,
+  "fields": {
+    "entity": 22,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 50,
+  "fields": {
+    "entity": 22,
+    "aspect": 11,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 47,
+  "fields": {
+    "entity": 21,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 48,
+  "fields": {
+    "entity": 21,
+    "aspect": 5,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.divineentityaspect",
+  "pk": 53,
+  "fields": {
+    "entity": 24,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 1,
+  "fields": {
+    "cult": 1,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 2,
+  "fields": {
+    "cult": 1,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 30,
+  "fields": {
+    "cult": 17,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 29,
+  "fields": {
+    "cult": 17,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 3,
+  "fields": {
+    "cult": 2,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 4,
+  "fields": {
+    "cult": 2,
+    "aspect": 1,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 32,
+  "fields": {
+    "cult": 18,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 31,
+  "fields": {
+    "cult": 18,
+    "aspect": 9,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 33,
+  "fields": {
+    "cult": 19,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 34,
+  "fields": {
+    "cult": 19,
+    "aspect": 9,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 5,
+  "fields": {
+    "cult": 3,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 6,
+  "fields": {
+    "cult": 3,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 7,
+  "fields": {
+    "cult": 4,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 8,
+  "fields": {
+    "cult": 4,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 9,
+  "fields": {
+    "cult": 5,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 10,
+  "fields": {
+    "cult": 5,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 11,
+  "fields": {
+    "cult": 6,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 12,
+  "fields": {
+    "cult": 6,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 35,
+  "fields": {
+    "cult": 20,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 36,
+  "fields": {
+    "cult": 20,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 39,
+  "fields": {
+    "cult": 21,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 40,
+  "fields": {
+    "cult": 21,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 17,
+  "fields": {
+    "cult": 7,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 18,
+  "fields": {
+    "cult": 7,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 38,
+  "fields": {
+    "cult": 22,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 37,
+  "fields": {
+    "cult": 22,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 28,
+  "fields": {
+    "cult": 16,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 27,
+  "fields": {
+    "cult": 16,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 15,
+  "fields": {
+    "cult": 8,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 16,
+  "fields": {
+    "cult": 8,
+    "aspect": 9,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 13,
+  "fields": {
+    "cult": 9,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 14,
+  "fields": {
+    "cult": 9,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 20,
+  "fields": {
+    "cult": 10,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 19,
+  "fields": {
+    "cult": 10,
+    "aspect": 11,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 42,
+  "fields": {
+    "cult": 23,
+    "aspect": 2,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 41,
+  "fields": {
+    "cult": 23,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 21,
+  "fields": {
+    "cult": 11,
+    "aspect": 5,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 22,
+  "fields": {
+    "cult": 11,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 24,
+  "fields": {
+    "cult": 12,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 23,
+  "fields": {
+    "cult": 12,
+    "aspect": 10,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 43,
+  "fields": {
+    "cult": 24,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 44,
+  "fields": {
+    "cult": 24,
+    "aspect": 11,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 45,
+  "fields": {
+    "cult": 25,
+    "aspect": 3,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 46,
+  "fields": {
+    "cult": 25,
+    "aspect": 7,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 25,
+  "fields": {
+    "cult": 13,
+    "aspect": 4,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 26,
+  "fields": {
+    "cult": 13,
+    "aspect": 6,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 48,
+  "fields": {
+    "cult": 26,
+    "aspect": 13,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.druidcultaspect",
+  "pk": 47,
+  "fields": {
+    "cult": 26,
+    "aspect": 8,
+    "is_starting_aspect": true
+  }
+},
+{
+  "model": "charsheet.characterdivineentity",
+  "pk": 25,
+  "fields": {
+    "character": 85,
+    "entity": 10,
+    "custom_name": "",
+    "custom_description": "",
+    "custom_g_ability": "",
+    "custom_fluff": "",
+    "custom_god_image": "",
+    "tradition_name": "",
+    "core_aspects": []
+  }
+},
+{
+  "model": "charsheet.characterdivineentity",
+  "pk": 20,
+  "fields": {
+    "character": 80,
+    "entity": 10,
+    "custom_name": "",
+    "custom_description": "",
+    "custom_g_ability": "",
+    "custom_fluff": "",
+    "custom_god_image": "",
+    "tradition_name": "",
+    "core_aspects": []
+  }
+},
+{
+  "model": "charsheet.characterdivineentity",
+  "pk": 27,
+  "fields": {
+    "character": 86,
+    "entity": 17,
+    "custom_name": "",
+    "custom_description": "",
+    "custom_g_ability": "",
+    "custom_fluff": "",
+    "custom_god_image": "",
+    "tradition_name": "",
+    "core_aspects": []
+  }
+},
+{
+  "model": "charsheet.characterdruidcult",
+  "pk": 12,
+  "fields": {
+    "character": 75,
+    "cult": 16,
+    "custom_name": "",
+    "tradition_name": "",
+    "custom_description": "",
+    "custom_g_ability": "",
+    "custom_fluff": "",
+    "custom_god_image": "",
+    "core_aspects": []
+  }
+}
+]

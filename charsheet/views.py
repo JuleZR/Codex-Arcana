@@ -2092,7 +2092,7 @@ def _render_shaman_card(request, character: Character) -> str:
         "charsheet/partials/_god_card.html",
         {
             **context,
-            "divine_entity": context["selected_shaman_patron"],
+            "divine_entity": context["selected_shaman_patron"].entity,
             "card_aspects": context["selected_shaman_card_aspects"],
             "selected_divine_card_aspects": context["selected_shaman_card_aspects"],
             "selected_divine_card_image_url": context["selected_shaman_card_image_url"],
@@ -2266,7 +2266,7 @@ def update_druid_card(request, character_id: int):
         "charsheet/partials/_god_card.html",
         {
             **context,
-            "divine_entity": context["selected_druid_cult"],
+            "divine_entity": context["selected_druid_cult"].entity,
             "card_aspects": context["selected_druid_card_aspects"],
             "selected_divine_card_aspects": context["selected_druid_card_aspects"],
             "selected_divine_card_image_url": context["selected_druid_card_image_url"],
@@ -2705,7 +2705,9 @@ def _render_religion_card_payload(request, character: Character) -> dict[str, ob
         "selected_divine_card_image_url": image_url,
         "selected_divine_card_title": title,
         "selected_divine_card_kind_label": _divine_entity_card_kind_label(entity),
-        "selected_divine_card_typebar": binding.tradition_name or entity.pantheon,
+        "selected_divine_card_typebar": binding.tradition_name or (
+            entity.pantheon.name if entity.pantheon_id else ""
+        ),
         "selected_divine_card_ability": binding.custom_g_ability or entity.g_ability,
         "selected_divine_card_fluff": binding.custom_fluff or entity.fluff,
         "selected_divine_card_editable": card_editable,
@@ -2976,7 +2978,7 @@ def _render_druid_cult_card_payload(request, character: Character) -> dict[str, 
     """Render only the druid card needed after an asynchronous circle change."""
     binding = (
         CharacterDruidCult.objects.filter(character=character)
-        .select_related("cult", "cult__school")
+        .select_related("cult", "cult__school", "cult__entity")
         .prefetch_related("cult__aspects__aspect", "core_aspects")
         .first()
     )
@@ -3012,20 +3014,25 @@ def _render_druid_cult_card_payload(request, character: Character) -> dict[str, 
     image_url = ""
     if binding.custom_god_image:
         image_url = binding.custom_god_image.url
-    elif cult.god_image:
-        image_url = cult.god_image.url
-    title = binding.custom_name or cult.card_name or cult.name
+    elif cult.entity.god_image:
+        image_url = cult.entity.god_image.url
+    title = binding.custom_name or cult.entity.card_name or cult.entity.name
     display_name = binding.tradition_name or cult.name
     context = {
-        "divine_entity": cult,
+        "divine_entity": cult.entity,
         "card_aspects": card_aspects,
         "selected_divine_card_aspects": card_aspects,
         "selected_divine_card_image_url": image_url,
         "selected_divine_card_title": title,
         "selected_divine_card_kind_label": "Krafttier",
         "selected_divine_card_typebar": display_name,
-        "selected_divine_card_ability": binding.custom_g_ability or cult.g_ability or cult.description,
-        "selected_divine_card_fluff": binding.custom_fluff or cult.fluff,
+        "selected_divine_card_ability": (
+            binding.custom_g_ability
+            or cult.entity.g_ability or cult.entity.description
+        ),
+        "selected_divine_card_fluff": (
+            binding.custom_fluff or cult.entity.fluff
+        ),
         "selected_divine_card_editable": card_editable,
         "selected_divine_card_update_url": reverse("update_druid_card", args=[character.pk]),
         "selected_divine_card_show_aspect_placeholder": bool(aspect_placeholders),
@@ -8288,13 +8295,18 @@ DEBUG_CARD_TYPES = {
 
 
 def _debug_card_label(source, card_type: str) -> str:
-    if card_type == "shaman":
-        return f"{source.get_patron_kind_display()}: {source.card_name or source.name}"
+    if card_type in {"druid", "shaman"}:
+        entity = source.entity
+        label = entity.card_name or entity.name
+        return f"{entity.entity_type}: {label}" if card_type == "shaman" else label
     return getattr(source, "card_name", "") or source.name
 
 
 def _debug_card_option(source, card_type: str) -> dict[str, str]:
     label = _debug_card_label(source, card_type)
+    metadata = (
+        source.entity if card_type in {"druid", "shaman"} else source
+    )
     creature_type = getattr(source, "creature_type", None) if card_type == "creature" else None
     return {
         "id": str(source.pk),
@@ -8308,10 +8320,10 @@ def _debug_card_option(source, card_type: str) -> dict[str, str]:
                 label,
                 getattr(source, "name", ""),
                 getattr(source, "slug", ""),
-                getattr(source, "pantheon", ""),
+                getattr(metadata, "pantheon", ""),
                 getattr(getattr(source, "school", None), "name", ""),
                 getattr(getattr(source, "creature_type", None), "name", ""),
-                getattr(source, "description", ""),
+                getattr(metadata, "description", ""),
             )
         ).lower(),
     }
@@ -8319,20 +8331,24 @@ def _debug_card_option(source, card_type: str) -> dict[str, str]:
 
 def _debug_card_sources(card_type: str, *, for_render: bool = False):
     if card_type == "divine":
-        sources = DivineEntity.objects.select_related("school")
+        sources = DivineEntity.objects.select_related(
+            "school", "pantheon", "entity_type",
+        )
         if for_render:
             sources = sources.prefetch_related("aspects__aspect")
-        return sources.order_by("pantheon", "name", "id")
+        return sources.order_by("pantheon__name", "name", "id")
     if card_type == "druid":
-        sources = DruidCult.objects.select_related("school")
+        sources = DruidCult.objects.select_related("school", "entity")
         if for_render:
             sources = sources.prefetch_related("aspects__aspect")
         return sources.order_by("name", "id")
     if card_type == "shaman":
-        sources = ShamanPatron.objects.select_related("school")
+        sources = ShamanPatron.objects.select_related(
+            "school", "entity", "entity__entity_type",
+        )
         if for_render:
             sources = sources.prefetch_related("aspects")
-        return sources.order_by("patron_kind", "name", "id")
+        return sources.order_by("entity__entity_type__name", "name", "id")
     return Creature.objects.select_related("quality", "creature_type").order_by(
         F("creature_type__sort_order").asc(nulls_last=True),
         F("creature_type__name").asc(nulls_last=True),
@@ -8359,37 +8375,46 @@ def _debug_get_card_source(card_type: str, requested_ref: str):
 
 
 def _debug_god_card_context(source, card_type: str) -> dict[str, object]:
+    entity = source if card_type == "divine" else source.entity
     if card_type == "divine":
         kind_label = _divine_entity_card_kind_label(source)
-        typebar = source.pantheon
-        ability = source.g_ability
+        typebar = entity.pantheon.name if entity.pantheon_id else ""
+        ability = entity.g_ability
         aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]
         holo_kind = "god"
     elif card_type == "druid":
         kind_label = "Krafttier"
         typebar = source.name
-        ability = source.g_ability or source.description
+        ability = entity.g_ability or entity.description
         aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]
         holo_kind = "power-animal"
     else:
-        kind_label = "Ahnengeist" if source.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT else "Totem"
-        typebar = source.school.name if source.school_id else source.get_patron_kind_display()
-        ability = source.g_ability or source.description
+        kind_label = (
+            "Totem" if entity.entity_type.slug == "power-animal"
+            else entity.entity_type.name
+        )
+        typebar = (
+            source.school.name if source.school_id else entity.entity_type.name
+        )
+        ability = entity.g_ability or entity.description
         aspects = list(source.aspects.all().order_by("name", "id"))
-        holo_kind = "ancestor-spirit" if source.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT else "power-animal"
+        holo_kind = (
+            "ancestor-spirit"
+            if entity.entity_type.slug == "ancestor-spirit" else "power-animal"
+        )
 
-    image_url = source.god_image.url if source.god_image else ""
+    image_url = entity.god_image.url if entity.god_image else ""
     return {
-        "divine_entity": source,
+        "divine_entity": entity,
         "card_aspects": aspects,
         "selected_divine_card_image_url": image_url,
-        "selected_divine_card_title": source.card_name or source.name,
+        "selected_divine_card_title": entity.card_name or entity.name,
         "selected_divine_card_kind_label": kind_label,
-        "selected_divine_card_kind_value": getattr(source, "patron_kind", ""),
+        "selected_divine_card_kind_value": "",
         "selected_divine_card_kind_options": [],
         "selected_divine_card_typebar": typebar,
         "selected_divine_card_ability": ability,
-        "selected_divine_card_fluff": source.fluff,
+        "selected_divine_card_fluff": entity.fluff,
         "selected_divine_card_aspects": aspects,
         "selected_divine_card_show_aspect_placeholder": False,
         "selected_divine_card_aspect_placeholders": [],
@@ -8496,7 +8521,9 @@ def debug_creature_card(request):
 
 def encyclopedia(request):
     divine_entities = list(
-        DivineEntity.objects.select_related("school")
+        DivineEntity.objects.select_related(
+            "school", "pantheon", "entity_type",
+        )
         .prefetch_related("aspects__aspect")
         .order_by("name")
     )

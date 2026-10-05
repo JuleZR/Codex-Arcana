@@ -141,13 +141,16 @@ def locked_religion_entity(character, *, repair: bool = False):
 
     active_school_ids = {int(entry.school_id) for entry in entries}
     entity = selected_divine_entity(character)
-    if entity is not None and int(entity.school_id) in active_school_ids:
+    if entity is not None and entity.school_id in active_school_ids:
         locked_entity = entity
     elif len(entries) == 1:
         locked_entity = unique_divine_entity_for_school(int(entries[0].school_id))
     else:
         locked_entity = None
-    if locked_entity is None or int(locked_entity.school_id) not in active_school_ids:
+    if (
+        locked_entity is None
+        or locked_entity.school_id not in active_school_ids
+    ):
         return None
 
     if repair:

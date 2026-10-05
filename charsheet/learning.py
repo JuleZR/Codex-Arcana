@@ -1267,7 +1267,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
     for school_id in positive_clerical_school_ids:
         school = school_defs[str(school_id)]
         if selected_religion_entity is not None:
-            if int(selected_religion_entity.school_id) != school_id:
+            if selected_religion_entity.school_id != school_id:
                 return "error", (
                     f"{school.name}: Diese klerikale Schule passt nicht zur gewaehlten Religion "
                     f"{selected_religion_entity.name}."
@@ -1290,7 +1290,10 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                     )
                 return "error", f"{school.name}: Kein goettliches Wesen fuer diese klerikale Schule gefunden."
 
-    if selected_religion_entity is not None and int(selected_religion_entity.school_id) in active_divine_school_ids:
+    if (
+        selected_religion_entity is not None
+        and selected_religion_entity.school_id in active_divine_school_ids
+    ):
         religion_entity_to_bind = selected_religion_entity
     elif len(active_divine_school_ids) == 1:
         religion_entity_to_bind = unique_divine_entity_for_school(next(iter(active_divine_school_ids)))

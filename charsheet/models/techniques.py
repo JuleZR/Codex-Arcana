@@ -1632,6 +1632,30 @@ class Aspect(models.Model):
         return self.name
 
 
+class DivineEntityType(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Pantheon(models.Model):
+    name = models.CharField(max_length=160, unique=True)
+    slug = models.SlugField(max_length=160, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class DivineEntity(models.Model):
     class AspectSelectionMode(models.TextChoices):
         FIXED = "fixed", "Fixed aspects"
@@ -1641,13 +1665,29 @@ class DivineEntity(models.Model):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
     card_name = models.CharField(max_length=160, blank=True, default="")
-    pantheon = models.CharField(max_length=160, blank=True, default="")
+    entity_type = models.ForeignKey(
+        DivineEntityType,
+        on_delete=models.PROTECT,
+        related_name="entities",
+    )
+    pantheon = models.ForeignKey(
+        Pantheon,
+        on_delete=models.PROTECT,
+        related_name="entities",
+        blank=True,
+        null=True,
+    )
 
     school = models.ForeignKey(
         School,
         on_delete=models.CASCADE,
         related_name="divine_entities",
-        help_text="The divine school through which this entity is worshipped.",
+        blank=True,
+        null=True,
+        help_text=(
+            "Optional divine school; spiritual progression "
+            "is configured separately."
+        ),
     )
 
     aspect_selection_mode = models.CharField(
@@ -1711,7 +1751,12 @@ class DruidCult(models.Model):
 
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
-    card_name = models.CharField(max_length=160, blank=True, default="")
+    entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.PROTECT,
+        related_name="druid_cults",
+        limit_choices_to={"entity_type__slug": "power-animal"},
+    )
     school = models.ForeignKey(
         School,
         on_delete=models.PROTECT,
@@ -1737,24 +1782,16 @@ class DruidCult(models.Model):
         default=2,
         help_text="How many core aspects this circle grants or lets the character choose.",
     )
-    description = models.TextField(blank=True, default="")
-    g_ability = models.TextField(blank=True, default="")
-    fluff = models.TextField(blank=True, default="")
-    symbol_image = models.ImageField(
-        upload_to="druid_cults/",
-        blank=True,
-        null=True,
-        help_text="Optionales Symbolbild fuer diesen Druidenzirkel.",
-    )
-    god_image = models.ImageField(
-        upload_to="druid_cults/",
-        blank=True,
-        null=True,
-        help_text="Optionales Kartenbild fuer diesen Druidenzirkel.",
-    )
 
     class Meta:
         ordering = ["name"]
+
+    def clean(self):
+        super().clean()
+        if self.entity_id and self.entity.entity_type.slug != "power-animal":
+            raise ValidationError({
+                "entity": "Ein Druidenkult benötigt ein Krafttier.",
+            })
 
     def __str__(self):
         return self.name
@@ -1763,14 +1800,13 @@ class DruidCult(models.Model):
 class ShamanPatron(models.Model):
     """A shamanic totem or ancestor spirit independent from divine worship."""
 
-    class PatronKind(models.TextChoices):
-        TOTEM = "totem", "Totem"
-        ANCESTOR_SPIRIT = "ancestor_spirit", "Ancestor Spirit"
-
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
-    patron_kind = models.CharField(max_length=24, choices=PatronKind.choices)
-    card_name = models.CharField(max_length=160, blank=True, default="")
+    entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.PROTECT,
+        related_name="shaman_patrons",
+    )
     school = models.ForeignKey(
         School,
         on_delete=models.PROTECT,
@@ -1801,27 +1837,12 @@ class ShamanPatron(models.Model):
         blank=True,
         related_name="shaman_patrons",
     )
-    description = models.TextField(blank=True, default="")
-    g_ability = models.TextField(blank=True, default="")
-    fluff = models.TextField(blank=True, default="")
-    symbol_image = models.ImageField(
-        upload_to="shaman_patrons/",
-        blank=True,
-        null=True,
-        help_text="Optionales Symbolbild fuer dieses Totem oder diesen Ahnengeist.",
-    )
-    god_image = models.ImageField(
-        upload_to="shaman_patrons/",
-        blank=True,
-        null=True,
-        help_text="Optionales Kartenbild fuer dieses Totem oder diesen Ahnengeist.",
-    )
 
     class Meta:
-        ordering = ["patron_kind", "name"]
+        ordering = ["entity__entity_type__name", "name"]
 
     def __str__(self):
-        return f"{self.get_patron_kind_display()}: {self.name}"
+        return f"{self.entity.entity_type}: {self.name}"
 
 
 class DivineEntityAspect(models.Model):

@@ -309,18 +309,11 @@ def _vampire_trait_groups(traits):
 
 
 def _divine_entity_card_kind_label(divine_entity) -> str:
-    """Return the visible god-card kind for deities and cult demons."""
-    school = getattr(divine_entity, "school", None)
-    school_name = str(getattr(school, "name", "") or "").strip().casefold()
-    school_type = getattr(school, "type", None)
-    type_name = str(getattr(school_type, "name", "") or "").strip().casefold()
-    type_slug = str(getattr(school_type, "slug", "") or "").strip().casefold()
-    is_cult_entity = (
-        school_name.startswith(("kultist", "cultist"))
-        or type_name in {"kult", "cult"}
-        or type_slug in {"kult", "cult", "school_kult", "school_cult"}
+    """Return the card label from the database-backed entity type."""
+    entity_type = divine_entity.entity_type
+    return {"god": "Gottheit", "demon-lord": "Dämon"}.get(
+        entity_type.slug, entity_type.name,
     )
-    return "Dämon" if is_cult_entity else "Gottheit"
 
 
 def _cultist_corruption_level(engine) -> int:
@@ -7304,7 +7297,9 @@ def _group_school_technique_rows(
                 ).append(entity)
     druid_binding = (
         CharacterDruidCult.objects.filter(character=character)
-        .select_related("cult", "cult__school")
+        .select_related(
+            "cult", "cult__school", "cult__entity", "cult__entity__entity_type",
+        )
         .first()
     )
     selected_druid_cult_id = int(druid_binding.cult_id) if druid_binding is not None else None
@@ -8159,7 +8154,7 @@ def _build_learning_rows(
         source_image_url = _school_symbol_image_url(school)
         secondary_symbols = ""
         secondary_image_urls = ""
-        if divine_entity is not None and int(school.id) == int(divine_entity.school_id):
+        if divine_entity is not None and school.id == divine_entity.school_id:
             source_symbol = divine_primary_symbol
             source_image_url = divine_primary_image_url
             secondary_symbols = ";".join(divine_aspect_symbols)
@@ -9363,15 +9358,20 @@ def build_character_sheet_context(
     divine_entity = divine_binding.entity if divine_binding is not None else None
     druid_binding = (
         CharacterDruidCult.objects.filter(character=character)
-        .select_related("cult", "cult__school")
+        .select_related(
+            "cult", "cult__school", "cult__entity", "cult__entity__entity_type",
+        )
         .prefetch_related("cult__aspects", "cult__aspects__aspect")
         .first()
     )
     druid_cult = druid_binding.cult if druid_binding is not None else None
     shaman_binding = (
         CharacterShamanPatron.objects.filter(character=character)
-        .select_related("patron", "patron__school")
-        .prefetch_related("patron__aspects", "patron__aspects__aspect", "core_aspects")
+        .select_related(
+            "patron", "patron__school", "patron__entity",
+            "patron__entity__entity_type",
+        )
+        .prefetch_related("patron__aspects", "core_aspects")
         .first()
     )
     shaman_patron = shaman_binding.patron if shaman_binding is not None else None
@@ -9432,7 +9432,11 @@ def build_character_sheet_context(
             if divine_binding is not None and divine_binding.custom_name
             else (divine_entity.card_name or divine_entity.name)
         )
-        divine_card_typebar = divine_binding.tradition_name if divine_binding is not None and divine_binding.tradition_name else divine_entity.pantheon
+        divine_card_typebar = (
+            divine_binding.tradition_name
+            if divine_binding is not None and divine_binding.tradition_name
+            else (divine_entity.pantheon.name if divine_entity.pantheon_id else "")
+        )
         divine_card_ability = (
             divine_binding.custom_g_ability
             if divine_binding is not None and divine_binding.custom_g_ability
@@ -9469,12 +9473,12 @@ def build_character_sheet_context(
         druid_card_kind_label = "Krafttier"
         if druid_binding is not None and druid_binding.custom_god_image:
             druid_card_image_url = druid_binding.custom_god_image.url
-        elif druid_cult.god_image:
-            druid_card_image_url = druid_cult.god_image.url
+        elif druid_cult.entity.god_image:
+            druid_card_image_url = druid_cult.entity.god_image.url
         druid_card_title = (
             druid_binding.custom_name
             if druid_binding is not None and druid_binding.custom_name
-            else (druid_cult.card_name or druid_cult.name)
+            else (druid_cult.entity.card_name or druid_cult.entity.name)
         )
         druid_card_typebar = (
             druid_binding.tradition_name
@@ -9484,12 +9488,14 @@ def build_character_sheet_context(
         druid_card_ability = (
             druid_binding.custom_g_ability
             if druid_binding is not None and druid_binding.custom_g_ability
-            else (druid_cult.g_ability or druid_cult.description)
+            else (
+                druid_cult.entity.g_ability or druid_cult.entity.description
+            )
         )
         druid_card_fluff = (
             druid_binding.custom_fluff
             if druid_binding is not None and druid_binding.custom_fluff
-            else druid_cult.fluff
+            else druid_cult.entity.fluff
         )
         druid_card_editable = bool(druid_binding is not None and druid_cult.is_customizable)
         if druid_card_editable:
@@ -9517,9 +9523,19 @@ def build_character_sheet_context(
         shaman_card_kind_value = (
             shaman_binding.patron_kind_override
             if shaman_binding is not None and shaman_binding.patron_kind_override
-            else shaman_patron.patron_kind
+            else (
+                "ancestor_spirit"
+                if shaman_patron.entity.entity_type.slug == "ancestor-spirit"
+                else "totem"
+            )
         )
-        shaman_card_kind_label = "Ahnengeist" if shaman_card_kind_value == "ancestor_spirit" else "Totem"
+        shaman_card_kind_label = (
+            "Ahnengeist"
+            if shaman_card_kind_value == "ancestor_spirit"
+            else "Totem" if shaman_patron.entity.entity_type.slug == "power-animal"
+            or shaman_binding.patron_kind_override == "totem"
+            else shaman_patron.entity.entity_type.name
+        )
         shaman_card_holo_kind = "ancestor-spirit" if shaman_card_kind_value == "ancestor_spirit" else "power-animal"
         shaman_card_editable = bool(shaman_binding is not None and shaman_patron.is_customizable)
         if shaman_card_editable:
@@ -9531,24 +9547,24 @@ def build_character_sheet_context(
                 ]
         if shaman_binding is not None and shaman_binding.custom_god_image:
             shaman_card_image_url = shaman_binding.custom_god_image.url
-        elif shaman_patron.god_image:
-            shaman_card_image_url = shaman_patron.god_image.url
+        elif shaman_patron.entity.god_image:
+            shaman_card_image_url = shaman_patron.entity.god_image.url
         shaman_card_title = (
             shaman_binding.custom_name if shaman_binding is not None and shaman_binding.custom_name is not None
-            else shaman_patron.card_name or shaman_patron.name
+            else shaman_patron.entity.card_name or shaman_patron.entity.name
         )
         shaman_card_typebar = (
             shaman_binding.tradition_name if shaman_binding is not None and shaman_binding.tradition_name is not None
             else shaman_patron.school.name if shaman_patron.school_id
-            else shaman_patron.get_patron_kind_display()
+            else shaman_patron.entity.entity_type.name
         )
         shaman_card_ability = (
             shaman_binding.custom_g_ability if shaman_binding is not None and shaman_binding.custom_g_ability is not None
-            else shaman_patron.g_ability
+            else shaman_patron.entity.g_ability
         )
         shaman_card_fluff = (
             shaman_binding.custom_fluff if shaman_binding is not None and shaman_binding.custom_fluff is not None
-            else shaman_patron.fluff
+            else shaman_patron.entity.fluff
         )
         shaman_card_aspects = list(shaman_patron.aspects.all().order_by("name", "id"))
         if shaman_patron.aspect_selection_mode != "fixed" and shaman_binding is not None:

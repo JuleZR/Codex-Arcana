@@ -169,6 +169,8 @@ from .models import (
     DaemonicPowerSemanticEffect,
     DaemonicPowerTier,
     DivineEntity,
+    DivineEntityType,
+    Pantheon,
     DivineEntityAspect,
     DruidCult,
     DruidCultAspect,
@@ -8302,11 +8304,18 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         return "-"
 
 
+@admin.register(DivineEntityType, Pantheon)
+class DivineEntityMetadataAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug")
+
+
 @admin.register(DivineEntity)
 class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
         "name",
         "school",
+        "entity_type",
         "pantheon",
         "aspect_selection_mode",
         "starting_aspect_count",
@@ -8316,17 +8325,18 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         "has_god_image",
         "grants_arcane_spell_choice_per_level",
     )
-    search_fields = ("name", "slug", "card_name", "pantheon")
+    search_fields = ("name", "slug", "card_name", "pantheon__name")
     list_filter = (
         "aspect_selection_mode",
         "is_customizable",
         "school",
+        "entity_type",
         "pantheon",
         "grants_arcane_spell_choice_per_level",
     )
     ordering = ("name",)
-    autocomplete_fields = ("school",)
-    list_select_related = ("school", "school__type")
+    autocomplete_fields = ("school", "entity_type", "pantheon")
+    list_select_related = ("school", "school__type", "entity_type", "pantheon")
     inlines = (DivineEntityAspectInline,)
     readonly_fields = ("symbol_image_preview", "god_image_preview")
 
@@ -8336,6 +8346,7 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 "name",
                 "slug",
                 "school",
+                "entity_type",
                 "aspect_selection_mode",
                 "starting_aspect_count",
                 "is_customizable",
@@ -8416,161 +8427,42 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 @admin.register(DruidCult)
 class DruidCultAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
-        "name",
-        "school",
-        "aspect_selection_mode",
-        "starting_aspect_count",
-        "fixed_aspect_count",
-        "is_customizable",
-        "has_symbol_image",
-        "has_god_image",
+        "name", "entity", "school", "aspect_selection_mode",
+        "starting_aspect_count", "fixed_aspect_count", "is_customizable",
     )
-    search_fields = ("name", "slug", "card_name", "description", "school__name")
+    search_fields = ("name", "slug", "entity__name", "school__name")
     list_filter = ("aspect_selection_mode", "is_customizable", "school")
-    ordering = ("name",)
-    autocomplete_fields = ("school",)
-    list_select_related = ("school", "school__type")
-    readonly_fields = ("symbol_image_preview", "god_image_preview")
-    inlines = (DruidCultAspectInline,)
-    fieldsets = (
-        (None, {
-            "fields": (
-                "name",
-                "slug",
-                "school",
-                "aspect_selection_mode",
-                "starting_aspect_count",
-                "is_customizable",
-                "description",
-            )
-        }),
-        ("Karte", {
-            "fields": (
-                "card_name",
-                "symbol_image",
-                "symbol_image_preview",
-                "god_image",
-                "god_image_preview",
-                "g_ability",
-                "fluff",
-            )
-        }),
+    autocomplete_fields = ("school", "entity")
+    list_select_related = ("school", "entity")
+    fields = (
+        "name", "slug", "entity", "school", "aspect_selection_mode",
+        "starting_aspect_count", "is_customizable",
     )
+    inlines = (DruidCultAspectInline,)
 
     @admin.display(description="Fixe Aspekte")
     def fixed_aspect_count(self, obj):
         return obj.aspects.filter(is_starting_aspect=True).count()
 
-    @admin.display(description="Symbol")
-    def has_symbol_image(self, obj):
-        return bool(obj.symbol_image)
-
-    @admin.display(description="Kartenbild")
-    def has_god_image(self, obj):
-        return bool(obj.god_image)
-
-    @admin.display(description="Symbolvorschau")
-    def symbol_image_preview(self, obj):
-        if obj is None or not obj.symbol_image:
-            return format_html('<span style="color:#666;">{}</span>', "-")
-        return format_html(
-            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px;'
-            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
-            obj.symbol_image.url,
-            obj.name,
-        )
-
-    @admin.display(description="Kartenbildvorschau")
-    def god_image_preview(self, obj):
-        if obj is None or not obj.god_image:
-            return format_html('<span style="color:#666;">{}</span>', "-")
-        return format_html(
-            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px;'
-            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
-            obj.god_image.url,
-            obj.name,
-        )
-
 
 @admin.register(ShamanPatron)
 class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
-        "name",
-        "patron_kind",
-        "school",
-        "aspect_selection_mode",
-        "starting_aspect_count",
-        "fixed_aspect_count",
-        "is_customizable",
-        "has_symbol_image",
-        "has_god_image",
+        "name", "entity", "school", "aspect_selection_mode",
+        "starting_aspect_count", "fixed_aspect_count", "is_customizable",
     )
-    search_fields = ("name", "slug", "card_name", "description", "school__name")
-    list_filter = ("patron_kind", "aspect_selection_mode", "is_customizable", "school")
-    ordering = ("patron_kind", "name")
-    autocomplete_fields = ("school", "aspects")
-    list_select_related = ("school", "school__type")
-    readonly_fields = ("symbol_image_preview", "god_image_preview")
-    fieldsets = (
-        (None, {
-            "fields": (
-                "name",
-                "slug",
-                "patron_kind",
-                "school",
-                "aspect_selection_mode",
-                "starting_aspect_count",
-                "aspects",
-                "is_customizable",
-                "description",
-            )
-        }),
-        ("Karte", {
-            "fields": (
-                "card_name",
-                "symbol_image",
-                "symbol_image_preview",
-                "god_image",
-                "god_image_preview",
-                "g_ability",
-                "fluff",
-            )
-        }),
+    search_fields = ("name", "slug", "entity__name", "school__name")
+    list_filter = ("aspect_selection_mode", "is_customizable", "school")
+    autocomplete_fields = ("school", "entity", "aspects")
+    list_select_related = ("school", "entity")
+    fields = (
+        "name", "slug", "entity", "school", "aspect_selection_mode",
+        "starting_aspect_count", "is_customizable", "aspects",
     )
 
     @admin.display(description="Fixe Aspekte")
     def fixed_aspect_count(self, obj):
         return obj.aspects.count()
-
-    @admin.display(description="Symbol")
-    def has_symbol_image(self, obj):
-        return bool(obj.symbol_image)
-
-    @admin.display(description="Kartenbild")
-    def has_god_image(self, obj):
-        return bool(obj.god_image)
-
-    @admin.display(description="Symbolvorschau")
-    def symbol_image_preview(self, obj):
-        if obj is None or not obj.symbol_image:
-            return format_html('<span style="color:#666;">{}</span>', "-")
-        return format_html(
-            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px;'
-            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
-            obj.symbol_image.url,
-            obj.name,
-        )
-
-    @admin.display(description="Kartenbildvorschau")
-    def god_image_preview(self, obj):
-        if obj is None or not obj.god_image:
-            return format_html('<span style="color:#666;">{}</span>', "-")
-        return format_html(
-            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px;'
-            + ' border:1px solid #ccc; background:#fff; padding:4px;" />',
-            obj.god_image.url,
-            obj.name,
-        )
 
 
 @admin.register(DivineEntityAspect)
@@ -8725,7 +8617,7 @@ class CharacterShamanPatronAdmin(admin.ModelAdmin):
     form = CharacterShamanPatronAdminForm
     list_display = ("character", "patron", "patron_kind", "patron_school", "chosen_aspect_count")
     search_fields = ("character__name", "patron__name", "patron__slug")
-    list_filter = ("patron__patron_kind", "patron__school")
+    list_filter = ("patron__entity__entity_type", "patron__school")
     ordering = ("character__name",)
     autocomplete_fields = ("character", "patron")
     list_select_related = ("character", "patron", "patron__school")
@@ -8733,7 +8625,7 @@ class CharacterShamanPatronAdmin(admin.ModelAdmin):
 
     @admin.display(description="Art")
     def patron_kind(self, obj):
-        return obj.patron.get_patron_kind_display()
+        return obj.patron.entity.entity_type.name
 
     @admin.display(description="Schule")
     def patron_school(self, obj):
