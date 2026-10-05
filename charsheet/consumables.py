@@ -2,11 +2,79 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, ROUND_HALF_UP
+
+from django.core.exceptions import ValidationError
+
 from charsheet.models import (
     AlchemicalBrewStats,
     Character,
+    ConsumableEffectStats,
     Item,
 )
+
+
+def consumable_stats(item):
+    """Prefer dedicated stats, retaining legacy brew data as a fallback."""
+    if not item.item_type.is_consumable:
+        return None
+    try:
+        return item.consumableeffectstats
+    except ConsumableEffectStats.DoesNotExist:
+        pass
+    if item.item_type.supports_alchemical_stats:
+        try:
+            return item.alchemicalbrewstats
+        except AlchemicalBrewStats.DoesNotExist:
+            pass
+    return None
+
+
+def consumable_rolls(item):
+    stats = consumable_stats(item)
+    rolls = []
+    for effect, label in (("heal_lp", "LP"), ("restore_kp", "KP")):
+        count = getattr(stats, f"{effect}_dice_count", 0)
+        if count:
+            faces = getattr(stats, f"{effect}_dice_faces")
+            divisor = getattr(stats, f"{effect}_divisor")
+            modifier = getattr(stats, f"{effect}_modifier")
+            expression = f"{count}w{faces}"
+            if divisor != 1:
+                expression += f"/{divisor}"
+            if modifier:
+                expression += f"+{modifier}"
+            rolls.append({
+                "key": effect, "count": count, "faces": faces,
+                "min": count, "max": count * faces,
+                "label": f"{expression} {label}",
+            })
+    return rolls
+
+
+def resolve_consumable_effects(item, results=None):
+    """Validate every raw dice total before any character mutation."""
+    stats = consumable_stats(item)
+    values = {
+        key: int(getattr(stats, key, 0))
+        for key in ("heal_lp", "restore_kp", "heal_wound_grades")
+    }
+    for roll in consumable_rolls(item):
+        raw = (results or {}).get(roll["key"])
+        if raw is None or isinstance(raw, bool):
+            raise ValidationError("Ein Würfelergebnis fehlt.")
+        try:
+            total = int(raw)
+        except (TypeError, ValueError, OverflowError):
+            raise ValidationError("Ungültiges Würfelergebnis.")
+        if str(total) != str(raw) or not roll["min"] <= total <= roll["max"]:
+            raise ValidationError("Würfelergebnis außerhalb des Bereichs.")
+        key = roll["key"]
+        divided = Decimal(total) / getattr(stats, f"{key}_divisor")
+        values[key] += int(divided.quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP,
+        )) + getattr(stats, f"{key}_modifier")
+    return values
 
 
 def _restore_kp(
@@ -60,6 +128,7 @@ def _restore_kp(
 def apply_consumable_effects(
     character: Character,
     item: Item,
+    results=None,
 ) -> dict[str, int]:
     """Apply configured immediate effects of one consumed item."""
     result = {
@@ -67,22 +136,16 @@ def apply_consumable_effects(
         "restored_kp": 0,
     }
 
-    if not item.item_type.supports_alchemical_stats:
-        return result
-
-    try:
-        stats = item.alchemicalbrewstats
-    except AlchemicalBrewStats.DoesNotExist:
-        return result
+    values = resolve_consumable_effects(item, results)
 
     total_healing = max(
         0,
-        int(stats.heal_lp or 0),
+        values["heal_lp"],
     )
 
     wound_grades = max(
         0,
-        int(stats.heal_wound_grades or 0),
+        values["heal_wound_grades"],
     )
 
     if wound_grades:
@@ -106,7 +169,7 @@ def apply_consumable_effects(
 
     result["restored_kp"] = _restore_kp(
         character,
-        stats.restore_kp,
+        values["restore_kp"],
     )
 
     if result["restored_kp"]:

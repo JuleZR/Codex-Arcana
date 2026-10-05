@@ -213,10 +213,11 @@ async function ensureRollThemeLoaded(themeId) {
     }
 
     try {
-        dddice.loadThemeResources(themeId);
+        await dddice.loadThemeResources(themeId);
         loadedThemeIds.add(themeId);
     } catch (error) {
         console.warn(`Theme-Ressourcen für ${themeId} konnten nicht vorgeladen werden.`, error);
+        throw error;
     }
 }
 
@@ -1057,6 +1058,28 @@ async function performRoll(sides = 10, count = 2) {
         console.error("FINAL ROLL FAILED", error);
     }
 }
+
+export async function rollDice(sides, count) {
+    hideRollResult();
+    let timeout;
+    try {
+        const result = await Promise.race([
+            renderBackendRoll(sides, count),
+            new Promise((_, reject) => {
+                timeout = setTimeout(() => reject(
+                    new Error("DDDdice-Zeitüberschreitung."),
+                ), 20000);
+            }),
+        ]);
+        await sleep(2200);
+        showRollResult(result.backendRoll.total);
+        return result.backendRoll;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+window.characterDice = { rollDice };
 
 /* ---------------------------------------------------
    BINDINGS

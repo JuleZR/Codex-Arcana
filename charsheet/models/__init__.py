@@ -115,6 +115,7 @@ from .items import (
     WeaponType,
     WeaponStats,
     AlchemicalBrewStats,
+    ConsumableEffectStats,
     AlchemicalBrewRequirement,
 )
 from .lessons import (
@@ -355,6 +356,7 @@ __all__ = [
     "CharacterStartingItemGrant",
     "Metal",
     "AlchemicalBrewStats",
+    "ConsumableEffectStats",
     "AlchemicalBrewRequirement",
     "SpecializationSemanticEffect",
 ]

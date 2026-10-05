@@ -17,7 +17,7 @@ import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";
 import { initCharInfoCounter } from "./char_info_counter.js";
 import { initCharacterInfoForm } from "./character_info_form.js?v=20260922a";
-import { initSheetActions } from "./sheet_actions.js?v=20261004-ruffame";
+import { initSheetActions } from "./sheet_actions.js?v=20261005-consumables";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js?v=20260922a";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";

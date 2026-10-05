@@ -83,6 +83,7 @@ from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
     AccountSecurityEvent,
     AlchemicalBrewStats,
+    ConsumableEffectStats,
     AlchemicalBrewRequirement,
     ArmorStats,
     Aspect,
@@ -2450,6 +2451,29 @@ class AlchemicalBrewStatsInlineFormSet(BaseInlineFormSet):
             form.save_requirements(instance)
 
         return instance
+
+
+class ConsumableEffectStatsInline(admin.StackedInline):
+    model = ConsumableEffectStats
+    verbose_name_plural = "Consumable Effect Stats"
+    extra = 0
+    max_num = 1
+    fieldsets = (
+        ("LP heilen", {"fields": (
+            "heal_lp", ("heal_lp_dice_count", "heal_lp_dice_faces"),
+            ("heal_lp_modifier", "heal_lp_divisor"),
+        ), "description": (
+            "Diese Sofortwirkungen ersetzen vorhandene "
+            "Gebräu-Sofortwirkungen. "
+            "0 bedeutet: kein Effekt. Fester Wert + gerundete "
+            "Würfelsumme / Teiler + Zuschlag."
+        )}),
+        ("KP regenerieren", {"fields": (
+            "restore_kp", ("restore_kp_dice_count", "restore_kp_dice_faces"),
+            ("restore_kp_modifier", "restore_kp_divisor"),
+        )}),
+        ("Wundgrade heilen", {"fields": ("heal_wound_grades",)}),
+    )
 
 
 class AlchemicalBrewStatsInline(admin.StackedInline):
@@ -6101,6 +6125,7 @@ class ItemAdmin(admin.ModelAdmin):
         WeaponStatsInline,
         RangedWeaponStatsInline,
         AlchemicalBrewStatsInline,
+        ConsumableEffectStatsInline,
         ItemSemanticEffectInline,
         ItemRaceStartingInline,
         CreatureCardItemBindingInline,
@@ -6129,6 +6154,14 @@ class ItemAdmin(admin.ModelAdmin):
     def get_inline_instances(self, request, obj=None):
         """Keep optional ranged stats from requiring management form data on legacy posts."""
         inline_instances = super().get_inline_instances(request, obj)
+        if (
+            request.method == "POST"
+            and "consumableeffectstats-TOTAL_FORMS" not in request.POST
+        ):
+            inline_instances = [
+                inline for inline in inline_instances
+                if not isinstance(inline, ConsumableEffectStatsInline)
+            ]
         if request.method != "POST":
             return inline_instances
         if "rangedweaponstats-TOTAL_FORMS" in request.POST:

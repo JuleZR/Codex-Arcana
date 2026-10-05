@@ -43,7 +43,7 @@
             <button type="submit" class="inv_menu_btn">{% if row.is_stored %}Zum Tragen{% else %}In den Karren{% endif %}</button>
           </form>{% endif %}
           {% if row.can_consume %}
-            <form method="post" action="{% url 'consume_item' row.character_item.pk %}" class="equip_form" data-sheet-action>
+            <form method="post" action="{% url 'consume_item' row.character_item.pk %}" class="equip_form" data-sheet-action data-consumable data-ajax-only>
               {% csrf_token %}
               <button type="submit" class="inv_menu_btn">Verbrauchen</button>
             </form>

@@ -1,0 +1,25 @@
+.consumable-dialog {
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  border: 1px solid #847565;
+  border-radius: .6rem;
+  padding: 1rem;
+  background: #f3ead8;
+  color: #30261e;
+  font: inherit;
+}
+.consumable-dialog::backdrop { background: #0006; }
+.consumable-dialog h3 { margin: 0 0 .8rem; font-size: 1rem; }
+.consumable-dialog label { display: block; margin-bottom: .8rem; }
+.consumable-dialog input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: .3rem;
+  padding: .4rem;
+  font: inherit;
+}
+.consumable-dialog-actions { display: flex; justify-content: flex-end; gap: .7rem; }
+.consumable-dialog button { font: inherit; padding: .35rem .5rem; cursor: pointer; }

@@ -477,6 +477,54 @@ class Item(models.Model):
         return cls.type_values("is_consumable")
 
 
+class ConsumableEffectStats(models.Model):
+    """Structured immediate effects; dice totals are resolved before use."""
+
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    heal_lp = models.PositiveSmallIntegerField(default=0)
+    heal_lp_dice_count = models.PositiveSmallIntegerField(default=0)
+    heal_lp_dice_faces = models.PositiveSmallIntegerField(default=0)
+    heal_lp_modifier = models.PositiveSmallIntegerField(default=0)
+    heal_lp_divisor = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1)],
+    )
+    restore_kp = models.PositiveSmallIntegerField(default=0)
+    restore_kp_dice_count = models.PositiveSmallIntegerField(default=0)
+    restore_kp_dice_faces = models.PositiveSmallIntegerField(default=0)
+    restore_kp_modifier = models.PositiveSmallIntegerField(default=0)
+    restore_kp_divisor = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1)],
+    )
+    heal_wound_grades = models.PositiveSmallIntegerField(default=0)
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.item_id and not self.item.item_type.is_consumable:
+            errors["item"] = "Only consumable items support these effects."
+        for effect in ("heal_lp", "restore_kp"):
+            count = getattr(self, f"{effect}_dice_count")
+            faces = getattr(self, f"{effect}_dice_faces")
+            if bool(count) != bool(faces):
+                errors[f"{effect}_dice_count"] = (
+                    "Configure both dice count and die size."
+                )
+            if faces and faces < 2:
+                errors[f"{effect}_dice_faces"] = "Die size must be at least 2."
+            if not count and (
+                getattr(self, f"{effect}_modifier")
+                or getattr(self, f"{effect}_divisor") != 1
+            ):
+                errors[f"{effect}_modifier"] = (
+                    "Modifiers and divisors require dice."
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return str(self.item)
+
+
 class AlchemicalBrewStats(models.Model):
     """Rulebook and immediate-effect data for alchemical brews."""
 

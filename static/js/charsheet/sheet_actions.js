@@ -1,4 +1,5 @@
 import { applySheetPartials } from "./partial_updates.js";
+import { prepareConsumable } from "./consumables.js?v=20261005";
 
 function flashSheetFeedback(level) {
   const normalized = level === "error" ? "error" : "success";
@@ -213,7 +214,10 @@ export function initSheetActions() {
         submitterWasDisabled = submitter.disabled;
         submitter.disabled = true;
       }
-      const response = await fetch(form.action, {
+      if (form.hasAttribute("data-consumable") && !(await prepareConsumable(form, formData))) {
+        return;
+      }
+      const response = await fetch(form.getAttribute("action"), {
         method: form.method || "POST",
         body: formData,
         headers: {
@@ -224,6 +228,9 @@ export function initSheetActions() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
+        if (form.hasAttribute("data-consumable")) {
+          throw new Error(payload?.error || "Verbrauch fehlgeschlagen.");
+        }
         if (form.hasAttribute("data-ajax-only")) {
           form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: payload }));
           return;
@@ -267,6 +274,11 @@ export function initSheetActions() {
         form.reset();
       }
     } catch (_error) {
+      if (form.hasAttribute("data-consumable")) {
+        flashSheetFeedback("error");
+        window.alert(_error.message || "Verbrauch fehlgeschlagen.");
+        return;
+      }
       if (form.hasAttribute("data-ajax-only")) {
         form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: null }));
         return;

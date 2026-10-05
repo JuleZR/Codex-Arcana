@@ -67,7 +67,7 @@ from .account_lifecycle import (
     delete_account_permanently,
 )
 from .learning_progression import weapon_mastery_weapon_type_definitions
-from .consumables import apply_consumable_effects
+from .consumables import apply_consumable_effects, consumable_rolls
 from .session_management import (
     active_sessions_for_user,
     terminate_user_sessions,
@@ -5910,14 +5910,30 @@ def consume_item(request, pk):
             character_id=owner_id,
         )
 
+    rolls = consumable_rolls(ci.item)
+    if request.POST.get("prepare") == "1" or (
+        rolls and not any(roll["key"] in request.POST for roll in rolls)
+    ):
+        return JsonResponse({
+            "ok": True,
+            "resolutionRequired": bool(rolls),
+            "rolls": rolls,
+            "itemName": ci.item.name,
+        })
+
     character = Character.objects.select_for_update().get(
         pk=owner_id
     )
 
-    result = apply_consumable_effects(
-        character,
-        ci.item,
-    )
+    try:
+        result = apply_consumable_effects(
+            character, ci.item, request.POST,
+        )
+    except ValidationError as exc:
+        return JsonResponse(
+            {"ok": False, "error": " ".join(exc.messages)},
+            status=400,
+        )
 
     if is_final_unit:
         record_item_destruction(
