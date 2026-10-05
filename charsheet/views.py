@@ -3989,6 +3989,25 @@ class AppLogoutView(LogoutView):
         return HttpResponseRedirect(self.get_success_url())
 
 
+def _creation_entity_choices(trait, choice_map):
+    rows = []
+    for definition in trait.choice_definitions.filter(
+        target_kind="entity", is_active=True,
+    ).order_by("sort_order", "id"):
+        values = choice_map.get(trait.slug, {}).get(definition.pk, [])
+        rows.append({
+            "id": definition.pk,
+            "name": definition.name,
+            "selected": values[0] if values else "",
+            "options": [
+                {"value": str(option.pk), "label": str(option.entity)}
+                for option in definition.entity_options.all()
+                if option.entity is not None
+            ],
+        })
+    return rows
+
+
 @login_required
 def create_character(request):
     """Create one character through the phase-based draft engine."""
@@ -4319,7 +4338,9 @@ def create_character(request):
                             "text": text,
                         }
                     choice_payload: dict[str, list[str]] = {}
-                    for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id"):
+                    for definition in trait.choice_definitions.filter(
+                        target_kind__in=["attribute", "entity"],
+                    ).order_by("sort_order", "id"):
                         selected = (request.POST.get(f"dis_choice_{trait.slug}_{definition.id}") or "").strip()
                         if selected:
                             choice_payload[str(definition.id)] = [selected]
@@ -4353,7 +4374,9 @@ def create_character(request):
                             "text": text,
                         }
                     choice_payload: dict[str, list[str]] = {}
-                    for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id"):
+                    for definition in trait.choice_definitions.filter(
+                        target_kind__in=["attribute", "entity"],
+                    ).order_by("sort_order", "id"):
                         selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
                         if selected:
                             choice_payload[str(definition.id)] = [selected]
@@ -4714,10 +4737,16 @@ def create_character(request):
             }
             for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
         ]
+        attribute_choice_definitions.extend(
+            _creation_entity_choices(trait, phase_3_trait_choices)
+        )
         phase_3_rows.append(
             {
                 "slug": trait.slug,
-                "name": trait.name,
+                "name": (
+                    f"{trait.name}: {trait.organization}"
+                    if trait.organization_id else trait.name
+                ),
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
                 "points_per_level": trait.points_per_level,
@@ -4781,6 +4810,9 @@ def create_character(request):
             }
             for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
         ]
+        attribute_choice_definitions.extend(
+            _creation_entity_choices(trait, phase_4_trait_choices)
+        )
         resource_choice_definitions = [
             {
                 "id": definition.id,
@@ -4802,7 +4834,10 @@ def create_character(request):
         phase_4_adv_rows.append(
             {
                 "slug": trait.slug,
-                "name": trait.name,
+                "name": (
+                    f"{trait.name}: {trait.organization}"
+                    if trait.organization_id else trait.name
+                ),
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
                 "points_per_level": trait.points_per_level,

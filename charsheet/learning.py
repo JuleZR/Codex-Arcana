@@ -482,7 +482,18 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
 
         target_kind = row["target_kind"]
         allowed_values = {str(option["value"]) for option in row["options"]}
-        if target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+        if target_kind == "entity" and choice_scope == "trait":
+            if raw_value not in allowed_values:
+                raise LearningSubmissionError(
+                    f"{choice_label}: Ungueltige Auswahl."
+                )
+            definition = TraitChoiceDefinition.objects.get(
+                pk=row["definition_id"]
+            )
+            choice_payload.update(
+                definition.entity_selection_payload(raw_value)
+            )
+        elif target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Attributswahl.")
             if choice_scope == "trait" and not is_allowed_trait_attribute_choice(row.get("trait_slug"), raw_value):

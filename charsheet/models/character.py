@@ -870,6 +870,67 @@ class TraitChoiceDefinition(models.Model):
     def __str__(self) -> str:
         return f"{self.trait.name}: {self.name}"
 
+    def entity_selection_payload(self, option_id):
+        """Resolve a configured option into the entity binding fields."""
+        if self.target_kind != self.TargetKind.ENTITY or not self.is_active:
+            raise ValidationError("This is not an active entity choice.")
+        try:
+            option = self.entity_options.get(pk=int(option_id))
+        except (TypeError, ValueError, TraitChoiceEntityOption.DoesNotExist):
+            raise ValidationError("Choose a configured entity option.")
+        if option.entity is None:
+            raise ValidationError("The configured entity no longer exists.")
+        return {
+            "selected_content_type": option.content_type,
+            "selected_object_id": option.object_id,
+        }
+
+
+class TraitChoiceEntityOption(models.Model):
+    """A reusable entity offered by a generic trait decision."""
+
+    definition = models.ForeignKey(
+        TraitChoiceDefinition, on_delete=models.CASCADE,
+        related_name="entity_options",
+    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
+    object_id = models.PositiveBigIntegerField()
+    entity = GenericForeignKey("content_type", "object_id")
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["definition", "content_type", "object_id"],
+                name="uniq_trait_choice_entity_option",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.definition_id and self.definition.target_kind != "entity":
+            raise ValidationError({
+                "definition": "Entity options require an entity choice.",
+            })
+        if self.content_type_id and self.object_id and self.entity is None:
+            raise ValidationError({"object_id": "Select an existing entity."})
+        if (
+            self.definition_id and self.definition.trait.organization_id
+            and self.content_type_id
+            and self.content_type.app_label == "charsheet"
+            and self.content_type.model == "organization"
+        ):
+            raise ValidationError(
+                "A fixed organization cannot also be selectable."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return str(self.entity or "Missing entity")
+
 
 class CharacterTraitChoice(models.Model):
     """A persistent character-bound choice made for one owned trait."""
@@ -1002,6 +1063,17 @@ class CharacterTraitChoice(models.Model):
         ):
             raise ValidationError({"definition": "The selected trait choice definition must belong to the same trait."})
         self._validate_target_kind(self.definition.target_kind if self.definition_id else "")
+        if self.definition_id and self.definition.target_kind == "entity":
+            if self.selected_entity is None:
+                raise ValidationError("Select an existing entity.")
+            options = self.definition.entity_options.all()
+            if options.exists() and not options.filter(
+                content_type_id=self.selected_content_type_id,
+                object_id=self.selected_object_id,
+            ).exists():
+                raise ValidationError(
+                    "Select an entity configured for this trait."
+                )
         if (
             self.definition_id
             and self.definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE

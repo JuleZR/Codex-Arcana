@@ -5781,8 +5781,10 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     traits_qs = (
         CharacterTrait.objects
         .filter(owner=character)
-        .select_related("trait", "specification_option")
-        .prefetch_related("trait__specification_options")
+        .select_related("trait", "trait__organization", "specification_option")
+        .prefetch_related(
+            "trait__specification_options", "choices__selected_content_type",
+        )
         .order_by("trait__trait_type", "trait__name")
     )
     advantage_rows: list[dict] = []
@@ -5830,6 +5832,19 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         else:
             row["display_name"] = entry.trait.name
             row["tooltip"] = row["description"]
+        affiliations = (
+            [str(entry.trait.organization)]
+            if entry.trait.organization_id else []
+        )
+        affiliations.extend(
+            choice.selected_target_display()
+            for choice in entry.choices.all()
+            if choice.selected_object_id is not None
+        )
+        if affiliations:
+            row["display_name"] += ": " + ", ".join(
+                dict.fromkeys(affiliations)
+            )
         if entry.trait.trait_type == Trait.TraitType.ADV:
             advantage_rows.append(row)
         else:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from charsheet.modifiers import CharacterBuildValidator, TraitBuildRule
@@ -193,7 +194,15 @@ class CharacterCreationEngine:
         if level <= 0:
             return []
         if len(definitions) > level:
-            return definitions[:level]
+            ranked_definitions = [
+                definition for definition in definitions
+                if definition.target_kind != "entity"
+            ][:level]
+            return [
+                definition for definition in definitions
+                if definition.target_kind == "entity"
+                or definition in ranked_definitions
+            ]
         return definitions
 
     def vampire_semantic_flag(self, target_key: str) -> bool:
@@ -365,21 +374,26 @@ class CharacterCreationEngine:
                 return False
             selected = choice_map.get(slug, {})
             for definition in self._relevant_choice_definitions(trait, level):
-                if (
-                    definition.target_kind
-                    != TraitChoiceDefinition.TargetKind.ATTRIBUTE
-                ):
-                    if (
-                        definition.target_kind
-                        != TraitChoiceDefinition.TargetKind.RESOURCE
-                    ):
-                        continue
+                if definition.target_kind not in {
+                    "attribute", "resource", "entity",
+                }:
+                    continue
                 values = selected.get(definition.id, [])
+                if definition.target_kind == "entity" and (
+                    len(values) > definition.max_choices
+                    or len(values) != len(set(values))
+                ):
+                    return False
                 if definition.is_required and len(values) < int(
                     definition.min_choices
                 ):
                     return False
                 for value in values:
+                    if definition.target_kind == "entity":
+                        try:
+                            definition.entity_selection_payload(value)
+                        except ValidationError:
+                            return False
                     if (
                         definition.target_kind
                         == TraitChoiceDefinition.TargetKind.ATTRIBUTE
@@ -1783,6 +1797,12 @@ class CharacterCreationEngine:
                                     payload["selected_resource"] = (
                                         selected_value
                                     )
+                                elif definition.target_kind == "entity":
+                                    payload.update(
+                                        definition.entity_selection_payload(
+                                            selected_value
+                                        )
+                                    )
                                 else:
                                     continue
                                 if (
@@ -1793,7 +1813,10 @@ class CharacterCreationEngine:
                                     is None
                                 ):
                                     continue
-                                CharacterTraitChoice.objects.create(**payload)
+                                choice = CharacterTraitChoice(**payload)
+                                if definition.target_kind == "entity":
+                                    choice.full_clean()
+                                choice.save()
 
             for slug, level in self.phase_4_advantages().items():
                 trait = Trait.objects.filter(
@@ -1848,6 +1871,12 @@ class CharacterCreationEngine:
                                     payload["selected_resource"] = (
                                         selected_value
                                     )
+                                elif definition.target_kind == "entity":
+                                    payload.update(
+                                        definition.entity_selection_payload(
+                                            selected_value
+                                        )
+                                    )
                                 else:
                                     continue
                                 if (
@@ -1858,7 +1887,10 @@ class CharacterCreationEngine:
                                     is None
                                 ):
                                     continue
-                                CharacterTraitChoice.objects.create(**payload)
+                                choice = CharacterTraitChoice(**payload)
+                                if definition.target_kind == "entity":
+                                    choice.full_clean()
+                                choice.save()
 
             for school_id, level in self.phase_4_schools().items():
                 school = School.objects.filter(

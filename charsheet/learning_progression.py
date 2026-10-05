@@ -107,7 +107,10 @@ def race_choice_field_name(target_kind: str, definition_id: int) -> str:
 
 def trait_choice_field_name(target_kind: str, trait_id: int, definition_id: int) -> str:
     """Return the POST field name for one trait-choice target."""
-    prefix = CHOICE_FIELD_PREFIX_BY_KIND.get(target_kind)
+    prefix = (
+        "learn_choice_entity" if target_kind == "entity"
+        else CHOICE_FIELD_PREFIX_BY_KIND.get(target_kind)
+    )
     if not prefix:
         return ""
     return f"{prefix}_trait_{trait_id}_{definition_id}"
@@ -1058,6 +1061,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             if definition.target_kind not in {
                 TraitChoiceDefinition.TargetKind.ATTRIBUTE,
                 TraitChoiceDefinition.TargetKind.RESOURCE,
+                TraitChoiceDefinition.TargetKind.ENTITY,
             }:
                 continue
             existing_count = len(engine._trait_choices_by_definition_id.get(definition.id, []))
@@ -1072,6 +1076,27 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     }
                     for attribute in attribute_definitions
                     if is_allowed_trait_attribute_choice(trait.slug, attribute.short_name)
+                ]
+            elif definition.target_kind == "entity":
+                existing_targets = {
+                    (
+                        choice.selected_content_type_id,
+                        choice.selected_object_id,
+                    )
+                    for choice in engine._trait_choices_by_definition_id.get(
+                        definition.id, []
+                    )
+                }
+                options = [
+                    {
+                        "value": option.pk,
+                        "label": str(option.entity),
+                        "meta": "",
+                    }
+                    for option in definition.entity_options.all()
+                    if option.entity is not None
+                    and (option.content_type_id, option.object_id)
+                    not in existing_targets
                 ]
             else:
                 resource_options = (

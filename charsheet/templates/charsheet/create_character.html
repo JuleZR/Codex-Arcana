@@ -1093,7 +1093,7 @@
 
         const renderAttributeChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
           return (choiceDefs || []).map(function (choiceDef) {
-            const localOptions = Array.isArray(choiceDef.options) && choiceDef.options.length ? choiceDef.options : attributeOptions;
+            const localOptions = Array.isArray(choiceDef.options) ? choiceDef.options : attributeOptions;
             const optionsHtml = ['<option value=""></option>'].concat(localOptions.map(function (entry) {
               const selected = choiceDef.selected === entry.value ? ' selected' : '';
               return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';

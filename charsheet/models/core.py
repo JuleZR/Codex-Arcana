@@ -178,6 +178,39 @@ class DamageSource(models.Model):
         return self.name
 
 
+class OrganizationType(models.Model):
+    """An editable category for reusable organizations."""
+
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class Organization(models.Model):
+    """Organization identity; membership rules belong to traits."""
+
+    name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default="")
+    organization_type = models.ForeignKey(
+        OrganizationType, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="organizations",
+    )
+    size_category = models.CharField(max_length=100, blank=True, default="")
+    source_reference = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
 class Trait(models.Model):
     """Advantage or disadvantage definition with level bounds."""
 
@@ -190,6 +223,14 @@ class Trait(models.Model):
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField()
     has_specification = models.BooleanField(default=False)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="traits",
+        help_text=(
+            "Fixed affiliation granted by this trait; "
+            "ranks remain trait rules."
+        ),
+    )
 
     min_level = models.PositiveIntegerField(default=1)
     max_level = models.PositiveIntegerField(
@@ -214,6 +255,15 @@ class Trait(models.Model):
     def clean(self):
         """Keep configured trait level bounds consistent."""
         super().clean()
+        if self.pk and self.organization_id and self.choice_definitions.filter(
+            entity_options__content_type__app_label="charsheet",
+            entity_options__content_type__model="organization",
+        ).exists():
+            raise ValidationError({
+                "organization": (
+                    "A fixed organization cannot also be selectable."
+                ),
+            })
         if self.max_level is not None and self.max_level < self.min_level:
             raise ValidationError("Max level < min level is prohibited.")
         if self.points_per_level < 0:

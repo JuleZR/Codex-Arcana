@@ -9,6 +9,7 @@ from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django import forms
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import NON_FIELD_ERRORS, ObjectDoesNotExist, ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponseRedirect, JsonResponse
@@ -214,6 +215,9 @@ from .models import (
     TechniqueSemanticEffect,
     Trait,
     TraitChoiceDefinition,
+    TraitChoiceEntityOption,
+    Organization,
+    OrganizationType,
     TraitExclusion,
     TraitSpecificationOption,
     TraitSemanticEffect,
@@ -6645,6 +6649,60 @@ class RaceChoiceDefinitionAdmin(
         return obj.semantic_effects.count()
 
 
+class TraitChoiceEntityOptionForm(forms.ModelForm):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(), required=False,
+        help_text=(
+            "Choose an organization, or use the generic entity fields below."
+        ),
+    )
+
+    class Meta:
+        model = TraitChoiceEntityOption
+        fields = ("organization", "content_type", "object_id")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["content_type"].required = False
+        self.fields["object_id"].required = False
+        if self.instance.pk and isinstance(self.instance.entity, Organization):
+            self.initial["organization"] = self.instance.object_id
+
+    def clean(self):
+        data = super().clean()
+        organization = data.get("organization")
+        if organization:
+            data["content_type"] = ContentType.objects.get_for_model(
+                Organization
+            )
+            data["object_id"] = organization.pk
+        elif not data.get("content_type") or not data.get("object_id"):
+            raise ValidationError(
+                "Choose an organization or an existing entity."
+            )
+        return data
+
+
+class TraitChoiceEntityOptionInline(admin.TabularInline):
+    model = TraitChoiceEntityOption
+    form = TraitChoiceEntityOptionForm
+    extra = 0
+
+
+@admin.register(OrganizationType)
+class OrganizationTypeAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug")
+
+
+@admin.register(Organization)
+class OrganizationAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
+    list_display = ("name", "organization_type", "size_category")
+    search_fields = ("name", "slug", "description", "source_reference")
+    list_filter = ("organization_type", "size_category")
+    autocomplete_fields = ("organization_type",)
+
+
 @admin.register(TraitChoiceDefinition)
 class TraitChoiceDefinitionAdmin(
     SemanticTargetChoiceAdminMixin, admin.ModelAdmin,
@@ -6667,6 +6725,7 @@ class TraitChoiceDefinitionAdmin(
     autocomplete_fields = ("trait", "allowed_attribute", "allowed_skill_category")
     list_select_related = ("trait", "allowed_attribute", "allowed_skill_category")
     readonly_fields = ("linked_semantic_effects",)
+    inlines = (TraitChoiceEntityOptionInline,)
     fieldsets = (
         (
             "Choice Definition",
@@ -7851,6 +7910,7 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("trait_type", "has_specification")
     ordering = ("trait_type", "name")
+    autocomplete_fields = ("organization",)
     inlines = (
         TraitSpecificationOptionInline,
         TraitExclusionInline,
@@ -7868,6 +7928,7 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
                     "has_specification",
+                    "organization",
                     "points_by_level",
                     ("min_level", "max_level"),
                     "description",
