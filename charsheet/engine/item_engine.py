@@ -319,7 +319,7 @@ class ItemEngine:
             "name_override", original_name)).strip()
         if (
             isinstance(self.obj, CharacterItem)
-            and item.item_type == Item.ItemType.CREATURE
+            and item.item_type.is_creature
             and custom_name
             and custom_name != original_name
         ):
@@ -999,11 +999,7 @@ class ItemEngine:
     def active_inventory_weight_for_character(cls, character) -> Decimal:
         """Return carried weight excluding worn armor, shields and clothing."""
         worn_equipment = Q(
-            item__item_type__in=(
-                *Item.armor_item_type_values(),
-                Item.ItemType.SHIELD,
-                Item.ItemType.CLOTHING,
-            )
+            item__item_type__excludes_equipped_carry_weight=True,
         ) | Q(item__armorstats__isnull=False)
         character_items = (
             CharacterItem.objects.filter(owner=character, stored=False)

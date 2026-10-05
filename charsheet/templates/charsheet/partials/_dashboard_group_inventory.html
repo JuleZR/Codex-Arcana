@@ -107,7 +107,7 @@
               </tr>
               <tr class="sl-inventory-action-row" id="edit-{{ instance.id }}" hidden>
                 <td colspan="5">
-                  <form class="sl-inventory-edit-form sl-editor-form" method="post" enctype="multipart/form-data" action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}" data-sl-instance-form data-item-type="{{ instance.item.item_type }}">
+                  <form class="sl-inventory-edit-form sl-editor-form" method="post" enctype="multipart/form-data" action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}" data-sl-instance-form data-item-type="{{ instance.item.item_type_id }}">
                     {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
                     <section class="sl-editor-card">
                       <header><span>Instanz</span><h4>Allgemein</h4></header>
@@ -244,7 +244,7 @@
                   <header><span>Basisitem</span><h4>Grunddaten</h4></header>
                   <div class="sl-editor-grid">
                     <label class="sl-editor-grid__wide"><span>Name</span><input name="name" required maxlength="200" value="{{ item.name }}"></label>
-                    <label><span>Typ</span><select name="item_type">{% for value,label in group_inventory_item_types %}<option value="{{ value }}"{% if value == item.item_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                    <label><span>Typ</span><select name="item_type">{% if not item.item_type.is_active %}<option value="{{ item.item_type_id }}" selected>{{ item.item_type.name }}</option>{% endif %}{% for value,label in group_inventory_item_types %}<option value="{{ value }}"{% if value == item.item_type_id %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
                     <label><span>Standardqualität</span><select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == item.default_quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
                     <label><span>Preis (KS)</span><input name="price" type="number" min="0" value="{{ item.price }}"></label>
                     <label><span>Gewicht</span><input name="weight" type="number" min="0" step=".001" value="{{ item.weight }}"></label>

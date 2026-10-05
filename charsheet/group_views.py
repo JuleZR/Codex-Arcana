@@ -80,6 +80,7 @@ from charsheet.models import (
     GameGroupTableColumn,
     GameGroupTableRow,
     Item,
+    ItemType,
     ItemSemanticEffect,
     ItemOwnershipEvent,
     ItemTransfer,
@@ -155,7 +156,8 @@ def _request_wants_json(request) -> bool:
 def _group_character_item_or_404(group, character_item_id: int):
     """Return a CharacterItem the group GM is allowed to inspect or configure."""
     item = get_object_or_404(
-        CharacterItem.objects.select_related("item", "owner", "group_owner"),
+        CharacterItem.objects.select_related(
+            "item__item_type", "item", "owner", "group_owner"),
         pk=character_item_id,
     )
     if item.group_owner_id == group.id:
@@ -1189,7 +1191,7 @@ def game_master_screen(request, group_id: int):
                 catalog_group__isnull=True
             ).order_by("name"),
             "group_inventory_qualities": Quality.objects.all(),
-            "group_inventory_item_types": Item.ItemType.choices,
+            "group_inventory_item_types": Item.type_choices(active_only=True),
             "group_inventory_size_classes": GK_CHOICES,
             "group_inventory_size_class_options": [
                 {
@@ -3149,10 +3151,19 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
         )
         item.name = str(request.POST.get("name") or item.name).strip()[:200]
         item.description = str(request.POST.get("description") or "").strip()
-        item.item_type = str(request.POST.get("item_type") or item.item_type).strip()
+        type_slug = str(request.POST.get("item_type")
+                        or item.item_type_id).strip()
+        category = ItemType.objects.filter(pk=type_slug).first()
+        if category is None or (
+            not category.is_active and type_slug != item.item_type_id
+        ):
+            raise GroupError(
+                "invalid_item", "Die Gegenstandskategorie ist ungültig.")
+        item.item_type = category
         item.stackable = bool(request.POST.get("stackable"))
         item.is_consumable = bool(request.POST.get("is_consumable"))
-        item.is_magic = bool(request.POST.get("is_magic")) or item.item_type in Item.magic_item_type_values()
+        item.is_magic = bool(request.POST.get("is_magic")
+                             ) or item.item_type.is_magic_equipment
         item.not_buyable = bool(request.POST.get("not_buyable"))
         item.not_sellable = bool(request.POST.get("not_sellable"))
         try:
@@ -3169,12 +3180,7 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
         item.default_quality = get_object_or_404(
             Quality, pk=request.POST.get("default_quality") or item.default_quality_id
         )
-        if item.item_type in (
-            Item.ItemType.ARMOR,
-            Item.ItemType.WEAPON,
-            Item.ItemType.SHIELD,
-            Item.ItemType.CLOTHING,
-        ):
+        if item.item_type.forbids_stacking:
             item.stackable = False
         if item.is_magic_effective:
             item.stackable = False
@@ -3252,7 +3258,9 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
         instance = get_object_or_404(
-            CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner"),
+            CharacterItem.objects.select_for_update(
+                of=("self",)
+            ).select_related("item__item_type", "item", "owner"),
             pk=item_id,
         )
         is_group_item = instance.group_owner_id == group.id
@@ -3314,7 +3322,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
         instance.size_class_override = str(request.POST.get("size_class_override") or "")
 
         active_override_fields = ()
-        if instance.item.item_type in Item.weapon_item_type_values():
+        if instance.item.item_type.supports_weapon_stats:
             active_override_fields = (
                 "weapon_damage_dice_amount_override",
                 "weapon_damage_dice_faces_override",
@@ -3324,14 +3332,14 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 "weapon_h2_dice_faces_override",
                 "weapon_h2_flat_bonus_override",
             )
-        elif getattr(instance.item, "armorstats", None) is not None:
-            active_override_fields = (
+        if getattr(instance.item, "armorstats", None) is not None:
+            active_override_fields += (
                 "armor_rs_total_override",
                 "armor_encumbrance_override",
                 "armor_min_st_override",
             )
-        elif instance.item.item_type == Item.ItemType.SHIELD:
-            active_override_fields = (
+        if instance.item.item_type.supports_shield_stats:
+            active_override_fields += (
                 "shield_rs_override",
                 "shield_encumbrance_override",
                 "shield_min_st_override",
@@ -3342,7 +3350,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 setattr(instance, field_name, int(raw_value) if raw_value else None)
             except ValueError as exc:
                 raise GroupError("invalid_item", "Ein Instanzwert ist ungültig.") from exc
-        if instance.item.item_type in Item.weapon_item_type_values():
+        if instance.item.item_type.supports_weapon_stats:
             instance.weapon_type_override_id = request.POST.get("weapon_type_override") or None
             instance.weapon_damage_source_override_id = request.POST.get("weapon_damage_source_override") or None
             instance.weapon_damage_type_override = str(request.POST.get("weapon_damage_type_override") or "")
@@ -3377,7 +3385,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                         "weapon_h2_flat_operator_override",
                         "weapon_h2_damage_type_override",
                     )
-                    if instance.item.item_type in Item.weapon_item_type_values()
+                    if instance.item.item_type.supports_weapon_stats
                     else ()
                 ),
             ]
@@ -3549,7 +3557,8 @@ def delete_group_inventory_item(request, group_id: int, item_id: int):
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
         instance = get_object_or_404(
-            CharacterItem.objects.select_for_update().select_related("item", "quality"),
+            CharacterItem.objects.select_for_update().select_related(
+                "item__item_type", "item", "quality"),
             pk=item_id,
             group_owner=group,
         )
@@ -3571,7 +3580,7 @@ def delete_group_inventory_item(request, group_id: int, item_id: int):
                 "snapshot": {
                     "name": instance.effective_name,
                     "item_id": instance.item_id,
-                    "item_type": instance.item.item_type,
+                    "item_type": instance.item.item_type_id,
                     "quality": str(instance.quality),
                     "amount": instance.amount,
                 },
@@ -3602,7 +3611,7 @@ def delete_group_inventory_items(request, group_id: int):
         require_game_master(request.user, group, write=True)
         instances = list(
             CharacterItem.objects.select_for_update()
-            .select_related("item", "quality")
+            .select_related("item__item_type", "item", "quality")
             .filter(pk__in=item_ids, group_owner=group)
         )
         if len(instances) != len(item_ids):
@@ -3626,7 +3635,7 @@ def delete_group_inventory_items(request, group_id: int):
                     "snapshot": {
                         "name": instance.effective_name,
                         "item_id": instance.item_id,
-                        "item_type": instance.item.item_type,
+                        "item_type": instance.item.item_type_id,
                         "quality": str(instance.quality),
                         "amount": instance.amount,
                     },

@@ -810,8 +810,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const weaponH2AmountInput = weaponFields.querySelector("input[name='weapon_h2_dice_amount']");
   const weaponH2FacesInput = weaponFields.querySelector("input[name='weapon_h2_dice_faces']");
   const weaponH2DamageTypeSelect = weaponFields.querySelector("select[name='weapon_h2_damage_type']");
-  const WEAPON_ITEM_TYPES = new Set(["weapon", "magical_weapon"]);
-  const ARMOR_ITEM_TYPES = new Set(["armor", "magical_armor"]);
+  const typeCapabilities = JSON.parse(
+    document.getElementById("item-type-capabilities")?.textContent || "{}",
+  );
+  const hasCapability = (type, key) => Boolean(typeCapabilities[type]?.[key]);
 
   const syncArmorModeFields = () => {
     if (!armorTotalFields || !armorZoneFields) {
@@ -851,9 +853,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const syncItemTypeFields = () => {
     const value = String(typeSelect.value || "");
-    const isArmor = ARMOR_ITEM_TYPES.has(value);
-    const isWeapon = WEAPON_ITEM_TYPES.has(value);
-    const isShield = value === "shield";
+    const isArmor = hasCapability(value, "supports_armor_stats");
+    const isWeapon = hasCapability(value, "supports_weapon_stats");
+    const isShield = hasCapability(value, "supports_shield_stats");
 
     armorFields.hidden = !isArmor;
     weaponFields.hidden = !isWeapon;
@@ -876,7 +878,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (stackableRow && stackableInput) {
-      const lockStackableOff = isArmor || isWeapon || isShield;
+      const lockStackableOff = hasCapability(value, "forbids_stacking");
       stackableRow.hidden = lockStackableOff;
       stackableInput.disabled = lockStackableOff;
       if (lockStackableOff) {

@@ -158,7 +158,7 @@ def validate_armor_set_component_sync(armor: ArmorStats) -> None:
     """Raise when synchronizing would delete generated items in active use."""
     if (
         not armor.pk
-        or armor.item.item_type not in Item.armor_item_type_values()
+        or not armor.item.item_type.is_armor
         or armor.parent_set_id
     ):
         return
@@ -203,7 +203,7 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
     """
     if (
         not armor.pk
-        or armor.item.item_type not in Item.armor_item_type_values()
+        or not armor.item.item_type.is_armor
         or armor.parent_set_id
     ):
         return []
@@ -325,7 +325,7 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
             component_item = Item(
                 name=_component_name(parent_item.name, blueprint.label),
                 price=0,
-                item_type=Item.ItemType.ARMOR,
+                item_type_id="armor",
                 description=f"Physisches Rüstungsteil des Sets {parent_item.name}.",
                 stackable=False,
                 is_consumable=False,
@@ -344,7 +344,7 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
         component_item.description = f"Physisches Rüstungsteil des Sets {parent_item.name}."
         component_item.weight = component_weights[index]
         component_item.price = component_prices[index]
-        component_item.item_type = Item.ItemType.ARMOR
+        component_item.item_type_id = "armor"
         component_item.stackable = False
         component_item.is_consumable = False
         component_item.is_magic = False

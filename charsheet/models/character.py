@@ -374,7 +374,7 @@ class CharacterAlmanacBrew(models.Model):
     def clean(self):
         """Only alchemical brew items may be stored as almanac knowledge."""
         super().clean()
-        if self.item_id and self.item.item_type != Item.ItemType.ALCHEMICAL_BREW:
+        if self.item_id and not self.item.item_type.supports_alchemical_stats:
             raise ValidationError({"item": "Almanac knowledge is restricted to alchemical brews."})
 
     def __str__(self):
@@ -1131,7 +1131,8 @@ class CharacterTraitChoice(models.Model):
     def _validate_target_kind(self, expected_kind: str):
         """Ensure the selected target fields match the configured trait choice kind."""
         errors = {}
-        allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
+        allowed_item_categories = {
+            choice for choice, _label in Item.type_choices()}
         target_field_by_kind = {
             TraitChoiceDefinition.TargetKind.ATTRIBUTE: "selected_attribute",
             TraitChoiceDefinition.TargetKind.SKILL: "selected_skill",

@@ -272,35 +272,74 @@ class RuneSemanticEffect(SemanticEffectFields):
         return "rune_effect"
 
 
+class ItemType(models.Model):
+    """Catalog category and orthogonal equipment capabilities."""
+
+    slug = models.SlugField(max_length=50, primary_key=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    form_sort_order = models.PositiveSmallIntegerField(default=0)
+    plural_name = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_weapon = models.BooleanField(default=False)
+    is_armor = models.BooleanField(default=False)
+    is_shield = models.BooleanField(default=False)
+    is_clothing = models.BooleanField(default=False)
+    is_magic_equipment = models.BooleanField(default=False)
+    forces_magic = models.BooleanField(default=False)
+    supports_weapon_stats = models.BooleanField(default=False)
+    supports_weapon_mastery = models.BooleanField(default=False)
+    supports_armor_stats = models.BooleanField(default=False)
+    supports_shield_stats = models.BooleanField(default=False)
+    supports_alchemical_stats = models.BooleanField(default=False)
+    is_consumable = models.BooleanField(default=False)
+    is_ammunition = models.BooleanField(default=False)
+    is_creature = models.BooleanField(default=False)
+    is_equippable = models.BooleanField(default=False)
+    forbids_stacking = models.BooleanField(default=False)
+    excludes_equipped_carry_weight = models.BooleanField(default=False)
+    shows_quality = models.BooleanField(default=False)
+    icon_key = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        ordering = ["sort_order", "name", "slug"]
+
+    def __str__(self):
+        return self.name
+
+
 class Item(models.Model):
     """Inventory item that may be owned, stacked, or equipped."""
 
-    MAGIC_EQUIPMENT_TYPES = frozenset({"ring", "amulet", "magical_weapon", "magical_armor"})
-    WEAPON_ITEM_TYPES = frozenset({"weapon", "magical_weapon"})
-    ARMOR_ITEM_TYPES = frozenset({"armor", "magical_armor"})
-    ARMOR_STATS_ITEM_TYPES = frozenset({"armor", "magical_armor", "ring", "amulet"})
-    SHIELD_STATS_ITEM_TYPES = frozenset({"shield", "magical_armor"})
-    CONSUMABLE_ITEM_TYPES = frozenset({"consumable", "alchemical_brew"})
+    # Legacy payload/test constants only.
+    # Definitions and choices live in the database ItemType model.
+    class ItemType:
+        """Deprecated stable codes for legacy callers, never model choices."""
 
-    class ItemType(models.TextChoices):
-        ARMOR = "armor", "Rüstung"
-        WEAPON = "weapon", "Waffe"
-        SHIELD = "shield", "Schild"
-        CLOTHING = "clothing", "Kleidung"
-        EQUIPMENT = "equipment", "Ausrüstung"
-        RING = "ring", "Ring"
-        AMULET = "amulet", "Amulett"
-        MAGICAL_WEAPON = "magical_weapon", "Magische Waffe"
-        MAGICAL_ARMOR = "magical_armor", "Magisches Rüstzeug"
-        ALCHEMICAL_BREW = "alchemical_brew", "Alchemistische Gebräue"
-        CONSUM = "consumable", "Verbrauchsgegenstand"
-        AMMO = "ammo", "Monition"
-        CREATURE = "creature", "Tiere & Kreaturen"
-        MISC = "misc", "Sonstiges"
+        ARMOR = "armor"
+        WEAPON = "weapon"
+        SHIELD = "shield"
+        CLOTHING = "clothing"
+        EQUIPMENT = "equipment"
+        RING = "ring"
+        AMULET = "amulet"
+        MAGICAL_WEAPON = "magical_weapon"
+        MAGICAL_ARMOR = "magical_armor"
+        ALCHEMICAL_BREW = "alchemical_brew"
+        CONSUM = "consumable"
+        AMMO = "ammo"
+        CREATURE = "creature"
+        MISC = "misc"
 
     name = models.CharField(max_length=200)
     price = models.IntegerField(default=1)
-    item_type = models.CharField(max_length=20, choices=ItemType.choices)
+    item_type = models.ForeignKey(
+        "charsheet.ItemType",
+        db_column="item_type",
+        on_delete=models.PROTECT,
+        related_name="items",
+    )
     description = models.TextField(null=True, blank=True)
     image = models.ImageField(upload_to="items/", blank=True, null=True)
 
@@ -370,51 +409,72 @@ class Item(models.Model):
             ),
         ]
 
+    def __init__(self, *args, **kwargs):
+        # Accept legacy slug payloads while exposing a real FK relation.
+        if isinstance(kwargs.get("item_type"), str):
+            kwargs["item_type_id"] = kwargs.pop("item_type")
+        super().__init__(*args, **kwargs)
+
     def clean(self):
-        """Prevent invalid stackable armor definitions."""
         super().clean()
-        if self.item_type in self.consumable_item_type_values():
+        category = ItemType.objects.filter(pk=self.item_type_id).first()
+        if category is None:
+            raise ValidationError({"item_type": "Unknown item type."})
+        if category.is_consumable:
             self.is_consumable = True
-        if self.item_type in {
-            self.ItemType.SHIELD,
-            self.ItemType.CLOTHING,
-            *self.weapon_item_type_values(),
-            *self.armor_item_type_values(),
-        } and self.stackable:
-            raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
-        if (self.is_magic or self.item_type in self.magic_item_type_values()) and self.stackable:
-            raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
+        if self.stackable and (category.forbids_stacking or self.is_magic):
+            raise ValidationError({
+                "stackable": f"Type: {category.name} can't be stackable.",
+            })
 
     def __str__(self):
-        return f"{self.item_type.upper()}: {self.name}"
+        return f"{self.get_item_type_display()}: {self.name}"
+
+    def get_item_type_display(self):
+        return self.item_type.name
 
     @property
     def is_magic_effective(self) -> bool:
-        return bool(self.is_magic or self.item_type in self.magic_item_type_values())
+        return bool(self.is_magic or self.item_type.is_magic_equipment)
 
     @classmethod
-    def magic_item_type_values(cls) -> frozenset[str]:
-        return cls.MAGIC_EQUIPMENT_TYPES
+    def type_choices(cls, *, active_only=False, form_order=False):
+        types = ItemType.objects.all()
+        if active_only:
+            types = types.filter(is_active=True)
+        if form_order:
+            types = types.order_by("form_sort_order", "name", "slug")
+        return list(types.values_list("slug", "name"))
 
     @classmethod
-    def weapon_item_type_values(cls) -> frozenset[str]:
-        return cls.WEAPON_ITEM_TYPES
+    def type_values(cls, capability):
+        return ItemType.objects.filter(**{capability: True}).values_list(
+            "slug", flat=True,
+        )
 
     @classmethod
-    def armor_item_type_values(cls) -> frozenset[str]:
-        return cls.ARMOR_ITEM_TYPES
+    def magic_item_type_values(cls):
+        return cls.type_values("is_magic_equipment")
 
     @classmethod
-    def armor_stats_item_type_values(cls) -> frozenset[str]:
-        return cls.ARMOR_STATS_ITEM_TYPES
+    def weapon_item_type_values(cls):
+        return cls.type_values("is_weapon")
 
     @classmethod
-    def shield_stats_item_type_values(cls) -> frozenset[str]:
-        return cls.SHIELD_STATS_ITEM_TYPES
+    def armor_item_type_values(cls):
+        return cls.type_values("is_armor")
 
     @classmethod
-    def consumable_item_type_values(cls) -> frozenset[str]:
-        return cls.CONSUMABLE_ITEM_TYPES
+    def armor_stats_item_type_values(cls):
+        return cls.type_values("supports_armor_stats")
+
+    @classmethod
+    def shield_stats_item_type_values(cls):
+        return cls.type_values("supports_shield_stats")
+
+    @classmethod
+    def consumable_item_type_values(cls):
+        return cls.type_values("is_consumable")
 
 
 class AlchemicalBrewStats(models.Model):
@@ -501,12 +561,12 @@ class AlchemicalBrewStats(models.Model):
 
         if (
             self.item_id
-            and self.item.item_type != Item.ItemType.ALCHEMICAL_BREW
+            and not self.item.item_type.supports_alchemical_stats
         ):
             raise ValidationError({
                 "item": (
-                    "AlchemicalBrewStats may only be attached "
-                    "to alchemical brew items."
+                    f"{self.item.item_type.name} "
+                    "does not support alchemical stats."
                 )
             })
 
@@ -794,8 +854,13 @@ class ArmorStats(models.Model):
     def clean(self):
         """Validate armor ownership, component metadata, and coverage."""
         super().clean()
-        if self.item.item_type not in Item.armor_stats_item_type_values():
-            raise ValidationError({"item": "Only armor-capable items can have ArmorStats"})
+        if not self.item.item_type.supports_armor_stats:
+            raise ValidationError({
+                "item": (
+                    f"{self.item.item_type.name} "
+                    "does not support armor stats."
+                ),
+            })
         if not self.rs_total:
             raise ValidationError({"rs_total": "Armor must have RS greater than zero."})
         if self.parent_set_id and not self.component_type:
@@ -824,7 +889,7 @@ class ArmorStats(models.Model):
             if (
                 sync_components
                 and not self.parent_set_id
-                and self.item.item_type in Item.armor_item_type_values()
+                and self.item.item_type.is_armor
             ):
                 from charsheet.armor_generation import sync_armor_set_components
 
@@ -931,9 +996,12 @@ class ShieldStats(models.Model):
 
     def clean(self):
         super().clean()
-        if self.item.item_type not in Item.shield_stats_item_type_values():
+        if not self.item.item_type.supports_shield_stats:
             raise ValidationError(
-                {"item": "Only shields and magical armor can have ShieldStats."}
+                {"item": (
+                    f"{self.item.item_type.name} "
+                    "does not support shield stats."
+                )}
             )
         if self.has_damage_profile:
             errors = {}
@@ -1600,8 +1668,13 @@ class WeaponStats(models.Model):
 
     def clean(self):
         super().clean()
-        if self.item.item_type not in Item.weapon_item_type_values():
-            raise ValidationError({"item": "Non-weapon items can't have WeaponStats"})
+        if not self.item.item_type.supports_weapon_stats:
+            raise ValidationError({
+                "item": (
+                    f"{self.item.item_type.name} "
+                    "does not support weapon stats."
+                ),
+            })
 
         has_h2_values = (
             self.h2_dice_amount is not None
@@ -1718,8 +1791,13 @@ class RangedWeaponStats(models.Model):
 
     def clean(self):
         super().clean()
-        if self.item.item_type not in Item.weapon_item_type_values():
-            raise ValidationError({"item": "Non-weapon items can't have RangedWeaponStats"})
+        if not self.item.item_type.supports_weapon_stats:
+            raise ValidationError({
+                "item": (
+                    f"{self.item.item_type.name} "
+                    "does not support weapon stats."
+                ),
+            })
 
     def __str__(self):
         return f"{self.item}: Ranged DMG {self.damage} ({self.get_damage_type_display()})"
@@ -1748,13 +1826,7 @@ class RaceStartingItem(models.Model):
         super().clean()
         if self.item.stackable:
             raise ValidationError({"item": "Race items must not be stackable because they are always equipped."})
-        if self.item.item_type not in {
-            Item.ItemType.SHIELD,
-            Item.ItemType.CLOTHING,
-            *Item.weapon_item_type_values(),
-            *Item.armor_item_type_values(),
-            *Item.magic_item_type_values(),
-        }:
+        if not self.item.item_type.is_equippable:
             raise ValidationError({"item": "Race items must be equippable items because they are always equipped."})
 
     def __str__(self):

@@ -495,7 +495,10 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
     skill_categories = list(SkillCategory.objects.order_by("name"))
     item_definitions = list(Item.objects.filter(catalog_group__isnull=True).order_by("name"))
     weapon_type_definitions = weapon_mastery_weapon_type_definitions()
-    item_category_options = [{"value": value, "label": label} for value, label in Item.ItemType.choices]
+    item_category_options = [
+        {"value": value, "label": label}
+        for value, label in Item.type_choices(active_only=True)
+    ]
     rune_definitions = list(Rune.objects.order_by("name"))
     attribute_definitions = list(Attribute.objects.order_by("name"))
 

@@ -72,7 +72,7 @@ def _item_snapshot(item: CharacterItem, *, player_safe: bool = False) -> dict:
         "base_name": item.item.name,
         "quantity": item.amount,
         "quality": item.quality_id,
-        "item_type": item.item.item_type,
+        "item_type": item.item.item_type_id,
         "image": display.image_url if display is not None else item.effective_image_url,
     }
 

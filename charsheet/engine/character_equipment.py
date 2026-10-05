@@ -27,7 +27,7 @@ from charsheet.constants import (
 
 from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
 from charsheet.modifiers.targets import TargetResolver
-from charsheet.models import CharacterItem, Item
+from charsheet.models import CharacterItem
 
 from .item_engine import ItemEngine
 
@@ -58,7 +58,7 @@ def _weapon_profiles_for_character_size(engine, item_engine: ItemEngine, *, dice
     )
     wield_mode = item_engine.get_weapon_wield_mode()
     profiles = []
-    if item_engine._get_item().item_type == Item.ItemType.SHIELD:
+    if item_engine._get_item().item_type.is_shield:
         if one_handed_allowed:
             profiles.append(
                 {
@@ -123,10 +123,13 @@ def equipped_weapon_items(engine) -> list[CharacterItem]:
                 equipped=True,
             )
             .filter(
-                Q(item__item_type__in=Item.weapon_item_type_values())
-                | Q(item__item_type=Item.ItemType.SHIELD, item__shieldstats__isnull=False)
+                Q(item__item_type__is_weapon=True)
+                | Q(
+                    item__item_type__is_shield=True,
+                    item__shieldstats__isnull=False,
+                )
             )
-            .select_related("item")
+            .select_related("item__item_type", "item")
             .select_related("item__rangedweaponstats")
             .select_related("item__rangedweaponstats__weapon_type")
             .select_related("item__shieldstats", "item__shieldstats__damage_source")
@@ -158,8 +161,11 @@ def equipped_armor_items(engine) -> list[CharacterItem]:
                 owner=engine.character,
                 equipped=True,
             )
-            .filter(Q(item__item_type__in=Item.armor_item_type_values()) | Q(item__armorstats__isnull=False))
-            .select_related("item", "item__armorstats")
+            .filter(
+                Q(item__item_type__is_armor=True)
+                | Q(item__armorstats__isnull=False)
+            )
+            .select_related("item__item_type", "item", "item__armorstats")
             .prefetch_related("item__runes", "runes", "item_runes__rune")
         )
     )
@@ -174,9 +180,9 @@ def equipped_clothing_items(engine) -> list[CharacterItem]:
             CharacterItem.objects.filter(
                 owner=engine.character,
                 equipped=True,
-                item__item_type=Item.ItemType.CLOTHING,
+                item__item_type__is_clothing=True,
             )
-            .select_related("item")
+            .select_related("item__item_type", "item")
             .prefetch_related("item__runes", "runes", "item_runes__rune")
         )
     )
@@ -194,20 +200,18 @@ def equipped_magic_item_items(engine) -> list[CharacterItem]:
             )
             .filter(
                 Q(item__is_magic=True)
-                | Q(item__item_type__in=Item.magic_item_type_values())
+                | Q(item__item_type__is_magic_equipment=True)
                 | Q(is_magic=True)
                 | Q(item__magicitemstats__isnull=False)
             )
             .exclude(
-                item__item_type__in=(
-                    Item.ItemType.SHIELD,
-                    Item.ItemType.CLOTHING,
-                    *Item.armor_item_type_values(),
-                    *Item.weapon_item_type_values(),
-                )
+                Q(item__item_type__is_shield=True)
+                | Q(item__item_type__is_clothing=True)
+                | Q(item__item_type__is_armor=True)
+                | Q(item__item_type__is_weapon=True)
             )
             .exclude(item__armorstats__isnull=False)
-            .select_related("item", "item__magicitemstats")
+            .select_related("item__item_type", "item", "item__magicitemstats")
             .prefetch_related("item__runes", "runes", "item_runes__rune")
         )
     )
@@ -222,9 +226,12 @@ def equipped_shield_items(engine) -> list[CharacterItem]:
             CharacterItem.objects.filter(
                 owner=engine.character,
                 equipped=True,
-                item__item_type=Item.ItemType.SHIELD,
+                item__item_type__is_shield=True,
             )
-            .select_related("item", "item__shieldstats", "item__shieldstats__weapon_type")
+            .select_related(
+                "item__item_type", "item", "item__shieldstats",
+                "item__shieldstats__weapon_type",
+            )
             .prefetch_related("item__runes", "runes", "item_runes__rune")
         )
     )

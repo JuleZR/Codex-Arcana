@@ -1043,7 +1043,8 @@ class CharacterTechniqueChoice(models.Model):
     def _validate_target_kind(self, expected_kind):
         """Ensure the selected target fields match the configured choice kind."""
         errors = {}
-        allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
+        allowed_item_categories = {
+            choice for choice, _label in Item.type_choices()}
         target_field_by_kind = {
             Technique.ChoiceTargetKind.SKILL: "selected_skill",
             Technique.ChoiceTargetKind.SKILL_CATEGORY: "selected_skill_category",
@@ -1512,7 +1513,8 @@ class CharacterRaceChoice(models.Model):
     def _validate_target_kind(self, expected_kind):
         """Ensure the selected target fields match the configured race choice kind."""
         errors = {}
-        allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
+        allowed_item_categories = {
+            choice for choice, _label in Item.type_choices()}
         target_field_by_kind = {
             Technique.ChoiceTargetKind.SKILL: "selected_skill",
             Technique.ChoiceTargetKind.SKILL_CATEGORY: "selected_skill_category",

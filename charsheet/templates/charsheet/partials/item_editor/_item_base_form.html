@@ -1,3 +1,6 @@
+{% load item_types %}
+{% item_type_capabilities as type_capabilities %}
+{{ type_capabilities|json_script:"item-type-capabilities" }}
 <section class="shop_item_form_main shop_item_form_panel shop_panel sl-editor-card">
   <div class="shop_item_form_panel_header shop_panel_header">
     <h2>Grunddaten</h2>

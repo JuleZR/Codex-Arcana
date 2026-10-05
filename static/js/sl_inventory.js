@@ -86,21 +86,25 @@ document.addEventListener("DOMContentLoaded", () => {
     closeButtons: Array.from(document.querySelectorAll("[data-close-sl-item-create]")),
   });
 
-  const WEAPON_ITEM_TYPES = new Set(["weapon", "magical_weapon"]);
-  const ARMOR_ITEM_TYPES = new Set(["armor", "magical_armor"]);
-  const MAGIC_ITEM_TYPES = new Set(["ring", "amulet", "magical_weapon", "magical_armor"]);
-  const FORCED_MAGIC_ITEM_TYPES = new Set(["magical_weapon", "magical_armor"]);
-
+  const typeCapabilities = JSON.parse(
+    document.getElementById("item-type-capabilities")?.textContent || "{}",
+  );
+  const hasCapability = (type, key) => Boolean(typeCapabilities[type]?.[key]);
   const detailTypeFor = (type) => {
-    if (WEAPON_ITEM_TYPES.has(type)) return "weapon";
-    if (ARMOR_ITEM_TYPES.has(type)) return "armor";
-    return type;
+    if (hasCapability(type, "supports_weapon_stats")) return "weapon";
+    if (hasCapability(type, "supports_armor_stats")) return "armor";
+    if (hasCapability(type, "supports_shield_stats")) return "shield";
+    return "";
   };
 
   const syncTypeSections = (form, type) => {
-    const detailType = detailTypeFor(type);
+    const capabilities = {
+      weapon: "supports_weapon_stats",
+      armor: "supports_armor_stats",
+      shield: "supports_shield_stats",
+    };
     form.querySelectorAll("[data-item-fields]").forEach((section) => {
-      const active = section.dataset.itemFields === detailType;
+      const active = hasCapability(type, capabilities[section.dataset.itemFields]);
       section.hidden = !active;
       section.querySelectorAll("input, select, textarea").forEach((field) => {
         field.disabled = !active;
@@ -344,8 +348,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const syncBaseForm = () => {
       const type = typeSelect?.value || "misc";
       const detailType = detailTypeFor(type);
-      const isMagicType = MAGIC_ITEM_TYPES.has(type);
-      const isForcedMagicType = FORCED_MAGIC_ITEM_TYPES.has(type);
+      const isMagicType = hasCapability(type, "is_magic_equipment");
+      const isForcedMagicType = hasCapability(type, "forces_magic");
       if (magicInput instanceof HTMLInputElement) {
         magicInput.checked = isForcedMagicType || magicInput.checked;
         magicInput.disabled = isForcedMagicType;
@@ -369,7 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addEffect();
       }
       effectsList?.querySelectorAll("[data-sl-magic-effect]").forEach(syncEffectRow);
-      const nonStackable = WEAPON_ITEM_TYPES.has(type) || ARMOR_ITEM_TYPES.has(type) || ["shield", "clothing"].includes(type) || isMagic;
+      const nonStackable = hasCapability(type, "forbids_stacking") || isMagic;
       if (stackableRow && stackableInput) {
         stackableRow.hidden = nonStackable;
         stackableInput.disabled = nonStackable;

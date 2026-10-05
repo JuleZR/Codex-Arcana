@@ -44,10 +44,10 @@ export function initItemForm() {
   const WEAPON_ONLY_MAGIC_TARGET_KINDS = ["weapon_maneuver", "weapon_damage", "weapon_damage_dice", "weapon_mastery_bonus"];
   const WEAPON_MASTERY_BONUS_KIND = "weapon_mastery_bonus";
   const WEAPON_MASTERY_BONUS_DESCRIPTION = "Waffenmeister-Bonus +1/+1";
-  const WEAPON_ITEM_TYPES = new Set(["weapon", "magical_weapon"]);
-  const ARMOR_ITEM_TYPES = new Set(["armor", "magical_armor"]);
-  const MAGIC_ITEM_TYPES = new Set(["ring", "amulet", "magical_weapon", "magical_armor"]);
-  const FORCED_MAGIC_ITEM_TYPES = new Set(["magical_weapon", "magical_armor"]);
+  const typeCapabilities = JSON.parse(
+    document.getElementById("item-type-capabilities")?.textContent || "{}",
+  );
+  const hasCapability = (type, key) => Boolean(typeCapabilities[type]?.[key]);
 
   const syncArmorModeFields = () => {
     const selectedModeInput = armorFields.querySelector("input[name='armor_mode']:checked");
@@ -56,10 +56,10 @@ export function initItemForm() {
     armorTotalFields.hidden = !totalMode;
     armorZoneFields.hidden = totalMode;
     if (armorInput) {
-      armorInput.required = totalMode;
+      armorInput.required = totalMode && hasCapability(typeSelect.value, "is_armor");
     }
     armorZoneInputs.forEach((input) => {
-      input.required = !totalMode;
+      input.required = !totalMode && hasCapability(typeSelect.value, "is_armor");
     });
   };
 
@@ -408,12 +408,12 @@ export function initItemForm() {
       WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
         const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
         if (weaponOnlyOption instanceof HTMLOptionElement) {
-          const isWeapon = WEAPON_ITEM_TYPES.has(String(typeSelect.value || ""));
+          const isWeapon = hasCapability(String(typeSelect.value || ""), "supports_weapon_stats");
           weaponOnlyOption.hidden = !isWeapon;
           weaponOnlyOption.disabled = !isWeapon;
         }
       });
-      if (!WEAPON_ITEM_TYPES.has(String(typeSelect.value || "")) && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
+      if (!hasCapability(String(typeSelect.value || ""), "supports_weapon_stats") && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
         targetKindSelect.value = "";
       }
     }
@@ -461,11 +461,11 @@ export function initItemForm() {
 
   const syncItemTypeFields = () => {
     const value = String(typeSelect.value || "");
-    const isArmor = ARMOR_ITEM_TYPES.has(value);
-    const isWeapon = WEAPON_ITEM_TYPES.has(value);
-    const isShield = value === "shield";
-    const isMagicType = MAGIC_ITEM_TYPES.has(value);
-    const isForcedMagicType = FORCED_MAGIC_ITEM_TYPES.has(value);
+    const isArmor = hasCapability(value, "supports_armor_stats");
+    const isWeapon = hasCapability(value, "supports_weapon_stats");
+    const isShield = hasCapability(value, "supports_shield_stats");
+    const isMagicType = hasCapability(value, "is_magic_equipment");
+    const isForcedMagicType = hasCapability(value, "forces_magic");
     if (magicInput instanceof HTMLInputElement) {
       magicInput.checked = isForcedMagicType || magicInput.checked;
       magicInput.disabled = isForcedMagicType;
@@ -481,7 +481,7 @@ export function initItemForm() {
     magicFields.hidden = !isMagicItem;
 
     if (armorInput) {
-      armorInput.required = isArmor;
+      armorInput.required = hasCapability(value, "is_armor");
     }
     if (weaponDamageAmountInput) {
       weaponDamageAmountInput.required = isWeapon;
@@ -497,7 +497,7 @@ export function initItemForm() {
     }
 
     if (stackableRow && stackableInput) {
-      const lockStackableOff = isArmor || isWeapon || isShield || isMagicItem;
+      const lockStackableOff = hasCapability(value, "forbids_stacking") || isMagicItem;
       stackableRow.hidden = lockStackableOff;
       stackableInput.disabled = lockStackableOff;
       if (lockStackableOff) {

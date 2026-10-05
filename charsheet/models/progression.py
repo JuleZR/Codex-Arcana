@@ -594,7 +594,10 @@ class CharacterWeaponMastery(models.Model):
             raise ValidationError({
                 "purchased_steps": "Weapon bonuses cannot exceed +5/+5.",
             })
-        if self.weapon_item_id and self.weapon_item.item_type != self.weapon_item.ItemType.WEAPON:
+        if (
+            self.weapon_item_id
+            and not self.weapon_item.item_type.supports_weapon_mastery
+        ):
             raise ValidationError({"weapon_item": "Weapon mastery entries must point at weapon items."})
         if self.weapon_type_id is None and not self.weapon_item_id:
             raise ValidationError({"weapon_type": "Weapon mastery entries need a concrete weapon type."})

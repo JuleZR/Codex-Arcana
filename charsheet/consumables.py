@@ -67,7 +67,7 @@ def apply_consumable_effects(
         "restored_kp": 0,
     }
 
-    if item.item_type != Item.ItemType.ALCHEMICAL_BREW:
+    if not item.item_type.supports_alchemical_stats:
         return result
 
     try:

@@ -3,7 +3,7 @@
       data-inventory-row
       data-character-item-id="{{ row.character_item.pk }}"
       data-stored="{% if row.is_stored %}1{% else %}0{% endif %}"
-      data-item-type="{{ row.item.item_type }}"
+      data-item-type="{{ row.item.item_type_id }}"
       data-equip-drop-zone="{{ row.equip_drop_zone }}"
       data-equip-drop-zones="{{ row.equip_drop_zones }}"
       {% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}
@@ -63,7 +63,7 @@
               data-item-name="{{ row.item_name|escape }}"
               data-extra-rune-ids="{% for rune_id in row.extra_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
               data-current-quality="{{ row.quality }}"
-              data-item-type="{{ row.item.item_type }}"
+              data-item-type="{{ row.item.item_type_id }}"
               {% if row.item_image_url %}data-item-image="{{ row.item_image_url }}"{% endif %}
               {% if row.character_item.image_override_url %}data-item-image-override="{{ row.character_item.image_override_url }}"{% endif %}
               data-description="{{ row.description|escape }}"

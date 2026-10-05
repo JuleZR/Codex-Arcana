@@ -48,6 +48,7 @@ from charsheet.models import (
     ItemRune,
     DamageSource,
     Item,
+    ItemType,
     ItemSemanticEffect,
     MagicItemStats,
     Rune,
@@ -90,7 +91,7 @@ def _read_weapon_type(raw_value) -> WeaponType | None:
 def apply_rune_to_item(*, item: CharacterItem, rune: Rune, crafter_level: int) -> ItemRune:
     """Apply or improve one rune assignment on a concrete owned item."""
     allowed_item_types = set(rune.allowed_item_types or [])
-    if allowed_item_types and item.item.item_type not in allowed_item_types:
+    if allowed_item_types and item.item.item_type_id not in allowed_item_types:
         raise ValidationError({"rune": "Diese Rune ist fuer diesen Gegenstandstyp nicht erlaubt."})
     if rune.allow_multiple:
         return ItemRune.objects.create(
@@ -838,7 +839,8 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
     existing_effects_by_base_id: dict[int, CharacterItemSemanticEffect] = {}
     base_effects: dict[int, ItemSemanticEffect] = {}
     if source_model is not Item:
-        character_item = CharacterItem.objects.select_related("item").get(pk=source_id)
+        character_item = CharacterItem.objects.select_related(
+            "item__item_type", "item").get(pk=source_id)
         base_effects = {
             int(effect.pk): effect
             for effect in ItemSemanticEffect.objects.filter(
@@ -1106,7 +1108,10 @@ def apply_character_item_modifications(
         if rune is None:
             continue
         allowed_item_types = set(rune.allowed_item_types or [])
-        if allowed_item_types and character_item.item.item_type not in allowed_item_types:
+        if (
+            allowed_item_types
+            and character_item.item.item_type_id not in allowed_item_types
+        ):
             continue
         slot = int(payload["slot"])
         if slot > 1 and not rune.allow_multiple:
@@ -1274,10 +1279,13 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
         return False
 
     price = _read_int(post_data, "price", 0, minimum=0)
-    item_type = (post_data.get("item_type") or Item.ItemType.MISC).strip()
+    item_type = (post_data.get("item_type") or "misc").strip()
+    category = ItemType.objects.filter(pk=item_type, is_active=True).first()
+    if category is None:
+        return False
     description = (post_data.get("description") or "").strip()
     stackable = bool(post_data.get("stackable"))
-    is_magic = bool(post_data.get("is_magic")) or item_type in Item.magic_item_type_values()
+    is_magic = bool(post_data.get("is_magic")) or category.is_magic_equipment
     not_buyable = bool(post_data.get("not_buyable"))
     not_sellable = bool(post_data.get("not_sellable"))
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
@@ -1287,7 +1295,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     if not _cp_matches_steps(invested_cp, invested_cp_steps):
         return False
     size_class = str(post_data.get("size_class") or "M")
-    is_consumable = (item_type in Item.consumable_item_type_values())
+    is_consumable = (category.is_consumable)
     image = None if files_data is None else files_data.get("image")
     rune_payloads = _read_rune_payloads(post_data)
     selected_rune_ids = sorted({int(payload["rune_id"]) for payload in rune_payloads if int(payload["rune_id"]) > 0})
@@ -1296,12 +1304,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
     magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
 
-    if item_type in (
-        Item.ItemType.ARMOR,
-        Item.ItemType.WEAPON,
-        Item.ItemType.SHIELD,
-        Item.ItemType.CLOTHING,
-    ):
+    if category.forbids_stacking:
         stackable = False
     if is_magic:
         stackable = False
@@ -1314,7 +1317,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
             item = Item(
                 name=name,
                 price=max(0, price),
-                item_type=item_type,
+                item_type=category,
                 description=description,
                 stackable=stackable,
                 is_consumable=is_consumable,
@@ -1337,9 +1340,9 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
             zone_fields = tuple(ArmorStats.ZONE_FIELDS)
             has_armor_coverage = any(bool(post_data.get(f"armor_covers_{zone}")) for zone in zone_fields)
             should_create_armor_stats = (
-                item.item_type in Item.armor_item_type_values()
+                item.item_type.is_armor
                 or (
-                    item.item_type in Item.armor_stats_item_type_values()
+                    item.item_type.supports_armor_stats
                     and has_armor_coverage
                 )
             )
@@ -1362,13 +1365,13 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                     min_st=armor_min_st,
                     suppress_component_generation=(
                         bool(post_data.get("armor_suppress_components"))
-                        or item.item_type not in Item.armor_item_type_values()
+                        or not item.item_type.is_armor
                     ),
                     **coverage,
                 )
                 armor_stats.full_clean()
                 armor_stats.save()
-            elif item.item_type in Item.weapon_item_type_values():
+            if item.item_type.supports_weapon_stats:
                 min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
                 damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
                 h2_damage_type = str(post_data.get("weapon_h2_damage_type") or damage_type)
@@ -1401,7 +1404,15 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                 weapon_stats.save()
                 if weapon_skills:
                     weapon_stats.skills.set(weapon_skills)
-            elif item.item_type == Item.ItemType.SHIELD:
+            if item.item_type.supports_shield_stats and (
+                item.item_type.is_shield or any(
+                    _read_int(post_data, key, 0) != 0
+                    for key in (
+                        "shield_rs", "shield_encumbrance",
+                        "shield_parade_bonus",
+                    )
+                )
+            ):
                 shield_stats = ShieldStats(
                     item=item,
                     rs=_read_int(post_data, "shield_rs", 0, minimum=0),
@@ -1554,8 +1565,10 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
     character_items = {
         item.id: item
         for item in CharacterItem.objects.select_for_update(
-            of=("self",)).select_related("item", "owner", "original_owner_character"
-                                         ).filter(
+            of=("self",)
+        ).select_related(
+            "item__item_type", "item", "owner", "original_owner_character",
+        ).filter(
             owner=character,
             pk__in=requested_quantities.keys(),
         )
@@ -1647,8 +1660,10 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
     character_items = {
         item.id: item
         for item in CharacterItem.objects.select_for_update(
-            of=("self",)).select_related("item", "owner", "original_owner_character"
-                                         ).filter(
+            of=("self",)
+        ).select_related(
+            "item__item_type", "item", "owner", "original_owner_character",
+        ).filter(
             owner=character,
             pk__in=requested_sell_quantities.keys(),
         )

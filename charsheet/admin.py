@@ -176,6 +176,7 @@ from .models import (
     DruidCult,
     DruidCultAspect,
     Item,
+    ItemType,
     ItemSemanticEffect,
     ItemOwnershipEvent,
     ItemPermissionGrant,
@@ -824,8 +825,14 @@ class ItemBulkActionForm(ActionForm):
     target_item_type = forms.ChoiceField(
         label="Neue Kategorie",
         required=False,
-        choices=(("", "Kategorie wählen"), *Item.ItemType.choices),
+        choices=(),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["target_item_type"].choices = (
+            ("", "Kategorie wählen"), *Item.type_choices(active_only=True),
+        )
 
 
 def _apply_monospace_description_fields(base_fields):
@@ -2678,7 +2685,8 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
-        choices.extend((f"item_category:{value}", label) for value, label in Item.ItemType.choices)
+        choices.extend((f"item_category:{value}", label)
+                       for value, label in Item.type_choices(active_only=True))
         choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
                        in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
@@ -3757,7 +3765,8 @@ class RuleSemanticEffectAdminForm(
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
-        choices.extend((f"item_category:{value}", label) for value, label in Item.ItemType.choices)
+        choices.extend((f"item_category:{value}", label)
+                       for value, label in Item.type_choices(active_only=True))
         choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
                        in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
@@ -6039,6 +6048,20 @@ class QualityAdmin(admin.ModelAdmin):
         return _quality_badge(obj)
 
 
+@admin.register(ItemType)
+class ItemTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "sort_order", "is_active")
+    list_filter = ("is_active", "is_weapon", "is_armor", "is_magic_equipment")
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
+
+    def get_readonly_fields(self, request, obj=None):
+        return ("slug",) if obj else ()
+
+    def get_prepopulated_fields(self, request, obj=None):
+        return {} if obj else self.prepopulated_fields
+
+
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
@@ -6059,9 +6082,11 @@ class ItemAdmin(admin.ModelAdmin):
         "not_buyable",
         "not_sellable",
     )
-    search_fields = ("name", "description", "item_type")
+    search_fields = (
+        "name", "description", "item_type__name", "item_type__slug",
+    )
     list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "not_buyable", "not_sellable", "size_class")
-    ordering = ("item_type", "name")
+    ordering = ("item_type__slug", "name")
     inlines = (
         ArmorStatsInline,
         ShieldStatsInline,
@@ -6072,6 +6097,17 @@ class ItemAdmin(admin.ModelAdmin):
         ItemRaceStartingInline,
         CreatureCardItemBindingInline,
     )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "item_type":
+            match = getattr(request, "resolver_match", None)
+            current = match.kwargs.get("object_id") if match else None
+            current_type = Item.objects.filter(
+                pk=current).values("item_type")[:1]
+            kwargs["queryset"] = ItemType.objects.filter(
+                Q(is_active=True) | Q(pk__in=current_type),
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     class Media:
         css = {"all": ("charsheet/css/weapon_stats_admin_v2.css",)}
@@ -6144,7 +6180,7 @@ class ItemAdmin(admin.ModelAdmin):
         """Resynchronize generated armor pieces after item fields and runes changed."""
         super().save_related(request, form, formsets, change)
         armor_stats = getattr(form.instance, "armorstats", None)
-        if armor_stats is None or form.instance.item_type not in Item.armor_item_type_values():
+        if armor_stats is None or not form.instance.item_type.is_armor:
             return
         from charsheet.armor_generation import sync_armor_set_components
 
@@ -6154,7 +6190,9 @@ class ItemAdmin(admin.ModelAdmin):
     def change_item_type_action(self, request, queryset):
         """Bulk-update the item category of the selected items."""
         target_item_type = (request.POST.get("target_item_type") or "").strip()
-        valid_item_types = {value for value, _label in Item.ItemType.choices}
+        valid_item_types = {
+            value for value, _label in Item.type_choices(active_only=True)
+        }
         if target_item_type not in valid_item_types:
             self.message_user(
                 request,
@@ -6164,7 +6202,8 @@ class ItemAdmin(admin.ModelAdmin):
             return
 
         updated_count = queryset.exclude(item_type=target_item_type).update(item_type=target_item_type)
-        target_label = dict(Item.ItemType.choices).get(target_item_type, target_item_type)
+        target_label = dict(Item.type_choices(active_only=True)).get(
+            target_item_type, target_item_type)
         self.message_user(
             request,
             f"{updated_count} Item(s) wurden auf die Kategorie '{target_label}' gesetzt.",
@@ -7075,7 +7114,7 @@ class RaceStartingItemAdmin(admin.ModelAdmin):
     list_display = ("race", "item", "item_type", "amount", "quality_preview")
     search_fields = ("race__name", "item__name", "item__description")
     list_filter = ("race", "item__item_type", "quality", "item__size_class")
-    ordering = ("race__name", "item__item_type", "item__name")
+    ordering = ("race__name", "item__item_type__slug", "item__name")
     autocomplete_fields = ("race", "item")
     list_select_related = ("race", "item")
 
@@ -8789,7 +8828,7 @@ class CharacterAlmanacBrewAdmin(admin.ModelAdmin):
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "item":
             kwargs["queryset"] = Item.objects.filter(
-                item_type=Item.ItemType.ALCHEMICAL_BREW,
+                item_type__supports_alchemical_stats=True,
             ).order_by("name")
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 

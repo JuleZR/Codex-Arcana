@@ -450,7 +450,7 @@ def _equipment_action_partial_keys(
 ) -> tuple[str, ...]:
     """Return narrow sheet fragments affected by equipping or unequipping one item."""
     item = character_item.item
-    item_type = str(item.item_type)
+    item_type = item.item_type
     keys = ["inventory_panel"]
 
     if effects is None:
@@ -462,11 +462,11 @@ def _equipment_action_partial_keys(
         for key in _item_semantic_effect_toggle_partial_keys(effects):
             _append_partial_key(keys, key)
 
-    if item_type in Item.weapon_item_type_values():
+    if item_type.is_weapon:
         for key in ("weapon_panel", "battle_calculator"):
             _append_partial_key(keys, key)
 
-    if item_type in Item.armor_item_type_values() or item_type == Item.ItemType.SHIELD:
+    if item_type.is_armor or item_type.is_shield:
         for key in (
             "load_panel",
             "skills_panel",
@@ -477,7 +477,7 @@ def _equipment_action_partial_keys(
         ):
             _append_partial_key(keys, key)
     elif (
-        item_type in {Item.ItemType.CLOTHING, Item.ItemType.RING, Item.ItemType.AMULET}
+        (item_type.is_clothing or item_type.is_magic_equipment)
         or item.is_magic_effective
     ):
         _append_partial_key(keys, "armor_panel")
@@ -5791,13 +5791,7 @@ def toggle_equip(request, pk):
             status=409
             ), character_id=ci.owner_id)
 
-    if ci.item.item_type not in (
-        Item.ItemType.ARMOR,
-        Item.ItemType.SHIELD,
-        Item.ItemType.WEAPON,
-        Item.ItemType.CLOTHING,
-        *Item.magic_item_type_values(),
-    ) and not ci.item.is_magic_effective:
+    if not ci.item.item_type.is_equippable and not ci.item.is_magic_effective:
         return redirect("character_sheet", character_id=ci.owner_id)
 
     if ci.equip_locked:
@@ -5818,8 +5812,8 @@ def toggle_equip(request, pk):
             ci.owner,
             _equipment_action_partial_keys(ci),
             include_body_armor=(
-                ci.item.item_type in Item.armor_item_type_values()
-                or ci.item.item_type == Item.ItemType.SHIELD
+                ci.item.item_type.is_armor
+                or ci.item.item_type.is_shield
                 or getattr(ci.item, "armorstats", None) is not None
             ),
         )
@@ -5886,8 +5880,7 @@ def consume_item(request, pk):
 
     if (
         not ci.item.stackable
-        or ci.item.item_type
-        not in Item.consumable_item_type_values()
+        or not ci.item.item_type.is_consumable
     ):
         return redirect(
             "character_sheet",

@@ -2178,7 +2178,8 @@ class CreatureTraitChoiceSelection(models.Model):
 
     def _validate_target_kind(self, expected_kind: str):
         errors = {}
-        allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
+        allowed_item_categories = {
+            choice for choice, _label in Item.type_choices()}
         target_field_by_kind = {
             CreatureTraitChoiceDefinition.TargetKind.ATTRIBUTE: "selected_attribute",
             CreatureTraitChoiceDefinition.TargetKind.SKILL: "selected_skill",

@@ -129,6 +129,7 @@ from charsheet.models import (
     CreatureType,
     DamageSource,
     Item,
+    ItemType,
     ItemSemanticEffect,
     ItemTransfer,
     Language,
@@ -1413,69 +1414,23 @@ def _build_damage_gauge_data(
 
 SHOP_ARMOR_COMPONENT_GROUP = "armor_component"
 
-SHOP_GROUP_LABELS = {
-    Item.ItemType.WEAPON: "Waffen",
-    Item.ItemType.ARMOR: "Rüstungen",
-    SHOP_ARMOR_COMPONENT_GROUP: "Rüstungsteile",
-    Item.ItemType.SHIELD: "Schilde",
-    Item.ItemType.CLOTHING: "Kleidung",
-    Item.ItemType.RING: "Ringe",
-    Item.ItemType.AMULET: "Amulette",
-    Item.ItemType.MAGICAL_WEAPON: "Magische Waffen",
-    Item.ItemType.MAGICAL_ARMOR: "Magische Rüstungen",
-    Item.ItemType.AMMO: "Munition",
-    Item.ItemType.ALCHEMICAL_BREW: "Alchemistische Gebräue",
-    Item.ItemType.EQUIPMENT: "Ausrüstung",
-    Item.ItemType.CONSUM: "Verbrauchsgegenstände",
-    Item.ItemType.CREATURE: "Tiere & Kreaturen",
-    Item.ItemType.MISC: "Sonstiges",
-}
-SHOP_GROUP_ORDER = [
-    Item.ItemType.WEAPON,
-    Item.ItemType.ARMOR,
-    SHOP_ARMOR_COMPONENT_GROUP,
-    Item.ItemType.SHIELD,
-    Item.ItemType.CLOTHING,
-    Item.ItemType.RING,
-    Item.ItemType.AMULET,
-    Item.ItemType.MAGICAL_WEAPON,
-    Item.ItemType.MAGICAL_ARMOR,
-    Item.ItemType.AMMO,
-    Item.ItemType.CONSUM,
-    Item.ItemType.ALCHEMICAL_BREW,
-    Item.ItemType.CREATURE,
-    Item.ItemType.EQUIPMENT,
-    Item.ItemType.MISC,
-]
-SHOP_FORM_ORDER = [
-    Item.ItemType.MISC,
-    Item.ItemType.CREATURE,
-    Item.ItemType.CONSUM,
-    Item.ItemType.AMMO,
-    Item.ItemType.WEAPON,
-    Item.ItemType.ARMOR,
-    Item.ItemType.SHIELD,
-    Item.ItemType.CLOTHING,
-    Item.ItemType.RING,
-    Item.ItemType.AMULET,
-    Item.ItemType.MAGICAL_WEAPON,
-    Item.ItemType.MAGICAL_ARMOR,
-]
-QUALITY_TOOLTIP_TYPES = {
-    Item.ItemType.ARMOR,
-    Item.ItemType.WEAPON,
-    Item.ItemType.SHIELD,
-    Item.ItemType.CLOTHING,
-    *Item.magic_item_type_values(),
-}
-EQUIPPABLE_ITEM_TYPES = {
-    Item.ItemType.ARMOR,
-    Item.ItemType.WEAPON,
-    Item.ItemType.SHIELD,
-    Item.ItemType.CLOTHING,
-    *Item.magic_item_type_values(),
-}
-RUNE_RETROFIT_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.MISC}
+
+def _shop_type_groups():
+    categories = list(ItemType.objects.all())
+    groups = [
+        (category.slug, category.plural_name or category.name)
+        for category in categories
+    ]
+    armor_index = next(
+        (index for index, category in enumerate(categories)
+         if category.is_armor),
+        len(groups) - 1,
+    )
+    groups.insert(armor_index + 1,
+                  (SHOP_ARMOR_COMPONENT_GROUP, "R\u00fcstungsteile"))
+    return groups
+
+
 MODIFIER_SOURCE_LABELS = {
     "race": "Rasse",
     "trait": "Merkmal",
@@ -1890,7 +1845,8 @@ def _serialize_item_semantic_effect_payload(
     elif target_domain == "item_category":
         payload["target_kind"] = "item_category"
         payload["target_item_category"] = target_key
-        payload["target_display"] = dict(Item.ItemType.choices).get(target_key, target_key)
+        payload["target_display"] = dict(
+            Item.type_choices()).get(target_key, target_key)
     elif target_domain == "item":
         payload["target_kind"] = "item"
         payload["target_item"] = str(metadata.get("target_item_id") or target_key)
@@ -2894,7 +2850,7 @@ def _load_character_item_modifier_payloads(
     base_effect_query = (
         ItemSemanticEffect.objects
         .filter(item_id__in=item_ids)
-        .select_related("item")
+        .select_related("item__item_type", "item")
         .prefetch_related(
             "condition_races",
             "condition_schools",
@@ -3458,7 +3414,7 @@ def _build_alchemist_almanac_context(character: Character, engine: CharacterEngi
     entries = (
         CharacterAlmanacBrew.objects
         .filter(character=character)
-        .select_related("item")
+        .select_related("item__item_type", "item")
         .order_by("item__name", "id")
     )
     item_ids = [entry.item_id for entry in entries]
@@ -3746,7 +3702,7 @@ def _build_item_tooltip_rows(
     if size_class:
         rows.append(("GK", size_class))
 
-    if item.item_type in Item.weapon_item_type_values():
+    if item.item_type.is_weapon:
         weapon_stats = item_engine._get_weapon_stats()
 
         if weapon_stats and weapon_stats.wield_mode == TWO_HANDED:
@@ -3818,7 +3774,7 @@ def _build_item_tooltip_rows(
         if min_st is not None:
             rows.append(("Min-ST", min_st))
 
-    elif item.item_type == Item.ItemType.SHIELD:
+    elif item.item_type.is_shield:
         rs = item_engine.get_effective_shield_rs()
         if rs is not None:
             rows.append(("RS", rs))
@@ -3826,7 +3782,7 @@ def _build_item_tooltip_rows(
         min_st = item_engine.get_shield_min_st()
         if min_st is not None:
             rows.append(("Min-ST", min_st))
-    elif item.item_type in Item.magic_item_type_values():
+    elif item.item_type.is_magic_equipment:
         effect_summary, text_payloads = unpack_magic_effect_summary(
             getattr(getattr(item, "magicitemstats", None), "effect_summary", "")
         )
@@ -4336,7 +4292,9 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
         if item is not None:
             return item.name
     if source_type_text == "characteritem" and source_id_text.isdigit():
-        character_item = CharacterItem.objects.filter(pk=int(source_id_text)).select_related("item").first()
+        character_item = CharacterItem.objects.filter(
+            pk=int(source_id_text)
+        ).select_related("item__item_type", "item").first()
         if character_item is not None:
             return character_item.effective_name
     if source_type_text == SOURCE_ITEM_RUNE and source_id_text.isdigit():
@@ -4414,7 +4372,9 @@ def _item_source_invested_cp(source_type: object, source_id: object) -> int | No
     if not source_id_text.isdigit():
         return None
     if source_type_text == "characteritem":
-        character_item = CharacterItem.objects.filter(pk=int(source_id_text)).select_related("item").first()
+        character_item = CharacterItem.objects.filter(
+            pk=int(source_id_text)
+        ).select_related("item__item_type", "item").first()
         if character_item is None:
             return None
         return character_item.invested_cp if character_item.invested_cp is not None else character_item.item.invested_cp
@@ -6092,7 +6052,7 @@ def _build_inventory_rows(
 
         if (
             not is_race_item
-            and item.item_type in QUALITY_TOOLTIP_TYPES
+            and item.item_type.shows_quality
         ):
             tooltip_text = _format_item_tooltip(
                 description=item_description,
@@ -6149,13 +6109,13 @@ def _build_inventory_rows(
         equip_drop_zones = []
 
         if (
-            item.item_type in Item.weapon_item_type_values()
-            or item.item_type == Item.ItemType.SHIELD
+            item.item_type.is_weapon
+            or item.item_type.is_shield
         ):
             equip_drop_zones.append("weapon")
 
         elif (
-            item.item_type in EQUIPPABLE_ITEM_TYPES
+            item.item_type.is_equippable
             or character_item.is_magic_effective
         ):
             equip_drop_zones.append("armor")
@@ -6287,7 +6247,7 @@ def _build_inventory_rows(
                 "can_equip": (
                     can_use_item
                     and (
-                        item.item_type in EQUIPPABLE_ITEM_TYPES
+                        item.item_type.is_equippable
                         or character_item.is_magic_effective
                     )
                 ),
@@ -6664,15 +6624,15 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
 def _equipment_icon_key(row: dict) -> str:
     item = row["item"]
     item_type = item.item_type
-    if item_type == Item.ItemType.RING:
+    if item_type.icon_key == "ring":
         return "ring"
-    if item_type == Item.ItemType.AMULET:
+    if item_type.icon_key == "amulet":
         return "amulet"
-    if item_type == Item.ItemType.SHIELD:
+    if item_type.is_shield:
         return "shield"
-    if item_type == Item.ItemType.CLOTHING:
+    if item_type.is_clothing:
         return "clothing"
-    if item_type in Item.weapon_item_type_values():
+    if item_type.is_weapon:
         return "weapon"
     armor_stats = row.get("armor_stats") or getattr(item, "armorstats", None)
     if armor_stats is not None:
@@ -6688,7 +6648,7 @@ def _equipment_icon_key(row: dict) -> str:
         if covered_zones & {"foot_left", "foot_right", "leg_left", "leg_right"}:
             return "boots"
         return "armor"
-    if item_type in Item.armor_item_type_values():
+    if item_type.is_armor:
         return "armor"
     if item.is_magic_effective:
         return "magic_item"
@@ -7643,6 +7603,7 @@ def _build_shop_item_groups() -> list[dict]:
         Item.objects
         .filter(catalog_group__isnull=True)
         .select_related(
+            "item_type",
             "armorstats",
             "shieldstats",
             "magicitemstats",
@@ -7655,7 +7616,7 @@ def _build_shop_item_groups() -> list[dict]:
             "weapon_stats__skills",
             "weapon_stats__flags",
         )
-        .order_by("item_type", "name")
+        .order_by("item_type__slug", "name")
     )
     for item in buyable_items:
         if item.id in race_item_ids or item.not_buyable:
@@ -7663,7 +7624,7 @@ def _build_shop_item_groups() -> list[dict]:
         item_engine = ItemEngine(item)
         quality = quality_payload(item_engine.get_effective_quality())
         stats_payload: dict[str, object] = {
-            "item_type": item.item_type,
+            "item_type": item.item_type_id,
             "size_class": item.size_class,
             "weight": str(item.weight),
             "min_st": None,
@@ -7734,14 +7695,14 @@ def _build_shop_item_groups() -> list[dict]:
         group_key = (
             SHOP_ARMOR_COMPONENT_GROUP
             if armor_stats is not None and armor_stats.parent_set_id
-            else item.item_type
+            else item.item_type_id
         )
         grouped_items.setdefault(group_key, []).append(
             {
                 "id": item.id,
                 "name": item.name,
                 "description": item.description or "",
-                "item_type": item.item_type,
+                "item_type": item.item_type_id,
                 "stackable": bool(item.stackable),
                 "base_price": int(item.price),
                 "default_price": item_engine.get_price(),
@@ -7756,10 +7717,10 @@ def _build_shop_item_groups() -> list[dict]:
     return [
         {
             "key": item_type,
-            "label": SHOP_GROUP_LABELS[item_type],
+            "label": label,
             "items": grouped_items[item_type],
         }
-        for item_type in SHOP_GROUP_ORDER
+        for item_type, label in _shop_type_groups()
         if grouped_items.get(item_type)
     ]
 
@@ -7771,8 +7732,13 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         CharacterItem.objects
         .filter(owner=character)
         .exclude(item__not_sellable=True)
-        .select_related("item", "item__armorstats", "original_owner_character")
-        .order_by("item__item_type", "item__name", "quality", "id")
+        .select_related(
+            "item__item_type", "item", "item__armorstats",
+            "original_owner_character",
+        )
+        .order_by(
+            "item__item_type__slug", "item__name", "quality", "id",
+        )
     )
     for character_item in inventory_items:
         if item_is_pending(character_item) or not has_item_permission(character_item, "sell", character):
@@ -7785,7 +7751,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         group_key = (
             SHOP_ARMOR_COMPONENT_GROUP
             if armor_stats is not None and armor_stats.parent_set_id
-            else item.item_type
+            else item.item_type_id
         )
         grouped_items.setdefault(group_key, []).append(
             {
@@ -7793,7 +7759,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
                 "item_id": item.id,
                 "name": item_engine.get_name(),
                 "description": character_item.description or item.description or "",
-                "item_type": item.item_type,
+                "item_type": item.item_type_id,
                 "amount": int(character_item.amount),
                 "stackable": bool(item.stackable),
                 "quality": quality["value"],
@@ -7807,10 +7773,10 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
     return [
         {
             "key": item_type,
-            "label": SHOP_GROUP_LABELS[item_type],
+            "label": label,
             "items": grouped_items[item_type],
         }
-        for item_type in SHOP_GROUP_ORDER
+        for item_type, label in _shop_type_groups()
         if grouped_items.get(item_type)
     ]
 
@@ -8421,7 +8387,7 @@ def _build_learning_rows(
     if almanac_enabled:
         for brew in (
             AlchemicalBrewStats.objects
-            .select_related("item")
+            .select_related("item__item_type", "item")
             .order_by("brew_type", "item__name", "id")
         ):
             if brew.item_id in learned_brew_ids:
@@ -10054,10 +10020,9 @@ def build_character_sheet_context(
             lambda: _build_shop_sell_item_groups(character)
         ),
         "shop_quality_choices": shop_quality_choices,
-        "shop_item_form_type_choices": [
-            (item_type, dict(Item.ItemType.choices)[item_type])
-            for item_type in SHOP_FORM_ORDER
-        ],
+        "shop_item_form_type_choices": Item.type_choices(
+            active_only=True, form_order=True,
+        ),
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
         "shop_size_class_choices": GK_CHOICES,
         "shop_size_class_options": _size_class_options(),
@@ -10110,7 +10075,8 @@ def build_character_sheet_context(
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
         "shop_modifier_item_choices": Item.objects.order_by("name"),
         "shop_modifier_item_category_choices": [
-            (value, label) for value, label in Item.ItemType.choices
+            (value, label)
+            for value, label in Item.type_choices(active_only=True)
         ],
         "shop_modifier_specialization_choices": Specialization.objects.order_by("name"),
         "shop_modifier_race_choices": Race.objects.order_by("name"),
