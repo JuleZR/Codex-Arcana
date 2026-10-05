@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "slug": "grw-ork-schamane",
+  "name": "Ork – Schamane",
+  "description": "GRW-Archetyp Talak von den Staubreitern – Schamane der Orks.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 176
+  },
+  "race": "Ork",
+  "state": {
+    "meta": {
+      "name": "Ork – Schamane",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 5,
+        "KON": 6,
+        "GE": 5,
+        "WA": 4,
+        "INT": 7,
+        "WILL": 6,
+        "CHA": 7
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_intimidate",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skil_storytelling",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_meditation",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_orientation",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_riding",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_rhetoric",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_spears_staves",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_tracking",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_animal_amdling",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "knw_medicine",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "knw_legends",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "knw_law",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "knw_religion",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "knw_weather",
+          "level": 4,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "wragg": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        },
+        "lang_verunian": {
+          "level": 2,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_slow": 3,
+        "dis_vice": 1,
+        "dis_senseofduty": 1,
+        "dis_haunting": 1
+      },
+      "trait_specifications": {
+        "dis_vice": {
+          "text": "Barbarischer Gesang"
+        },
+        "dis_senseofduty": {
+          "text": "Orks"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_gaze": 1
+      },
+      "trait_specifications": {
+        "adv_gaze": {
+          "text": "Einschüchtern +2"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_intimidate",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skil_storytelling",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_rhetoric",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_spears_staves",
+          "add": 3,
+          "specification": ""
+        },
+        {
+          "slug": "knw_medicine",
+          "add": 1,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Schamane": 4
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Arztkoffer",
+      "amount": 1
+    },
+    {
+      "name": "Fetischstab",
+      "notes": "+2 Fokus und Zauberspeicher",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    },
+    {
+      "name": "Reitpferd",
+      "amount": 1
+    },
+    {
+      "name": "Sattel & Zaumzeug",
+      "amount": 1
+    },
+    {
+      "name": "Schmuck",
+      "notes": "Knochen und Schädel im Wert von 4 GM",
+      "amount": 1
+    }
+  ],
+  "money_km": 20
+}

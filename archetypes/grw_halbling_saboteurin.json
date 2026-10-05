@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "slug": "grw-halbling-saboteurin",
+  "name": "Halbling – Saboteurin",
+  "description": "GRW-Archetyp Diaspora Krixi – Saboteurin der Halblinge.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 182
+  },
+  "race": "Halbling",
+  "state": {
+    "meta": {
+      "name": "Halbling – Saboteurin",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 3,
+        "KON": 3,
+        "GE": 7,
+        "WA": 11,
+        "INT": 5,
+        "WILL": 4,
+        "CHA": 5
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_evasion",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_daggers",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_set_defuse_traps",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_counterfeiting",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "craft_inventing",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_improvised_weapons",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_investigate",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_orientation",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_estimate",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_sneak",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_lockpicking",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_blackpowder_weapons",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_hide",
+          "level": 2,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "quanni": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        },
+        "halbwelsch": {
+          "level": 3,
+          "write": false,
+          "mother": false
+        },
+        "lang_verunian": {
+          "level": 2,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_enemy": 4,
+        "dis_quirk": 1,
+        "dis_naive": 4,
+        "dis_curiosity": 1,
+        "dis_delusion": 1
+      },
+      "trait_specifications": {
+        "dis_enemy": {
+          "text": "Schattenhandgilde"
+        },
+        "dis_quirk": {
+          "text": "Spricht mit Pistolen"
+        },
+        "dis_delusion": {
+          "text": "Maschinen haben Gefühle"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_magic_item": 1,
+        "adv_guild_member": 2,
+        "adv_wealth": 1
+      },
+      "trait_specifications": {
+        "adv_magic_item": {
+          "text": "Mechanautenanzug"
+        },
+        "adv_guild_member": {
+          "text": "Zellenleiterin der Techgilde"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_evasion",
+          "add": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_daggers",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_blackpowder_weapons",
+          "add": 6,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Saboteur": 3
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Berdyche",
+      "amount": 2
+    },
+    {
+      "name": "Diebeswerkzeug",
+      "amount": 1
+    },
+    {
+      "name": "Mechanautenanzug",
+      "notes": "RS 3, Bel. -1; Temperaturtoleranz; Schutzfunktionen",
+      "amount": 1
+    },
+    {
+      "name": "Pistole",
+      "notes": "mit Pulver und insgesamt 80 Kugeln",
+      "amount": 2
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    }
+  ],
+  "money_km": 620
+}

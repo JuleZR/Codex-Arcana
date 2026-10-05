@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "slug": "grw-troll-berserker",
+  "name": "Nordtroll – Berserker",
+  "description": "GRW-Archetyp Grimwar Eisblut – Trollberserker.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 184
+  },
+  "race": "Troll",
+  "state": {
+    "meta": {
+      "name": "Nordtroll – Berserker",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 12,
+        "KON": 10,
+        "GE": 4,
+        "WA": 4,
+        "INT": 2,
+        "WILL": 4,
+        "CHA": 2
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_stamina",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_intimidate",
+          "level": 7,
+          "specification": ""
+        },
+        {
+          "slug": "skill_feat_of_strength",
+          "level": 7,
+          "specification": ""
+        },
+        {
+          "slug": "skill_warcraft",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_running",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_sneak",
+          "level": 0,
+          "specification": ""
+        },
+        {
+          "slug": "skill_swords",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_jump",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_blunt_weapons",
+          "level": 8,
+          "specification": ""
+        },
+        {
+          "slug": "skill_survival",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_hide",
+          "level": 0,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_carousing",
+          "level": 1,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "kronnor": {
+          "level": 3,
+          "write": false,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 2,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_obsessed": 1,
+        "dis_bloodlust": 1,
+        "dis_vow": 5,
+        "dis_vice": 1
+      },
+      "trait_specifications": {
+        "dis_obsessed": {
+          "text": "Ruhm"
+        },
+        "dis_vow": {
+          "text": "Niemals aus einem Kampf fliehen"
+        },
+        "dis_vice": {
+          "text": "Zechen"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_fearless": 8,
+        "adv_wealth": 1,
+        "adv_fame": 2
+      },
+      "trait_specifications": {
+        "adv_fame": {
+          "text": "Ruf als Schlächter"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_intimidate",
+          "add": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_feat_of_strength",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_warcraft",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_blunt_weapons",
+          "add": 2,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Berserker": 3
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    },
+    {
+      "name": "Schwere Lederrüstung, beschlagen",
+      "quality": "gut",
+      "amount": 1
+    },
+    {
+      "name": "Trollschwert",
+      "amount": 1
+    },
+    {
+      "name": "Unterkieferknochen",
+      "notes": "Wert 1 SM",
+      "amount": 1
+    },
+    {
+      "name": "Zweihandtrollkriegshammer",
+      "quality": "gut",
+      "amount": 1
+    }
+  ],
+  "money_km": 230
+}

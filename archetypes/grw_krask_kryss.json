@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "slug": "grw-krask-kryss",
+  "name": "Krask – Kryss",
+  "description": "GRW-Archetyp Skaskras Klauensturm – Mutantin der Krask.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 170
+  },
+  "race": "Krask",
+  "state": {
+    "meta": {
+      "name": "Krask – Kryss",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 7,
+        "KON": 6,
+        "GE": 7,
+        "WA": 8,
+        "INT": 5,
+        "WILL": 4,
+        "CHA": 3
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_stamina",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_set_defuse_traps",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_climbing",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_sneak",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_spears_staves",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_jump",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_tracking",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_survival",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_hide",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 6,
+          "specification": ""
+        },
+        {
+          "slug": "knw_history",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "knw_toxicology",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "knw_nature",
+          "level": 1,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "suskit": {
+          "level": 3,
+          "write": false,
+          "mother": true
+        },
+        "lang_verunian": {
+          "level": 3,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_poor": 1,
+        "dis_quirk": 1,
+        "dis_vengeful": 5,
+        "dis_delusion": 1
+      },
+      "trait_specifications": {
+        "dis_quirk": {
+          "text": "Über die Zähne lecken"
+        },
+        "dis_delusion": {
+          "text": "Von Ahnengeistern des Shaktar bewacht"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_keen_sense": 1,
+        "adv_disease_immunity": 1
+      },
+      "trait_specifications": {
+        "adv_keen_sense": {
+          "text": "Geruchs- und Geschmackssinn"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_spears_staves",
+          "add": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "add": 4,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Kryss": 3
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    }
+  ],
+  "money_km": 0
+}

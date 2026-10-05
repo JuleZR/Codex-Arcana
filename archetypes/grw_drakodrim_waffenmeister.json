@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "slug": "grw-drakodrim-waffenmeister",
+  "name": "Drakodrim – Waffenmeister",
+  "description": "GRW-Archetyp Broken Hammerhand – Waffenmeister der Drakodrim.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 186
+  },
+  "race": "Drakodrim",
+  "state": {
+    "meta": {
+      "name": "Drakodrim – Waffenmeister",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 8,
+        "KON": 7,
+        "GE": 8,
+        "WA": 4,
+        "INT": 4,
+        "WILL": 6,
+        "CHA": 3
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_stamina",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_axes",
+          "level": 6,
+          "specification": ""
+        },
+        {
+          "slug": "craft_mining",
+          "level": 0,
+          "specification": ""
+        },
+        {
+          "slug": "craft_goldsmithing",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "craft_armorsmith",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "craft_weaponsmith",
+          "level": 7,
+          "specification": ""
+        },
+        {
+          "slug": "skill_feat_of_strength",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_meditation",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_orientation",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_estimate",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_blunt_weapons",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_bargaining",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "knw_artifacts",
+          "level": 5,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "urtek": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_vow": 4,
+        "dis_cannot_lie": 1,
+        "dis_quirk": 1,
+        "dis_debt": 3
+      },
+      "trait_specifications": {
+        "dis_vow": {
+          "text": "Stolz"
+        },
+        "dis_quirk": {
+          "text": "Waffenfaszination"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_magic_item": 10,
+        "adv_wealth": 1
+      },
+      "trait_specifications": {
+        "adv_magic_item": {
+          "text": "Runenerbe: Streitaxt mit Fallenrune, Rune der Geschicklichkeit, Rune der Ausdauer und +1/+1 Bonus"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_axes",
+          "add": 4,
+          "specification": ""
+        },
+        {
+          "slug": "craft_weaponsmith",
+          "add": 3,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Waffenmeister": 2
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [
+        {
+          "weapon_type": "zweihandstreitaxt",
+          "first_bonus_kind": "maneuver"
+        },
+        {
+          "weapon_type": "streitaxt",
+          "first_bonus_kind": "maneuver"
+        }
+      ],
+      "weapon_arcana": [
+        {
+          "kind": "rune",
+          "rune_id": "rune_der_geschicklichkeit"
+        },
+        {
+          "kind": "rune",
+          "rune_id": "fallenrune"
+        }
+      ]
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    },
+    {
+      "name": "Schmiedewerkzeug",
+      "amount": 1
+    },
+    {
+      "name": "Verstärkte Kleidung",
+      "amount": 1
+    },
+    {
+      "name": "Zweihandstreitaxt",
+      "quality": "gut",
+      "notes": "mit Runenerbe",
+      "amount": 1
+    },
+    {
+      "name": "Zwergenplattenpanzer",
+      "amount": 1
+    }
+  ],
+  "money_km": 70
+}

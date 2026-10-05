@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "slug": "grw-morai-nachtgeist",
+  "name": "Morai – Nachtgeist",
+  "description": "GRW-Archetyp Balieth Darramistyl – Nachtgeist der Morai.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 174
+  },
+  "race": "Morai",
+  "state": {
+    "meta": {
+      "name": "Morai – Nachtgeist",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 5,
+        "KON": 5,
+        "GE": 11,
+        "WA": 7,
+        "INT": 4,
+        "WILL": 3,
+        "CHA": 3
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unleash",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_set_defuse_traps",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_streetwise",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_chain_weapons",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_climbing",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_acting",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_sneak",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_lockpicking",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_swords",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_gymnastics",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_survival",
+          "level": 0,
+          "specification": ""
+        },
+        {
+          "slug": "skill_hide",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_disguise",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "knw_toxicology",
+          "level": 3,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "xirr": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 3,
+          "write": false,
+          "mother": false
+        },
+        "sidhain": {
+          "level": 3,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_dark_secret": 4,
+        "dis_fanatic": 1,
+        "dis_bad_luck": 1,
+        "dis_subject": 1,
+        "dis_delusion": 1
+      },
+      "trait_specifications": {
+        "dis_dark_secret": {
+          "text": "Hexenmutter ermordet"
+        },
+        "dis_subject": {
+          "text": "der Hexenmutter der Darramistyl"
+        },
+        "dis_delusion": {
+          "text": "Anaranth sieht alles"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_fearless": 5,
+        "adv_half_demon": 1,
+        "adv_magic_item": 4
+      },
+      "trait_specifications": {
+        "adv_half_demon": {
+          "text": "Augen der Hölle"
+        },
+        "adv_magic_item": {
+          "text": "Karn Sing"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_chain_weapons",
+          "add": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_climbing",
+          "add": 2,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Nachtgeist": 2
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Diebeswerkzeug",
+      "amount": 1
+    },
+    {
+      "name": "Karn Sing",
+      "notes": "magischer Gegenstand",
+      "amount": 1
+    },
+    {
+      "name": "Leichte Lederrüstung",
+      "amount": 1
+    },
+    {
+      "name": "Mornabat",
+      "notes": "Sklavenjäger der Morai",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    },
+    {
+      "name": "Verstärkte Kleidung",
+      "amount": 1
+    }
+  ],
+  "money_km": 600
+}

@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "slug": "grw-sidhe-klingenlied",
+  "name": "Sidhe – Klingenlied",
+  "description": "GRW-Archetyp Mararielle Morgenstern – Klingentänzerin der Sidhe.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 168
+  },
+  "race": "Sidhe",
+  "state": {
+    "meta": {
+      "name": "Sidhe – Klingenlied",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 4,
+        "KON": 4,
+        "GE": 11,
+        "WA": 5,
+        "INT": 4,
+        "WILL": 4,
+        "CHA": 6
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_impress",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_empathy",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_etiquette",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_leading",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "craft_goldsmithing",
+          "level": 0,
+          "specification": ""
+        },
+        {
+          "slug": "skill_fashion",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_rhetoric",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_acting",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_swords",
+          "level": 9,
+          "specification": ""
+        },
+        {
+          "slug": "skill_singing",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_dance",
+          "level": 10,
+          "specification": ""
+        },
+        {
+          "slug": "skill_taunting",
+          "level": 3,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "sidhain": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        },
+        "lang_verunian": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_arrogant": 1,
+        "dis_senseofduty": 1
+      },
+      "trait_specifications": {
+        "dis_senseofduty": {
+          "text": "Sidhe"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_appearance": 1,
+        "adv_ambidexterity": 1,
+        "adv_magic_item": 7,
+        "adv_wealth": 1
+      },
+      "trait_specifications": {
+        "adv_magic_item": {
+          "text": "Lunariumkettenhemd"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_swords",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_singing",
+          "add": 1,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Klingenlied": 2
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "quality": "gut",
+      "amount": 1
+    },
+    {
+      "name": "Langschwert",
+      "material": "Lunarium",
+      "notes": "rostet nicht, halbes Gewicht",
+      "amount": 2
+    },
+    {
+      "name": "Lunariumkettenhemd",
+      "material": "Lunarium",
+      "notes": "magisch; RS 7, Bel. 0",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "quality": "gut",
+      "amount": 1
+    }
+  ],
+  "money_km": 1240
+}

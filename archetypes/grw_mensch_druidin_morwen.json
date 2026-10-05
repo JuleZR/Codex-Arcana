@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "slug": "grw-mensch-druidin-morwen",
+  "name": "Mensch – Druidin der Morwen",
+  "description": "GRW-Archetyp Caera va Morwen – Kriegsdruidin.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 178
+  },
+  "race": "Mensch",
+  "state": {
+    "meta": {
+      "name": "Mensch – Druidin der Morwen",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 5,
+        "KON": 5,
+        "GE": 8,
+        "WA": 5,
+        "INT": 5,
+        "WILL": 6,
+        "CHA": 6
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_impress",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_daggers",
+          "level": 8,
+          "specification": ""
+        },
+        {
+          "slug": "skill_educate",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_meditation",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_swimming",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_tracking",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_survival",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "knw_history",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "knw_nature",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "knw_religion",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_first_aid",
+          "level": 1,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "llyr": {
+          "level": 3,
+          "write": false,
+          "mother": true
+        },
+        "kelltach": {
+          "level": 3,
+          "write": false,
+          "mother": false
+        },
+        "lang_gothic": {
+          "level": 2,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_distinguishing_mark": 1,
+        "dis_senseofduty": 1,
+        "dis_phobia": 1
+      },
+      "trait_specifications": {
+        "dis_distinguishing_mark": {
+          "text": "Schwarze Feder"
+        },
+        "dis_senseofduty": {
+          "text": "Mordain"
+        },
+        "dis_phobia": {
+          "text": "Maschinen"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_appearance": 1,
+        "adv_ambidexterity": 1,
+        "adv_fearless": 3
+      },
+      "trait_specifications": {},
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_daggers",
+          "add": 1,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Berserker": 1,
+        "Druidin der Morwen": 3
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Arztkoffer",
+      "amount": 1
+    },
+    {
+      "name": "Blaue Kreide",
+      "amount": 10
+    },
+    {
+      "name": "Lederriemen",
+      "amount": 5
+    },
+    {
+      "name": "Messer",
+      "quality": "exzellent",
+      "amount": 2
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    },
+    {
+      "name": "Schmuck",
+      "notes": "Wert 6 GM",
+      "amount": 1
+    }
+  ],
+  "money_km": 0
+}

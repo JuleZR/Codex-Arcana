@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "slug": "grw-mensch-feuermagier",
+  "name": "Mensch – Feuermagier",
+  "description": "GRW-Archetyp Parthenia von Kham – Feuermagierin.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 162
+  },
+  "race": "Mensch",
+  "state": {
+    "meta": {
+      "name": "Mensch – Feuermagier",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 3,
+        "KON": 4,
+        "GE": 4,
+        "WA": 5,
+        "INT": 10,
+        "WILL": 8,
+        "CHA": 4
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_intimidate",
+          "level": 2,
+          "specification": ""
+        },
+        {
+          "slug": "skill_etiquette",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_meditation",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "skill_investigate",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_rhetoric",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_swords",
+          "level": 10,
+          "specification": ""
+        },
+        {
+          "slug": "skill_driving",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "knw_elemental_magic",
+          "level": 5,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "lang_gothic": {
+          "level": 3,
+          "write": true,
+          "mother": true
+        },
+        "lang_atlantean": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        },
+        "lang_verunian": {
+          "level": 3,
+          "write": true,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_quirk": 1,
+        "dis_vengeful": 5,
+        "dis_hot_tempered": 1
+      },
+      "trait_specifications": {
+        "dis_quirk": {
+          "text": "Melodramatische Gestik"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_natural_talent": 1,
+        "adv_guild_member": 3,
+        "adv_wealth": 1
+      },
+      "trait_specifications": {
+        "adv_natural_talent": {
+          "text": "Bücherwurm: Alle Wissensfertigkeiten auf 6"
+        },
+        "adv_guild_member": {
+          "text": "Feuerschwingen"
+        }
+      },
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Elementarmagie Feuer": 5
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket Luxus",
+      "amount": 1
+    },
+    {
+      "name": "Bronzepanzer und wattierter Waffenrock",
+      "notes": "Torso; RS 8 am Torso, RS 1 / Bel. 1 insgesamt",
+      "amount": 1
+    },
+    {
+      "name": "Festtagskleidung",
+      "amount": 1
+    },
+    {
+      "name": "Kurzschwert",
+      "quality": "exzellent",
+      "notes": "Mindeststärke um 1 reduziert",
+      "amount": 2
+    },
+    {
+      "name": "Magierrobe",
+      "amount": 2
+    },
+    {
+      "name": "Tintenfässchen und Federkiel",
+      "amount": 1
+    },
+    {
+      "name": "Zauberbuch",
+      "amount": 1
+    },
+    {
+      "name": "Zugpferd",
+      "amount": 1
+    },
+    {
+      "name": "Zweiradwagen",
+      "amount": 1
+    }
+  ],
+  "money_km": 180
+}

@@ -1,0 +1,229 @@
+{
+  "schema_version": 1,
+  "slug": "grw-fee-tiermeister",
+  "name": "Fee – Tiermeister",
+  "description": "GRW-Archetyp Xeira Blütenstich – Feentiermeisterin.",
+  "source": {
+    "book": "Arcane Codex 3. Edition Grundregelwerk",
+    "chapter": "Auserwählte und Rebellen – Die Archetypen",
+    "page": 160
+  },
+  "race": "Fee",
+  "state": {
+    "meta": {
+      "name": "Fee – Tiermeister",
+      "gender": "",
+      "country_of_origin": "",
+      "starting_experience": 0
+    },
+    "phase_1": {
+      "attributes": {
+        "ST": 2,
+        "KON": 3,
+        "GE": 9,
+        "WA": 8,
+        "INT": 5,
+        "WILL": 4,
+        "CHA": 7
+      }
+    },
+    "phase_2": {
+      "skills": [
+        {
+          "slug": "skill_attention",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_daggers",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_fly",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_meditation",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_orientation",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_riding",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_sneak",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_tracking",
+          "level": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_animal_amdling",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "skill_survival",
+          "level": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_hide",
+          "level": 0,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "level": 4,
+          "specification": ""
+        },
+        {
+          "slug": "knw_beasts",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "knw_toxicology",
+          "level": 5,
+          "specification": ""
+        },
+        {
+          "slug": "knw_nature",
+          "level": 1,
+          "specification": ""
+        }
+      ],
+      "languages": {
+        "elandril": {
+          "level": 3,
+          "write": false,
+          "mother": true
+        },
+        "lang_gothic": {
+          "level": 3,
+          "write": false,
+          "mother": false
+        }
+      }
+    },
+    "phase_3": {
+      "disadvantages": {
+        "dis_nightmares": 1,
+        "dis_dark_secret": 3,
+        "dis_curiosity": 1,
+        "dis_phobia": 4,
+        "dis_orphan": 1
+      },
+      "trait_specifications": {
+        "dis_dark_secret": {
+          "text": "Tod des Gefährten Jirk verursacht"
+        },
+        "dis_phobia": {
+          "text": "Feuer"
+        }
+      },
+      "trait_choices": {}
+    },
+    "phase_4": {
+      "advantages": {
+        "adv_appearance": 1
+      },
+      "trait_specifications": {},
+      "trait_choices": {},
+      "attribute_adds": {},
+      "skill_adds": [
+        {
+          "slug": "skill_attention",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_daggers",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_fly",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_riding",
+          "add": 1,
+          "specification": ""
+        },
+        {
+          "slug": "skill_animal_amdling",
+          "add": 3,
+          "specification": ""
+        },
+        {
+          "slug": "skill_unarmed",
+          "add": 4,
+          "specification": ""
+        },
+        {
+          "slug": "knw_beasts",
+          "add": 1,
+          "specification": ""
+        }
+      ],
+      "language_adds": {},
+      "language_write_adds": {},
+      "schools": {
+        "Tiermeister": 3
+      },
+      "lessons": [],
+      "aspects": {},
+      "weapon_masteries": [],
+      "weapon_arcana": []
+    }
+  },
+  "starting_equipment": [
+    {
+      "name": "Abenteuerpaket",
+      "amount": 1
+    },
+    {
+      "name": "Reisekleidung",
+      "amount": 1
+    },
+    {
+      "name": "Feenwurfdolch",
+      "amount": 1
+    },
+    {
+      "name": "Sattel und Zaumzeug",
+      "amount": 1
+    },
+    {
+      "name": "Blutkocher",
+      "amount": 1
+    },
+    {
+      "name": "Feuerbeißer",
+      "amount": 2
+    },
+    {
+      "name": "Nachtblut",
+      "amount": 1
+    },
+    {
+      "name": "Vipernbiss",
+      "amount": 2
+    }
+  ],
+  "money_km": 10
+}
