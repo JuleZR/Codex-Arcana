@@ -719,7 +719,10 @@ class CharacterTrait(models.Model):
     def clean(self):
         """Validate the chosen trait level against its allowed range."""
         super().clean()
-        if self.trait_level > self.trait.max_level:
+        if (
+            self.trait.max_level is not None
+            and self.trait_level > self.trait.max_level
+        ):
             raise ValidationError({"trait_level": "You can't purchase more levels of a trait than max level"})
         if self.trait_level < self.trait.min_level:
             raise ValidationError({"trait_level": f"Level must be at least {self.trait.min_level}."})

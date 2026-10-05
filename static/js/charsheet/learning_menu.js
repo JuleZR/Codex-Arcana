@@ -183,7 +183,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       valueInput.max = String(maxAdd);
     } else if (kind === "trait") {
       const base = readInt(row.getAttribute("data-base"), 0);
-      const max = readInt(row.getAttribute("data-max"), 0);
+      const max = readInt(row.getAttribute("data-max"), Infinity);
       const pointsPerLevel = readInt(row.getAttribute("data-ppl"), 0);
       const traitType = row.getAttribute("data-trait-type") || "";
       const minAdd = -base;
@@ -198,7 +198,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         infoEl.textContent = `(${base + value})`;
       }
       valueInput.min = String(minAdd);
-      valueInput.max = String(maxAdd);
+      valueInput.max = Number.isFinite(maxAdd) ? String(maxAdd) : "";
     } else if (kind === "skill" || kind === "skill-cs" || kind === "skill-new-spec") {
       const base = readInt(row.getAttribute("data-base"), 0);
       const max = readInt(row.getAttribute("data-max"), 10);
@@ -777,7 +777,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (kind === "trait") {
       const slug = source.getAttribute("data-slug") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
-      const max = readInt(source.getAttribute("data-max"), 0);
+      const max = readInt(source.getAttribute("data-max"), Infinity);
       const pointsPerLevel = readInt(source.getAttribute("data-ppl"), 0);
       const traitType = source.getAttribute("data-trait-type") || "";
       const minAdd = -base;
@@ -820,7 +820,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       row.classList.add("learn_trait_cart_row");
       row.setAttribute("data-base", String(base));
-      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-max", Number.isFinite(max) ? String(max) : "");
       row.setAttribute("data-ppl", String(pointsPerLevel));
       row.setAttribute("data-trait-type", traitType);
       row.innerHTML = `
@@ -834,7 +834,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
-            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" ${Number.isFinite(maxAdd) ? `max="${maxAdd}"` : ""} value="${startAdd}" data-learn-value>
             <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
           </div>
         </td>

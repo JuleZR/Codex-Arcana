@@ -192,7 +192,10 @@ class Trait(models.Model):
     has_specification = models.BooleanField(default=False)
 
     min_level = models.PositiveIntegerField(default=1)
-    max_level = models.PositiveIntegerField(default=1)
+    max_level = models.PositiveIntegerField(
+        default=1, null=True, blank=True,
+        help_text="Leave empty for an unbounded maximum level.",
+    )
     points_per_level = models.PositiveIntegerField(default=1)
     points_by_level = models.CharField(
         max_length=200,
@@ -211,12 +214,22 @@ class Trait(models.Model):
     def clean(self):
         """Keep configured trait level bounds consistent."""
         super().clean()
-        if self.max_level < self.min_level:
+        if self.max_level is not None and self.max_level < self.min_level:
             raise ValidationError("Max level < min level is prohibited.")
+        if self.points_per_level < 0:
+            raise ValidationError({
+                "points_per_level": "Trait costs must be non-negative.",
+            })
         try:
             curve = self.cost_curve()
         except ValueError:
             raise ValidationError({"points_by_level": "Use a comma-separated list of whole numbers."})
+        if curve and self.max_level is None:
+            raise ValidationError({
+                "points_by_level": (
+                    "Unbounded traits require linear per-level costs."
+                ),
+            })
         if curve and len(curve) != int(self.max_level):
             raise ValidationError({"points_by_level": "Provide exactly one cost per level up to max_level."})
         if any(value < 0 for value in curve):

@@ -779,7 +779,9 @@ class CharacterCreationEngine:
         ).first()
         if trait is None:
             return 0
-        if level < trait.min_level or level > trait.max_level:
+        if level < trait.min_level or (
+            trait.max_level is not None and level > trait.max_level
+        ):
             return 0
         return trait.cost_for_level(level)
 
@@ -796,7 +798,9 @@ class CharacterCreationEngine:
             ).first()
             if trait is None:
                 return False
-            if level < trait.min_level or level > trait.max_level:
+            if level < trait.min_level or (
+                trait.max_level is not None and level > trait.max_level
+            ):
                 return False
         validator = self._build_trait_validator(
             Trait.TraitType.DIS, max_disadvantage_cp=self.race.phase_3_points
@@ -958,7 +962,9 @@ class CharacterCreationEngine:
         ).first()
         if trait is None:
             return 0
-        if level < trait.min_level or level > trait.max_level:
+        if level < trait.min_level or (
+            trait.max_level is not None and level > trait.max_level
+        ):
             return 0
         return trait.cost_for_level(level)
 
@@ -1393,7 +1399,9 @@ class CharacterCreationEngine:
             ).first()
             if trait is None:
                 return False
-            if level < trait.min_level or level > trait.max_level:
+            if level < trait.min_level or (
+                trait.max_level is not None and level > trait.max_level
+            ):
                 return False
 
         base_by_key = {
@@ -1526,8 +1534,8 @@ class CharacterCreationEngine:
                     else ()
                 ),
                 min_rank=int(trait.min_level),
-                max_rank=int(trait.max_level),
-                repeatable=int(trait.max_level) > 1,
+                max_rank=trait.max_level,
+                repeatable=(trait.max_level is None or trait.max_level > 1),
                 mutually_exclusive_with=tuple(sorted(mutually_exclusive)),
             )
         return CharacterBuildValidator(

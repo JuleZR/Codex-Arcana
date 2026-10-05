@@ -15,7 +15,7 @@ class TraitBuildRule:
     cp_cost_by_rank: tuple[int, ...] = ()
     cp_refund_by_rank: tuple[int, ...] = ()
     min_rank: int = 0
-    max_rank: int = 1
+    max_rank: int | None = 1
     repeatable: bool = False
     mutually_exclusive_with: tuple[str, ...] = ()
     includes_other_disadvantages: tuple[str, ...] = ()
@@ -71,7 +71,9 @@ class CharacterBuildValidator:
             rule = self.rules.get(slug)
             if rule is None:
                 continue
-            if rank < rule.min_rank or rank > rule.max_rank:
+            if rank < rule.min_rank or (
+                rule.max_rank is not None and rank > rule.max_rank
+            ):
                 issues.append(
                     BuildValidationIssue(
                         code="rank_out_of_range",
@@ -79,7 +81,10 @@ class CharacterBuildValidator:
                         related_slugs=(slug,),
                     )
                 )
-            if not rule.repeatable and rank > 1 and rule.max_rank <= 1:
+            if (
+                not rule.repeatable and rank > 1
+                and rule.max_rank is not None and rule.max_rank <= 1
+            ):
                 issues.append(
                     BuildValidationIssue(
                         code="not_repeatable",

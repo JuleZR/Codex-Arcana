@@ -109,7 +109,7 @@
                 {% if draft_phase > 3 %}
                   <section class="traits_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="traits" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
                     <div class="creation_section_heading"><h2>Vorzüge &amp; Schwächen</h2><span>Ausgefüllt</span></div>
-                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}">{% include "charsheet/partials/_creation_info_button.html" with category="Vorzug" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank" data-phase4-effective-label>({{ row.effective_value }})</span></span><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value > 0 %}<span class="trait_line">{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank">({{ row.value }})</span></span></span>{% endif %}{% endfor %}</div></div>
+                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}">{% include "charsheet/partials/_creation_info_button.html" with category="Vorzug" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank" data-phase4-effective-label>({{ row.effective_value }})</span></span><input class="creation_sheet_value_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value > 0 %}<span class="trait_line">{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank">({{ row.value }})</span></span></span>{% endif %}{% endfor %}</div></div>
                   </section>
                 {% endif %}
 
@@ -381,9 +381,9 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_3_rows %}
-                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level|default_if_none:'' }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
-                                    <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_display }}</td>
+                                    <td class="phase2_lang_meta">{% if row.max_level != None %}max {{ row.max_level }}{% else %}unbegrenzt{% endif %} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -400,9 +400,9 @@
                             <tbody id="phase3LegacyDisCartBody">
                               {% for row in phase_3_rows %}
                                 {% if row.value > 0 %}
-                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
+                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level|default_if_none:'' }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
                                     <td>{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %} <span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
-                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% if row.specification_options %}<label class="phase4_choice_block"><span>Spezifikation</span><select class="dashboard_input" name="dis_spec_option_{{ row.slug }}" required><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="phase4_choice_block"><span>Spezifikation</span><input class="dashboard_input" name="dis_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}</td>
+                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% if row.specification_options %}<label class="phase4_choice_block"><span>Spezifikation</span><select class="dashboard_input" name="dis_spec_option_{{ row.slug }}" required><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="phase4_choice_block"><span>Spezifikation</span><input class="dashboard_input" name="dis_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}</td>
                                     <td data-phase3-dis-cost>0</td>
                                     <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Schwäche entfernen" title="Entfernen">X</button></td>
                                   </tr>
@@ -427,10 +427,10 @@
                         <thead><tr><th>Schwäche</th><th>Wert</th><th>Kosten</th></tr></thead>
                         <tbody id="phase3DisCartBody">
                           {% for row in phase_3_rows %}
-                            <tr data-phase3-dis-cart-item data-phase3-sheet-row data-phase3-search="{{ row.name|lower }} schwäche" data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
+                            <tr data-phase3-dis-cart-item data-phase3-sheet-row data-phase3-search="{{ row.name|lower }} schwäche" data-slug="{{ row.slug }}" data-max="{{ row.max_level|default_if_none:'' }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
                               <td>{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %} <span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
                               <td>
-                                <input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>
+                                <input class="creation_sheet_value_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>
                                 {% for choice in row.attribute_choice_definitions %}<label class="creation_sheet_choice"><span>{{ choice.name }}</span><select name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}
                                 {% if row.specification_options %}<label class="creation_sheet_choice"><span>Spezifikation</span><select name="dis_spec_option_{{ row.slug }}"><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="creation_sheet_choice"><span>Spezifikation</span><input name="dis_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}
                               </td>
@@ -542,9 +542,9 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_4_adv_rows %}
-                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level|default_if_none:'' }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td>{{ row.name }}</td>
-                                    <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_display }}</td>
+                                    <td class="phase2_lang_meta">min {{ row.min_level }} | {% if row.max_level != None %}max {{ row.max_level }}{% else %}unbegrenzt{% endif %} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -677,9 +677,9 @@
                             <tbody id="phase4CartBody">
                                 {% for row in phase_4_adv_rows %}
                                   {% if row.value > 0 %}
-                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
+                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level|default_if_none:'' }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
                                       <td><span data-phase4-adv-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-adv-formula>({{ row.value|default:0 }})</span> <input type="hidden" name="adv_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
-                                       <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% for choice in row.resource_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% if row.specification_options %}<label class="phase4_choice_block"><span>Spezifikation</span><select class="dashboard_input" name="adv_spec_option_{{ row.slug }}" required><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="phase4_choice_block"><span>Spezifikation</span><input class="dashboard_input" name="adv_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}</td>
+                                       <td><input class="dashboard_input phase2_level_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" data-phase4-value>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% for choice in row.resource_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% if row.specification_options %}<label class="phase4_choice_block"><span>Spezifikation</span><select class="dashboard_input" name="adv_spec_option_{{ row.slug }}" required><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="phase4_choice_block"><span>Spezifikation</span><input class="dashboard_input" name="adv_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}</td>
                                       <td data-phase4-cost>0</td>
                                       <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                     </tr>
@@ -1643,7 +1643,7 @@
           };
 
           const syncDisRow = function (row) {
-            const maxLevel = toInt(row.dataset.max || "0", 0);
+            const maxLevel = toInt(row.dataset.max, Infinity);
             const ppl = toInt(row.dataset.ppl || "0", 0);
             const levelInput = row.querySelector("[data-phase3-dis-level]");
             const costCell = row.querySelector("[data-phase3-dis-cost]");
@@ -1720,12 +1720,12 @@
             const row = document.createElement("tr");
             row.setAttribute("data-phase3-dis-cart-item", "");
             row.dataset.slug = slug;
-            row.dataset.max = String(maxLevel);
+            row.dataset.max = Number.isFinite(maxLevel) ? String(maxLevel) : "";
             row.dataset.ppl = String(ppl);
             row.dataset.pointCurve = String(pointCurve || "");
             row.innerHTML = `
               <td><span data-phase3-dis-label-base="${safeName}">${safeName}</span> <span data-phase3-dis-formula>(0)</span></td>
-              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="1" name="dis_${slug}" data-phase3-dis-level>${renderAttributeChoiceInputs('dis', 'data-phase3-dis-choice', slug, attributeChoiceDefs)}${renderTraitSpecificationInput('dis', slug, hasSpecification, specificationOptions)}</td>
+              <td><input class="dashboard_input phase2_level_input" type="number" min="0" ${Number.isFinite(maxLevel) ? `max="${maxLevel}"` : ""} value="1" name="dis_${slug}" data-phase3-dis-level>${renderAttributeChoiceInputs('dis', 'data-phase3-dis-choice', slug, attributeChoiceDefs)}${renderTraitSpecificationInput('dis', slug, hasSpecification, specificationOptions)}</td>
               <td data-phase3-dis-cost>0</td>
               <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Schwäche entfernen" title="Entfernen">X</button></td>
             `;
@@ -1738,7 +1738,7 @@
             }
             const slug = source.dataset.slug || "";
             const name = source.dataset.name || slug;
-            const maxLevel = toInt(source.dataset.max, 0);
+            const maxLevel = toInt(source.dataset.max, Infinity);
             const ppl = toInt(source.dataset.ppl, 0);
             const pointCurve = source.dataset.pointCurve || "";
             const attributeChoiceDefs = safelyParseJsonArray(source.dataset.attributeChoiceDefs || "[]");
@@ -2107,7 +2107,7 @@
 
             if (kind === "adv") {
               const min = toInt(row.dataset.min, 0);
-              const max = toInt(row.dataset.max, 0);
+              const max = toInt(row.dataset.max, Infinity);
               const ppl = toInt(row.dataset.ppl, 0);
               const pointCurve = row.dataset.pointCurve || "";
               const formulaEl = row.querySelector("[data-phase4-adv-formula]");
@@ -2378,7 +2378,7 @@
             if (kind === "adv") {
               const slug = source.dataset.slug || "";
               const min = toInt(source.dataset.min, 0);
-              const max = toInt(source.dataset.max, 0);
+              const max = toInt(source.dataset.max, Infinity);
               const ppl = toInt(source.dataset.ppl, 0);
               const pointCurve = source.dataset.pointCurve || "";
               const attributeChoiceDefs = JSON.parse(source.dataset.attributeChoiceDefs || "[]");
@@ -2386,7 +2386,7 @@
               const hasSpecification = source.dataset.hasSpecification === "1";
               const specificationOptions = safelyParseJsonArray(source.dataset.specificationOptions || "[]");
               row.dataset.min = String(min);
-              row.dataset.max = String(max);
+              row.dataset.max = Number.isFinite(max) ? String(max) : "";
               row.dataset.ppl = String(ppl);
               row.dataset.pointCurve = pointCurve;
               row.dataset.attributeChoiceDefs = JSON.stringify(attributeChoiceDefs);
@@ -2395,7 +2395,7 @@
               row.dataset.specificationOptions = JSON.stringify(specificationOptions);
               row.innerHTML = `
                 <td><span data-phase4-adv-label-base="${safeName}">${safeName}</span> <span data-phase4-adv-formula>(0)</span> <input type="hidden" name="adv_${slug}" value="${min}" data-phase4-hidden></td>
-                <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${max}" value="${min}" data-phase4-value>${renderAttributeChoiceInputs('adv', 'data-phase4-adv-choice', slug, attributeChoiceDefs)}${renderResourceChoiceInputs('adv', 'data-phase4-adv-choice', slug, resourceChoiceDefs)}${renderTraitSpecificationInput('adv', slug, hasSpecification, specificationOptions)}</td>
+                <td><input class="dashboard_input phase2_level_input" type="number" min="0" ${Number.isFinite(max) ? `max="${max}"` : ""} value="${min}" data-phase4-value>${renderAttributeChoiceInputs('adv', 'data-phase4-adv-choice', slug, attributeChoiceDefs)}${renderResourceChoiceInputs('adv', 'data-phase4-adv-choice', slug, resourceChoiceDefs)}${renderTraitSpecificationInput('adv', slug, hasSpecification, specificationOptions)}</td>
                 <td data-phase4-cost>0</td>
                 <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
               `;
@@ -2763,7 +2763,7 @@
             let purchaseValue = toInt(control.value, 0);
             if (kind === "adv") {
               const minValue = toInt(control.dataset.min, 0);
-              const maxValue = toInt(control.max, 0);
+              const maxValue = toInt(control.max, Infinity);
               purchaseValue = Math.min(maxValue, Math.max(0, purchaseValue));
               if (purchaseValue > 0 && purchaseValue < minValue) {
                 purchaseValue = minValue;

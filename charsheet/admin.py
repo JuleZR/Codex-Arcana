@@ -738,22 +738,31 @@ def _trait_build_rule_preview(trait):
     """Render the current creation/build rule interpretation for one trait."""
     if trait is None:
         return format_html('<span style="color:#666;">{}</span>', "-")
+    maximum = trait.max_level if trait.max_level is not None else "unbounded"
     if getattr(trait, "pk", None) is None:
-        rank_mode = "repeatable" if int(trait.max_level) > 1 else "single pick"
+        rank_mode = (
+            "repeatable"
+            if trait.max_level is None or trait.max_level > 1
+            else "single pick"
+        )
         if trait.trait_type == Trait.TraitType.ADV:
             cp_line = f"Costs {trait.cost_display()} during creation."
         else:
             cp_line = f"Refunds {trait.cost_display()} during creation and counts against the disadvantage cap."
         return _render_readonly_lines(
             (
-                f"Allowed ranks: {trait.min_level} to {trait.max_level}.",
+                f"Allowed ranks: {trait.min_level} to {maximum}.",
                 cp_line,
                 f"Selection mode: {rank_mode}.",
                 "Save the trait first to configure or preview mutual exclusions.",
                 "Creation-only trait logic is validated centrally in the CharacterCreationEngine.",
             )
         )
-    rank_mode = "repeatable" if int(trait.max_level) > 1 else "single pick"
+    rank_mode = (
+        "repeatable"
+        if trait.max_level is None or trait.max_level > 1
+        else "single pick"
+    )
     excluded_traits = {relation.excluded_trait.name for relation in trait.exclusions.all()}
     excluded_traits.update(relation.trait.name for relation in trait.excluded_by.all())
     exclusion_line = (
@@ -767,7 +776,7 @@ def _trait_build_rule_preview(trait):
         cp_line = f"Refunds {trait.cost_display()} during creation and counts against the disadvantage cap."
     return _render_readonly_lines(
         (
-            f"Allowed ranks: {trait.min_level} to {trait.max_level}.",
+            f"Allowed ranks: {trait.min_level} to {maximum}.",
             cp_line,
             f"Selection mode: {rank_mode}.",
             exclusion_line,

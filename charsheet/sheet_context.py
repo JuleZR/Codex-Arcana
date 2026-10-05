@@ -8205,7 +8205,7 @@ def _build_learning_rows(
                 "description": (trait.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                 "base_level": base_level,
                 "min_level": int(trait.min_level),
-                "max_level": int(trait.max_level),
+                "max_level": trait.max_level,
                 "points_per_level": int(trait.points_per_level),
                 "points_display": trait.cost_display(),
                 "points_by_level": list(trait.cost_curve()),
