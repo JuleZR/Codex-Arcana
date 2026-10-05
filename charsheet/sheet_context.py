@@ -5814,7 +5814,9 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
 
 def _race_item_ids() -> set[int]:
     """Return item ids that are reserved as race-starting equipment definitions."""
-    return set(RaceStartingItem.objects.values_list("item_id", flat=True))
+    return set(RaceStartingItem.objects.filter(
+        race__isnull=False,
+    ).values_list("item_id", flat=True))
 
 
 def _character_item_image_url(character_item: CharacterItem) -> str:

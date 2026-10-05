@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 
 from charsheet.modifiers import CharacterBuildValidator, TraitBuildRule
 from charsheet.modifiers.definitions import TargetDomain
@@ -21,6 +23,7 @@ from charsheet.models import (
     CharacterTraitChoice,
     CharacterCreationDraft,
     CharacterItem,
+    CharacterStartingItemGrant,
     CharacterLanguage,
     CharacterLesson,
     CharacterSchool,
@@ -39,6 +42,7 @@ from charsheet.models import (
     Technique,
     TraitChoiceDefinition,
     Trait,
+    StartingItemGrant,
     VampirePower,
     VampireTrait,
     VampireTraitSemanticEffect,
@@ -1602,32 +1606,64 @@ class CharacterCreationEngine:
         )
 
     @staticmethod
-    def grant_race_starting_items(character):
-        starters = character.race.starting_items.select_related(
-            "item", "item__default_quality", "quality"
+    @transaction.atomic
+    def grant_starting_items(character):
+        """Materialize owned sources once, retaining each grant's settings."""
+        Character.objects.select_for_update().get(pk=character.pk)
+        owned = Q(race_id=character.race_id)
+        source_ownership = (
+            ("school", "CharacterSchool", "character", "school",
+             {"level__gt": 0}),
+            ("trait", "CharacterTrait", "owner", "trait",
+             {"trait_level__gt": 0}),
+            ("divine_entity", "CharacterDivineEntity", "character",
+             "entity", {}),
+            ("shaman_patron", "CharacterShamanPatron", "character",
+             "patron", {}),
+            ("druid_cult", "CharacterDruidCult", "character", "cult", {}),
         )
-
+        for source, model, owner, field, filters in source_ownership:
+            entries = apps.get_model("charsheet", model).objects.filter(
+                **{owner: character}, **filters,
+            )
+            owned |= Q(**{f"{source}_id__in": entries.values_list(
+                f"{field}_id", flat=True,
+            )})
+        # Resolve computed race/school techniques through the rules engine.
+        engine = character.get_engine(refresh=True)
+        technique_ids = [
+            technique.pk
+            for technique in Technique.objects.filter(
+                starting_items__isnull=False,
+            ).distinct()
+            if engine.has_technique_learned(technique)
+        ]
+        owned |= Q(technique_id__in=technique_ids)
+        starters = StartingItemGrant.objects.filter(owned).select_related(
+            "item", "item__item_type", "item__default_quality", "quality",
+        )
         for starter in starters:
-            character_item, created = CharacterItem.objects.get_or_create(
+            receipts = CharacterStartingItemGrant.objects
+            receipt, created = receipts.get_or_create(
+                character=character, grant=starter,
+            )
+            if not created:
+                continue
+            starter.full_clean()
+            receipt.character_item = CharacterItem.objects.create(
                 owner=character,
                 item=starter.item,
-                defaults={
-                    "amount": starter.amount,
-                    "quality_id": ItemEngine.normalize_quality(
-                        starter.quality or starter.item.default_quality
-                    ),
-                    "equipped": True,
-                    "equip_locked": True,
-                },
+                amount=starter.amount,
+                quality_id=ItemEngine.normalize_quality(
+                    starter.quality or starter.item.default_quality,
+                ),
+                equipped=starter.equipped,
+                equip_locked=starter.equip_locked,
+                stored=starter.stored,
             )
+            receipt.save(update_fields=["character_item"])
 
-            if not created:
-                character_item.amount += starter.amount
-                character_item.equipped = True
-                character_item.equip_locked = True
-                character_item.save(
-                    update_fields=["amount", "equipped", "equip_locked"]
-                )
+    grant_race_starting_items = grant_starting_items
 
     def finalize_character(self) -> Character:
         if not (
@@ -2022,7 +2058,7 @@ class CharacterCreationEngine:
                 )
                 character.save(update_fields=["money"])
 
-            self.grant_race_starting_items(character)
+            self.grant_starting_items(character)
             character.current_arcane_power = max(
                 0,
                 int(

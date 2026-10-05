@@ -194,7 +194,7 @@ from .models import (
     RaceAttributeLimit,
     RaceSemanticEffect,
     RaceChoiceDefinition,
-    RaceStartingItem,
+    StartingItemGrant,
     RangedWeaponStats,
     RaceTechnique,
     School,
@@ -433,7 +433,7 @@ ADMIN_MODEL_ORDER = {
     "Race": 40,
     "RaceAttributeLimit": 41,
     "RaceTechnique": 42,
-    "RaceStartingItem": 43,
+    "StartingItemGrant": 43,
     "RaceChoiceDefinition": 44,
     "CreatureType": 44,
     "Creature": 45,
@@ -508,7 +508,7 @@ ADMIN_MODEL_SECTIONS = {
     "Race": (40, "Regelwerk: Herkunft"),
     "RaceAttributeLimit": (41, "Regelwerk: Herkunft"),
     "RaceTechnique": (42, "Regelwerk: Herkunft"),
-    "RaceStartingItem": (43, "Regelwerk: Herkunft"),
+    "StartingItemGrant": (43, "Regelwerk: Herkunft"),
     "RaceChoiceDefinition": (44, "Regelwerk: Herkunft"),
     "Attribute": (50, "Regelwerk: Grundlagen"),
     "SkillCategory": (51, "Regelwerk: Grundlagen"),
@@ -569,7 +569,7 @@ ADMIN_SECONDARY_MODELS = {
     "CharacterWeaponMasteryArcana",
     "RaceAttributeLimit",
     "RaceTechnique",
-    "RaceStartingItem",
+    "StartingItemGrant",
     "RaceChoiceDefinition",
     "TraitExclusion",
     "TraitChoiceDefinition",
@@ -1323,22 +1323,30 @@ class RaceTechniqueInline(admin.TabularInline):
 class RaceStartingItemInline(admin.TabularInline):
     """Inline editor for race-based starter equipment."""
 
-    model = RaceStartingItem
+    model = StartingItemGrant
     extra = 0
     show_change_link = True
     autocomplete_fields = ("item",)
-    fields = ("item", "amount", "quality")
+    fields = (
+        "item", "amount", "quality", "equipped", "equip_locked", "stored",
+    )
 
 
 class ItemRaceStartingInline(admin.TabularInline):
-    """Inline editor for races that start with one item."""
+    """Inline editor for source-based starting grants of one item."""
 
-    model = RaceStartingItem
+    model = StartingItemGrant
     fk_name = "item"
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("race",)
-    fields = ("race", "amount", "quality")
+    autocomplete_fields = (
+        "race", "school", "technique", "trait", "divine_entity",
+        "shaman_patron", "druid_cult",
+    )
+    fields = (
+        *autocomplete_fields, "amount", "quality", "equipped",
+        "equip_locked", "stored",
+    )
 
 
 class TechniqueRaceInline(admin.TabularInline):
@@ -7107,16 +7115,28 @@ class RaceTechniqueAdmin(admin.ModelAdmin):
         return obj.technique.level
 
 
-@admin.register(RaceStartingItem)
-class RaceStartingItemAdmin(admin.ModelAdmin):
-    """Admin configuration for race-based starter equipment."""
+@admin.register(StartingItemGrant)
+class StartingItemGrantAdmin(admin.ModelAdmin):
+    """Admin configuration for source-based starter equipment."""
 
-    list_display = ("race", "item", "item_type", "amount", "quality_preview")
-    search_fields = ("race__name", "item__name", "item__description")
-    list_filter = ("race", "item__item_type", "quality", "item__size_class")
+    list_display = (
+        "source", "item", "item_type", "amount", "quality_preview",
+        "equipped", "stored",
+    )
+    search_fields = (
+        "race__name", "school__name", "technique__name", "trait__name",
+        "divine_entity__name", "shaman_patron__name", "druid_cult__name",
+        "item__name", "item__description",
+    )
+    list_filter = (
+        "race", "school", "item__item_type", "quality", "item__size_class",
+    )
     ordering = ("race__name", "item__item_type__slug", "item__name")
-    autocomplete_fields = ("race", "item")
-    list_select_related = ("race", "item")
+    autocomplete_fields = (
+        "race", "school", "technique", "trait", "divine_entity",
+        "shaman_patron", "druid_cult", "item",
+    )
+    list_select_related = autocomplete_fields
 
     @admin.display(ordering="item__item_type", description="Item Type")
     def item_type(self, obj):

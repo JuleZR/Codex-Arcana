@@ -1803,31 +1803,142 @@ class RangedWeaponStats(models.Model):
         return f"{self.item}: Ranged DMG {self.damage} ({self.get_damage_type_display()})"
 
 
-class RaceStartingItem(models.Model):
-    race = models.ForeignKey("charsheet.Race", on_delete=models.CASCADE, related_name="starting_items")
-    item = models.ForeignKey("charsheet.Item", on_delete=models.CASCADE, related_name="race_starting_items")
-    amount = models.PositiveIntegerField(default=1)
+STARTING_ITEM_SOURCE_FIELDS = (
+    "race", "school", "technique", "trait", "divine_entity",
+    "shaman_patron", "druid_cult",
+)
+
+
+class StartingItemGrant(models.Model):
+    """Starting equipment attached to exactly one persistent rule source."""
+
+    race = models.ForeignKey(
+        "charsheet.Race", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    school = models.ForeignKey(
+        "charsheet.School", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    technique = models.ForeignKey(
+        "charsheet.Technique", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    trait = models.ForeignKey(
+        "charsheet.Trait", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    divine_entity = models.ForeignKey(
+        "charsheet.DivineEntity", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    shaman_patron = models.ForeignKey(
+        "charsheet.ShamanPatron", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    druid_cult = models.ForeignKey(
+        "charsheet.DruidCult", on_delete=models.CASCADE,
+        related_name="starting_items", null=True, blank=True,
+    )
+    item = models.ForeignKey(
+        "charsheet.Item", on_delete=models.CASCADE,
+        related_name="starting_item_grants",
+    )
+    amount = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1)],
+    )
     quality = models.ForeignKey(
         "charsheet.Quality",
         db_column="quality",
         on_delete=models.PROTECT,
-        related_name="race_starting_items",
+        related_name="starting_item_grants",
         blank=True,
         null=True,
     )
     equipped = models.BooleanField(default=False)
+    equip_locked = models.BooleanField(default=False)
+    stored = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["race", "item"], name="uniq_race_starting_item")
+            models.CheckConstraint(
+                condition=models.Q(
+                    *[
+                        models.Q(**{
+                            f"{field}__isnull": field != source
+                            for field in STARTING_ITEM_SOURCE_FIELDS
+                        })
+                        for source in STARTING_ITEM_SOURCE_FIELDS
+                    ],
+                    _connector=models.Q.OR,
+                ),
+                name="starting_item_exactly_one_source",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=1),
+                name="starting_item_positive_amount",
+            ),
+            *[
+                models.UniqueConstraint(
+                    fields=[source, "item"],
+                    name=f"uniq_{source}_starting_item",
+                )
+                for source in STARTING_ITEM_SOURCE_FIELDS
+            ],
         ]
+
+    @property
+    def source(self):
+        return next(
+            (getattr(self, field) for field in STARTING_ITEM_SOURCE_FIELDS
+             if getattr(self, f"{field}_id") is not None),
+            None,
+        )
 
     def clean(self):
         super().clean()
-        if self.item.stackable:
-            raise ValidationError({"item": "Race items must not be stackable because they are always equipped."})
-        if not self.item.item_type.is_equippable:
-            raise ValidationError({"item": "Race items must be equippable items because they are always equipped."})
+        if sum(getattr(self, f"{field}_id") is not None
+               for field in STARTING_ITEM_SOURCE_FIELDS) != 1:
+            raise ValidationError("Select exactly one starting-item source.")
+        if self.equipped and not self.item.item_type.is_equippable:
+            raise ValidationError({
+                "equipped": "This item type cannot be equipped.",
+            })
+        if self.stored and self.equipped:
+            raise ValidationError({
+                "stored": "Equipped items cannot be stored.",
+            })
+        if self.equip_locked and (not self.equipped or self.item.stackable):
+            raise ValidationError({
+                "equip_locked": (
+                    "Only equipped, non-stackable items can be locked."
+                ),
+            })
 
     def __str__(self):
-        return f"{self.race} -> {self.item} x{self.amount}"
+        return f"{self.source} -> {self.item} x{self.amount}"
+
+
+# Keep existing imports and the race's reverse relation compatible.
+RaceStartingItem = StartingItemGrant
+
+
+class CharacterStartingItemGrant(models.Model):
+    """Permanent receipt preventing repeat grants, even after item removal."""
+
+    character = models.ForeignKey(
+        "charsheet.Character", on_delete=models.CASCADE,
+    )
+    grant = models.ForeignKey(StartingItemGrant, on_delete=models.CASCADE)
+    character_item = models.ForeignKey(
+        "charsheet.CharacterItem", on_delete=models.SET_NULL,
+        null=True, blank=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "grant"],
+                name="unique_character_starting_grant",
+            ),
+        ]
