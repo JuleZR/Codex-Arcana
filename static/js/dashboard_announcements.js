@@ -71,9 +71,12 @@ region?.querySelectorAll('[data-announcement]').forEach((toast) => {
     activeToggle = toggle;
     toggle.setAttribute('aria-expanded', 'true');
     reader.className = `announcement_reader ${Array.from(toast.classList).find((name) => name.startsWith('announcement--')) || ''}`;
+    const created = toast.querySelector('.announcement_metadata time');
+    const readerDate = created.cloneNode(true);
+    readerDate.className = 'announcement_reader_date';
     reader.querySelector('#announcement-reader-title').textContent =
       body.querySelector('h1, h2, h3, h4, h5, h6')?.textContent.trim() || 'Nachricht';
-    reader.querySelector('.announcement_reader_body').replaceChildren(...body.cloneNode(true).childNodes);
+    reader.querySelector('.announcement_reader_body').replaceChildren(...body.cloneNode(true).childNodes, readerDate);
     reader.style.removeProperty('left');
     reader.style.removeProperty('top');
     reader.style.removeProperty('margin');
@@ -110,6 +113,7 @@ function openAnnouncementEditor(editButton = null) {
   if (editButton) {
     const toast = editButton.closest('[data-announcement]');
     form.elements.kind.value = editButton.dataset.kind;
+    form.elements.sort_order.value = toast.dataset.sortOrder;
     form.elements.text.value = toast.querySelector('[data-announcement-source]').textContent;
     if (toast.dataset.expires) {
       const expiry = new Date(toast.dataset.expires);

@@ -17,6 +17,8 @@ Rules:
 - feat -> next minor version
 - fix -> next patch version
 - all other commit types -> no automatic version change
+- a manual -rc suffix starts at -rc1; automatic bumps only increase
+  the RC number until a manual marker removes the suffix
 
 Commit scopes are supported, e.g.:
 
@@ -188,7 +190,8 @@ def calculate_version(
     Multiple commits of the same class therefore only increase the
     version once.
 
-    A manual [v:...] marker establishes an exact new base version.
+    A manual [v:...] marker establishes a new base version.
+    A bare -rc suffix is normalized to -rc1.
     The newest marker wins. Its own commit and all earlier commits are
     excluded from automatic bump classification; only later commits are
     evaluated.
@@ -210,6 +213,14 @@ def calculate_version(
         if manual_version is None:
             continue
 
+        if manual_version.prerelease == "rc":
+            manual_version = Version(
+                major=manual_version.major,
+                minor=manual_version.minor,
+                patch=manual_version.patch,
+                prerelease="rc1",
+            )
+
         base = manual_version
         commits = commits[index + 1:]
         break
@@ -228,6 +239,22 @@ def calculate_version(
         _commit_type(commit) == "fix"
         for commit in commits
     )
+
+    release_candidate = re.fullmatch(
+        r"rc(?P<number>[0-9]*)",
+        base.prerelease or "",
+    )
+
+    if release_candidate and (
+        has_breaking_change or has_feature or has_fix
+    ):
+        number = int(release_candidate.group("number") or "0")
+        return Version(
+            major=base.major,
+            minor=base.minor,
+            patch=base.patch,
+            prerelease=f"rc{number + 1}",
+        )
 
     if has_breaking_change:
         if base.major == 0:

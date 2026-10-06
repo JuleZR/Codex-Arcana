@@ -9,9 +9,15 @@ from .models import DashboardAnnouncement
 
 
 class AnnouncementForm(forms.ModelForm):
+    sort_order = forms.IntegerField(required=False)
+
     class Meta:
         model = DashboardAnnouncement
-        fields = ["kind", "text", "expires_at"]
+        fields = ["kind", "text", "expires_at", "sort_order"]
+
+    def clean_sort_order(self):
+        value = self.cleaned_data["sort_order"]
+        return self.instance.sort_order if value is None else value
 
     def clean_expires_at(self):
         value = self.cleaned_data["expires_at"]

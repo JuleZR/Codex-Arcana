@@ -35,6 +35,7 @@
 .announcement--critical, .announcement_reader.announcement--critical { background: #f9dede; border-color: #c56a6a; color: #772424; }
 .announcement_header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .announcement_header form { margin: 0; }
+.announcement_metadata { display: flex; gap: 8px; font-size: 0.72rem; font-weight: 300; margin-bottom: 3px; }
 [data-announcement] > .announcement_header { display: contents; }
 .announcement_kind { float: left; margin-right: 0.35em; }
 [data-announcement] > .announcement_header form { position: absolute; top: 5px; right: 5px; display: flex; align-items: center; }
@@ -130,8 +131,10 @@
 }
 .announcement_reader_header:active { cursor: grabbing; }
 .announcement_reader_header h2 { margin: 0; font: bold 1rem/1.4 Arial, Helvetica, sans-serif; }
+.announcement_reader_date { position: absolute; top: 4px; right: 24px; font-size: 0.75rem; font-weight: 300; white-space: nowrap; }
 .announcement_reader_header button { min-width: 36px; min-height: 36px; }
 .announcement_reader_body {
+  position: relative;
   flex: 0 1 auto;
   min-height: 0;
   padding: 20px 24px;
@@ -140,7 +143,7 @@
   overscroll-behavior: contain;
 }
 .announcement_reader_body > :first-child { margin-top: 0; }
-.announcement_reader_body > :last-child { margin-bottom: 0; }
+.announcement_reader_body > :nth-last-child(2) { margin-bottom: 0; }
 .announcement_reader_body :is(h1, h2, h3, h4, h5, h6) { line-height: 1.3; }
 .announcement_reader_body h1 { font-size: 1.5em; }
 .announcement_reader_body h2 { font-size: 1.3em; }

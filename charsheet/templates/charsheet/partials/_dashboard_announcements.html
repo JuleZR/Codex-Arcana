@@ -1,7 +1,10 @@
 <section class="dashboard_announcements" aria-label="Nachrichten">
   <div class="dashboard_announcements_scroll" tabindex="0" aria-label="Nachrichten durchblättern">
     {% for announcement in announcements %}
-      <article class="announcement announcement--{{ announcement.kind }}" data-announcement {% if announcement.expires_at %}data-expires="{{ announcement.expires_at|date:'c' }}"{% endif %}>
+      <article class="announcement announcement--{{ announcement.kind }}" data-announcement data-sort-order="{{ announcement.sort_order }}" {% if announcement.expires_at %}data-expires="{{ announcement.expires_at|date:'c' }}"{% endif %}>
+        <div class="announcement_metadata">
+          <time datetime="{{ announcement.created_at|date:'c' }}">{{ announcement.created_at|date:'d.m.Y' }}</time>
+        </div>
         <header class="announcement_header">
           <span class="announcement_kind" role="img" aria-label="{{ announcement.get_kind_display }}" title="{{ announcement.get_kind_display }}">{% if announcement.kind == 'update' %}🆕{% elif announcement.kind == 'warning' %}⚠️{% else %}🚨{% endif %}</span>
           {% if can_manage %}
@@ -30,6 +33,9 @@
         </header>
         <label>Typ
           <select name="kind"><option value="update">🆕 Update</option><option value="warning">⚠️ Warnung</option><option value="critical">🚨 Kritisch</option></select>
+        </label>
+        <label>Sortierreihenfolge (-1: oben anheften)
+          <input type="number" name="sort_order" value="0" step="1" required>
         </label>
         <label>Nachricht (Markdown)
           <textarea name="text" rows="7" maxlength="20000" required placeholder="**Fett**, *kursiv*, Listen und Links …"></textarea>
