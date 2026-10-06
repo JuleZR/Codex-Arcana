@@ -9,7 +9,7 @@ import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20261001-mobile-cart2";
-import { initLearningMenu } from "./learning_menu.js?v=20261005-unbounded-traits";
+import { initLearningMenu } from "./learning_menu.js?v=20261006-divine-description-popover";
 import { initTooltips } from "./tooltip.js?v=20261001-mobile-shop-info2";
 import { initInventoryMenu } from "./inventory_menu.js?v=20261006-direct-item-damage";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
@@ -34,7 +34,7 @@ import { initItemTransfers } from "./item_transfers.js?v=20260924a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20261001-mobile-post1";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260920d";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
-import { initExternalSheetRefresh } from "./external_refresh.js?v=20260922a";
+import { initExternalSheetRefresh } from "./external_refresh.js?v=20261006-divine-entity-choice";
 import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260917e";
 
 function isRadialMenuEnabled() {

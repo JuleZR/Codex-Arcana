@@ -28,7 +28,12 @@ from .models import (
     DivineEntity,
 )
 from .models.user import UserSettings
-from .religion_rules import active_clerical_school_entries, locked_religion_entity, unique_divine_entity_for_school
+from .religion_rules import (
+    active_clerical_school_entries,
+    divine_entities_for_school,
+    locked_religion_entity,
+    unique_divine_entity_for_school,
+)
 
 
 class UserSettingsForm(forms.ModelForm):
@@ -463,7 +468,9 @@ class CharacterInfoInlineForm(forms.ModelForm):
             selected_religion = unique_divine_entity_for_school(school.id)
             if selected_religion is None:
                 raise forms.ValidationError("Bitte eine Religion passend zur klerikalen Schule waehlen.")
-        if int(selected_religion.school_id) != int(school.id):
+        if not divine_entities_for_school(school.id).filter(
+            pk=selected_religion.pk,
+        ).exists():
             raise forms.ValidationError("Diese Religion passt nicht zur gelernten klerikalen Schule.")
         return selected_religion
 
@@ -508,7 +515,12 @@ class CharacterInfoInlineForm(forms.ModelForm):
             }
             if (
                 selected_religion is not None
-                and int(selected_religion.school_id) in active_divine_school_ids
+                and any(
+                    divine_entities_for_school(school_id).filter(
+                        pk=selected_religion.pk,
+                    ).exists()
+                    for school_id in active_divine_school_ids
+                )
             ):
                 CharacterDivineEntity.objects.update_or_create(
                     character=character,

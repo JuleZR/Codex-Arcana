@@ -25,6 +25,11 @@ class School(models.Model):
     """A combat school or similar progression track."""
 
     name = models.CharField(max_length=100, unique=True)
+    feminine_name = models.CharField(
+        max_length=100, blank=True, default="",
+        verbose_name="Weibliche Bezeichnung",
+        help_text="Leer lassen, wenn die Bezeichnung für alle gleich ist.",
+    )
     type = models.ForeignKey(SchoolType, on_delete=models.PROTECT)
     opposite = models.ForeignKey(
         "self",
@@ -55,6 +60,17 @@ class School(models.Model):
     )
     description = models.TextField(blank=True)
 
+    allowed_divine_entity_types = models.ManyToManyField(
+        "charsheet.DivineEntityType",
+        blank=True,
+        related_name="restricted_schools",
+        verbose_name="Erlaubte Typen göttlicher Wesen",
+        help_text=(
+            "Alle Wesen dieser Typen stehen für diese Schule zur Wahl. "
+            "Ohne erlaubte Typen stehen keine Wesen zur Wahl."
+        ),
+    )
+
     class Meta:
         ordering = ["type__name", "name"]
 
@@ -70,6 +86,26 @@ class School(models.Model):
 
     def __str__(self):
         return self.name
+
+    def display_name_for(self, character, entity=None):
+        """Build the school title with an optional divine affiliation."""
+        from .character import Character
+        from ..religion_rules import (
+            divine_entities_for_school, is_divine_entity_school,
+        )
+
+        name = self.name
+        if character.gender == Character.Gender.W and self.feminine_name:
+            name = self.feminine_name
+        if (
+            entity is not None
+            and is_divine_entity_school(self)
+            and divine_entities_for_school(self.pk).filter(
+                pk=entity.pk,
+            ).exists()
+        ):
+            name = f"{name} {entity.genitive_article} {entity.name}"
+        return name
 
 
 class SchoolSemanticEffect(SemanticEffectFields):

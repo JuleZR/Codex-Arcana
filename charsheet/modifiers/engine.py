@@ -38,6 +38,7 @@ from charsheet.models import (
     CharacterItem,
     CharacterItemSemanticEffect,
     DaemonicPowerSemanticEffect,
+    DivineEntitySemanticEffect,
     ItemSemanticEffect,
     RaceSemanticEffect,
     SchoolSemanticEffect,
@@ -158,6 +159,25 @@ class ModifierEngine:
             .select_related("school")
             .prefetch_related("condition_races", "condition_schools")
             .order_by("school_id", "sort_order", "id")
+        )
+        return [effect.to_modifier() for effect in effects]
+
+    @cached_property
+    def _active_divine_entity_semantic_modifiers(self) -> list[BaseModifier]:
+        """Apply entity effects only while its clerical binding is active."""
+        if self.character_engine is None:
+            return []
+        from charsheet.religion_rules import locked_religion_entity
+
+        entity = locked_religion_entity(self.character_engine.character)
+        if entity is None:
+            return []
+        effects = (
+            DivineEntitySemanticEffect.objects.filter(
+                entity=entity, active_flag=True,
+            )
+            .select_related("entity")
+            .prefetch_related("condition_races", "condition_schools")
         )
         return [effect.to_modifier() for effect in effects]
 
@@ -663,6 +683,7 @@ class ModifierEngine:
         if self.character_engine is not None:
             collected.extend(self._active_race_semantic_modifiers)
             collected.extend(self._active_school_semantic_modifiers)
+            collected.extend(self._active_divine_entity_semantic_modifiers)
             collected.extend(self._active_specialization_semantic_modifiers)
             collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)

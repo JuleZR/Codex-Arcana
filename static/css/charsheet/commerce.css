@@ -492,6 +492,147 @@
   width: min(980px, calc(100vw - 28px));
 }
 
+#learnDivineEntityDialog {
+  width: min(210mm, calc(100vw - 32px), calc((100dvh - 32px) * 210 / 297));
+  height: min(297mm, calc(100dvh - 32px), calc((100vw - 32px) * 297 / 210));
+  aspect-ratio: 210 / 297;
+  box-sizing: border-box;
+  max-height: min(297mm, calc(100dvh - 32px));
+  inset: 0;
+  margin: auto;
+  transform: none;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  color: #392819;
+  overflow: hidden;
+}
+
+#learnDivineEntityDialog[open] {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+#learnDivineEntityDialog:not([open]) {
+  display: none;
+}
+
+.learn_entity_dialog::backdrop {
+  background: rgba(25, 18, 10, 0.45);
+}
+
+#learnDivineEntityForm {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#learnDivineEntityForm .shop_panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+#learnDivineEntityForm > .shop_panel > p,
+#learnDivineEntityForm .learn_choice_actions {
+  margin: 12px 16px;
+  flex-shrink: 0;
+}
+
+#learnDivineEntityForm .learn_entity_dialog__options {
+  min-height: 0;
+  margin: 0 16px;
+  padding: 0;
+  border: 0;
+  overflow-y: auto;
+}
+
+.learn_entity_description {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(460px, calc(100vw - 48px));
+  height: fit-content;
+  max-height: min(480px, calc(100dvh - 96px));
+  box-sizing: border-box;
+  padding: 16px;
+  overflow-y: auto;
+  border: 1px solid var(--sheet-window-border-strong);
+  color: #392819;
+  background:
+    linear-gradient(180deg, var(--sheet-window-paper-top), var(--sheet-window-paper-bottom)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow: var(--sheet-window-shadow);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+#learnDivineEntityDialog .learn_entity_description,
+#learnDivineEntityDialog .learn_entity_description h3,
+#learnDivineEntityDialog .learn_entity_description__text,
+#learnDivineEntityDialog .learn_entity_description__header button {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-variant: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.learn_entity_description__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.learn_entity_description__header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.learn_entity_description__header button {
+  border: 0;
+  padding: 4px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.learn_entity_description__text {
+  white-space: pre-line;
+}
+
+#learnDivineEntityForm .learn_entity_description_trigger {
+  border: 0;
+  padding: 0;
+  margin-top: 4px;
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+  text-decoration: underline;
+}
+
+.learn_entity_dialog__identity,
+.learn_entity_dialog__aspects {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.learn_entity_dialog__aspects {
+  gap: 4px;
+}
+
+.learn_entity_dialog [hidden] {
+  display: none;
+}
+
 .learn_choice_window_body {
   padding: 12px;
   height: min(78vh, 760px);

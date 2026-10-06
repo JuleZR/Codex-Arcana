@@ -82,12 +82,19 @@ def _effective_spell_level(
     """Resolve the effective magic level used by this spell entry."""
     spell = entry.spell
     if entry.uses_divine_school_level and entry.granted_by_entity_id:
+        from charsheet.religion_rules import divine_school_for_entity
+
+        school = divine_school_for_entity(
+            entry.character, entry.granted_by_entity,
+        )
+        if school is None:
+            return 0
         if school_levels is not None:
-            return int(school_levels.get(entry.granted_by_entity.school_id, 0))
+            return int(school_levels.get(school.pk, 0))
         if entry.character_id:
             cs = CharacterSchool.objects.filter(
                 character_id=entry.character_id,
-                school_id=entry.granted_by_entity.school_id,
+                school_id=school.pk,
             ).first()
             return int(cs.level) if cs else 0
         return 0
@@ -391,31 +398,22 @@ class MagicEngine:
         ]
 
     def _divine_binding(self) -> CharacterDivineEntity | None:
-        return (
+        binding = (
             CharacterDivineEntity.objects.filter(character=self.character)
             .select_related("entity", "entity__school", "entity__school__type")
             .prefetch_related("core_aspects")
             .first()
         )
+        return binding if binding is not None and binding.school else None
 
     def _divine_arcane_grant_entities(self) -> list[DivineEntity]:
-        learned_school_ids = {entry.school_id for entry in self._divine_school_entries()}
-        if not learned_school_ids:
-            return []
-        entities_by_id: dict[int, DivineEntity] = {}
         binding = self._divine_binding()
         if (
             binding is not None
             and binding.entity.grants_arcane_spell_choice_per_level
-            and binding.entity.school_id in learned_school_ids
         ):
-            entities_by_id[binding.entity_id] = binding.entity
-        for entity in DivineEntity.objects.filter(
-            grants_arcane_spell_choice_per_level=True,
-            school_id__in=learned_school_ids,
-        ).select_related("school", "school__type"):
-            entities_by_id.setdefault(entity.id, entity)
-        return sorted(entities_by_id.values(), key=lambda entity: (entity.school.name, entity.name))
+            return [binding.entity]
+        return []
 
     def _aspect_entries(self) -> list[CharacterAspect]:
         return list(
@@ -805,7 +803,10 @@ class MagicEngine:
             if self._school_matches_magic_type(school, SCHOOL_ARCANE)
         ]
         for entity in self._divine_arcane_grant_entities():
-            divine_level = int(self._school_level_map().get(entity.school_id, 0))
+            from charsheet.religion_rules import divine_school_for_entity
+
+            school = divine_school_for_entity(self.character, entity)
+            divine_level = int(self._school_level_map().get(school.pk, 0))
             if divine_level <= 0:
                 continue
             existing_rows = (
@@ -819,7 +820,7 @@ class MagicEngine:
             )
             granted_levels = {int(entry.granted_for_level) for entry in existing_rows if entry.granted_for_level}
             symbol_image_url = self._image_url(getattr(entity, "symbol_image", None)) or self._image_url(
-                getattr(entity.school, "symbol_image", None)
+                getattr(school, "symbol_image", None)
             )
             for granted_level in range(1, divine_level + 1):
                 if granted_level in granted_levels:
@@ -839,9 +840,11 @@ class MagicEngine:
                     {
                         "entity_id": entity.id,
                         "entity_name": entity.name,
-                        "school_id": entity.school_id,
-                        "school": entity.school,
-                        "school_name": entity.school.name,
+                        "school_id": school.pk,
+                        "school": school,
+                        "school_name": school.display_name_for(
+                            self.character, entity,
+                        ),
                         "symbol_image_url": symbol_image_url,
                         "divine_level": divine_level,
                         "granted_level": granted_level,
@@ -921,7 +924,7 @@ class MagicEngine:
             druid_school_level = 0
         divine_school_level = 0
         if binding is not None:
-            divine_school_level = int(school_levels.get(binding.entity.school_id, 0))
+            divine_school_level = int(school_levels.get(binding.school_id, 0))
             if divine_school_level > 0:
                 if binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
                     entity_aspect_links = binding.entity.aspects.filter(is_starting_aspect=True).select_related("aspect")
@@ -935,7 +938,7 @@ class MagicEngine:
                         defaults={
                             "level": divine_school_level,
                             "source_entity": binding.entity,
-                            "source_school": binding.entity.school,
+                            "source_school": binding.school,
                             "tracks_school_level": True,
                             "is_bonus_aspect": False,
                         },
@@ -947,8 +950,8 @@ class MagicEngine:
                     if aspect_entry.source_entity_id != binding.entity_id:
                         aspect_entry.source_entity = binding.entity
                         changed_fields.append("source_entity")
-                    if aspect_entry.source_school_id != binding.entity.school_id:
-                        aspect_entry.source_school = binding.entity.school
+                    if aspect_entry.source_school_id != binding.school_id:
+                        aspect_entry.source_school = binding.school
                         changed_fields.append("source_school")
                     if not aspect_entry.tracks_school_level:
                         aspect_entry.tracks_school_level = True
@@ -985,7 +988,7 @@ class MagicEngine:
                             "level": divine_school_level,
                             "source_entity": binding.entity,
                             "source_binding": binding,
-                            "source_school": binding.entity.school,
+                            "source_school": binding.school,
                             "tracks_school_level": True,
                             "is_bonus_aspect": False,
                         },
@@ -1000,8 +1003,8 @@ class MagicEngine:
                     if aspect_entry.source_binding_id != binding.id:
                         aspect_entry.source_binding = binding
                         changed_fields.append("source_binding")
-                    if aspect_entry.source_school_id != binding.entity.school_id:
-                        aspect_entry.source_school = binding.entity.school
+                    if aspect_entry.source_school_id != binding.school_id:
+                        aspect_entry.source_school = binding.school
                         changed_fields.append("source_school")
                     if not aspect_entry.tracks_school_level:
                         aspect_entry.tracks_school_level = True
@@ -1323,6 +1326,10 @@ class MagicEngine:
 
     def get_divine_magic_summary(self) -> dict[str, object]:
         binding = self._divine_binding()
+        school_level = (
+            self.character.engine.school_level(binding.school_id)
+            if binding else 0
+        )
         aspect_rows = []
         for entry in self._aspect_entries():
             aspect_rows.append(
@@ -1350,16 +1357,21 @@ class MagicEngine:
             "entity_kind": "Gottheit" if binding else "",
             "tradition_name": binding.tradition_name if binding else "",
             "custom_description": binding.custom_description if binding else "",
-            "school_id": binding.entity.school_id if binding else None,
-            "school_name": binding.entity.school.name if binding else "",
-            "school_level": self.character.engine.school_level(binding.entity.school_id) if binding else 0,
-            "school_level_label": _to_roman(self.character.engine.school_level(binding.entity.school_id)) if binding else "",
+            "school_id": binding.school_id if binding else None,
+            "school_name": binding.school.display_name_for(
+                self.character, binding.entity,
+            ) if binding else "",
+            "school_level": school_level,
+            "school_level_label": _to_roman(school_level) if binding else "",
             "aspects": aspect_rows,
         }
 
     def get_available_bonus_aspects(self) -> dict[str, object]:
         binding = self._divine_binding()
-        school_level = int(self.character.engine.school_level(binding.entity.school_id)) if binding is not None else 0
+        school_level = (
+            int(self.character.engine.school_level(binding.school_id))
+            if binding is not None else 0
+        )
         druid_binding = (
             CharacterDruidCult.objects.filter(character=self.character)
             .select_related("cult")

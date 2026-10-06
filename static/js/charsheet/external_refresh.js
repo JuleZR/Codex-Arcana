@@ -19,6 +19,11 @@ function updateLearningFormFromPayload(payload) {
     return false;
   }
   currentForm.replaceWith(nextForm);
+  const currentEntityDialog = document.getElementById("learnDivineEntityDialog");
+  const nextEntityDialog = template.content.querySelector("#learnDivineEntityDialog");
+  if (currentEntityDialog && nextEntityDialog) {
+    currentEntityDialog.replaceWith(nextEntityDialog);
+  }
   const currentChoiceWindow = document.getElementById("learnChoiceWindow");
   const nextChoiceWindow = template.content.querySelector("#learnChoiceWindow");
   if (

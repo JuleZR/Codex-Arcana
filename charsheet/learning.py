@@ -93,6 +93,7 @@ from charsheet.constants import (
     is_allowed_trait_attribute_choice,
 )
 from charsheet.religion_rules import (
+    divine_entities_for_school,
     divine_entity_count_for_school,
     is_clerical_school,
     is_cult_school,
@@ -664,21 +665,20 @@ def _reset_invalid_school_progression(character: Character) -> None:
     CharacterShamanPatron.objects.filter(character=character).exclude(
         patron__school_id__in=learned_school_ids
     ).delete()
-    invalid_cult_binding = (
+    invalid_divine_binding = (
         CharacterDivineEntity.objects.filter(character=character)
-        .exclude(entity__school_id__in=learned_school_ids)
-        .select_related("entity", "entity__school", "entity__school__type")
+        .select_related("entity")
         .first()
     )
     if (
-        invalid_cult_binding is not None
-        and is_cult_school(invalid_cult_binding.entity.school)
+        invalid_divine_binding is not None
+        and invalid_divine_binding.school is None
     ):
-        cult_entity_name = invalid_cult_binding.entity.name
-        invalid_cult_binding.delete()
+        entity_name = invalid_divine_binding.entity.name
+        invalid_divine_binding.delete()
         religion_cleared = Character.objects.filter(
             pk=character.pk,
-            religion=cult_entity_name,
+            religion=entity_name,
         ).update(religion="")
         if religion_cleared:
             character.religion = ""
@@ -1270,6 +1270,26 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         and is_divine_entity_school(school_defs[school_id])
     }
     selected_religion_entity = selected_divine_entity(character)
+    requested_entity_id = _read_int(post_data, "learn_divine_entity_id", 0)
+    if requested_entity_id:
+        requested_entity = DivineEntity.objects.filter(
+            pk=requested_entity_id,
+        ).first()
+        if (
+            requested_entity is None
+            or not any(
+                divine_entities_for_school(school_id).filter(
+                    pk=requested_entity_id,
+                ).exists()
+                for school_id in active_divine_school_ids
+            )
+            or (
+                selected_religion_entity is not None
+                and selected_religion_entity.pk != requested_entity_id
+            )
+        ):
+            return "error", "Diese Gottheit passt nicht zur klerikalen Schule."
+        selected_religion_entity = requested_entity
     positive_clerical_school_ids = {
         int(school_id)
         for school_id, add in school_plan.items()
@@ -1278,7 +1298,9 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
     for school_id in positive_clerical_school_ids:
         school = school_defs[str(school_id)]
         if selected_religion_entity is not None:
-            if selected_religion_entity.school_id != school_id:
+            if not divine_entities_for_school(school_id).filter(
+                pk=selected_religion_entity.pk,
+            ).exists():
                 return "error", (
                     f"{school.name}: Diese klerikale Schule passt nicht zur gewaehlten Religion "
                     f"{selected_religion_entity.name}."
@@ -1303,7 +1325,12 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
 
     if (
         selected_religion_entity is not None
-        and selected_religion_entity.school_id in active_divine_school_ids
+        and any(
+            divine_entities_for_school(school_id).filter(
+                pk=selected_religion_entity.pk,
+            ).exists()
+            for school_id in active_divine_school_ids
+        )
     ):
         religion_entity_to_bind = selected_religion_entity
     elif len(active_divine_school_ids) == 1:

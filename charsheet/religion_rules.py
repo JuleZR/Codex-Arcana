@@ -101,7 +101,7 @@ def selected_divine_entity(character):
 
     binding = (
         CharacterDivineEntity.objects.filter(character=character)
-        .select_related("entity", "entity__school", "entity__school__type")
+        .select_related("entity")
         .first()
     )
     if binding is not None:
@@ -109,26 +109,39 @@ def selected_divine_entity(character):
     religion_name = str(getattr(character, "religion", "") or "").strip()
     if not religion_name:
         return None
-    return DivineEntity.objects.filter(name=religion_name).select_related("school", "school__type").first()
+    return DivineEntity.objects.filter(name=religion_name).first()
+
+
+def divine_entities_for_school(school_id: int):
+    """Return entities exclusively from the school's allowed types."""
+    from charsheet.models import DivineEntity, School
+
+    school = School.objects.get(pk=school_id)
+    allowed_types = school.allowed_divine_entity_types
+    return DivineEntity.objects.filter(
+        entity_type__in=allowed_types.all(),
+    ).order_by("name")
+
+
+def divine_school_for_entity(character, entity):
+    """Resolve the learned school that permits this entity's type."""
+    for entry in active_clerical_school_entries(character):
+        if divine_entities_for_school(entry.school_id).filter(
+            pk=entity.pk,
+        ).exists():
+            return entry.school
+    return None
 
 
 def unique_divine_entity_for_school(school_id: int):
     """Return the only entity for a school, or None if the mapping is ambiguous."""
-    from charsheet.models import DivineEntity
-
-    entities = list(
-        DivineEntity.objects.filter(school_id=school_id)
-        .select_related("school", "school__type")
-        .order_by("name")[:2]
-    )
+    entities = list(divine_entities_for_school(school_id)[:2])
     return entities[0] if len(entities) == 1 else None
 
 
 def divine_entity_count_for_school(school_id: int) -> int:
     """Return how many divine entities point to one clerical school."""
-    from charsheet.models import DivineEntity
-
-    return DivineEntity.objects.filter(school_id=school_id).count()
+    return divine_entities_for_school(school_id).count()
 
 
 def locked_religion_entity(character, *, repair: bool = False):
@@ -139,18 +152,19 @@ def locked_religion_entity(character, *, repair: bool = False):
     if not entries:
         return None
 
-    active_school_ids = {int(entry.school_id) for entry in entries}
     entity = selected_divine_entity(character)
-    if entity is not None and entity.school_id in active_school_ids:
+    if entity is not None and any(
+        divine_entities_for_school(entry.school_id).filter(
+            pk=entity.pk,
+        ).exists()
+        for entry in entries
+    ):
         locked_entity = entity
     elif len(entries) == 1:
-        locked_entity = unique_divine_entity_for_school(int(entries[0].school_id))
+        locked_entity = unique_divine_entity_for_school(entries[0].school_id)
     else:
         locked_entity = None
-    if (
-        locked_entity is None
-        or locked_entity.school_id not in active_school_ids
-    ):
+    if locked_entity is None:
         return None
 
     if repair:

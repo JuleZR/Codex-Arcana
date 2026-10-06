@@ -50,6 +50,7 @@ from webauthn import base64url_to_bytes
 from webauthn.helpers.exceptions import WebAuthnException
 from .engine import CharacterCreationEngine
 from .creation_templates import load_archetypes
+from .religion_rules import divine_entities_for_school
 from .engine.creature_engine import CreatureEngine, sync_character_creatures
 from .engine.dice_engine import DiceEngine
 from .engine.item_engine import ItemEngine
@@ -2044,7 +2045,7 @@ def _divine_card_can_edit(binding: CharacterDivineEntity) -> bool:
         binding.entity_id
         and binding.entity.is_customizable
         and binding.character.schools.filter(
-            school_id=binding.entity.school_id,
+            school_id=binding.school_id,
             level__gt=0,
         ).exists()
     )
@@ -2655,7 +2656,7 @@ def _render_religion_card_payload(request, character: Character) -> dict[str, ob
         .first()
     )
     if binding is None or not character.schools.filter(
-        school_id=binding.entity.school_id,
+        school_id=binding.school_id,
         level__gt=0,
     ).exists():
         return {
@@ -3149,8 +3150,7 @@ def update_daemonic_patron(request, character_id: int):
         return redirect("character_sheet", character_id=character.id)
 
     entity = (
-        DivineEntity.objects.filter(pk=entity_id, school_id=school_id)
-        .select_related("school", "school__type")
+        divine_entities_for_school(school_id).filter(pk=entity_id)
         .first()
     )
     if entity is None or _divine_entity_card_kind_label(entity) != "Dämon":

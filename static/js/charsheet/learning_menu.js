@@ -1206,6 +1206,63 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   );
 
   const cartController = initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn);
+  const entityDialog = document.getElementById("learnDivineEntityDialog");
+  const entityForm = document.getElementById("learnDivineEntityForm");
+  if (entityDialog instanceof HTMLDialogElement && entityForm instanceof HTMLFormElement) {
+    const entityOptions = Array.from(entityDialog.querySelectorAll("[data-entity-school]"));
+    let entitySubmitter = null;
+    form.addEventListener("submit", (event) => {
+      if (form.dataset.selectedDivineEntity) return;
+      const schoolInput = Array.from(form.querySelectorAll('input[name^="learn_school_add_"]'))
+        .find((input) => readInt(input.value, 0) > 0 && entityOptions.some((option) =>
+          option.dataset.entitySchool === input.name.replace("learn_school_add_", "")));
+      const entityInput = form.querySelector('input[name="learn_divine_entity_id"]');
+      const schoolId = schoolInput?.name.replace("learn_school_add_", "");
+      if (!schoolId) {
+        entityInput?.remove();
+        return;
+      }
+      if (entityInput && entityOptions.some((option) =>
+        option.dataset.entitySchool === schoolId && option.querySelector("input").value === entityInput.value)) return;
+      entityInput?.remove();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      entitySubmitter = event.submitter;
+      entityOptions.forEach((option) => {
+        const available = option.dataset.entitySchool === schoolId;
+        option.hidden = !available;
+        const radio = option.querySelector("input");
+        radio.disabled = !available;
+        radio.checked = false;
+      });
+      const source = form.querySelector(`[data-learn-source][data-kind="school"][data-id="${schoolId}"]`);
+      entityDialog.querySelector("[data-entity-school-name]").textContent = source?.dataset.name || "Gottheit deiner Schule";
+      entityDialog.showModal();
+    }, { capture: true });
+    entityForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const selected = entityForm.querySelector('input[name="divine_entity"]:checked');
+      if (!selected) return;
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "learn_divine_entity_id";
+      input.value = selected.value;
+      form.appendChild(input);
+      entityDialog.close();
+      form.requestSubmit(entitySubmitter || applyBtn);
+    });
+    entityDialog.querySelectorAll("[data-entity-cancel]").forEach((button) => {
+      button.addEventListener("click", () => entityDialog.close());
+    });
+    entityDialog.addEventListener("close", () => {
+      entityDialog.querySelectorAll(".learn_entity_description:popover-open").forEach((description) => {
+        description.hidePopover();
+      });
+    });
+    form.addEventListener("learn:applied", () => {
+      form.querySelector('input[name="learn_divine_entity_id"]')?.remove();
+    });
+  }
   const choiceController = createChoiceModalController({
     hiddenInputContainer,
     windowController: choiceWindowController,

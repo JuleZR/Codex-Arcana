@@ -171,6 +171,7 @@ from .models import (
     DaemonicPowerSemanticEffect,
     DaemonicPowerTier,
     DivineEntity,
+    DivineEntitySemanticEffect,
     DivineEntityType,
     Pantheon,
     DivineEntityAspect,
@@ -5712,7 +5713,9 @@ class SchoolAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     ("name", "type", "opposite"),
+                    "feminine_name",
                     ("panel_symbol", "max_level"),
+                    "allowed_divine_entity_types",
                     ("symbol_image", "symbol_image_preview"),
                     "description",
                 ),
@@ -5739,6 +5742,7 @@ class SchoolAdmin(admin.ModelAdmin):
         SchoolSemanticEffectInline,
     )
     autocomplete_fields = ("type", "opposite")
+    filter_horizontal = ("allowed_divine_entity_types",)
     list_select_related = ("type", "opposite")
 
     @admin.display(ordering="type__slug", description="School Type Key")
@@ -8236,6 +8240,17 @@ class CharacterLanguageAdmin(admin.ModelAdmin):
     list_select_related = ("owner", "language")
 
 
+class DivineEntitySemanticEffectInlineForm(RuleSemanticEffectAdminForm):
+    class Meta:
+        model = DivineEntitySemanticEffect
+        fields = "__all__"
+
+
+class DivineEntitySemanticEffectInline(SchoolSemanticEffectInline):
+    model = DivineEntitySemanticEffect
+    form = DivineEntitySemanticEffectInlineForm
+
+
 class DivineEntityAspectInline(admin.TabularInline):
     model = DivineEntityAspect
     extra = 0
@@ -8476,7 +8491,6 @@ class DivineEntityMetadataAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
         "name",
-        "school",
         "entity_type",
         "pantheon",
         "aspect_selection_mode",
@@ -8491,15 +8505,15 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_filter = (
         "aspect_selection_mode",
         "is_customizable",
-        "school",
         "entity_type",
         "pantheon",
         "grants_arcane_spell_choice_per_level",
     )
     ordering = ("name",)
-    autocomplete_fields = ("school", "entity_type", "pantheon")
-    list_select_related = ("school", "school__type", "entity_type", "pantheon")
-    inlines = (DivineEntityAspectInline,)
+    autocomplete_fields = ("entity_type", "pantheon")
+    list_select_related = ("entity_type", "pantheon")
+    inlines = (DivineEntityAspectInline, DivineEntitySemanticEffectInline)
+    radio_fields = {"grammatical_gender": admin.VERTICAL}
     readonly_fields = ("symbol_image_preview", "god_image_preview")
 
     fieldsets = (
@@ -8507,8 +8521,8 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             "fields": (
                 "name",
                 "slug",
-                "school",
                 "entity_type",
+                "grammatical_gender",
                 "aspect_selection_mode",
                 "starting_aspect_count",
                 "is_customizable",
@@ -8699,7 +8713,9 @@ class CharacterDivineEntityAdmin(admin.ModelAdmin):
     form = CharacterDivineEntityAdminForm
     list_display = ("character", "display_name", "entity", "entity_school", "chosen_aspect_count", "has_custom_god_image")
     search_fields = ("character__name", "entity__name", "entity__slug", "custom_name", "tradition_name")
-    list_filter = ("entity__aspect_selection_mode", "entity__is_customizable", "entity__school")
+    list_filter = (
+        "entity__aspect_selection_mode", "entity__is_customizable",
+    )
     ordering = ("character__name",)
     autocomplete_fields = ("character", "entity")
     list_select_related = ("character", "entity", "entity__school")
@@ -8751,7 +8767,7 @@ class CharacterDivineEntityAdmin(admin.ModelAdmin):
 
     @admin.display(description="Schule")
     def entity_school(self, obj):
-        return obj.entity.school
+        return obj.school
 
 
 @admin.register(CharacterDruidCult)

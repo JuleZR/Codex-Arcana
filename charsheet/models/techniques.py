@@ -14,6 +14,7 @@ from ..constants import (
 )
 from .core import Skill, SkillCategory, Trait, Race, Attribute
 from .items import Item
+from .semantic_effects import SemanticEffectFields
 from .progression import CharacterSchool, CharacterSchoolPath, School, SchoolPath, Specialization
 
 
@@ -1659,6 +1660,12 @@ class Pantheon(models.Model):
 
 
 class DivineEntity(models.Model):
+    class GrammaticalGender(models.TextChoices):
+        MASCULINE = "masculine", "♂ — maskulin"
+        FEMININE = "feminine", "♀ — feminin"
+        NEUTER = "neuter", "⚲ — neutral"
+        PLURAL = "plural", "♊︎ — plural"
+
     class AspectSelectionMode(models.TextChoices):
         FIXED = "fixed", "Fixed aspects"
         CHOOSE_FROM_ENTITY = "choose_from_entity", "Choose from entity aspects"
@@ -1667,6 +1674,22 @@ class DivineEntity(models.Model):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
     card_name = models.CharField(max_length=160, blank=True, default="")
+    grammatical_gender = models.CharField(
+        max_length=12,
+        choices=GrammaticalGender.choices,
+        default=GrammaticalGender.MASCULINE,
+        verbose_name="Grammatisches Geschlecht",
+    )
+
+    @property
+    def genitive_article(self):
+        return {
+            self.GrammaticalGender.MASCULINE: "des",
+            self.GrammaticalGender.FEMININE: "der",
+            self.GrammaticalGender.NEUTER: "des",
+            self.GrammaticalGender.PLURAL: "der",
+        }[self.grammatical_gender]
+
     entity_type = models.ForeignKey(
         DivineEntityType,
         on_delete=models.PROTECT,
@@ -1746,6 +1769,34 @@ class DivineEntity(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class DivineEntitySemanticEffect(SemanticEffectFields):
+    """Effects granted by a character's active divine binding."""
+
+    entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.CASCADE,
+        related_name="semantic_effects",
+    )
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def semantic_source_type(self):
+        return "divine_entity"
+
+    def semantic_source_id(self):
+        return str(self.entity_id)
+
+    def semantic_source_label(self):
+        return self.entity.name
+
+    def semantic_effect_key_prefix(self):
+        return "divine_entity_effect"
+
+    def __str__(self):
+        return f"{self.entity}: {self.target_domain}:{self.target_key}"
 
 
 class DruidCult(models.Model):
@@ -1965,10 +2016,11 @@ class CharacterAspect(models.Model):
             raise ValidationError({"level": "Aspect level must be at least 1."})
 
         if self.character_id and self.source_entity_id:
-            if not CharacterSchool.objects.filter(
-                character_id=self.character_id,
-                school_id=self.source_entity.school_id,
-            ).exists():
+            from ..religion_rules import divine_school_for_entity
+
+            if divine_school_for_entity(
+                self.character, self.source_entity,
+            ) is None:
                 raise ValidationError(
                     {"source_entity": "The character does not know the school of the granting entity."}
                 )
@@ -1988,7 +2040,10 @@ class CharacterAspect(models.Model):
                 raise ValidationError({"aspect": "This aspect is not available from the selected entity."})
             if self.source_entity_id and self.source_binding.entity_id != self.source_entity_id:
                 raise ValidationError({"source_entity": "The source entity must match the source binding."})
-            if self.source_school_id and self.source_binding.entity.school_id != self.source_school_id:
+            if (
+                self.source_school_id
+                and self.source_binding.school_id != self.source_school_id
+            ):
                 raise ValidationError({"source_school": "The source school must match the binding's entity school."})
             allowed_count = int(self.source_binding.entity.starting_aspect_count or 0)
             if allowed_count > 0:
@@ -2026,6 +2081,17 @@ class CharacterAspect(models.Model):
 
 
 class CharacterDivineEntity(models.Model):
+    @property
+    def school(self):
+        from ..religion_rules import divine_school_for_entity
+
+        return divine_school_for_entity(self.character, self.entity)
+
+    @property
+    def school_id(self):
+        school = self.school
+        return school.pk if school is not None else None
+
     character = models.OneToOneField(
         "Character",
         on_delete=models.CASCADE,
@@ -2088,7 +2154,9 @@ class CharacterDivineEntity(models.Model):
         super().clean()
         if not self.character_id or not self.entity_id:
             return
-        from charsheet.religion_rules import is_divine_entity_school
+        from charsheet.religion_rules import (
+            divine_entities_for_school, is_divine_entity_school,
+        )
 
         active_divine_school_ids = set(
             entry.school_id
@@ -2098,7 +2166,12 @@ class CharacterDivineEntity(models.Model):
             ).select_related("school", "school__type")
             if is_divine_entity_school(entry)
         )
-        if active_divine_school_ids and self.entity.school_id not in active_divine_school_ids:
+        if active_divine_school_ids and not any(
+            divine_entities_for_school(school_id).filter(
+                pk=self.entity_id,
+            ).exists()
+            for school_id in active_divine_school_ids
+        ):
             raise ValidationError(
                 {"entity": "A character with a clerical school must worship an entity of that school."}
             )
@@ -2571,10 +2644,11 @@ class CharacterSpell(models.Model):
                     {"spell": "This special divine grant must use a spell whose grade matches the granted level."}
                 )
             if self.character_id and self.granted_by_entity_id:
-                if not CharacterSchool.objects.filter(
-                    character_id=self.character_id,
-                    school_id=self.granted_by_entity.school_id,
-                ).exists():
+                from ..religion_rules import divine_school_for_entity
+
+                if divine_school_for_entity(
+                    self.character, self.granted_by_entity,
+                ) is None:
                     raise ValidationError(
                         {"granted_by_entity": "The character does not know the divine school of the granting entity."}
                     )

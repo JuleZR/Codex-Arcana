@@ -87,7 +87,12 @@ from charsheet.lesson_rules import (
     LessonRequirementContext,
     lesson_queryset,
 )
-from charsheet.religion_rules import is_clerical_school, selected_divine_entity
+from charsheet.religion_rules import (
+    divine_entities_for_school,
+    is_clerical_school,
+    is_divine_entity_school,
+    selected_divine_entity,
+)
 from charsheet.models import (
     Aspect,
     AlchemicalBrewStats,
@@ -1221,9 +1226,13 @@ def _spell_attribute_chart_maps() -> tuple[dict[int, str], dict[int, str]]:
             aspect_counts[int(spell.aspect_id)][code] += 1
 
     linked_school_aspects: set[tuple[int, int]] = set(
-        DivineEntityAspect.objects.exclude(entity__school__isnull=True)
+        DivineEntityAspect.objects.filter(
+            entity__entity_type__restricted_schools__isnull=False,
+        )
         .exclude(aspect__isnull=True)
-        .values_list("entity__school_id", "aspect_id")
+        .values_list(
+            "entity__entity_type__restricted_schools__id", "aspect_id",
+        )
         .distinct()
     )
     for school_id, aspect_id in linked_school_aspects:
@@ -7323,20 +7332,19 @@ def _group_school_technique_rows(
     if school_levels:
         for cult in DruidCult.objects.filter(school_id__in=school_levels.keys()).order_by("name"):
             druid_options_by_school_id.setdefault(int(cult.school_id), []).append(cult)
-        for entity in (
-            DivineEntity.objects.filter(school_id__in=school_levels.keys())
-            .select_related("school", "school__type")
-            .prefetch_related("aspects__aspect")
-            .order_by("name", "id")
-        ):
-            divine_entities_by_school_id.setdefault(
-                int(entity.school_id), [],
-            ).append(entity)
-            if _divine_entity_card_kind_label(entity) == "Dämon":
-                daemonic_patron_options_by_school_id.setdefault(
-                    int(entity.school_id),
-                    [],
-                ).append(entity)
+        for school_id, school in schools_by_id.items():
+            if not is_divine_entity_school(school):
+                continue
+            entities = list(
+                divine_entities_for_school(school_id).prefetch_related(
+                    "aspects__aspect",
+                )
+            )
+            divine_entities_by_school_id[school_id] = entities
+            daemonic_patron_options_by_school_id[school_id] = [
+                entity for entity in entities
+                if _divine_entity_card_kind_label(entity) == "Dämon"
+            ]
     druid_binding = (
         CharacterDruidCult.objects.filter(character=character)
         .select_related(
@@ -7479,7 +7487,7 @@ def _group_school_technique_rows(
             "symbol_image",
         )
         if patron_symbol_image_url:
-            patron_school_id = int(daemonic_patron_binding.entity.school_id)
+            patron_school_id = int(daemonic_patron_binding.school_id or 0)
             for group in groups.values():
                 if int(group.get("school_id") or 0) == patron_school_id:
                     group["symbol"] = ""
@@ -7500,13 +7508,41 @@ def _group_school_technique_rows(
             divine_entity_by_school_id[school_id] = selected_entity
 
     spell_attribute_chart_by_school = {}
-    if arcane_school_ids or divine_entity_by_school_id:
+    if (
+        arcane_school_ids or divine_entity_by_school_id
+        or daemonic_patron_binding is not None
+    ):
         spell_attribute_chart_by_school, _unused_aspect_charts = (
             _spell_attribute_chart_maps()
         )
     for group in groups.values():
         school_id = int(group.get("school_id") or 0)
         entity = divine_entity_by_school_id.get(school_id)
+        school = schools_by_id.get(school_id)
+        if school is not None:
+            bound_entity = (
+                daemonic_patron_binding.entity
+                if daemonic_patron_binding is not None else None
+            )
+            group["school_name"] = school.display_name_for(
+                character, bound_entity,
+            )
+            if (
+                bound_entity is not None
+                and is_divine_entity_school(school)
+                and divine_entities_for_school(school_id).filter(
+                    pk=bound_entity.pk,
+                ).exists()
+            ):
+                entity = bound_entity
+                group["symbol"] = ""
+                group["symbol_image_url"] = _image_field_url(
+                    entity, "symbol_image",
+                )
+            for row in group["rows"]:
+                row["school_name"] = group["school_name"]
+                row["school_symbol"] = group["symbol"]
+                row["school_symbol_image_url"] = group["symbol_image_url"]
         if entity is not None:
             sections = []
             if entity.description:
@@ -8160,8 +8196,13 @@ def _build_learning_rows(
         divine_primary_symbol = str(divine_entity.name or "?").strip()[:1] or "?"
         divine_primary_image_url = _image_field_url(divine_entity, "symbol_image")
         if not divine_primary_image_url:
-            divine_primary_symbol = str(getattr(divine_entity.school, "panel_symbol", "") or divine_primary_symbol).strip()
-            divine_primary_image_url = _school_symbol_image_url(divine_entity.school)
+            divine_primary_symbol = str(
+                getattr(divine_binding.school, "panel_symbol", "")
+                or divine_primary_symbol
+            ).strip()
+            divine_primary_image_url = _school_symbol_image_url(
+                divine_binding.school,
+            )
         for link in divine_entity.aspects.select_related("aspect").order_by("aspect__name"):
             aspect = link.aspect
             divine_aspect_symbols.append(str(aspect.name or "?").strip()[:1] or "?")
@@ -8178,14 +8219,16 @@ def _build_learning_rows(
         if is_clerical_school(school)
     }
     selected_religion_entity = selected_divine_entity(character)
-    selected_religion_school_id = (
-        int(selected_religion_entity.school_id)
-        if selected_religion_entity is not None and selected_religion_entity.school_id
-        else None
-    )
     visible_clerical_school_ids = set(active_clerical_school_ids)
-    if selected_religion_school_id is not None:
-        visible_clerical_school_ids.add(selected_religion_school_id)
+    learn_divine_entity_choices = []
+    if selected_religion_entity is not None:
+        visible_clerical_school_ids.update(
+            school.pk for school in School.objects.filter(
+                allowed_divine_entity_types=(
+                    selected_religion_entity.entity_type
+                ),
+            ).select_related("type") if is_divine_entity_school(school)
+        )
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
         if school.id in vampire_disallowed_school_ids and base_level <= 0:
@@ -8198,11 +8241,16 @@ def _build_learning_rows(
         ):
             continue
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
+        if is_divine_entity_school(school):
+            learn_divine_entity_choices.extend(
+                {"entity": entity, "school_id": school.pk}
+                for entity in divine_entities_for_school(school.id)
+            )
         source_symbol = str(getattr(school, "panel_symbol", "") or "").strip()
         source_image_url = _school_symbol_image_url(school)
         secondary_symbols = ""
         secondary_image_urls = ""
-        if divine_entity is not None and school.id == divine_entity.school_id:
+        if divine_entity is not None and school.id == divine_binding.school_id:
             source_symbol = divine_primary_symbol
             source_image_url = divine_primary_image_url
             secondary_symbols = ";".join(divine_aspect_symbols)
@@ -8221,7 +8269,9 @@ def _build_learning_rows(
         school_groups.setdefault(school.type.name, []).append(
             {
                 "id": school.id,
-                "name": school.name,
+                "name": school.display_name_for(
+                    character, selected_religion_entity,
+                ),
                 "description": description,
                 "type_name": school.type.name,
                 "base_level": base_level,
@@ -8492,6 +8542,10 @@ def _build_learning_rows(
             for category_name, rows in skill_groups.items()
         ],
         "learn_language_rows": learn_language_rows,
+        "learn_divine_entity_choices": learn_divine_entity_choices,
+        "learn_selected_divine_entity_id": (
+            selected_religion_entity.pk if selected_religion_entity else ""
+        ),
         "learn_school_groups": [
             {"name": type_name, "rows": rows}
             for type_name, rows in school_groups.items()
@@ -9349,9 +9403,9 @@ def build_character_sheet_context(
 
     if (
         divine_binding is not None
-        and is_clerical_school(divine_binding.entity.school)
+        and is_clerical_school(divine_binding.school)
     ):
-        divine_school_id = int(divine_binding.entity.school_id)
+        divine_school_id = int(divine_binding.school_id)
         priest_aspects = list(
             spell_panel_divine_summary.get("aspects", [])
         )
@@ -9400,7 +9454,7 @@ def build_character_sheet_context(
     divine_binding = magic_engine._divine_binding()
     if (
         divine_binding is not None
-        and int(school_levels.get(divine_binding.entity.school_id, 0) or 0) <= 0
+        and int(school_levels.get(divine_binding.school_id, 0) or 0) <= 0
     ):
         divine_binding = None
     divine_entity = divine_binding.entity if divine_binding is not None else None
