@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-mensch-vargothischer-blutgreifenritter",
   "name": "Mensch – Vargothischer Blutgreifenritter",
-  "description": "GRW-Archetyp Krodolf von Dargoth – Stahlfaust.",
+  "description": "GRW-Archetyp Krodolf von Dargoth – Stahlfaust. Adel / Heldensohn: Ritter.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -50,12 +50,12 @@
           "specification": ""
         },
         {
-          "slug": "skill_warcraft",
+          "slug": "skill_art_of_war",
           "level": 2,
           "specification": ""
         },
         {
-          "slug": "skill_lances",
+          "slug": "skill_lance",
           "level": 6,
           "specification": ""
         },
@@ -116,14 +116,10 @@
     },
     "phase_4": {
       "advantages": {
-        "adv_nobility": 1,
-        "adv_wealth": 3
+        "adv_nobel": 1,
+        "adv_riches": 3
       },
-      "trait_specifications": {
-        "adv_nobility": {
-          "text": "Ritter"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [

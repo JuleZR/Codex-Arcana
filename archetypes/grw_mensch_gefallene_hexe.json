@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-mensch-gefallene-hexe",
   "name": "Mensch – Gefallene Hexe",
-  "description": "GRW-Archetyp Sadra Höllenauge – Hexe.",
+  "description": "GRW-Archetyp Sadra Höllenauge – Hexe. Feind: Vargothische Priester & Lichtbringer des Karndt. Hexenmal: Rötlicher Schimmer des Abyss. Phobie: Wassermassen & Eis. Halbdämon: Gefallener Engel.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -35,7 +35,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_daggers",
+          "slug": "skill_dagger",
           "level": 5,
           "specification": ""
         },
@@ -50,7 +50,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_hide_gestures",
+          "slug": "skill_hidgestures",
           "level": 6,
           "specification": ""
         },
@@ -85,14 +85,14 @@
           "specification": ""
         },
         {
-          "slug": "knw_demons",
+          "slug": "wissen",
           "level": 3,
-          "specification": ""
+          "specification": "Dämonen"
         },
         {
-          "slug": "knw_witchcraft",
+          "slug": "knw_arcane_schoo",
           "level": 5,
-          "specification": ""
+          "specification": "Hexerei"
         }
       ],
       "languages": {
@@ -101,7 +101,7 @@
           "write": true,
           "mother": true
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 3,
           "write": true,
           "mother": false
@@ -112,32 +112,18 @@
       "disadvantages": {
         "dis_enemy": 4,
         "dis_wanted_criminal": 2,
-        "dis_witch_mark": 3,
+        "dis_witchs_mark": 3,
         "dis_phobia": 4,
         "dis_vengeful": 5
       },
-      "trait_specifications": {
-        "dis_enemy": {
-          "text": "Vargothische Priester & Lichtbringer des Karndt"
-        },
-        "dis_witch_mark": {
-          "text": "Rötlicher Schimmer des Abyss"
-        },
-        "dis_phobia": {
-          "text": "Wassermassen & Eis"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {}
     },
     "phase_4": {
       "advantages": {
         "adv_half_demon": 2
       },
-      "trait_specifications": {
-        "adv_half_demon": {
-          "text": "Gefallener Engel"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [],

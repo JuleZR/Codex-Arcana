@@ -101,7 +101,7 @@
           "write": true,
           "mother": true
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 2,
           "write": false,
           "mother": false
@@ -112,19 +112,23 @@
       "disadvantages": {
         "dis_dark_fate": 1,
         "dis_fanatic": 1,
-        "dis_cannot_lie": 1
+        "dis_cant_lie": 1
       },
       "trait_specifications": {},
       "trait_choices": {}
     },
     "phase_4": {
       "advantages": {
-        "adv_appearance": 3,
-        "adv_wealth": 2,
+        "adv_appearance": 1,
+        "adv_riches": 2,
         "adv_fame": 1
       },
       "trait_specifications": {},
-      "trait_choices": {},
+      "trait_choices": {
+        "adv_fame": {
+          "personlicher-ruhm": ["personal_fame_rank"]
+        }
+      },
       "attribute_adds": {},
       "skill_adds": [
         {

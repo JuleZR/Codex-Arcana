@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-fee-tiermeister",
   "name": "Fee – Tiermeister",
-  "description": "GRW-Archetyp Xeira Blütenstich – Feentiermeisterin.",
+  "description": "GRW-Archetyp Xeira Blütenstich – Feentiermeisterin. Dunkles Geheimnis: Tod des Gefährten Jirk verursacht. Phobie: Feuer.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -35,7 +35,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_daggers",
+          "slug": "skill_dagger",
           "level": 4,
           "specification": ""
         },
@@ -70,7 +70,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_animal_amdling",
+          "slug": "skill_animal_handling",
           "level": 4,
           "specification": ""
         },
@@ -90,7 +90,7 @@
           "specification": ""
         },
         {
-          "slug": "knw_beasts",
+          "slug": "knw_creatures",
           "level": 5,
           "specification": ""
         },
@@ -100,9 +100,9 @@
           "specification": ""
         },
         {
-          "slug": "knw_nature",
+          "slug": "wissen",
           "level": 1,
-          "specification": ""
+          "specification": "Naturkunde"
         }
       ],
       "languages": {
@@ -124,16 +124,9 @@
         "dis_dark_secret": 3,
         "dis_curiosity": 1,
         "dis_phobia": 4,
-        "dis_orphan": 1
+        "dis_orpahn": 1
       },
-      "trait_specifications": {
-        "dis_dark_secret": {
-          "text": "Tod des Gefährten Jirk verursacht"
-        },
-        "dis_phobia": {
-          "text": "Feuer"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {}
     },
     "phase_4": {
@@ -150,7 +143,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_daggers",
+          "slug": "skill_dagger",
           "add": 1,
           "specification": ""
         },
@@ -165,7 +158,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_animal_amdling",
+          "slug": "skill_animal_handling",
           "add": 3,
           "specification": ""
         },
@@ -175,7 +168,7 @@
           "specification": ""
         },
         {
-          "slug": "knw_beasts",
+          "slug": "knw_creatures",
           "add": 1,
           "specification": ""
         }

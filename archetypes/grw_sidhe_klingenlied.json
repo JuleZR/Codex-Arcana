@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-sidhe-klingenlied",
   "name": "Sidhe – Klingenlied",
-  "description": "GRW-Archetyp Mararielle Morgenstern – Klingentänzerin der Sidhe.",
+  "description": "GRW-Archetyp Mararielle Morgenstern – Klingentänzerin der Sidhe. Magischer Gegenstand: Lunariumkettenhemd.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -106,7 +106,7 @@
           "write": true,
           "mother": false
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 3,
           "write": true,
           "mother": false
@@ -127,16 +127,11 @@
     },
     "phase_4": {
       "advantages": {
-        "adv_appearance": 1,
         "adv_ambidexterity": 1,
         "adv_magic_item": 7,
-        "adv_wealth": 1
+        "adv_riches": 1
       },
-      "trait_specifications": {
-        "adv_magic_item": {
-          "text": "Lunariumkettenhemd"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [

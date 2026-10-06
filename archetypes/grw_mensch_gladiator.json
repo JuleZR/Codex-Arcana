@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-mensch-gladiator",
   "name": "Mensch – Gladiator",
-  "description": "GRW-Archetyp Cyras Kopfjäger – Gladiator.",
+  "description": "GRW-Archetyp Cyras Kopfjäger – Gladiator. Amnesie: Erinnert sich an nichts bevor er vor einem Jahr als Sklave erwachte. Besessen: Herauszufinden wer er ist. Untertan: Sklave & Gladiator Verunas. Ruhm: Ruf als Waffennarr.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -101,7 +101,7 @@
           "write": false,
           "mother": false
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 3,
           "write": false,
           "mother": false
@@ -112,34 +112,24 @@
       "disadvantages": {
         "dis_amnesia": 1,
         "dis_obsessed": 1,
-        "dis_subject": 1
+        "dis_underling": 1
       },
-      "trait_specifications": {
-        "dis_amnesia": {
-          "text": "Erinnert sich an nichts bevor er vor einem Jahr als Sklave erwachte"
-        },
-        "dis_obsessed": {
-          "text": "Herauszufinden wer er ist"
-        },
-        "dis_subject": {
-          "text": "Sklave & Gladiator Verunas"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {}
     },
     "phase_4": {
       "advantages": {
-        "adv_fearless": 6,
-        "adv_wealth": 1,
+        "adv_fearless": 2,
+        "adv_riches": 1,
         "adv_fame": 1,
-        "adv_weapon_fetishist": 1
+        "adv_natural_talent_combat": 1
       },
-      "trait_specifications": {
+      "trait_specifications": {},
+      "trait_choices": {
         "adv_fame": {
-          "text": "Ruf als Waffennarr"
+          "personlicher-ruhm": ["personal_fame_rank"]
         }
       },
-      "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [],
       "language_adds": {},

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-krask-kryss",
   "name": "Krask – Kryss",
-  "description": "GRW-Archetyp Skaskras Klauensturm – Mutantin der Krask.",
+  "description": "GRW-Archetyp Skaskras Klauensturm – Mutantin der Krask. Macke: Über die Zähne lecken.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -55,7 +55,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_spears_staves",
+          "slug": "skills_spears",
           "level": 5,
           "specification": ""
         },
@@ -95,9 +95,9 @@
           "specification": ""
         },
         {
-          "slug": "knw_nature",
+          "slug": "wissen",
           "level": 1,
-          "specification": ""
+          "specification": "Naturkunde"
         }
       ],
       "languages": {
@@ -106,7 +106,7 @@
           "write": false,
           "mother": true
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 3,
           "write": false,
           "mother": false
@@ -118,13 +118,10 @@
         "dis_poor": 1,
         "dis_quirk": 1,
         "dis_vengeful": 5,
-        "dis_delusion": 1
+        "dis_obsession": 1
       },
       "trait_specifications": {
-        "dis_quirk": {
-          "text": "Über die Zähne lecken"
-        },
-        "dis_delusion": {
+        "dis_obsession": {
           "text": "Von Ahnengeistern des Shaktar bewacht"
         }
       },
@@ -132,19 +129,19 @@
     },
     "phase_4": {
       "advantages": {
-        "adv_keen_sense": 1,
+        "adv_distinct_sense": 1,
         "adv_disease_immunity": 1
       },
       "trait_specifications": {
-        "adv_keen_sense": {
-          "text": "Geruchs- und Geschmackssinn"
+        "adv_distinct_sense": {
+          "option_id": "geruchs-und-geschmackssinn"
         }
       },
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [
         {
-          "slug": "skill_spears_staves",
+          "slug": "skills_spears",
           "add": 3,
           "specification": ""
         },

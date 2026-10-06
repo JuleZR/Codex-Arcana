@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-drakodrim-waffenmeister",
   "name": "Drakodrim – Waffenmeister",
-  "description": "GRW-Archetyp Broken Hammerhand – Waffenmeister der Drakodrim.",
+  "description": "GRW-Archetyp Broken Hammerhand – Waffenmeister der Drakodrim. Macke: Waffenfaszination. Magischer Gegenstand: Runenerbe: Streitaxt mit Fallenrune, Rune der Geschicklichkeit, Rune der Ausdauer und +1/+1 Bonus.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -35,7 +35,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_axes",
+          "slug": "skill_axe",
           "level": 6,
           "specification": ""
         },
@@ -80,7 +80,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_blunt_weapons",
+          "slug": "skill_blunt",
           "level": 5,
           "specification": ""
         },
@@ -116,16 +116,13 @@
     "phase_3": {
       "disadvantages": {
         "dis_vow": 4,
-        "dis_cannot_lie": 1,
+        "dis_cant_lie": 1,
         "dis_quirk": 1,
         "dis_debt": 3
       },
       "trait_specifications": {
         "dis_vow": {
           "text": "Stolz"
-        },
-        "dis_quirk": {
-          "text": "Waffenfaszination"
         }
       },
       "trait_choices": {}
@@ -133,18 +130,14 @@
     "phase_4": {
       "advantages": {
         "adv_magic_item": 10,
-        "adv_wealth": 1
+        "adv_riches": 1
       },
-      "trait_specifications": {
-        "adv_magic_item": {
-          "text": "Runenerbe: Streitaxt mit Fallenrune, Rune der Geschicklichkeit, Rune der Ausdauer und +1/+1 Bonus"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [
         {
-          "slug": "skill_axes",
+          "slug": "skill_axe",
           "add": 4,
           "specification": ""
         },
@@ -174,7 +167,7 @@
       "weapon_arcana": [
         {
           "kind": "rune",
-          "rune_id": "rune_der_geschicklichkeit"
+          "rune_id": "rune-der-geschicklichkeit"
         },
         {
           "kind": "rune",

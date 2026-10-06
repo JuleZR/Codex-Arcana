@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-morai-nachtgeist",
   "name": "Morai – Nachtgeist",
-  "description": "GRW-Archetyp Balieth Darramistyl – Nachtgeist der Morai.",
+  "description": "GRW-Archetyp Balieth Darramistyl – Nachtgeist der Morai. Dunkles Geheimnis: Hexenmutter ermordet. Untertan: der Hexenmutter der Darramistyl. Halbdämon: Augen der Hölle. Magischer Gegenstand: Karn Sing.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -50,7 +50,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_chain_weapons",
+          "slug": "skill_chainweapons",
           "level": 5,
           "specification": ""
         },
@@ -132,18 +132,12 @@
       "disadvantages": {
         "dis_dark_secret": 4,
         "dis_fanatic": 1,
-        "dis_bad_luck": 1,
-        "dis_subject": 1,
-        "dis_delusion": 1
+        "dis_badluck": 1,
+        "dis_underling": 1,
+        "dis_obsession": 1
       },
       "trait_specifications": {
-        "dis_dark_secret": {
-          "text": "Hexenmutter ermordet"
-        },
-        "dis_subject": {
-          "text": "der Hexenmutter der Darramistyl"
-        },
-        "dis_delusion": {
+        "dis_obsession": {
           "text": "Anaranth sieht alles"
         }
       },
@@ -155,19 +149,12 @@
         "adv_half_demon": 1,
         "adv_magic_item": 4
       },
-      "trait_specifications": {
-        "adv_half_demon": {
-          "text": "Augen der Hölle"
-        },
-        "adv_magic_item": {
-          "text": "Karn Sing"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [
         {
-          "slug": "skill_chain_weapons",
+          "slug": "skill_chainweapons",
           "add": 5,
           "specification": ""
         },

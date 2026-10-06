@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-halbling-saboteurin",
   "name": "Halbling – Saboteurin",
-  "description": "GRW-Archetyp Diaspora Krixi – Saboteurin der Halblinge.",
+  "description": "GRW-Archetyp Diaspora Krixi – Saboteurin der Halblinge. Feind: Schattenhandgilde. Macke: Spricht mit Pistolen. Magischer Gegenstand: Mechanautenanzug.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -40,7 +40,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_daggers",
+          "slug": "skill_dagger",
           "level": 4,
           "specification": ""
         },
@@ -60,7 +60,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_improvised_weapons",
+          "slug": "skill_improvisedweapon",
           "level": 1,
           "specification": ""
         },
@@ -90,7 +90,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_blackpowder_weapons",
+          "slug": "skill_gun",
           "level": 4,
           "specification": ""
         },
@@ -116,7 +116,7 @@
           "write": false,
           "mother": false
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 2,
           "write": false,
           "mother": false
@@ -129,16 +129,10 @@
         "dis_quirk": 1,
         "dis_naive": 4,
         "dis_curiosity": 1,
-        "dis_delusion": 1
+        "dis_obsession": 1
       },
       "trait_specifications": {
-        "dis_enemy": {
-          "text": "Schattenhandgilde"
-        },
-        "dis_quirk": {
-          "text": "Spricht mit Pistolen"
-        },
-        "dis_delusion": {
+        "dis_obsession": {
           "text": "Maschinen haben Gefühle"
         }
       },
@@ -147,15 +141,12 @@
     "phase_4": {
       "advantages": {
         "adv_magic_item": 1,
-        "adv_guild_member": 2,
-        "adv_wealth": 1
+        "adv_guild_membership": 2,
+        "adv_riches": 1
       },
       "trait_specifications": {
-        "adv_magic_item": {
-          "text": "Mechanautenanzug"
-        },
-        "adv_guild_member": {
-          "text": "Zellenleiterin der Techgilde"
+        "adv_guild_membership": {
+          "option_id": "tech-gilde"
         }
       },
       "trait_choices": {},
@@ -167,12 +158,12 @@
           "specification": ""
         },
         {
-          "slug": "skill_daggers",
+          "slug": "skill_dagger",
           "add": 1,
           "specification": ""
         },
         {
-          "slug": "skill_blackpowder_weapons",
+          "slug": "skill_gun",
           "add": 6,
           "specification": ""
         }

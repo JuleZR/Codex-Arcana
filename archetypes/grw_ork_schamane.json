@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "grw-ork-schamane",
   "name": "Ork – Schamane",
-  "description": "GRW-Archetyp Talak von den Staubreitern – Schamane der Orks.",
+  "description": "GRW-Archetyp Talak von den Staubreitern – Schamane der Orks. Laster: Barbarischer Gesang. Der Blick: Einschüchtern +2.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
     "page": 176
   },
-  "race": "Ork",
+  "race": "Orks",
   "state": {
     "meta": {
       "name": "Ork – Schamane",
@@ -65,7 +65,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_spears_staves",
+          "slug": "skills_spears",
           "level": 3,
           "specification": ""
         },
@@ -75,7 +75,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_animal_amdling",
+          "slug": "skill_animal_handling",
           "level": 1,
           "specification": ""
         },
@@ -116,7 +116,7 @@
           "write": true,
           "mother": false
         },
-        "lang_verunian": {
+        "verunisch": {
           "level": 2,
           "write": false,
           "mother": false
@@ -128,12 +128,9 @@
         "dis_slow": 3,
         "dis_vice": 1,
         "dis_senseofduty": 1,
-        "dis_haunting": 1
+        "is_spook": 1
       },
       "trait_specifications": {
-        "dis_vice": {
-          "text": "Barbarischer Gesang"
-        },
         "dis_senseofduty": {
           "text": "Orks"
         }
@@ -144,11 +141,7 @@
       "advantages": {
         "adv_gaze": 1
       },
-      "trait_specifications": {
-        "adv_gaze": {
-          "text": "Einschüchtern +2"
-        }
-      },
+      "trait_specifications": {},
       "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [
@@ -168,7 +161,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_spears_staves",
+          "slug": "skills_spears",
           "add": 3,
           "specification": ""
         },

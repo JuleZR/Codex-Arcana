@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "grw-troll-berserker",
   "name": "Nordtroll – Berserker",
-  "description": "GRW-Archetyp Grimwar Eisblut – Trollberserker.",
+  "description": "GRW-Archetyp Grimwar Eisblut – Trollberserker. Besessen: Ruhm. Laster: Zechen. Ruhm: Ruf als Schlächter.",
   "source": {
     "book": "Arcane Codex 3. Edition Grundregelwerk",
     "chapter": "Auserwählte und Rebellen – Die Archetypen",
@@ -50,7 +50,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_warcraft",
+          "slug": "skill_art_of_war",
           "level": 4,
           "specification": ""
         },
@@ -75,7 +75,7 @@
           "specification": ""
         },
         {
-          "slug": "skill_blunt_weapons",
+          "slug": "skill_blunt",
           "level": 8,
           "specification": ""
         },
@@ -121,30 +121,24 @@
         "dis_vice": 1
       },
       "trait_specifications": {
-        "dis_obsessed": {
-          "text": "Ruhm"
-        },
         "dis_vow": {
           "text": "Niemals aus einem Kampf fliehen"
-        },
-        "dis_vice": {
-          "text": "Zechen"
         }
       },
       "trait_choices": {}
     },
     "phase_4": {
       "advantages": {
-        "adv_fearless": 8,
-        "adv_wealth": 1,
+        "adv_fearless": 6,
+        "adv_riches": 1,
         "adv_fame": 2
       },
-      "trait_specifications": {
+      "trait_specifications": {},
+      "trait_choices": {
         "adv_fame": {
-          "text": "Ruf als Schlächter"
+          "personlicher-ruhm": ["personal_fame_rank"]
         }
       },
-      "trait_choices": {},
       "attribute_adds": {},
       "skill_adds": [
         {
@@ -158,12 +152,12 @@
           "specification": ""
         },
         {
-          "slug": "skill_warcraft",
+          "slug": "skill_art_of_war",
           "add": 1,
           "specification": ""
         },
         {
-          "slug": "skill_blunt_weapons",
+          "slug": "skill_blunt",
           "add": 2,
           "specification": ""
         }
