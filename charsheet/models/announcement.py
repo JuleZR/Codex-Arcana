@@ -12,10 +12,11 @@ class DashboardAnnouncement(models.Model):
     kind = models.CharField(max_length=8, choices=Kind.choices)
     text = models.TextField(max_length=20000)
     created_at = models.DateTimeField(auto_now_add=True)
+    sort_order = models.IntegerField(default=0)
     expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at", "-pk"]
+        ordering = ["sort_order", "-created_at", "-pk"]
 
     @classmethod
     def active(cls):
@@ -23,8 +24,19 @@ class DashboardAnnouncement(models.Model):
             Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
         ).order_by(
             Case(
-                When(kind=cls.Kind.CRITICAL, then=Value(0)),
+                When(sort_order=-1, then=Value(0)),
                 default=Value(1),
+                output_field=IntegerField(),
+            ),
+            Case(
+                When(sort_order=-1, then=Value(0)),
+                default=models.F("sort_order"),
+                output_field=IntegerField(),
+            ),
+            Case(
+                When(sort_order=-1, kind=cls.Kind.CRITICAL, then=Value(0)),
+                When(sort_order=-1, kind=cls.Kind.WARNING, then=Value(1)),
+                default=Value(2),
                 output_field=IntegerField(),
             ),
             "-created_at",
