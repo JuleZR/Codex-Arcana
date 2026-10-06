@@ -245,6 +245,7 @@
 
 .attribute_table .a_h_value {
   width: var(--stat-cell-size);
+  white-space: nowrap;
   text-align: center;
   font-size: 0.62rem;
   color: var(--ink-soft);

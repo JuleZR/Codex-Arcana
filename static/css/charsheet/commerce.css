@@ -1157,10 +1157,16 @@
 
 #shopWindow .shop_cart_table th:first-child,
 #shopWindow .shop_cart_table tr[data-cart-key] > td:first-child {
-  min-width: 140px;
+  width: 100%;
 }
 
-#shopWindow .shop_cart_table th:first-child {
+#shopWindow .shop_cart_table th:not(:first-child),
+#shopWindow .shop_cart_table tr[data-cart-key] > td:not(:first-child) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+#shopWindow .shop_cart_table th {
   white-space: nowrap;
 }
 

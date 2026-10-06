@@ -1,5 +1,7 @@
 {% for row in rows %}
-  <li class="inv_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}{% if row.is_transfer_pending %} inv_row--underway{% endif %}{% if row.is_gm_edit_pending %} inv_row--gm-edit{% endif %}{% if row.is_foreign_held %} inv_row--foreign-held{% endif %}"
+  <li class="inv_row{% if row.item_card.structure_status == 'destroyed' %} inv_row--destroyed{% elif row.item_card.crack_level %} inv_row--damaged{% endif %}{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}{% if row.is_transfer_pending %} inv_row--underway{% endif %}{% if row.is_gm_edit_pending %} inv_row--gm-edit{% endif %}{% if row.is_foreign_held %} inv_row--foreign-held{% endif %}"
+      data-crack-level="{{ row.item_card.crack_level }}"
+      {% if row.item_card.structure_status == 'destroyed' %}aria-label="{{ row.display_name }} – Zerstört"{% endif %}
       data-inventory-row
       data-character-item-id="{{ row.character_item.pk }}"
       data-stored="{% if row.is_stored %}1{% else %}0{% endif %}"
@@ -21,7 +23,15 @@
       {% if row.can_manage_storage %}<span class="inv_drag_handle" draggable="true" data-drag-handle aria-label="Item verschieben" title="Zum Verschieben ziehen">
         <span class="inv_drag_handle_dots" aria-hidden="true"></span>
       </span>{% endif %}
-      <span class="inv_name">{{ row.display_name }}{% if row.is_foreign_held %}<small class="inv_transfer_state">Fremdgehalten von {{ row.foreign_holder_name }}</small>{% endif %}{% if row.pending_transfer %}<small class="inv_transfer_state">{% if row.is_gm_edit_pending %}Zur Bearbeitung bei SL @ {{ row.pending_transfer.recipient_group.name }}{% else %}Versendet – unterwegs zu {{ row.pending_transfer.recipient.name }}{% endif %}</small>{% endif %}</span>
+      <span class="inv_name">{{ row.display_name }}{% if row.is_foreign_held %}<small class="inv_transfer_state">Fremdgehalten von {{ row.foreign_holder_name }}</small>{% endif %}{% if row.pending_transfer %}<small class="inv_transfer_state">{% if row.is_gm_edit_pending %}Zur Bearbeitung bei SL @ {{ row.pending_transfer.recipient_group.name }}{% else %}Versendet – unterwegs zu {{ row.pending_transfer.recipient.name }}{% endif %}</small>{% endif %}
+    {% if row.item_card.can_manage_structure_damage %}
+      {% if row.item_card.structure_damage or row.item_card.structure_status == 'destroyed' %}
+        <small class="inv_transfer_state">
+          Struktur {{ row.item_card.remaining_structure }} / {{ row.item_card.structure_points }}{% if row.item_card.structure_status == 'damaged' %} · Beschädigt{% elif row.item_card.structure_status == 'destroyed' %} · Zerstört{% endif %}
+        </small>
+      {% endif %}
+    {% endif %}
+      </span>
     </span>
     <div class="inv_actions">
       {% if row.has_runes %}
@@ -37,6 +47,7 @@
       <div class="inv_menu">
         <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
         <div class="inv_menu_panel" hidden>
+          {% if row.can_manage_storage %}{% include 'charsheet/partials/_item_damage_action.html' with item_card=row.item_card character_item=row.character_item %}{% endif %}
           {% if row.can_manage_storage %}<form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="equip_form" data-sheet-action>
             {% csrf_token %}
             <input type="hidden" name="stored" value="{% if row.is_stored %}0{% else %}1{% endif %}">

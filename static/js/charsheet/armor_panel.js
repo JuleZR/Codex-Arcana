@@ -99,6 +99,9 @@ export function initArmorPanel() {
       return;
     }
     tile.addEventListener("keydown", (event) => {
+      if (event.target !== tile) {
+        return;
+      }
       if (event.key !== "Enter" && event.key !== " ") {
         return;
       }

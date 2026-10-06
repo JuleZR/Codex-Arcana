@@ -449,6 +449,7 @@ class CharacterItem(models.Model):
     provenance_id = models.UUIDField(default=uuid4, unique=True, editable=False)
     ownership_version = models.PositiveIntegerField(default=1, editable=False)
     amount = models.PositiveIntegerField(default=1)
+    structure_damage = models.PositiveIntegerField(default=0)
     equipped = models.BooleanField(default=False)
     equip_locked = models.BooleanField(default=False)
     stored = models.BooleanField(default=False)
@@ -559,8 +560,25 @@ class CharacterItem(models.Model):
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
         if self.item.stackable and self.equipped:
             raise ValidationError({"equipped": "Stackable Items can't be equipped"})
-        if self.equip_locked and not self.equipped:
-            raise ValidationError({"equip_locked": "Locked equipment must remain equipped."})
+        from charsheet.engine.item_engine import ItemEngine
+
+        destroyed = ItemEngine(self).get_structure_status() == "destroyed"
+        if self.equipped and destroyed:
+            raise ValidationError({
+                "equipped": (
+                    "Zerstörte Gegenstände können nicht ausgerüstet werden."
+                ),
+            })
+        if self.equip_locked and not self.equipped and not destroyed:
+            # Destruction can leave a locked entry unequipped. Repair must
+            # preserve that valid state until it is explicitly equipped again.
+            was_locked_unequipped = type(self).objects.filter(
+                pk=self.pk, equip_locked=True, equipped=False,
+            ).exists()
+            if not was_locked_unequipped:
+                raise ValidationError({
+                    "equip_locked": "Locked equipment must remain equipped.",
+                })
 
         if self.pk:
             original_owner = type(self).objects.filter(pk=self.pk).values_list(
@@ -573,6 +591,19 @@ class CharacterItem(models.Model):
                 raise ValidationError("The original owner is immutable outside the transfer service.")
 
     def save(self, *args, **kwargs):
+        from charsheet.engine.item_engine import ItemEngine
+
+        if self.structure_damage < 0:
+            raise ValidationError({
+                "structure_damage": "Schaden darf nicht negativ sein.",
+            })
+        if (self.equipped
+                and ItemEngine(self).get_structure_status() == "destroyed"):
+            self.equipped = False
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = (
+                    set(kwargs["update_fields"]) | {"equipped"}
+                )
         if self.owner_id and not self.original_owner_character_id and not self.original_owner_group_id:
             self.original_owner_character_id = self.owner_id
         if self.group_owner_id and not self.original_owner_character_id and not self.original_owner_group_id:

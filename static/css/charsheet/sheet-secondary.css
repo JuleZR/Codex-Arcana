@@ -1858,6 +1858,63 @@
   overflow: visible;
 }
 
+[data-crack-level="1"] {
+  --item-cracks-image: url("/static/img/inventory-cracks-light.svg");
+  --item-row-cracks-image: url("/static/img/inventory-cracks-organic-1.svg?v=20261006-origin");
+}
+
+[data-crack-level="2"] {
+  --item-cracks-image: url("/static/img/inventory-cracks-moderate.svg");
+  --item-row-cracks-image: url("/static/img/inventory-cracks-organic-2.svg?v=20261006-origin");
+}
+
+[data-crack-level="3"] {
+  --item-cracks-image: url("/static/img/inventory-cracks-damaged.svg");
+  --item-row-cracks-image: url("/static/img/inventory-cracks-organic-3.svg?v=20261006-origin");
+}
+
+[data-crack-level="4"] {
+  --item-cracks-image: url("/static/img/inventory-cracks-heavy.svg");
+  --item-row-cracks-image: url("/static/img/inventory-cracks-organic-4.svg?v=20261006-origin");
+}
+
+[data-crack-level="5"] {
+  --item-cracks-image: url("/static/img/inventory-cracks-destroyed.svg");
+  --item-row-cracks-image: url("/static/img/inventory-cracks-organic-5.svg?v=20261006-origin");
+}
+
+.p2_lines li.inv_row--damaged::after,
+.p2_lines li.inv_row--destroyed::after {
+  content: "";
+  position: relative;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-self: stretch;
+  margin: -2px -8px;
+  border-radius: inherit;
+  background: var(--item-row-cracks-image) center / 100% 100% no-repeat;
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.p2_lines li.inv_row--destroyed::after {
+  opacity: 0.26;
+}
+
+.p2_lines li.inv_row:is(.inv_row--damaged, .inv_row--destroyed) > .inv_name_wrap {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 0 2px rgba(255, 250, 236, 0.95);
+}
+
+.p2_lines li.inv_row:is(.inv_row--damaged, .inv_row--destroyed) > .inv_actions {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .is-vampire-sheet .arcane_meter_label {
   font: 700 0.76rem/1.2 "Segoe UI", Tahoma, Arial, sans-serif;
   font-variant: normal;
@@ -2605,6 +2662,119 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .inv_menu_panel[hidden] {
   display: none !important;
+}
+
+.item_damage_dialog.sheet-window.payday-window {
+  inset: 0;
+  margin: auto;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  color: rgba(61, 42, 24, 0.96);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+  overflow: auto;
+}
+
+.item_damage_dialog_body {
+  margin: 12px;
+  padding: 16px;
+}
+
+.item_damage_dialog::backdrop {
+  background: rgba(36, 24, 14, 0.35);
+}
+
+.item_damage_dialog h3,
+.item_damage_dialog p {
+  margin: 0 0 12px;
+}
+
+.item_damage_dialog h3 {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.item_damage_dialog .item_damage_dialog_field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.item_damage_dialog input {
+  box-sizing: border-box;
+  width: 5em;
+  flex: 0 0 5em;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 1rem;
+}
+
+.item_damage_dialog form > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.item_damage_dialog .sheet-window__control {
+  min-height: 32px;
+  padding: 5px 12px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.item_damage_dialog [role="alert"] {
+  margin: 8px 0 0;
+  color: #622f1e;
+}
+
+.item_damage_dialog [role="alert"]:empty {
+  display: none;
+}
+
+.armor_worn .armor_row > .inv_menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+}
+
+.armor_worn .armor_row .inv_menu_trigger {
+  width: 14px;
+  min-width: 14px;
+  max-width: 14px;
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.armor_worn .armor_row .inv_menu_trigger:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .armor_worn .armor_row .inv_menu_trigger {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .armor_worn .armor_row:hover .inv_menu_trigger,
+  .armor_worn .armor_row:focus-within .inv_menu_trigger,
+  .armor_worn .armor_row .inv_menu.is-open .inv_menu_trigger {
+    opacity: 1;
+  }
 }
 
 .inv_menu_btn {
@@ -5621,7 +5791,23 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .weapon_name_cell .inv_rune_marker {
   flex: 0 0 auto;
-  margin-right: 1px;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.weapon_name_cell > .inv_rune_marker + .inv_menu {
+  margin-left: -4px;
+}
+
+.weapon_name_cell .inv_menu {
+  align-items: center;
+}
+
+.weapon_name_cell .inv_rune_marker svg {
+  display: block;
 }
 
 .weapon_mode_hint {
@@ -5651,6 +5837,63 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
       color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
       rgba(255, 250, 240, 0) 100%
     );
+}
+
+.weapons_table tr:is(.equipped_item--damaged, .equipped_item--destroyed) td:first-child {
+  position: relative;
+}
+
+.armor_worn li.armor_row > .equipped_item_cracks,
+.weapons_table tr:is(.equipped_item--damaged, .equipped_item--destroyed) td:first-child::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--item-cracks-image) center / 100% 100% no-repeat;
+  opacity: 0.48;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.75));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.armor_worn li.armor_row:is(.equipped_item--damaged, .equipped_item--destroyed) {
+  isolation: isolate;
+}
+
+.weapons_table tr:is(.equipped_item--damaged, .equipped_item--destroyed) td:first-child::after {
+  background-image: var(--item-row-cracks-image);
+}
+
+.armor_worn li.armor_row > .equipped_item_cracks {
+  background-size: auto 100%;
+  background-position: 44% center;
+  opacity: 0.9;
+  filter: drop-shadow(0.4px 0 0 rgba(20, 15, 12, 0.85))
+    drop-shadow(-0.7px -0.7px 0 rgba(255, 255, 255, 0.7));
+  z-index: 3;
+}
+
+.armor_worn li.equipped_item--destroyed > .equipped_item_cracks,
+.weapons_table tr.equipped_item--destroyed td:first-child::after {
+  opacity: 0.65;
+}
+
+.armor_worn li.armor_row.equipped_item--destroyed > .equipped_item_cracks {
+  opacity: 1;
+}
+
+.armor_worn li:is(.equipped_item--damaged, .equipped_item--destroyed) > :not(.equipped_item_cracks) {
+  z-index: 2;
+}
+
+.armor_worn li:is(.equipped_item--damaged, .equipped_item--destroyed) > .inv_menu {
+  z-index: 4;
+}
+
+.weapons_table tr:is(.equipped_item--damaged, .equipped_item--destroyed) .weapon_name_cell {
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 0 2px rgba(255, 250, 236, 0.95);
 }
 
 .weapon_mode_toggle {

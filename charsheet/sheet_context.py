@@ -3469,6 +3469,29 @@ def _build_alchemist_almanac_context(character: Character, engine: CharacterEngi
     }
 
 
+def _item_structure_context(character_item: CharacterItem) -> dict:
+    engine = ItemEngine(character_item)
+    maximum = engine.get_structure_points()
+    remaining = engine.get_remaining_structure()
+    crack_level = 0
+    if engine.can_manage_structure_damage():
+        if remaining == 0:
+            crack_level = 5
+        elif maximum and remaining < maximum:
+            crack_level = 1 + sum(
+                remaining * 4 <= maximum * threshold
+                for threshold in (3, 2, 1)
+            )
+    return {
+        "can_manage_structure_damage": engine.can_manage_structure_damage(),
+        "structure_points": maximum,
+        "remaining_structure": remaining,
+        "structure_damage": character_item.structure_damage,
+        "structure_status": engine.get_structure_status(),
+        "crack_level": crack_level,
+    }
+
+
 def build_character_item_card_context(
     character_item: CharacterItem,
     viewer=None,
@@ -3539,12 +3562,20 @@ def build_character_item_card_context(
         character_engine=character_engine,
         modifier_payloads=magic_modifier_payloads,
     )
-    if "price" in hidden_field_keys and not include_controls:
-        detail_rows = [row for row in detail_rows if row[0] != "Kaufpreis"]
-    if "weight" in hidden_field_keys and not include_controls:
-        detail_rows = [row for row in detail_rows if row[0] != "Gewicht"]
-    if "size_class" in hidden_field_keys and not include_controls:
-        detail_rows = [row for row in detail_rows if row[0] != "GK"]
+    if include_controls:
+        # Keep independent disclosure controls for the two catalog fields.
+        expanded_rows = []
+        for label, value in detail_rows:
+            if label == "GK · Gewicht":
+                size, _, weight = str(value).partition(" · ")
+                expanded_rows.extend((("GK", size), ("Gewicht", weight)))
+            else:
+                expanded_rows.append((label, value))
+        detail_rows = expanded_rows
+    else:
+        detail_rows = _filter_item_tooltip_rows_for_display(
+            detail_rows, hidden_field_keys,
+        )
     detail_field_keys = {
         "Kaufpreis": "price",
         "Gewicht": "weight",
@@ -3572,6 +3603,7 @@ def build_character_item_card_context(
         "actual_image_url": display.image_url,
         "accent": quality_color,
         "detail_rows": safe_detail_rows,
+        **_item_structure_context(character_item),
         "weapon_symbol_rows": [
             {"label": "", "value": str(value).replace("**", "")}
             for _label, value in _build_weapon_symbol_tooltip_rows(item_engine)
@@ -3694,12 +3726,24 @@ def _build_item_tooltip_rows(
     """Return structured item values for inventory-like tooltips."""
     rows: list[tuple[str, object]] = [("Kaufpreis", f"{format_thousands(item_engine.get_price())} KM")]
 
-    weight = item_engine.get_weight()
-    if _has_visible_item_weight(weight):
-        rows.append(("Gewicht", _format_item_weight(weight)))
+    hardness = item_engine.get_hardness()
+    structure = item_engine.get_structure_points()
+    if hardness is not None and structure is not None:
+        rows.append(("Härte / Struktur", f"{hardness} / {structure}"))
+    elif hardness is not None:
+        rows.append(("Härte", hardness))
+    elif structure is not None:
+        rows.append(("Struktur", structure))
 
+    weight = item_engine.get_weight()
     size_class = item_engine.get_size_class()
-    if size_class:
+    if size_class and _has_visible_item_weight(weight):
+        rows.append((
+            "GK · Gewicht", f"{size_class} · {_format_item_weight(weight)}",
+        ))
+    elif _has_visible_item_weight(weight):
+        rows.append(("Gewicht", _format_item_weight(weight)))
+    elif size_class:
         rows.append(("GK", size_class))
 
     if item.item_type.is_weapon:
@@ -3760,15 +3804,15 @@ def _build_item_tooltip_rows(
                 DEFENSE_RS,
             )
 
-        if rs is not None:
-            rows.append(("RS", rs))
-
-        rows.append((
-            "Bel",
+        encumbrance = -abs(
             item_engine.get_armor_encumbrance()
             if armor_encumbrance is None
-            else armor_encumbrance,
-        ))
+            else armor_encumbrance
+        )
+        if rs is not None:
+            rows.append(("RS / Bel", f"{rs} / {encumbrance}"))
+        else:
+            rows.append(("Bel", encumbrance))
 
         min_st = item_engine.get_armor_min_st()
         if min_st is not None:
@@ -3776,9 +3820,15 @@ def _build_item_tooltip_rows(
 
     elif item.item_type.is_shield:
         rs = item_engine.get_effective_shield_rs()
+        encumbrance = -abs(
+            item_engine.get_shield_encumbrance()
+            if shield_encumbrance is None
+            else shield_encumbrance
+        )
         if rs is not None:
-            rows.append(("RS", rs))
-        rows.append(("Bel", item_engine.get_shield_encumbrance() if shield_encumbrance is None else shield_encumbrance))
+            rows.append(("RS / Bel", f"{rs} / {encumbrance}"))
+        else:
+            rows.append(("Bel", encumbrance))
         min_st = item_engine.get_shield_min_st()
         if min_st is not None:
             rows.append(("Min-ST", min_st))
@@ -3817,11 +3867,21 @@ def _filter_item_tooltip_rows_for_display(
         "Gewicht": "weight",
         "GK": "size_class",
     }
-    return [
-        row
-        for row in rows
-        if label_field_keys.get(str(row[0])) not in hidden_field_keys
-    ]
+    visible_rows = []
+    for label, value in rows:
+        if label == "GK · Gewicht":
+            size, _, weight = str(value).partition(" · ")
+            show_size = "size_class" not in hidden_field_keys
+            show_weight = "weight" not in hidden_field_keys
+            if show_size and show_weight:
+                visible_rows.append((label, value))
+            elif show_size:
+                visible_rows.append(("GK", size))
+            elif show_weight:
+                visible_rows.append(("Gewicht", weight))
+        elif label_field_keys.get(str(label)) not in hidden_field_keys:
+            visible_rows.append((label, value))
+    return visible_rows
 
 
 def _build_weapon_calculation_tooltip(
@@ -6248,6 +6308,7 @@ def _build_inventory_rows(
                 ),
                 "can_equip": (
                     can_use_item
+                    and item_engine.get_structure_status() != "destroyed"
                     and (
                         item.item_type.is_equippable
                         or character_item.is_magic_effective
@@ -6620,6 +6681,8 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
             entry["show_weapon_name"] = index == 0
             entry["is_last_profile"] = index == (len(item_rows) - 1)
         sorted_weapon_rows.extend(item_rows)
+    for row in sorted_weapon_rows:
+        row["structure_state"] = _item_structure_context(row["character_item"])
     return sorted_weapon_rows
 
 
@@ -6970,6 +7033,8 @@ def _build_armor_rows(engine, *, sl_effect_group_id: int | None = None) -> list[
                 "can_unequip": not row["character_item"].equip_locked,
             }
         )
+    for row in armor_rows:
+        row["structure_state"] = _item_structure_context(row["character_item"])
     return armor_rows
 
 

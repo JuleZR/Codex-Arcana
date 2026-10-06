@@ -5974,6 +5974,12 @@ def toggle_equip(request, pk):
     if not ci.item.item_type.is_equippable and not ci.item.is_magic_effective:
         return redirect("character_sheet", character_id=ci.owner_id)
 
+    if ItemEngine(ci).get_structure_status() == "destroyed":
+        return JsonResponse(
+            {"ok": False, "error": "Der Gegenstand ist zerstört."},
+            status=409,
+        )
+
     if ci.equip_locked:
         if not ci.equipped:
             ci.equipped = True
@@ -5998,6 +6004,61 @@ def toggle_equip(request, pk):
             ),
         )
 
+    return redirect("character_sheet", character_id=ci.owner_id)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def change_item_structure_damage(request, pk):
+    """Record resolved structure damage or repair on a single owned item."""
+    ci = _owned_character_item_or_404(request, pk)
+    ci = get_object_or_404(
+        CharacterItem.objects.select_for_update(of=("self",)).select_related(
+            "item", "owner", "quality", "item__default_quality",
+        ),
+        pk=ci.pk, owner__owner=request.user,
+    )
+    if item_is_pending(ci):
+        return JsonResponse(
+            {"ok": False, "error": "Der Gegenstand ist unterwegs."},
+            status=409,
+        )
+    item_engine = ItemEngine(ci)
+    if not item_engine.can_manage_structure_damage():
+        return JsonResponse(
+            {"ok": False, "error": "Kein einzelner Gegenstand mit Struktur."},
+            status=400,
+        )
+    action = request.POST.get("action")
+    raw_amount = str(request.POST.get("amount", ""))
+    if (
+        action not in {"damage", "repair"} or len(raw_amount) > 10
+        or not raw_amount.isascii() or not raw_amount.isdigit()
+    ):
+        return JsonResponse(
+            {"ok": False,
+             "error": "Bitte eine positive ganze Zahl eingeben."},
+            status=400,
+        )
+    amount = int(raw_amount)
+    maximum = item_engine.get_structure_points()
+    current_damage = min(ci.structure_damage, maximum)
+    damage = (
+        min(current_damage + amount, maximum) if action == "damage"
+        else max(current_damage - amount, 0)
+    )
+    if not 1 <= amount <= 2147483647:
+        return JsonResponse(
+            {"ok": False, "error": "Ungültiger Schadenswert."}, status=400,
+        )
+    ci.structure_damage = damage
+    ci.save(update_fields=["structure_damage"])
+    if _is_partial_request(request):
+        return _equipment_action_partials_response(
+            request, ci.owner, _equipment_action_partial_keys(ci),
+            include_body_armor=True,
+        )
     return redirect("character_sheet", character_id=ci.owner_id)
 
 

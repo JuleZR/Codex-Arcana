@@ -175,6 +175,7 @@ class Metal(models.Model):
         default=1,
     )
     ms_modifier = models.IntegerField(default=0)
+    hardness_override = models.PositiveIntegerField(null=True, blank=True)
     weight_multiplier = models.DecimalField(
         max_digits=6,
         decimal_places=2,
@@ -344,6 +345,8 @@ class Item(models.Model):
     image = models.ImageField(upload_to="items/", blank=True, null=True)
 
     stackable = models.BooleanField(default=True)
+    hardness = models.PositiveIntegerField(null=True, blank=True)
+    structure_points = models.PositiveIntegerField(null=True, blank=True)
     is_consumable = models.BooleanField(default=False)
     is_magic = models.BooleanField(default=False)
     not_buyable = models.BooleanField(default=False)

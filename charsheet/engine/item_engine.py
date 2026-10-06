@@ -254,6 +254,62 @@ class ItemEngine:
         """Return the UI color of the effective quality."""
         return self.get_effective_quality_obj().hex_color
 
+    def _get_rules_quality_obj(self) -> Quality | None:
+        """Resolve quality effects through the shared metal policy."""
+        metal = self._get_metal()
+        if (metal is not None and metal.quality_overwrite_id
+                and not metal.apply_quality_effects):
+            return None
+        return self.get_effective_quality_obj()
+
+    def _get_quality_scaled_value(self, field_name: str) -> int | None:
+        value = getattr(self._get_item(), field_name)
+        metal = self._get_metal()
+        if (field_name == "hardness" and metal is not None
+                and metal.hardness_override is not None):
+            value = metal.hardness_override
+        if value is None:
+            return None
+        multiplier_field = (
+            "structure_multiplier" if field_name == "structure_points"
+            else "hardness_multiplier"
+        )
+        quality = self._get_rules_quality_obj()
+        effective = getattr(quality, multiplier_field, None)
+        effective = Decimal("1") if effective is None else Decimal(effective)
+        return int((Decimal(value) * effective).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP,
+        ))
+
+    def get_hardness(self) -> int | None:
+        return self._get_quality_scaled_value("hardness")
+
+    def get_structure_points(self) -> int | None:
+        return self._get_quality_scaled_value("structure_points")
+
+    def can_manage_structure_damage(self) -> bool:
+        owned = self._get_character_item()
+        return bool(
+            owned is not None and owned.amount == 1
+            and not self._get_item().stackable
+            and self.get_structure_points() is not None
+        )
+
+    def get_remaining_structure(self) -> int | None:
+        if not self.can_manage_structure_damage():
+            return None
+        return max(self.get_structure_points() - self.obj.structure_damage, 0)
+
+    def get_structure_status(self) -> str | None:
+        remaining = self.get_remaining_structure()
+        if remaining is None:
+            return None
+        if remaining == 0:
+            return "destroyed"
+        if remaining * 2 < self.get_structure_points():
+            return "damaged"
+        return "normal"
+
     def get_weight(self) -> Decimal:
         """Return effective item weight including size, metal and amount."""
         item = self._get_item()
@@ -586,15 +642,9 @@ class ItemEngine:
 
     def _quality_modifier_delta(self, field_name: str) -> int:
         """Return the quality modifier not already represented by base stats."""
-        metal = self._get_metal()
-
-        if (
-            metal is not None
-            and metal.quality_overwrite_id
-            and not metal.apply_quality_effects
-        ):
+        effective_quality = self._get_rules_quality_obj()
+        if effective_quality is None:
             return 0
-        effective_quality = self.get_effective_quality_obj()
         base_quality = self.get_base_quality_obj()
         effective_modifier = int(
             getattr(effective_quality, field_name, 0) or 0

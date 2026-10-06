@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 48" preserveAspectRatio="none">
+  <g fill="none" stroke="#252525" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="1.2" vector-effect="non-scaling-stroke" d="M148 20l8 4 6 7 9 2 5 7 12 3 8 5"/>
+    <path stroke-width="1.1" vector-effect="non-scaling-stroke" d="M156 24l-3-7-8-2-4-7-10-3-3-5"/>
+    <path stroke-width="1.1" vector-effect="non-scaling-stroke" d="M156 24l15-3 7 2 11-6 9 1 8 5 14-2 10 4 9-1 12-6 11 1 10 3 8-2 14 5 9-2 12 3 14-1 16 5 5-2"/>
+    <path stroke-width="1" vector-effect="non-scaling-stroke" d="M156 24l-14 5-6-2-13 6-8-1-11-5-12 2-7-3-14 5-9-2-10 3-13-1-12 4-17-2"/>
+    <path stroke-width="0.65" vector-effect="non-scaling-stroke" d="M171 21l4-7-3-4 4-6-1-4"/>
+    <path stroke-width="0.7" vector-effect="non-scaling-stroke" d="M123 33l-3 6 4 4-2 5"/>
+    <path stroke-width="0.75" vector-effect="non-scaling-stroke" d="M206 23l-2 8 6 3-1 7 5 7"/>
+    <path stroke-width="0.6" vector-effect="non-scaling-stroke" d="M153 17l8-4 5 1 4-6 9-2 2-6"/>
+    <path stroke-width="0.7" vector-effect="non-scaling-stroke" d="M251 18l-3-6 5-4-2-8"/>
+    <path stroke-width="0.7" vector-effect="non-scaling-stroke" d="M92 29l-4-8 2-5-9-3-4-7-10-6"/>
+    <path stroke-width="0.7" vector-effect="non-scaling-stroke" d="M294 25l3 9-4 4 5 6-1 5"/>
+    <path stroke-width="0.6" vector-effect="non-scaling-stroke" d="M71 31l-3 7-8 3-4 7"/>
+    <path stroke-width="0.6" vector-effect="non-scaling-stroke" d="M198 18l3-6 7-2 2-6 8-4"/>
+  </g>
+</svg>

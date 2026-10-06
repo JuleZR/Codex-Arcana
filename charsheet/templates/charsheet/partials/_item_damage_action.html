@@ -1,0 +1,30 @@
+{% if item_card.can_manage_structure_damage %}
+  {% if direct %}
+    <button type="button" class="{% if rune_style %}inv_rune_marker{% else %}inv_menu_trigger{% endif %}" data-open-item-damage aria-haspopup="dialog" aria-label="Gegenstandsschaden" title="Schaden / Reparieren">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m10 3 11 11-4 4L6 7z"/>
+        <path d="m10 11-7 7a2.1 2.1 0 0 0 3 3l7-7"/>
+      </svg>
+    </button>
+  {% else %}
+    <button type="button" class="inv_menu_btn" data-open-item-damage>Schaden</button>
+  {% endif %}
+  <template data-item-damage-dialog>
+    <dialog class="item_damage_dialog sheet-window payday-window is-open" aria-label="Gegenstandsschaden">
+      <div class="item_damage_dialog_body sheet-window__section">
+      <h3>Gegenstandsschaden</h3>
+      <p>Struktur: {{ item_card.remaining_structure }} / {{ item_card.structure_points }}</p>
+      <form method="post" action="{% url 'change_item_structure_damage' character_item.pk %}" data-sheet-action data-ajax-only>
+        {% csrf_token %}
+        <label class="item_damage_dialog_field"><span>Strukturpunkte</span> <input class="sheet-window__field" name="amount" type="number" min="1" max="2147483647" step="1" value="1" required></label>
+        <div>
+          <button type="submit" class="sheet-window__control shop_item_save_btn" name="action" value="damage">Schaden zufügen</button>
+          <button type="submit" class="sheet-window__control" name="action" value="repair">Reparieren</button>
+          <button type="button" class="sheet-window__control" data-close-item-damage>Schließen</button>
+        </div>
+        <p data-item-damage-error role="alert"></p>
+      </form>
+      </div>
+    </dialog>
+  </template>
+{% endif %}

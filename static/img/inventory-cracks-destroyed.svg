@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 48" preserveAspectRatio="none">
+  <g fill="none" stroke="#252525" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <path vector-effect="non-scaling-stroke" d="M31 0l9 9-7 11 10 11-7 17m-3-28-12 5-10-4m32 10 14-5 8 3"/>
+    <path vector-effect="non-scaling-stroke" d="M94 48l-8-11 9-10-7-12 6-15m1 27 11-8 12 5m-30-9-10 4-6-7"/>
+    <path vector-effect="non-scaling-stroke" d="M156 0l-6 11 9 12-8 11 7 14m1-25 12 5 10-9m-30 15-12-3-8 7"/>
+    <path vector-effect="non-scaling-stroke" d="M220 48l-9-12 8-10-5-13 8-13m-3 26 14-6 10 7m-29-14-12 4-9-7"/>
+    <path vector-effect="non-scaling-stroke" d="M280 0l-7 13 10 10-8 12 6 13m2-25 13 5 7-9m-28 16-12-7-10 8"/>
+    <path vector-effect="non-scaling-stroke" d="M337 48l-7-14 8-10-6-12 8-12m-2 24 13 5 9-5m-28-12-11 5-7-9"/>
+    <path vector-effect="non-scaling-stroke" d="M0 31l21-6 12-5 24 6 17-7 21 8 23-3 21 7 20-8 23 5 18-7 19 5 24 1 20 9 20-13 20-4 27 15 30-10"/>
+  </g>
+</svg>

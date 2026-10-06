@@ -196,6 +196,28 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   }
   document.body.dataset.inventoryMenuBound = "1";
 
+  document.addEventListener("click", (event) => {
+    const trigger = event.target instanceof Element
+      ? event.target.closest("[data-open-item-damage]") : null;
+    if (!trigger) return;
+    const template = trigger.parentElement.querySelector("[data-item-damage-dialog]");
+    const dialog = template?.content.firstElementChild?.cloneNode(true);
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    document.body.append(dialog);
+    dialog.addEventListener("close", () => dialog.remove(), { once: true });
+    dialog.querySelector("[data-close-item-damage]")?.addEventListener("click", () => dialog.close());
+    const form = dialog.querySelector("form");
+    form.addEventListener("sheet:action-success", () => dialog.close());
+    form.addEventListener("sheet:action-failed", (failure) => {
+      dialog.querySelector("[data-item-damage-error]").textContent =
+        failure.detail?.error || "Speichern fehlgeschlagen. Bitte erneut versuchen.";
+    });
+    closeMenu(trigger.closest(".inv_menu"));
+    dialog.showModal();
+  }, true);
+
   const runeWindow = document.getElementById("runeRetrofitWindow");
   const runeCloseButton = document.getElementById("runeRetrofitWindowClose");
   const runeCancelButton = document.getElementById("runeRetrofitCancelBtn");

@@ -438,6 +438,11 @@ urlpatterns = [
     path("character-item/<int:pk>/toggle-equip/",
          views.toggle_equip, name="toggle_equip"),
     path(
+        "character-item/<int:pk>/structure-damage/",
+        views.change_item_structure_damage,
+        name="change_item_structure_damage",
+    ),
+    path(
         "character-item/<int:pk>/semantic-effects/toggle/",
         views.toggle_character_item_semantic_effects,
         name="toggle_character_item_semantic_effects",
