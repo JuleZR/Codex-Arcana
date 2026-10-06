@@ -8510,7 +8510,7 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         "grants_arcane_spell_choice_per_level",
     )
     ordering = ("name",)
-    autocomplete_fields = ("entity_type", "pantheon")
+    autocomplete_fields = ("entity_type", "pantheon", "school")
     list_select_related = ("entity_type", "pantheon")
     inlines = (DivineEntityAspectInline, DivineEntitySemanticEffectInline)
     radio_fields = {"grammatical_gender": admin.VERTICAL}
@@ -8542,6 +8542,7 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         }),
         ("Regeloptionen", {
             "fields": (
+                "school",
                 "grants_arcane_spell_choice_per_level",
             )
         }),

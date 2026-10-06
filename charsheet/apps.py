@@ -11,4 +11,5 @@ class CharsheetConfig(AppConfig):
 
     def ready(self):
         from . import auth_security  # noqa: F401
+        from . import image_conversion  # noqa: F401
         from . import session_management  # noqa: F401

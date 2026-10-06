@@ -8242,10 +8242,12 @@ def _build_learning_rows(
             continue
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
         if is_divine_entity_school(school):
-            learn_divine_entity_choices.extend(
-                {"entity": entity, "school_id": school.pk}
-                for entity in divine_entities_for_school(school.id)
-            )
+            school_entities = list(divine_entities_for_school(school.id))
+            if len(school_entities) > 1:
+                learn_divine_entity_choices.extend(
+                    {"entity": entity, "school_id": school.pk}
+                    for entity in school_entities
+                )
         source_symbol = str(getattr(school, "panel_symbol", "") or "").strip()
         source_image_url = _school_symbol_image_url(school)
         secondary_symbols = ""

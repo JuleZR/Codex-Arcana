@@ -113,9 +113,12 @@ def selected_divine_entity(character):
 
 
 def divine_entities_for_school(school_id: int):
-    """Return entities exclusively from the school's allowed types."""
+    """Use a sole fixed deity, otherwise the school's allowed entity types."""
     from charsheet.models import DivineEntity, School
 
+    assigned_entities = DivineEntity.objects.filter(school_id=school_id)
+    if assigned_entities.count() == 1:
+        return assigned_entities.order_by("name")
     school = School.objects.get(pk=school_id)
     allowed_types = school.allowed_divine_entity_types
     return DivineEntity.objects.filter(
