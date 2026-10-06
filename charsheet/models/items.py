@@ -161,8 +161,8 @@ class Quality(models.Model):
         raise cls.DoesNotExist(f"Unknown quality: {value!r}")
 
 
-class Metal(models.Model):
-    """Special metal with rule-relevant item modifiers."""
+class Material(models.Model):
+    """Special material with rule-relevant item modifiers."""
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
@@ -187,14 +187,23 @@ class Metal(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name="metal_overwrites",
+        related_name="material_overwrites",
+    )
+    quality_modifier = models.SmallIntegerField(
+        default=0,
+        verbose_name="Qualitätsverschiebung",
+        help_text=(
+            "Qualitätsstufen relativ zur normalen Qualität: +1 verbessert, "
+            "-1 verschlechtert. Eine feste Qualitätsüberschreibung "
+            "hat Vorrang."
+        ),
     )
 
     apply_quality_effects = models.BooleanField(
         default=True,
         help_text=(
-            "Wenn deaktiviert, überschreibt das Metall die angezeigte Qualität, "
-            "ohne deren regeltechnische Qualitätsboni anzuwenden."
+            "Wenn deaktiviert, verändert das Material die angezeigte "
+            "Qualität, ohne deren regeltechnische Qualitätsboni anzuwenden."
         ),
     )
 
@@ -203,6 +212,21 @@ class Metal(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_effective_quality(self, quality):
+        """Resolve a fixed override or a bounded shift of catalog tiers."""
+        if self.quality_overwrite_id:
+            return self.quality_overwrite
+        quality = Quality.resolve(quality)
+        if not self.quality_modifier:
+            return quality
+        qualities = list(Quality.objects.order_by("sort_order", "name", "pk"))
+        index = next(
+            i for i, candidate in enumerate(qualities)
+            if candidate.pk == quality.pk
+        )
+        index = max(0, min(len(qualities) - 1, index + self.quality_modifier))
+        return qualities[index]
 
 
 def default_quality_pk():
@@ -371,8 +395,8 @@ class Item(models.Model):
         default=default_quality_pk,
     )
 
-    metal = models.ForeignKey(
-        "charsheet.Metal",
+    material = models.ForeignKey(
+        "charsheet.Material",
         on_delete=models.PROTECT,
         null=True,
         blank=True,

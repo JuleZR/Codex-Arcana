@@ -1237,6 +1237,29 @@ button.skill_manager_action {
   border-bottom: 1px solid rgba(74, 55, 38, 0.4);
 }
 
+.skills_table th[data-skill-sort] {
+  position: relative;
+  cursor: pointer;
+}
+
+.skills_table th[data-skill-sort]:focus-visible {
+  outline: 1px solid var(--ink-soft);
+  outline-offset: -1px;
+}
+
+.skills_table th[aria-sort="ascending"]::after,
+.skills_table th[aria-sort="descending"]::after {
+  position: absolute;
+  right: 1px;
+  top: 0;
+  font-size: 0.5rem;
+  content: "▴";
+}
+
+.skills_table th[aria-sort="descending"]::after {
+  content: "▾";
+}
+
 .skills_table .skills_title {
   text-align: left;
   font-family: "Cormorant Garamond", Georgia, serif;

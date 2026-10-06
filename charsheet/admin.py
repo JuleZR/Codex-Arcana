@@ -191,7 +191,7 @@ from .models import (
     MagicItemStats,
     ProgressionRule,
     Quality,
-    Metal,
+    Material,
     Race,
     RaceAttributeLimit,
     RaceSemanticEffect,
@@ -10552,8 +10552,8 @@ class UserSettingsAdmin(admin.ModelAdmin):
     list_select_related = ("user",)
 
 
-@admin.register(Metal)
-class MetalAdmin(admin.ModelAdmin):
+@admin.register(Material)
+class MaterialAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
@@ -10561,6 +10561,7 @@ class MetalAdmin(admin.ModelAdmin):
         "ms_modifier",
         "weight_multiplier",
         "quality_overwrite",
+        "quality_modifier",
         "apply_quality_effects",
     )
     search_fields = ("name", "slug")

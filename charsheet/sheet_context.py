@@ -1446,6 +1446,7 @@ MODIFIER_SOURCE_LABELS = {
     "school": "Schule",
     "technique": "Technik",
     "daemonic_power": "Dämonische Kraft",
+    "divine_entity": "Gabe",
     "item": "Magischer Gegenstand",
     SOURCE_ITEM_RUNE: "Rune",
 }
@@ -4352,6 +4353,13 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
             if specialization is not None:
                 return specialization.name
         return "Spezialisierung"
+    if source_type_text == "divine_entity" and source_id_text.isdigit():
+        entity = (
+            DivineEntity.objects.filter(pk=int(source_id_text))
+            .only("name").first()
+        )
+        if entity is not None:
+            return f"Gabe {entity.name}"
     if source_type_text == "daemonic_power" and source_id_text.isdigit():
         power = DaemonicPower.objects.filter(pk=int(source_id_text)).only("name").first()
         if power is not None:

@@ -1,8 +1,75 @@
+export function sortSkillRowGroups(rows, column, kind, direction) {
+  const groups = [];
+  rows.forEach((row) => {
+    if (row.classList.contains("skill_context_row") && groups.length) {
+      groups[groups.length - 1].push(row);
+    } else {
+      groups.push([row]);
+    }
+  });
+  const rowValue = (row) => {
+    const cell = row.cells[column];
+    const text = String((column === 0
+      ? cell?.querySelector(".skill_name_text")?.textContent
+      : cell?.textContent) ?? cell?.textContent ?? "").trim();
+    if (!text) return null;
+    if (kind === "text") return text;
+    const number = Number(text.replace(/\s/g, "").replace(/−/g, "-").replace(",", "."));
+    return Number.isFinite(number) ? number : null;
+  };
+  const value = (group) => {
+    const parentValue = rowValue(group[0]);
+    if (parentValue !== null) return parentValue;
+    const childValues = group.slice(1).map(rowValue).filter((entry) => entry !== null);
+    if (!childValues.length) return null;
+    return kind === "number" ? Math.max(...childValues) : childValues[0];
+  };
+  const collator = new Intl.Collator("de", { numeric: true, sensitivity: "base" });
+  return groups.sort((left, right) => {
+    const a = value(left);
+    const b = value(right);
+    if (a === null) return b === null ? 0 : 1;
+    if (b === null) return -1;
+    const comparison = kind === "number" ? a - b : collator.compare(a, b);
+    return direction === "descending" ? -comparison : comparison;
+  });
+}
+
 export function initSkillManager() {
   if (document.body.dataset.skillManagerBound === "1") {
     return;
   }
   document.body.dataset.skillManagerBound = "1";
+
+  let activeSort = null;
+  const applySort = () => {
+    const table = document.querySelector("#sheetSkillsPanel .skills_table");
+    const tbody = table?.tBodies[0];
+    if (!tbody || !activeSort) return;
+    const { column, kind, direction } = activeSort;
+    const groups = sortSkillRowGroups(Array.from(tbody.rows), column, kind, direction);
+    groups.forEach((group) => group.forEach((row) => tbody.appendChild(row)));
+    table.querySelectorAll("[data-skill-sort]").forEach((header) => {
+      header.setAttribute("aria-sort", header.cellIndex === column ? direction : "none");
+    });
+  };
+  const handleSort = (event) => {
+    const header = event.target instanceof Element
+      ? event.target.closest("#sheetSkillsPanel [data-skill-sort]")
+      : null;
+    if (!header) return;
+    if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    activeSort = {
+      column: header.cellIndex,
+      kind: header.dataset.skillSort,
+      direction: activeSort?.column === header.cellIndex && activeSort.direction === "ascending"
+        ? "descending" : "ascending",
+    };
+    applySort();
+  };
+  document.addEventListener("click", handleSort);
+  document.addEventListener("keydown", handleSort);
 
   const getStatusFilterValue = (menu) => {
     if (!(menu instanceof HTMLElement)) {
@@ -116,5 +183,6 @@ export function initSkillManager() {
         applyFilter(menu);
       }
     });
+    applySort();
   });
 }

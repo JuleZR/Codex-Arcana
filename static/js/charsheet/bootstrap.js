@@ -20,7 +20,7 @@ import { initCharacterInfoForm } from "./character_info_form.js?v=20260922a";
 import { initSheetActions } from "./sheet_actions.js?v=20261005-consumables";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js?v=20260922a";
 import { initMobileHud } from "./mobile_hud.js";
-import { initSkillManager } from "./skill_manager.js";
+import { initSkillManager } from "./skill_manager.js?v=20261006-skill-sorting2";
 import { initArmorPanel } from "./armor_panel.js?v=20261006-item-damage";
 import { initBattleCalculator } from "./battle_calculator.js?v=20260731a";
 import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260919b";

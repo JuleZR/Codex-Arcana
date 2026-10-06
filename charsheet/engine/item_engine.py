@@ -130,25 +130,25 @@ class ItemEngine:
             return self.obj
         return None
 
-    def _get_metal(self):
-        """Return the item's configured metal, if any."""
+    def _get_material(self):
+        """Return the item's configured material, if any."""
         return getattr(
             self._get_item(),
-            "metal",
+            "material",
             None,
         )
 
-    def _apply_metal_ms_modifier(
+    def _apply_material_ms_modifier(
         self,
         minimum_strength: int | None,
     ) -> int | None:
-        """Apply the configured metal modifier to minimum strength."""
+        """Apply the configured material modifier to minimum strength."""
         if minimum_strength is None:
             return None
-        metal = self._get_metal()
+        material = self._get_material()
         modifier = (
-            int(metal.ms_modifier or 0)
-            if metal is not None
+            int(material.ms_modifier or 0)
+            if material is not None
             else 0
         )
         return max(
@@ -231,11 +231,14 @@ class ItemEngine:
 
     def get_effective_quality_obj(self) -> Quality:
         """Return the quality governing the effective item."""
-        metal = self._get_metal()
+        material = self._get_material()
+        quality = self._get_normal_quality_obj()
+        if material is not None:
+            return material.get_effective_quality(quality)
+        return quality
 
-        if metal is not None and metal.quality_overwrite_id:
-            return metal.quality_overwrite
-
+    def _get_normal_quality_obj(self) -> Quality:
+        """Return the quality before material adjustments."""
         character_item = self._get_character_item()
         if character_item is not None:
             return character_item.quality
@@ -255,19 +258,22 @@ class ItemEngine:
         return self.get_effective_quality_obj().hex_color
 
     def _get_rules_quality_obj(self) -> Quality | None:
-        """Resolve quality effects through the shared metal policy."""
-        metal = self._get_metal()
-        if (metal is not None and metal.quality_overwrite_id
-                and not metal.apply_quality_effects):
+        """Resolve quality effects through the shared material policy."""
+        material = self._get_material()
+        if (material is not None
+                and (
+                    material.quality_overwrite_id or material.quality_modifier
+                )
+                and not material.apply_quality_effects):
             return None
         return self.get_effective_quality_obj()
 
     def _get_quality_scaled_value(self, field_name: str) -> int | None:
         value = getattr(self._get_item(), field_name)
-        metal = self._get_metal()
-        if (field_name == "hardness" and metal is not None
-                and metal.hardness_override is not None):
-            value = metal.hardness_override
+        material = self._get_material()
+        if (field_name == "hardness" and material is not None
+                and material.hardness_override is not None):
+            value = material.hardness_override
         if value is None:
             return None
         multiplier_field = (
@@ -311,7 +317,7 @@ class ItemEngine:
         return "normal"
 
     def get_weight(self) -> Decimal:
-        """Return effective item weight including size, metal and amount."""
+        """Return effective item weight including size, material and amount."""
         item = self._get_item()
         weight = Decimal(
             self._get_override_value(
@@ -322,10 +328,10 @@ class ItemEngine:
         weight *= self._get_size_class_multiplier(
             SIZE_CLASS_WEIGHT_MULTIPLIERS
         )
-        metal = self._get_metal()
-        if metal is not None:
+        material = self._get_material()
+        if material is not None:
             weight *= Decimal(
-                metal.weight_multiplier or 1
+                material.weight_multiplier or 1
             )
         if isinstance(self.obj, CharacterItem):
             weight *= self.obj.amount
@@ -338,27 +344,31 @@ class ItemEngine:
     def get_price(self) -> int:
         """Return the effective item price."""
         return self.get_price_for_quality(
-            self.get_effective_quality_obj()
+            self._get_normal_quality_obj()
         )
 
     def get_price_for_quality(self, quality) -> int:
         """Return the effective price for an arbitrary quality."""
         effective_quality = Quality.resolve(quality)
-        metal = self._get_metal()
+        material = self._get_material()
+        if material is not None:
+            effective_quality = material.get_effective_quality(
+                effective_quality
+            )
         price = Decimal(self.get_base_price())
         price *= self._get_size_class_multiplier(
             SIZE_CLASS_PRICE_MULTIPLIERS
         )
-        # A metal quality overwrite replaces the item's regular quality.
+        # A material quality overwrite replaces the item's regular quality.
         # Its price multiplier already represents that material's price rule.
-        if metal is None or not metal.quality_overwrite_id:
+        if material is None or not material.quality_overwrite_id:
             price *= self._quality_price_multiplier(
                 self.get_base_quality_obj(),
                 effective_quality,
             )
-        if metal is not None:
+        if material is not None:
             price *= Decimal(
-                metal.price_multiplier or 1
+                material.price_multiplier or 1
             )
         return int(
             price.quantize(
@@ -390,11 +400,11 @@ class ItemEngine:
         self,
         wield_mode: str | None = None,
     ) -> int | None:
-        """Return minimum strength including metal modifiers."""
+        """Return minimum strength including material modifiers."""
         ranged_stats = self._get_ranged_weapon_stats()
 
         if ranged_stats is not None:
-            return self._apply_metal_ms_modifier(
+            return self._apply_material_ms_modifier(
                 ranged_stats.minimum_strength
             )
 
@@ -411,7 +421,7 @@ class ItemEngine:
                     "shield_min_st_override",
                     shield_stats.min_st,
                 )
-                return self._apply_metal_ms_modifier(
+                return self._apply_material_ms_modifier(
                     minimum_strength
                 )
 
@@ -432,7 +442,7 @@ class ItemEngine:
                 wield_mode
             )
 
-        return self._apply_metal_ms_modifier(
+        return self._apply_material_ms_modifier(
             minimum_strength
         )
 
@@ -901,7 +911,7 @@ class ItemEngine:
         return adjusted
 
     def get_armor_min_st(self) -> int | None:
-        """Return minimum strength including quality and metal modifiers."""
+        """Return minimum strength including quality and material modifiers."""
         stats = self._get_armor_stats()
 
         if not stats:
@@ -918,7 +928,7 @@ class ItemEngine:
             "armor_min_st_modifier"
         )
 
-        return self._apply_metal_ms_modifier(
+        return self._apply_material_ms_modifier(
             minimum_strength
         )
 
@@ -946,7 +956,7 @@ class ItemEngine:
         return max(0, encumbrance)
 
     def get_shield_min_st(self) -> int | None:
-        """Return shield minimum strength including metal modifiers."""
+        """Return shield minimum strength including material modifiers."""
         stats = self._get_shield_stats()
         if not stats:
             return None
@@ -956,7 +966,7 @@ class ItemEngine:
             stats.min_st,
         )
 
-        return self._apply_metal_ms_modifier(
+        return self._apply_material_ms_modifier(
             minimum_strength
         )
 
