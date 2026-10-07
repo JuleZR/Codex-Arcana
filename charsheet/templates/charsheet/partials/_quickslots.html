@@ -1,5 +1,6 @@
 <aside id="characterQuickslots" class="quickslots" aria-label="Würfel-Hotbar"
        data-storage-key="charsheet.quickslots.{{ request.user.pk }}.{{ character.pk }}"
+       data-layout-url="{% url 'quickslot_layout' character.pk %}"
        data-actions-url="{% url 'quickslot_actions' character.pk %}"
        data-debug-result-url="{% url 'quickslot_debug_result' character.pk %}"
        data-weapon-result-url="{% url 'quickslot_weapon_result' character.pk %}">
@@ -58,6 +59,17 @@
           <option value="10" selected>W10</option><option value="12">W12</option>
           <option value="20">W20</option><option value="100">W100</option>
         </select>
+      </div>
+      <div>
+        <label for="quickslotDiceOperator">Zeichen</label>
+        <select id="quickslotDiceOperator">
+          <option value="+">+</option><option value="-">−</option>
+          <option value="*">×</option><option value="/">÷</option>
+        </select>
+      </div>
+      <div>
+        <label for="quickslotDiceOperand">Wert</label>
+        <input id="quickslotDiceOperand" type="number" step="any" value="0" title="Würfelsumme berechnen und kaufmännisch runden; Boni und Mali anschließend addieren.">
       </div>
     </div>
     <label>Eigene Boni und Mali</label>

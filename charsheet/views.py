@@ -257,6 +257,9 @@ SHEET_PARTIAL_TEMPLATES = {
     "core_stats_panel": ("sheetCoreStatsPanel", "charsheet/partials/_core_stats_panel.html"),
     "damage_panel": ("sheetDamagePanel", "charsheet/partials/_damage_panel.html"),
     "wallet_panel": ("sheetWalletPanel", "charsheet/partials/_wallet_panel.html"),
+    "shop_sell_panel": (
+        "shop-panel-sell", "charsheet/partials/_shop_sell_panel.html",
+    ),
     "experience_panel": ("sheetExperiencePanel", "charsheet/partials/_experience_panel.html"),
     "fame_panel": ("sheetFamePanel", "charsheet/partials/_fame_panel.html"),
     "inventory_panel": ("sheetInventoryPanel", "charsheet/partials/_inventory_panel.html"),
@@ -8516,33 +8519,105 @@ def update_character_item_runes(request, pk: int):
     return redirect("character_sheet", character_id=character_item.owner_id)
 
 
+def _shop_cart_partial_keys(character, payload, buy_key, sell_key):
+    """Select inventory, wallet and the dependencies of traded items."""
+    def entry_ids(key, field):
+        entries = payload.get(key) or []
+        if not isinstance(entries, list):
+            return []
+        return [
+            int(entry[field]) for entry in entries
+            if isinstance(entry, dict) and str(entry.get(field, "")).isdigit()
+        ]
+
+    bought_items = list(Item.objects.filter(pk__in=entry_ids(buy_key, "id")))
+    sold_items = list(CharacterItem.objects.filter(
+        owner=character,
+        pk__in=entry_ids(sell_key, "character_item_id"),
+    ).select_related("item", "item__item_type"))
+    keys = ["inventory_panel", "wallet_panel", "shop_sell_panel"]
+    items = [*bought_items, *(owned.item for owned in sold_items)]
+    if any(item.weight for item in items) or sold_items:
+        _append_partial_key(keys, "load_panel")
+        if character.carry_load_enabled:
+            for key in ("skills_panel", "core_stats_panel", "movement_panel",
+                        "armor_panel", "weapon_panel", "battle_calculator"):
+                _append_partial_key(keys, key)
+    for item in items:
+        if item.item_type.is_weapon:
+            _append_partial_key(keys, "weapon_panel")
+        if item.item_type.is_armor or item.item_type.is_shield:
+            _append_partial_key(keys, "armor_panel")
+    for owned in sold_items:
+        if owned.equipped:
+            for key in _equipment_action_partial_keys(owned):
+                _append_partial_key(keys, key)
+    effects = [
+        *ItemSemanticEffect.objects.filter(
+            item_id__in=[item.pk for item in items],
+        ),
+        *CharacterItemSemanticEffect.objects.filter(
+            character_item__in=sold_items,
+        ),
+    ]
+    for key in _item_semantic_effect_toggle_partial_keys(effects):
+        _append_partial_key(keys, key)
+    return tuple(keys)
+
+
+def _add_shop_cart_partials(
+    request, character, response_payload, partial_keys,
+):
+    context = _build_sheet_context_for_request(request, character)
+    response_payload["partials"] = _render_sheet_partials(
+        request, context, partial_keys,
+    )
+    response_payload["signature"] = (
+        _character_external_sheet_signature(character)
+    )
+    if "armor_panel" in partial_keys:
+        response_payload["bodyArmor"] = _body_armor_payload(character)
+
+
 @login_required
 @require_POST
 def buy_shop_cart(request, character_id: int):
-    """Buy all cart entries atomically and update inventory plus wallet."""
+    """Buy the cart atomically and refresh affected sheet fragments."""
     character = _owned_character_or_404(request, character_id)
     payload = _read_json_payload(request)
     if not payload:
-        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+        return JsonResponse(
+            {"ok": False, "error": "invalid_payload"}, status=400,
+        )
+    partial_keys = _shop_cart_partial_keys(
+        character, payload, "items", "sell_items",
+    )
     response_payload, status_code = buy_shop_cart_payload(character, payload)
     if response_payload.get("ok"):
-        context = _build_sheet_context_for_request(request, character)
-        response_payload["partials"] = _render_sheet_partials(request, context, SHEET_INVENTORY_PARTIAL_KEYS)
+        _add_shop_cart_partials(
+            request, character, response_payload, partial_keys,
+        )
     return JsonResponse(response_payload, status=status_code)
 
 
 @login_required
 @require_POST
 def sell_shop_cart(request, character_id: int):
-    """Sell all cart entries atomically and update inventory plus wallet."""
+    """Sell the cart atomically and refresh affected sheet fragments."""
     character = _owned_character_or_404(request, character_id)
     payload = _read_json_payload(request)
     if not payload:
-        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+        return JsonResponse(
+            {"ok": False, "error": "invalid_payload"}, status=400,
+        )
+    partial_keys = _shop_cart_partial_keys(
+        character, payload, "buy_items", "items",
+    )
     response_payload, status_code = sell_shop_cart_payload(character, payload)
     if response_payload.get("ok"):
-        context = _build_sheet_context_for_request(request, character)
-        response_payload["partials"] = _render_sheet_partials(request, context, SHEET_INVENTORY_PARTIAL_KEYS)
+        _add_shop_cart_partials(
+            request, character, response_payload, partial_keys,
+        )
     return JsonResponse(response_payload, status=status_code)
 
 
@@ -8553,11 +8628,17 @@ def trade_shop_cart(request, character_id: int):
     character = _owned_character_or_404(request, character_id)
     payload = _read_json_payload(request)
     if not payload:
-        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+        return JsonResponse(
+            {"ok": False, "error": "invalid_payload"}, status=400,
+        )
+    partial_keys = _shop_cart_partial_keys(
+        character, payload, "buy_items", "sell_items",
+    )
     response_payload, status_code = trade_shop_cart_payload(character, payload)
     if response_payload.get("ok"):
-        context = _build_sheet_context_for_request(request, character)
-        response_payload["partials"] = _render_sheet_partials(request, context, SHEET_INVENTORY_PARTIAL_KEYS)
+        _add_shop_cart_partials(
+            request, character, response_payload, partial_keys,
+        )
     return JsonResponse(response_payload, status=status_code)
 
 

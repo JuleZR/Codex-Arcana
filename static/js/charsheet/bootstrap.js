@@ -1,5 +1,5 @@
 import { onReady } from "./utils.js";
-import { initTabs } from "./tabs.js?v=20261001-mobile-learn3";
+import { initTabs } from "./tabs.js?v=20261007-dynamic-panels";
 import { initStandardFloatingWindows } from "./window_manager.js?v=20261001-mobile-tools1";
 import { initLeftTools } from "./left_tools.js?v=20261001-mobile-menu1";
 import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-investment";
@@ -8,9 +8,9 @@ import { initItemForm } from "./item_form.js?v=20261005-item-types";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
-import { initShopMenu } from "./shop_menu.js?v=20261001-mobile-cart2";
+import { initShopMenu } from "./shop_menu.js?v=20261007-targeted-refresh";
 import { initLearningMenu } from "./learning_menu.js?v=20261006-divine-description-popover";
-import { initTooltips } from "./tooltip.js?v=20261001-mobile-shop-info2";
+import { initTooltips } from "./tooltip.js?v=20261007-mobile-dice-values";
 import { initInventoryMenu } from "./inventory_menu.js?v=20261006-direct-item-damage";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";
@@ -32,7 +32,7 @@ import { initItemTransfers } from "./item_transfers.js?v=20260924a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20261001-mobile-post1";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260920d";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
-import { initExternalSheetRefresh } from "./external_refresh.js?v=20261006-divine-entity-choice";
+import { initExternalSheetRefresh } from "./external_refresh.js?v=20261007-shop-signature";
 import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260917e";
 
 function initCharacterImageEditorSafely() {

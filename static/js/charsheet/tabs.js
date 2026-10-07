@@ -76,7 +76,7 @@ export function initTabs(root = document) {
         tab.setAttribute("aria-selected", String(isActive));
         tab.tabIndex = isActive ? 0 : -1;
       });
-      panels.forEach((panel) => {
+      tabRoot.querySelectorAll("[data-tab-panel]").forEach((panel) => {
         panel.hidden = panel.id !== targetId;
       });
       const conditionalBlocks = Array.from(tabRoot.querySelectorAll("[data-hide-on-tab]"));

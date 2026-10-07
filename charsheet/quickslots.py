@@ -1,11 +1,15 @@
 """Current quickslot actions, resolved by the existing character engines."""
 
 import json
+import math
+import re
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import (
+    require_GET, require_http_methods, require_POST,
+)
 
 from charsheet.engine.battle_calculator_engine import (
     BattleCalculatorEngine, DamageCalculationInput,
@@ -13,8 +17,108 @@ from charsheet.engine.battle_calculator_engine import (
 
 from charsheet.engine.character_equipment import weapon_rows_for_items
 from charsheet.engine.item_engine import ItemEngine
-from charsheet.models import CharacterItem
+from charsheet.models import CharacterItem, CharacterQuickslotLayout
 from charsheet.sheet_context import _build_skill_rows
+
+
+def _validated_layout(payload):
+    slots = payload["slots"]
+    if (not isinstance(slots, list) or len(slots) != 11
+            or type(payload.get("collapsed")) is not bool):
+        raise ValueError
+    allowed = {
+        "type", "id", "label", "sides", "count", "operator", "operand",
+        "subentry", "specification", "profile", "mode", "attribute",
+        "modifiers", "ignoreBonus", "labelPosition", "customLabel", "image",
+    }
+    clean = []
+    for action in slots:
+        if action is None:
+            clean.append(None)
+            continue
+        if not isinstance(action, dict) or action.get("type") not in {
+                "dice", "skill", "weapon", "initiative", "debug"}:
+            raise ValueError
+        action = {
+            key: value for key, value in action.items() if key in allowed
+        }
+        if action["type"] == "dice":
+            if (type(action.get("sides")) is not int
+                    or action["sides"] not in (2, 4, 6, 8, 10, 12, 20, 100)
+                    or type(action.get("count")) is not int
+                    or not 1 <= action["count"] <= 100):
+                raise ValueError
+            if "operator" in action or "operand" in action:
+                if (action.get("operator") not in ("+", "-", "*", "/")
+                        or type(action.get("operand")) not in (int, float)
+                        or not math.isfinite(action["operand"])):
+                    raise ValueError
+        elif (not isinstance(action.get("id"), str)
+              or not action["id"]):
+            raise ValueError
+        for key in (
+                "id", "label", "subentry", "specification", "profile",
+                "mode", "attribute", "customLabel"):
+            if key in action and (not isinstance(action[key], str)
+                                  or len(action[key]) > 1024):
+                raise ValueError
+        if "image" in action and (
+                not isinstance(action["image"], str)
+                or len(action["image"]) > 120000
+                or not re.fullmatch(
+                    r"data:image/jpeg;base64,[A-Za-z0-9+/=]+", action["image"],
+                )):
+            raise ValueError
+        if "ignoreBonus" in action and type(action["ignoreBonus"]) is not bool:
+            raise ValueError
+        if ("labelPosition" in action and action["labelPosition"]
+                not in ("top", "center", "bottom", "hidden")):
+            raise ValueError
+        modifiers = action.get("modifiers", [])
+        if not isinstance(modifiers, list) or len(modifiers) > 100:
+            raise ValueError
+        if any(not isinstance(entry, dict)
+               or type(entry.get("value")) not in (int, float)
+               or not math.isfinite(entry["value"])
+               or not isinstance(entry.get("name"), str)
+               or len(entry["name"]) > 80 for entry in modifiers):
+            raise ValueError
+        clean.append(action)
+    return {"slots": clean, "collapsed": payload["collapsed"]}
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+@never_cache
+def quickslot_layout(request, character_id):
+    from charsheet.views import _owned_character_or_404
+
+    character = _owned_character_or_404(request, character_id)
+    if request.method == "GET":
+        layout = CharacterQuickslotLayout.objects.filter(
+            user=request.user, character=character,
+        ).first()
+    else:
+        try:
+            payload = json.loads(request.body)
+            state = _validated_layout(payload)
+            if type(payload.get("initialize", False)) is not bool:
+                raise ValueError
+        except (ValueError, TypeError, KeyError):
+            return JsonResponse({"error": "Ungültige Hotbar-Belegung."},
+                                status=400)
+        lookup = {"user": request.user, "character": character}
+        if payload.get("initialize"):
+            layout, _ = CharacterQuickslotLayout.objects.get_or_create(
+                **lookup, defaults=state,
+            )
+        else:
+            layout, _ = CharacterQuickslotLayout.objects.update_or_create(
+                **lookup, defaults=state,
+            )
+    return JsonResponse({"layout": None if layout is None else {
+        "slots": layout.slots, "collapsed": layout.collapsed,
+    }})
 
 
 def build_quickslot_actions(character, engine):

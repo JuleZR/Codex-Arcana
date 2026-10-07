@@ -180,6 +180,8 @@ export function initExternalSheetRefresh() {
       return;
     }
     inFlight = true;
+    signature = String(body.dataset.externalRefreshSignature || signature);
+    const requestedSignature = signature;
     try {
       const refreshUrl = new URL(url, window.location.origin);
       if (signature && !force) {
@@ -207,6 +209,9 @@ export function initExternalSheetRefresh() {
       }
       const payload = await response.json();
       if (!payload?.ok) {
+        return;
+      }
+      if (String(body.dataset.externalRefreshSignature || "") !== requestedSignature) {
         return;
       }
       signature = String(payload.signature || signature);

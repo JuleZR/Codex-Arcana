@@ -1,0 +1,39 @@
+<section class="learn_tabs__panel" id="shop-panel-sell" role="tabpanel"
+         aria-labelledby="shop-tab-sell" data-tab-panel data-shop-mode-panel="sell" hidden>
+  {% for group in shop_sell_item_groups %}
+    <details class="shop_group" data-shop-group data-collapse-key="sell:{{ group.key }}">
+      <summary>
+        <span>{{ group.label }}</span>
+        <span class="shop_group_count">{{ group.items|length }}</span>
+      </summary>
+      <table class="shop_table">
+        <tbody>
+          {% for item in group.items %}
+            <tr
+              data-shop-item
+              data-shop-mode="sell"
+              class="tooltip_target"
+              data-tooltip-title="{{ item.name|escape }}"
+              data-tooltip="{{ item.description|default:'Keine Beschreibung'|escape }}"
+              data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }} {{ item.quality_label|lower }}"
+              data-character-item-id="{{ item.character_item_id }}"
+              data-shop-name="{{ item.name|escape }}"
+              data-shop-item-type="{{ item.item_type }}"
+              data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
+              data-shop-available-qty="{{ item.amount }}"
+              data-shop-unit-price="{{ item.effective_unit_price }}"
+              data-shop-quality="{{ item.quality }}"
+            >
+              <td class="shop_item_name">
+                <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
+              </td>
+              <td class="shop_item_price">{{ item.unit_price }} KS</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% empty %}
+    <p class="shop_empty">Keine verkaufbaren Gegenst&auml;nde vorhanden.</p>
+  {% endfor %}
+</section>

@@ -1415,6 +1415,8 @@ function bindFloatingCardInteractions(card, { onClose } = {}) {
 }
 
 export function initTooltips() {
+  const suppressMobileRollTooltip = (target) => window.matchMedia("(max-width: 900px)").matches
+    && Boolean(target?.closest("[data-quickslot-roll]"));
   const initShopInfoButtons = () => {
     document.querySelectorAll("#shopWindow [data-shop-item], #learnWindow [data-learn-source]").forEach((row) => {
       const target = row.matches(".tooltip_target[data-tooltip]")
@@ -1820,6 +1822,7 @@ export function initTooltips() {
   };
 
   const showInlineTooltip = (target) => {
+    if (suppressMobileRollTooltip(target)) return;
     const text = String(target.getAttribute("data-tooltip") || "")
       .replace(/\r\n/g, "\n")
       .replace(/\\n/g, "\n");
@@ -1909,6 +1912,7 @@ export function initTooltips() {
   };
 
   const openCard = (target, { preservePosition = false, previousLeft = "", previousTop = "" } = {}) => {
+    if (suppressMobileRollTooltip(target)) return;
     const text = String(target.getAttribute("data-tooltip") || "")
       .replace(/\r\n/g, "\n")
       .replace(/\\n/g, "\n");
@@ -2005,6 +2009,7 @@ export function initTooltips() {
   };
 
   const openSkillCard = (target) => {
+    if (suppressMobileRollTooltip(target)) return;
     const text = String(target.getAttribute("data-tooltip") || "")
       .replace(/\r\n/g, "\n")
       .replace(/\\n/g, "\n");
@@ -2202,6 +2207,7 @@ export function initTooltips() {
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
     if (window.matchMedia("(max-width: 900px)").matches) {
+      if (suppressMobileRollTooltip(target)) return;
       if (target?.closest("[data-shop-item], [data-learn-source]")) return;
       if (!(target instanceof HTMLElement)
         || target.dataset.tooltipMode === "card"
@@ -2260,6 +2266,7 @@ export function initTooltips() {
       ? event.target.closest(".tooltip_target[data-tooltip][data-tooltip-mode='skill-card']")
       : null;
     if (skillCardTarget instanceof HTMLElement) {
+      if (suppressMobileRollTooltip(skillCardTarget)) return;
       if (window.matchMedia("(max-width: 900px)").matches
         && skillCardTarget.closest("[data-shop-item], [data-learn-source]")) return;
       const nestedInteractive = event.target instanceof Element
@@ -2278,6 +2285,7 @@ export function initTooltips() {
       ? event.target.closest(".tooltip_target[data-tooltip][data-tooltip-mode='card']")
       : null;
     if (target instanceof HTMLElement) {
+      if (suppressMobileRollTooltip(target)) return;
       if (window.matchMedia("(max-width: 900px)").matches
         && target.closest("[data-shop-item], [data-learn-source]")) return;
       const nestedInteractive = event.target instanceof Element

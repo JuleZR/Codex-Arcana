@@ -15,7 +15,17 @@ export function normalizeAction(action) {
   if (action.type === "dice") {
     if (![2, 4, 6, 8, 10, 12, 20, 100].includes(action.sides)
         || !Number.isInteger(action.count) || action.count < 1 || action.count > 100) return null;
-    return appearance(action, { type: "dice", sides: action.sides, count: action.count, label: `${action.count}W${action.sides}` });
+    const clean = { type: "dice", sides: action.sides, count: action.count, label: `${action.count}W${action.sides}` };
+    if (action.operator !== undefined || action.operand !== undefined) {
+      if (!["+", "-", "*", "/"].includes(action.operator) || !Number.isFinite(action.operand)) return null;
+      const neutral = ["+", "-"].includes(action.operator) ? 0 : 1;
+      if (action.operand !== 0 && action.operand !== neutral) {
+        clean.operator = action.operator;
+        clean.operand = action.operand;
+        clean.label += `${action.operator === "*" ? "×" : action.operator}${action.operand}`;
+      }
+    }
+    return appearance(action, clean);
   }
   if (!["skill", "weapon", "initiative", "debug"].includes(action.type) || typeof action.id !== "string") return null;
   if (action.type === "debug" && !["krit", "mis"].includes(action.id)) return null;
@@ -79,6 +89,8 @@ export function initQuickslots({ rollDice, isRolling }) {
   const actionSelect = document.getElementById("quickslotAction");
   const diceCountInput = document.getElementById("quickslotDiceCount");
   const diceSidesSelect = document.getElementById("quickslotDiceSides");
+  const diceOperatorSelect = document.getElementById("quickslotDiceOperator");
+  const diceOperandInput = document.getElementById("quickslotDiceOperand");
   const slotModifiers = initModifierList(document.getElementById("quickslotSlotModifiers"),
     editor.querySelector("[data-quickslot-slot-modifier-add]"));
   const saveButton = editor.querySelector("[data-quickslot-save]");
@@ -91,6 +103,9 @@ export function initQuickslots({ rollDice, isRolling }) {
   let drag = null;
   let statusTimer;
   let revision = 0;
+  let ready = false;
+  let saving = false;
+  let legacyLayout = null;
   const labelInput = document.getElementById("quickslotLabel");
   const labelPositionSelect = document.getElementById("quickslotLabelPosition");
   const ignoreBonusInput = document.getElementById("quickslotIgnoreBonus");
@@ -99,8 +114,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   });
   try {
     const saved = JSON.parse(window.localStorage.getItem(root.dataset.storageKey));
-    if (Array.isArray(saved?.slots)) slots = Array.from({ length: 11 }, (_, i) => normalizeAction(saved.slots[i]));
-    if (typeof saved?.collapsed === "boolean") collapsed = saved.collapsed;
+    if (Array.isArray(saved?.slots)) legacyLayout = saved;
   } catch (_error) { /* Keep defaults when browser storage is unavailable. */ }
 
   function notify(message) {
@@ -111,14 +125,55 @@ export function initQuickslots({ rollDice, isRolling }) {
   }
   const modifiers = initQuickslotModifiers(root, notify);
 
-  function persist() {
+  async function requestLayout(method = "GET", state) {
+    const response = await fetch(root.dataset.layoutUrl, {
+      method, credentials: "same-origin", cache: "no-store",
+      headers: { Accept: "application/json", ...(state ? {
+        "Content-Type": "application/json", "X-CSRFToken": getCsrfToken(),
+      } : {}) },
+      ...(state ? { body: JSON.stringify(state) } : {}),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Die Hotbar konnte nicht zentral gespeichert werden.");
+    if (data.layout !== null && (!Array.isArray(data.layout?.slots)
+        || data.layout.slots.length !== 11 || typeof data.layout.collapsed !== "boolean")) {
+      throw new Error("Ungültige zentrale Hotbar-Belegung.");
+    }
+    return data.layout;
+  }
+
+  async function loadLayout() {
     try {
-      window.localStorage.setItem(root.dataset.storageKey, JSON.stringify({ slots, collapsed }));
+      let layout = await requestLayout();
+      if (layout === null && legacyLayout) {
+        layout = await requestLayout("POST", {
+          slots: Array.from({ length: 11 }, (_, i) => normalizeAction(legacyLayout.slots[i])),
+          collapsed: typeof legacyLayout.collapsed === "boolean" ? legacyLayout.collapsed : collapsed,
+          initialize: true,
+        });
+      }
+      if (layout) {
+        slots = layout.slots.map(normalizeAction);
+        collapsed = layout.collapsed;
+        try { window.localStorage.removeItem?.(root.dataset.storageKey); } catch (_) { /* Central layout is already loaded. */ }
+      }
+      ready = true;
+      render();
+    } catch (error) { notify(error.message || "Die Hotbar konnte nicht geladen werden."); }
+  }
+
+  async function persist() {
+    saving = true;
+    render();
+    try {
+      await requestLayout("POST", { slots, collapsed });
       return true;
-    } catch (_error) { notify("Die Hotbar konnte in diesem Browser nicht gespeichert werden."); return false; }
+    } catch (error) { notify(error.message || "Die Hotbar konnte nicht gespeichert werden."); return false; }
+    finally { saving = false; render(); }
   }
 
   function render() {
+    toggle.disabled = !ready || saving;
     modifiers.setCollapsed(collapsed);
     root.classList.toggle("is-collapsed", collapsed);
     toggle.setAttribute("aria-expanded", String(!collapsed));
@@ -126,6 +181,7 @@ export function initQuickslots({ rollDice, isRolling }) {
     toggle.title = collapsed ? "Hotbar ausklappen" : "Hotbar einklappen";
     toggle.setAttribute("aria-label", toggle.title);
     buttons.forEach((button, index) => {
+      button.disabled = !ready || saving;
       const action = slots[index];
       const current = action?.type === "dice" ? action : catalog.find(entry => actionMatches(action, entry));
       const available = current && current.available !== false;
@@ -161,7 +217,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   }
 
   async function activateAction(action, button) {
-    if (!action || isRolling()) return;
+    if (!ready || saving || !action || isRolling()) return;
     button.classList.add("is-activated");
     setTimeout(() => button.classList.remove("is-activated"), 250);
     try {
@@ -174,7 +230,25 @@ export function initQuickslots({ rollDice, isRolling }) {
       }));
       if (!Number.isFinite(bonus)) throw new Error("Bitte gültige Werte für alle Boni und Mali eingeben.");
       if (action.type === "dice") {
-        await rollDice(action.sides, action.count, { bonus, bonusModifiers, modifiers: individualModifiers, label: action.customLabel || action.label });
+        await rollDice(action.sides, action.count, {
+          bonus, bonusModifiers, modifiers: individualModifiers, label: action.customLabel || action.label,
+          resolve: action.operator ? async () => ({
+            complete: async roll => {
+              const value = action.operand;
+              const raw = action.operator === "+" ? roll.total + value
+                : action.operator === "-" ? roll.total - value
+                  : action.operator === "*" ? roll.total * value : roll.total / value;
+              const total = Math.sign(raw) * Math.round(Math.abs(raw));
+              if (!Number.isFinite(total)) throw new Error("Das berechnete Würfelergebnis ist ungültig.");
+              return {
+                total, critical: action.sides === 10 && action.count === 2,
+                modifiers: [{ type: "modifier", value: action.operator === "-" ? -value : value,
+                  operator: ["*", "/"].includes(action.operator) ? action.operator : undefined,
+                  label: "Würfelsumme", named: true }],
+              };
+            },
+          }) : undefined,
+        });
       } else {
         const weapon = action.type === "weapon";
         const debug = action.type === "debug";
@@ -236,12 +310,15 @@ export function initQuickslots({ rollDice, isRolling }) {
   }
 
   function openEditor(index) {
+    if (!ready || saving) return;
     editingIndex = index;
     labelInput.value = slots[index]?.customLabel || "";
     labelPositionSelect.value = slots[index]?.labelPosition || (slots[index]?.image ? "bottom" : "center");
     ignoreBonusInput.checked = slots[index]?.ignoreBonus === true;
     diceCountInput.value = slots[index]?.type === "dice" ? slots[index].count : 1;
     diceSidesSelect.value = slots[index]?.type === "dice" ? slots[index].sides : 10;
+    diceOperatorSelect.value = slots[index]?.type === "dice" ? slots[index].operator || "+" : "+";
+    diceOperandInput.value = slots[index]?.type === "dice" ? slots[index].operand ?? 0 : 0;
     slotModifiers.setEntries(slots[index]?.modifiers || []);
     labelInput.placeholder = slots[index]?.label || "Bezeichnung der Aktion";
     imageEditor.setImage(slots[index]?.image || "");
@@ -252,12 +329,17 @@ export function initQuickslots({ rollDice, isRolling }) {
     refreshCatalog().then(() => { if (editor.open) fillChoices(); }).catch(error => notify(error.message));
   }
 
-  toggle.addEventListener("click", () => { collapsed = !collapsed; persist(); render(); });
+  toggle.addEventListener("click", async () => {
+    if (!ready || saving) return;
+    collapsed = !collapsed;
+    if (!await persist()) { collapsed = !collapsed; render(); }
+  });
   typeSelect.addEventListener("change", fillChoices);
-  saveButton.addEventListener("click", () => {
-    if (imageEditor.isBusy()) return;
+  saveButton.addEventListener("click", async () => {
+    if (!ready || saving || imageEditor.isBusy()) return;
     const selected = typeSelect.value === "dice"
-      ? { type: "dice", count: Number(diceCountInput.value), sides: Number(diceSidesSelect.value) }
+      ? { type: "dice", count: Number(diceCountInput.value), sides: Number(diceSidesSelect.value),
+        operator: diceOperatorSelect.value, operand: String(diceOperandInput.value).trim() === "" ? NaN : Number(diceOperandInput.value) }
       : choices[Number(actionSelect.value)];
     const action = normalizeAction({ ...selected,
       modifiers: slotModifiers.getEntries(),
@@ -273,18 +355,22 @@ export function initQuickslots({ rollDice, isRolling }) {
     }
     const previous = slots[editingIndex];
     slots[editingIndex] = action;
-    if (!persist()) {
+    if (!await persist()) {
       slots[editingIndex] = previous;
+      render();
       const error = document.getElementById("quickslotImageError");
-      error.textContent = "Der Slot konnte nicht gespeichert werden. Der Browserspeicher ist möglicherweise voll.";
+      error.textContent = "Der Slot konnte nicht zentral gespeichert werden.";
       error.hidden = false;
       return;
     }
     render(); editor.close();
   });
-  editor.querySelector("[data-quickslot-remove]").addEventListener("click", () => {
+  editor.querySelector("[data-quickslot-remove]").addEventListener("click", async () => {
+    if (!ready || saving) return;
+    const previous = slots[editingIndex];
     slots[editingIndex] = null;
-    persist(); render(); editor.close();
+    if (!await persist()) { slots[editingIndex] = previous; render(); return; }
+    render(); editor.close();
   });
   root.addEventListener("click", event => {
     const button = event.target.closest("[data-quickslot-index]");
@@ -327,6 +413,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   }, true);
   document.addEventListener("keydown", rollField);
   document.addEventListener("dragstart", event => {
+    if (!ready || saving) return;
     if (event.target.closest("[data-drag-handle], input, textarea, select")) return;
     const slot = event.target.closest("[data-quickslot-index]");
     const source = event.target.closest("[data-quickslot-source]");
@@ -354,14 +441,16 @@ export function initQuickslots({ rollDice, isRolling }) {
     event.dataTransfer.dropEffect = drag.action ? "copy" : "move";
     buttons.forEach(slot => slot.classList.toggle("is-drop-target", slot === button));
   });
-  root.addEventListener("drop", event => {
+  root.addEventListener("drop", async event => {
     const button = event.target.closest("[data-quickslot-index]");
-    if (!drag || !button) return;
+    if (!ready || saving || !drag || !button) return;
     event.preventDefault(); event.stopPropagation();
     const index = Number(button.dataset.quickslotIndex);
+    const previous = [...slots];
     if (drag.action) slots[index] = drag.action;
     else moveQuickslot(slots, drag.slot, index);
-    persist(); render(); endDrag();
+    if (!await persist()) slots = previous;
+    render(); endDrag();
   });
   function endDrag() {
     drag = null;
@@ -374,6 +463,7 @@ export function initQuickslots({ rollDice, isRolling }) {
     refreshCatalog().catch(error => notify(error.message));
   });
   render();
+  loadLayout();
   refreshCatalog().catch(error => notify(error.message));
   return { activateQuickslot };
 }

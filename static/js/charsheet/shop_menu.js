@@ -1,4 +1,5 @@
 import { escapeHtml, getCsrfToken, initPersistentDetails, readInt, saveJsonStorage } from "./utils.js?v=20260622a";
+import { applySheetPartials } from "./partial_updates.js";
 
 export function initShopMenu() {
   const shopWindow = document.getElementById("shopWindow");
@@ -27,7 +28,7 @@ export function initShopMenu() {
   const sellModeBtn = document.getElementById("shop-tab-sell");
   const listTitle = document.getElementById("shopListTitle");
   const cartTitle = document.getElementById("shopCartTitle");
-  const modePanels = Array.from(document.querySelectorAll("[data-shop-mode-panel]"));
+  let modePanels = Array.from(document.querySelectorAll("[data-shop-mode-panel]"));
   if (
     !filterInput
     || !shopList
@@ -118,6 +119,7 @@ export function initShopMenu() {
     "#shopWindow [data-shop-group]",
     "codexArcana.shop.categoryDisclosure.v1",
   );
+  let sellGroupDisclosureState = groupDisclosureState;
 
   const readOptionalInt = (value) => {
     const parsed = Number.parseInt(String(value ?? "").trim(), 10);
@@ -241,7 +243,7 @@ export function initShopMenu() {
       if (query && hasMatch) {
         group.open = true;
       } else if (!query) {
-        groupDisclosureState.restore(group);
+        (currentMode === "sell" ? sellGroupDisclosureState : groupDisclosureState).restore(group);
       }
     });
   };
@@ -509,7 +511,7 @@ export function initShopMenu() {
 
   actionBtn.addEventListener("click", async () => {
     const url = tradeUrl || (cartHasSellEntries() && !cartHasBuyEntries() ? sellUrl : buyUrl);
-    if (!url || !cart.size) {
+    if (!url || !cart.size || actionBtn.disabled) {
       return;
     }
 
@@ -531,6 +533,7 @@ export function initShopMenu() {
       resale_percent: readResalePercent(),
     };
 
+    actionBtn.disabled = true;
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -544,8 +547,22 @@ export function initShopMenu() {
       });
       const data = await response.json();
       if (data?.ok) {
+        baseBalance = readInt(data.new_money, baseBalance);
+        cartWrapper.setAttribute("data-shop-balance", String(baseBalance));
+        cart.clear();
+        if (data.signature) {
+          document.body.dataset.externalRefreshSignature = String(data.signature);
+        }
+        applySheetPartials(data);
+        modePanels = Array.from(document.querySelectorAll("[data-shop-mode-panel]"));
+        sellGroupDisclosureState = initPersistentDetails(
+          "#shop-panel-sell [data-shop-group]",
+          "codexArcana.shop.categoryDisclosure.v1",
+        );
+        syncModeUi();
+        applyFilter();
+        render();
         closeShopWindow();
-        window.location.reload();
         return;
       }
       if (data?.error === "insufficient_funds") {
@@ -555,6 +572,8 @@ export function initShopMenu() {
       }
     } catch (_error) {
       // no-op
+    } finally {
+      actionBtn.disabled = false;
     }
   });
 

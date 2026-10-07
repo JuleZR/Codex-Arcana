@@ -1,6 +1,6 @@
-import { createResultAnimation } from "./charsheet/dice_result.js?v=20261007-critical-whole-words";
-import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-named-bonuses";
-import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261007-bonus-names-only";
+import { createResultAnimation } from "./charsheet/dice_result.js?v=20261007-zero-modifiers";
+import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-central-layout";
+import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261007-named-history-values";
 
 /* ---------------------------------------------------
    CONFIG
@@ -659,7 +659,7 @@ export async function rollDice(sides, count, options = {}) {
         })), ...generalModifiers.map(entry => ({
             type: "modifier", value: entry.value, label: entry.label || "Freier Bonus",
             named: options.bonusModifiers !== undefined,
-        }))];
+        }))].filter(entry => entry.value !== 0);
         const extraTotal = bonusElements.reduce((sum, entry) => sum + entry.value, 0);
         const result = await renderBackendRoll(sides, count, addition.debug);
         const roll = result.backendRoll;
@@ -670,14 +670,15 @@ export async function rollDice(sides, count, options = {}) {
             ))
             : roll.rolls.map(value => fusionDie(value, sides));
         let total = roll.total + (addition.modifier ?? 0) + extraTotal;
-        let modifiers = [...(addition.modifier === undefined ? []
+        let modifiers = [...(addition.modifier === undefined || addition.modifier === 0 ? []
             : [{ type: "modifier", value: addition.modifier, label: addition.label || "Modifikator" }]), ...bonusElements];
         if (addition.complete) {
             const calculation = await addition.complete(roll);
+            const calculationModifiers = calculation.modifiers.filter(entry => entry.value !== 0);
             total = calculation.total + extraTotal;
-            modifiers = [...calculation.modifiers, ...bonusElements];
+            modifiers = [...calculationModifiers, ...bonusElements];
             critical = calculation.critical === true;
-            await resultAnimation.playFusion([...dice, ...calculation.modifiers, ...bonusElements], {
+            await resultAnimation.playFusion([...dice, ...calculationModifiers, ...bonusElements], {
                 ...calculation, total,
             });
         } else if (bonusElements.length) {
@@ -688,7 +689,8 @@ export async function rollDice(sides, count, options = {}) {
         } else if (sides === 10 && count === 2) {
             await resultAnimation.playResultAnimation(
                 roll.rolls[0] % 10, roll.rolls[1] % 10, null,
-                { ...addition, critical: critical === true, probeKind: options.probeKind },
+                { ...addition, modifier: addition.modifier === 0 ? undefined : addition.modifier,
+                    critical: critical === true, probeKind: options.probeKind },
             );
         } else if (sides === 100) {
             await resultAnimation.playFusion(dice, { total: roll.total });

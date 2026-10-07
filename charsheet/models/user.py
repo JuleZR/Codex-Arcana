@@ -81,6 +81,23 @@ class TwoFactorRecoveryCode(models.Model):
         ]
 
 
+class CharacterQuickslotLayout(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+    )
+    character = models.ForeignKey("Character", on_delete=models.CASCADE)
+    slots = models.JSONField(default=list)
+    collapsed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "character"),
+                name="unique_user_character_hotbar",
+            ),
+        ]
+
+
 class PasskeyCredential(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

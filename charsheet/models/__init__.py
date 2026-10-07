@@ -3,7 +3,10 @@
 from .announcement import DashboardAnnouncement
 from .creation_templates import CharacterCreationTemplate
 from .auth_security import AccountSecurityEvent, AuthenticationThrottle
-from .user import PasskeyCredential, TwoFactorRecoveryCode, UserSettings
+from .user import (
+    CharacterQuickslotLayout, PasskeyCredential, TwoFactorRecoveryCode,
+    UserSettings,
+)
 from .character import (
     Character,
     CharacterAlmanacBrew,
@@ -192,6 +195,7 @@ from .techniques import (
 )
 
 __all__ = [
+    "CharacterQuickslotLayout",
     "CareerPathTechnique",
     "CharacterCareerPathPurchase",
     "ArmorStats",

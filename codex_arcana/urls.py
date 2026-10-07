@@ -21,10 +21,13 @@ from charsheet import group_views, views
 from django.views.static import serve
 from django.conf import settings
 from charsheet.quickslots import (
-    quickslot_actions, quickslot_debug_result, quickslot_weapon_result,
+    quickslot_actions, quickslot_debug_result, quickslot_layout,
+    quickslot_weapon_result,
 )
 
 urlpatterns = [
+    path("character/<int:character_id>/quickslots/layout/",
+         quickslot_layout, name="quickslot_layout"),
     path("character/<int:character_id>/quickslots/debug-result/",
          quickslot_debug_result, name="quickslot_debug_result"),
     path("character/<int:character_id>/quickslots/weapon-result/",

@@ -39,23 +39,26 @@ export function initQuickslotHistory(root) {
       const debug = entry.debug === true || /^DEBUG\b/i.test(entry.label);
       row.classList.toggle("is-debug", debug);
       const modifierValues = entry.modifiers.map(modifier =>
-        `${modifier.operator === "/" ? "/" : modifier.value >= 0 ? "+" : ""}${modifier.value}`,
+        `${modifier.operator === "/" ? "/" : modifier.operator === "*" ? "×" : modifier.value >= 0 ? "+" : ""}${modifier.value}`,
       );
+      const namedModifiers = entry.modifiers.map(modifier => !modifier.operator
+        && modifier.label !== "Würfelsumme"
+        && (modifier.named === true || (modifier.named === undefined
+          && !["Modifikator", "Freier Bonus", "Slot-Bonus", entry.label].includes(modifier.label))));
+      const formulaValues = modifierValues.filter((_value, index) => !namedModifiers[index]);
       const formula = document.createElement("strong"); formula.className = "quickslot-history__formula";
       const label = entry.label.replace(/^DEBUG\b\s*[-·:]?\s*/i, "").trim();
-      const action = /^\d+[wd]\d+$/i.test(label) ? "" : label;
-      formula.textContent = `${debug ? "DEBUG · " : ""}${action ? `${action} · ` : ""}${entry.count}d${entry.sides}${modifierValues.length ? ` ${modifierValues.join(" ")}` : ""}`;
+      const action = /^\d+[wd]\d+(?:[+\-×/]-?\d+(?:\.\d+)?)?$/i.test(label) ? "" : label;
+      formula.textContent = `${debug ? "DEBUG · " : ""}${action ? `${action} · ` : ""}${entry.count}d${entry.sides}${formulaValues.length ? ` ${formulaValues.join(" ")}` : ""}`;
       formula.title = [entry.label, ...entry.modifiers.map((modifier, index) => `${modifier.label}: ${modifierValues[index]}`)].join(" · ");
       const time = document.createElement("time"); time.dateTime = entry.time;
       const date = new Date(entry.time);
       time.textContent = date.toLocaleTimeString("de-DE"); time.title = date.toLocaleString("de-DE");
       const modifierList = document.createElement("ul"); modifierList.className = "quickslot-history__modifiers";
-      entry.modifiers.forEach(modifier => {
-        const named = modifier.named === true || (modifier.named === undefined
-          && !["Modifikator", "Freier Bonus", "Slot-Bonus", entry.label].includes(modifier.label));
-        if (!named) return;
+      entry.modifiers.forEach((modifier, index) => {
+        if (!namedModifiers[index]) return;
         const item = document.createElement("li");
-        item.textContent = modifier.label;
+        item.textContent = `${modifier.label} ${modifierValues[index]}`;
         modifierList.append(item);
       });
       modifierList.hidden = !modifierList.childElementCount;

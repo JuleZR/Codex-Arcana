@@ -1035,7 +1035,7 @@ function prepareFusionNodes(elements) {
     entry.node.style.setProperty("--fusion-height", `${position.height}px`);
     entry.node.style.setProperty("--fusion-font-size", `${position.fontSize}px`);
     entry.value.textContent = element.type === "modifier"
-      ? `${element.operator === "/" ? "/" : element.value >= 0 ? "+" : ""}${element.value}` : element.value;
+      ? `${element.operator === "/" ? "/" : element.operator === "*" ? "×" : element.value >= 0 ? "+" : ""}${element.value}` : element.value;
     if (entry.label) entry.label.textContent = "";
     entry.node.title = "";
     return entry.node;
@@ -1046,6 +1046,8 @@ async function playFusion(elements, options = {}) {
   if (running) return;
   if (!Array.isArray(elements) || !elements.length || elements.some(entry =>
     !["die", "modifier"].includes(entry.type) || !Number.isFinite(entry.value))) throw new Error("Invalid fusion elements.");
+  elements = elements.filter(entry => entry.type !== "modifier" || entry.value !== 0);
+  if (!elements.length) return;
   elements = elements.map(entry => entry.type === "die" ? {
     ...entry, rawValue: entry.rawValue ?? entry.value,
     value: entry.value === 0 ? 10 : entry.value,
@@ -1054,14 +1056,16 @@ async function playFusion(elements, options = {}) {
   resetVisuals(); running = true;
   const token = generation;
   resizeCanvas();
-  const nodes = prepareFusionNodes(elements);
+  const result = options.total ?? elements.reduce((sum, entry) =>
+    sum + (entry.type === "die" ? entry.arithmeticValue ?? entry.value : entry.value), 0);
+  const skipFusion = elements.length === 1 && elements[0].type === "die"
+    && result === elements[0].arithmeticValue;
+  const nodes = skipFusion ? [] : prepareFusionNodes(elements);
   initParticles(); stage.classList.add("is-active");
   frameId = requestAnimationFrame(renderParticles);
   const dice = elements.filter(entry => entry.type === "die");
   const variant = options.critical === true && dice.length === 2
     ? getRingVariant(dice[0].rawValue, dice[1].rawValue) : RING_VARIANTS.normal;
-  const result = options.total ?? elements.reduce((sum, entry) =>
-    sum + (entry.type === "die" ? entry.arithmeticValue ?? entry.value : entry.value), 0);
   resultValue.textContent = result;
   if (options.probeKind === "skill" && variant !== RING_VARIANTS.normal) {
     const success = variant === RING_VARIANTS.critSuccess;
@@ -1078,16 +1082,21 @@ async function playFusion(elements, options = {}) {
   }
   setVariantText(variant);
   try {
-    particleMode = "gather";
-    await wait(120, token); nodes[0].classList.add("visible");
-    await wait(TIMING.numberAppearGap, token); nodes.forEach(node => node.classList.add("visible"));
-    await wait(TIMING.numberHold, token);
-    activateVariantTheme(variant); particleMode = "merge";
-    nodes.forEach(node => node.classList.add("merging"));
-    await wait(TIMING.mergeDuration - 100, token);
-    nodes.forEach(node => node.classList.add("vanish")); particleMode = "collapse";
-    await wait(220 + TIMING.flashDelay, token); triggerFusionFlash();
-    await wait(TIMING.runeDelay, token); resultSigil.classList.add("visible"); particleMode = "result";
+    if (skipFusion) {
+      activateVariantTheme(variant);
+    } else {
+      particleMode = "gather";
+      await wait(120, token); nodes[0].classList.add("visible");
+      await wait(TIMING.numberAppearGap, token); nodes.forEach(node => node.classList.add("visible"));
+      await wait(TIMING.numberHold, token);
+      activateVariantTheme(variant); particleMode = "merge";
+      nodes.forEach(node => node.classList.add("merging"));
+      await wait(TIMING.mergeDuration - 100, token);
+      nodes.forEach(node => node.classList.add("vanish")); particleMode = "collapse";
+      await wait(220 + TIMING.flashDelay, token); triggerFusionFlash();
+      await wait(TIMING.runeDelay, token);
+    }
+    resultSigil.classList.add("visible"); particleMode = "result";
     await wait(TIMING.resultDelay, token); resultValue.classList.add("visible"); scheduleResultFade();
     await wait(TIMING.settleDelay, token); resultSigil.classList.add("settled");
     return result;
