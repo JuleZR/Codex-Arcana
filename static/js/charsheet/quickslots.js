@@ -1,5 +1,6 @@
 import { getCsrfToken } from "./utils.js";
 import { initQuickslotImageEditor } from "./quickslot_image_editor.js?v=20261007-crop-bounds";
+import { initQuickslotModifiers, initModifierList } from "./quickslot_modifiers.js?v=20261007-named-bonuses";
 
 const KEYS = [..."1234567890ß"];
 const MIME = "application/x-codex-quickslot";
@@ -12,8 +13,9 @@ export const FREE_DICE = [
 export function normalizeAction(action) {
   if (!action || typeof action !== "object") return null;
   if (action.type === "dice") {
-    const dice = FREE_DICE.find(die => die.sides === action.sides && die.count === action.count);
-    return dice ? appearance(action, { ...dice }) : null;
+    if (![2, 4, 6, 8, 10, 12, 20, 100].includes(action.sides)
+        || !Number.isInteger(action.count) || action.count < 1 || action.count > 100) return null;
+    return appearance(action, { type: "dice", sides: action.sides, count: action.count, label: `${action.count}W${action.sides}` });
   }
   if (!["skill", "weapon", "initiative", "debug"].includes(action.type) || typeof action.id !== "string") return null;
   if (action.type === "debug" && !["krit", "mis"].includes(action.id)) return null;
@@ -25,6 +27,12 @@ export function normalizeAction(action) {
 }
 
 function appearance(action, clean) {
+  if (action.modifiers !== undefined) {
+    if (!Array.isArray(action.modifiers) || action.modifiers.some(entry =>
+      !entry || !["number", "string"].includes(typeof entry.value) || !Number.isFinite(Number(entry.value))
+      || typeof entry.name !== "string")) return null;
+    if (action.modifiers.length) clean.modifiers = action.modifiers.map(entry => ({ value: Number(entry.value), name: entry.name.trim().slice(0, 80) }));
+  }
   if (action.ignoreBonus === true) clean.ignoreBonus = true;
   if (["top", "center", "bottom", "hidden"].includes(action.labelPosition)) clean.labelPosition = action.labelPosition;
   if (typeof action.customLabel === "string" && action.customLabel.trim()) clean.customLabel = action.customLabel.trim().slice(0, 80);
@@ -69,9 +77,12 @@ export function initQuickslots({ rollDice, isRolling }) {
   const editor = document.getElementById("quickslotEditor");
   const typeSelect = document.getElementById("quickslotType");
   const actionSelect = document.getElementById("quickslotAction");
+  const diceCountInput = document.getElementById("quickslotDiceCount");
+  const diceSidesSelect = document.getElementById("quickslotDiceSides");
+  const slotModifiers = initModifierList(document.getElementById("quickslotSlotModifiers"),
+    editor.querySelector("[data-quickslot-slot-modifier-add]"));
   const saveButton = editor.querySelector("[data-quickslot-save]");
   const status = document.getElementById("quickslotStatus");
-  const bonusInput = document.getElementById("quickslotBonus");
   let slots = [...FREE_DICE, ...Array(8).fill(null)];
   let collapsed = window.matchMedia("(max-width: 700px)").matches;
   let catalog = [];
@@ -98,6 +109,7 @@ export function initQuickslots({ rollDice, isRolling }) {
     status.hidden = false;
     statusTimer = setTimeout(() => { status.hidden = true; }, 5000);
   }
+  const modifiers = initQuickslotModifiers(root, notify);
 
   function persist() {
     try {
@@ -107,6 +119,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   }
 
   function render() {
+    modifiers.setCollapsed(collapsed);
     root.classList.toggle("is-collapsed", collapsed);
     toggle.setAttribute("aria-expanded", String(!collapsed));
     toggle.textContent = collapsed ? "‹" : "›";
@@ -143,22 +156,33 @@ export function initQuickslots({ rollDice, isRolling }) {
     return data.actions;
   }
 
-  async function activateQuickslot(index) {
-    const action = slots[index];
+  function activateQuickslot(index) {
+    return activateAction(slots[index], buttons[index]);
+  }
+
+  async function activateAction(action, button) {
     if (!action || isRolling()) return;
-    const button = buttons[index];
     button.classList.add("is-activated");
     setTimeout(() => button.classList.remove("is-activated"), 250);
     try {
-      const bonus = action.ignoreBonus ? 0 : Number(bonusInput?.value || 0);
-      if (!Number.isFinite(bonus)) throw new Error("Bitte einen gültigen freien Bonus eingeben.");
+      const bonus = action.ignoreBonus ? 0 : modifiers.getTotal();
+      const bonusModifiers = action.ignoreBonus ? [] : modifiers.getEntries().map(entry => ({
+        value: Number(entry.value || 0), label: entry.name.trim() || "Freier Bonus",
+      }));
+      const individualModifiers = (action.modifiers || []).map(entry => ({
+        type: "modifier", value: entry.value, label: entry.name || "Slot-Bonus",
+      }));
+      if (!Number.isFinite(bonus)) throw new Error("Bitte gültige Werte für alle Boni und Mali eingeben.");
       if (action.type === "dice") {
-        await rollDice(action.sides, action.count, { bonus });
+        await rollDice(action.sides, action.count, { bonus, bonusModifiers, modifiers: individualModifiers, label: action.customLabel || action.label });
       } else {
         const weapon = action.type === "weapon";
         const debug = action.type === "debug";
         await rollDice(weapon ? null : 10, weapon ? null : 2, {
           bonus,
+          bonusModifiers,
+          modifiers: individualModifiers,
+          label: action.customLabel || (debug ? action.label : undefined),
           probeKind: action.type === "skill" || debug ? "skill" : weapon ? "damage" : "initiative",
           critical: !weapon,
           resolve: async () => {
@@ -192,7 +216,8 @@ export function initQuickslots({ rollDice, isRolling }) {
 
   function fillChoices() {
     choices = typeSelect.value === "dice" ? FREE_DICE : catalog.filter(action => action.type === typeSelect.value);
-    document.getElementById("quickslotActionField").hidden = typeSelect.value === "initiative";
+    document.getElementById("quickslotActionField").hidden = ["initiative", "dice"].includes(typeSelect.value);
+    document.getElementById("quickslotDiceFields").hidden = typeSelect.value !== "dice";
     document.getElementById("quickslotActionLabel").textContent = {
       skill: "Fertigkeit", weapon: "Waffe", dice: "Würfelwurf", debug: "DEBUG-Wurf",
     }[typeSelect.value] || "Aktion";
@@ -215,6 +240,9 @@ export function initQuickslots({ rollDice, isRolling }) {
     labelInput.value = slots[index]?.customLabel || "";
     labelPositionSelect.value = slots[index]?.labelPosition || (slots[index]?.image ? "bottom" : "center");
     ignoreBonusInput.checked = slots[index]?.ignoreBonus === true;
+    diceCountInput.value = slots[index]?.type === "dice" ? slots[index].count : 1;
+    diceSidesSelect.value = slots[index]?.type === "dice" ? slots[index].sides : 10;
+    slotModifiers.setEntries(slots[index]?.modifiers || []);
     labelInput.placeholder = slots[index]?.label || "Bezeichnung der Aktion";
     imageEditor.setImage(slots[index]?.image || "");
     document.getElementById("quickslotEditorTitle").textContent = `Slot ${KEYS[index]} einrichten`;
@@ -228,12 +256,21 @@ export function initQuickslots({ rollDice, isRolling }) {
   typeSelect.addEventListener("change", fillChoices);
   saveButton.addEventListener("click", () => {
     if (imageEditor.isBusy()) return;
-    const action = normalizeAction({ ...choices[Number(actionSelect.value)],
+    const selected = typeSelect.value === "dice"
+      ? { type: "dice", count: Number(diceCountInput.value), sides: Number(diceSidesSelect.value) }
+      : choices[Number(actionSelect.value)];
+    const action = normalizeAction({ ...selected,
+      modifiers: slotModifiers.getEntries(),
       customLabel: labelInput.value, image: imageEditor.getImage(),
       labelPosition: labelPositionSelect.value,
       ignoreBonus: ignoreBonusInput.checked,
     });
-    if (!action) return;
+    if (!action) {
+      const error = document.getElementById("quickslotImageError");
+      error.textContent = "Bitte gültige Würfel und Werte für die Slot-Boni und Mali eingeben.";
+      error.hidden = false;
+      return;
+    }
     const previous = slots[editingIndex];
     slots[editingIndex] = action;
     if (!persist()) {
@@ -261,12 +298,34 @@ export function initQuickslots({ rollDice, isRolling }) {
     if (!button) return;
     event.preventDefault(); openEditor(Number(button.dataset.quickslotIndex));
   });
+  function sourceAction(source) {
+    const d = source.dataset;
+    return catalog.find(entry => entry.type === d.quickslotSource && entry.id === d.quickslotId
+      && ["subentry", "specification", "profile", "mode", "attribute"].every(key => {
+        const value = d[`quickslot${key[0].toUpperCase()}${key.slice(1)}`];
+        return value === undefined || value === (entry[key] || "");
+      }));
+  }
+  function rollField(event) {
+    const field = event.target.closest("[data-quickslot-roll]");
+    if (!field || isRolling() || event.repeat || event.isComposing) return;
+    if (event.type === "keydown") {
+      if (!["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+    }
+    const source = field.closest("[data-quickslot-source]");
+    const action = source && sourceAction(source);
+    if (action) activateAction(normalizeAction(action), field);
+    else notify("Diese Würfelaktion ist aktuell nicht verfügbar.");
+  }
+  document.addEventListener("click", rollField);
   document.addEventListener("keydown", event => {
     const index = shortcutIndex(event);
     if (index < 0 || event.repeat || event.isComposing
         || event.composedPath().some(isEditingText)) return;
     event.preventDefault(); activateQuickslot(index);
   }, true);
+  document.addEventListener("keydown", rollField);
   document.addEventListener("dragstart", event => {
     if (event.target.closest("[data-drag-handle], input, textarea, select")) return;
     const slot = event.target.closest("[data-quickslot-index]");
@@ -277,12 +336,7 @@ export function initQuickslots({ rollDice, isRolling }) {
       if (!slots[index]) { event.preventDefault(); return; }
       drag = { slot: index };
     } else if (source) {
-      const d = source.dataset;
-      const action = catalog.find(entry => entry.type === d.quickslotSource && entry.id === d.quickslotId
-        && ["subentry", "specification", "profile", "mode", "attribute"].every(key => {
-          const value = d[`quickslot${key[0].toUpperCase()}${key.slice(1)}`];
-          return value === undefined || value === (entry[key] || "");
-        }));
+      const action = sourceAction(source);
       if (!action) { event.preventDefault(); return; }
       drag = { action: normalizeAction(action) };
     } else return;

@@ -31,13 +31,15 @@
         }
       }
     </script>
+    {% endif %}
+    {% if request.user.settings.dice_enabled and not read_only %}
     <link rel="stylesheet" href="{% static 'css/charsheet/dice-result.css' %}?v=20261007-critical-whole-words">
-    <link rel="stylesheet" href="{% static 'css/charsheet/quickslots.css' %}?v=20261007-label-position">
-    <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-percentile-fusion"></script>
+    <link rel="stylesheet" href="{% static 'css/charsheet/quickslots.css' %}?v=20261007-named-bonuses">
+    <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-bonus-names-only"></script>
     {% endif %}
     <link
       rel="stylesheet"
-      href="{% static 'css/charsheet.css' %}?v=20261007-remove-menus"
+      href="{% static 'css/charsheet.css' %}?v=20261007-clear-viewport"
     />
     <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261004c">
     <link rel="stylesheet" href="{% static 'css/charsheet/consumables.css' %}?v=20261005">
@@ -100,7 +102,7 @@
         </script>
       </main>
 
-      {% if request.user.settings.dddice_enabled and not read_only %}
+      {% if request.user.settings.dice_enabled and not read_only %}
       {% include "charsheet/partials/_dice_result.html" %}
       {% endif %}
 
@@ -166,12 +168,15 @@
       </div>
     </div>
 
-    {% if request.user.settings.dddice_enabled and not read_only %}
+    {% if request.user.settings.dice_enabled and not read_only %}
+    {% if request.user.settings.dddice_enabled %}
+    <canvas id="dddice" aria-hidden="true"></canvas>
+    {% endif %}
     {% include "charsheet/partials/_quickslots.html" %}
     {% endif %}
 
     <script defer src="{% static 'js/charsheet/condition_picker.js' %}?v=20261004c"></script>
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261007-remove-menus"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261007-delete-lock"></script>
     <script type="module" src="{% static 'js/charsheet_diary.js' %}?v=20261001-mobile-tools1"></script>
     {% if read_only %}
     <script>

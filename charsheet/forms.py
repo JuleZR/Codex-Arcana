@@ -44,6 +44,7 @@ class UserSettingsForm(forms.ModelForm):
             "print_include_inventory",
             "print_include_notes",
             "print_compact",
+            "dice_enabled",
             "dddice_enabled",
             "critical_success_text",
             "critical_failure_text",

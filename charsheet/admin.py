@@ -10512,13 +10512,16 @@ class UserSettingsAdmin(admin.ModelAdmin):
         "print_include_inventory",
         "print_include_notes",
         "print_compact",
+        "dice_enabled",
         "dddice_enabled",
         "dddice_room_id",
         "dddice_dice_box",
         "dddice_theme_id",
     )
     search_fields = ("user__username", "user__email", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
-    list_filter = ("theme_mode", "print_compact", "dddice_enabled")
+    list_filter = (
+        "theme_mode", "print_compact", "dice_enabled", "dddice_enabled",
+    )
     ordering = ("user",)
     fieldsets = (
         ("Benutzer", {"fields": ("user",)}),
@@ -10527,6 +10530,7 @@ class UserSettingsAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "theme_mode",
+                    "dice_enabled",
                     ("print_include_inventory", "print_include_notes", "print_compact"),
                     "password_changed_at",
                 )

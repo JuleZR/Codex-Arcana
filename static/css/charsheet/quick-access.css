@@ -523,11 +523,12 @@ html[data-left-tools-open="1"] .left-tools {
 
 #dddice {
   position: fixed;
-  height: 60vh;
-  aspect-ratio: 297 / 210;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  aspect-ratio: auto;
+  transform: none;
   z-index: 2000;
   pointer-events: none;
 }
@@ -1732,18 +1733,6 @@ html[data-left-tools-open="1"] .left-tools {
   background: linear-gradient(180deg, rgba(255, 251, 241, 0.98), rgba(239, 224, 194, 0.98));
 }
 
-#dddice {
-  position: fixed;
-  height: 60vh;
-  aspect-ratio: 297 / 210;
-  bottom: 0;
-  left: 50%;
-  width: auto;
-  top: auto;
-  transform: translateX(-50%);
-  z-index: 18;
-  pointer-events: none;
-}
 
 @media (max-width: 1480px) {
   :root {
@@ -1767,16 +1756,6 @@ html[data-left-tools-open="1"] .left-tools {
     transform: none;
   }
 
-  #dddice {
-    height: 60vh;
-    aspect-ratio: 297 / 210;
-    bottom: 0;
-    left: 50%;
-    width: auto;
-    top: auto;
-    right: auto;
-    transform: translateX(-50%);
-  }
 
   .sheet-dice-dock {
     top: var(--sheet-side-dock-top);
@@ -1815,15 +1794,6 @@ html[data-left-tools-open="1"] .left-tools {
     width: var(--sheet-side-panel-width);
   }
 
-  #dddice {
-    height: 60vh;
-    aspect-ratio: 297 / 210;
-    bottom: 0;
-    left: 50%;
-    width: auto;
-    top: auto;
-    transform: translateX(-50%);
-  }
 
 }
 

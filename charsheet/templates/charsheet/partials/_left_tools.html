@@ -109,9 +109,5 @@
     </div>
   </aside>
 
-  {% if request.user.settings.dddice_enabled %}
-    <canvas id="dddice" width="500" height="300"></canvas>
-  {% endif %}
-
   {% include "charsheet/partials/_card_hand_host.html" %}
 </div>

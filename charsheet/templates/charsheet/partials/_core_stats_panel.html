@@ -10,6 +10,7 @@
         class="core_value tooltip_target{% if core_stats.initiative_condition_badge.visible %} has_conditional_modifiers{% endif %}"
         data-tooltip-side="right"
         data-tooltip="{{ core_stats.initiative_with_load_tooltip }}"
+        {% if not read_only and request.user.settings.dice_enabled %}data-quickslot-roll data-quickslot-source="initiative" data-quickslot-id="initiative" role="button" tabindex="0" aria-label="Initiative würfeln"{% endif %}
         data-format="modifier"
         data-carry-value
         data-carry-base="{{ core_stats.initiative_carry_base }}"

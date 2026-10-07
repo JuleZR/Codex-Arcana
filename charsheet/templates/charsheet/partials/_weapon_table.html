@@ -77,6 +77,7 @@
                 class="pill tooltip_target{% if row.has_conditional_modifiers %} has_conditional_modifiers{% endif %}"
                 data-tooltip-side="left"
                 data-tooltip="{{ row.calculation_tooltip }}"
+                {% if not read_only and request.user.settings.dice_enabled %}data-quickslot-roll data-quickslot-source="weapon" data-quickslot-id="{{ row.character_item.pk }}" data-quickslot-profile="{{ row.weapon_stats_id|default_if_none:'' }}" data-quickslot-mode="{{ row.mode }}" data-quickslot-attribute="{{ row.maneuver_attribute_label }}" role="button" tabindex="0" aria-label="{{ row.weapon_display_name|default:row.item_name }} Schaden würfeln"{% endif %}
                 data-format="modifier"
                 data-base-value="{{ row.with_bel_value }}"
                 data-tooltip-off="{{ row.calculation_tooltip }}"

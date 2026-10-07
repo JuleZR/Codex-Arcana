@@ -1149,10 +1149,6 @@
     display: none !important;
   }
 
-  #dddice {
-    display: none !important;
-  }
-
   /* Hide all char_info rows except the name row (2nd <tr>).
      Row 1 = section heading, rows 3–7 = Geschlecht/Rasse/Alter, etc. */
   .char_info_table .char_info_row_title,

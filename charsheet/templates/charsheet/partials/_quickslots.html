@@ -5,9 +5,8 @@
        data-weapon-result-url="{% url 'quickslot_weapon_result' character.pk %}">
   <button type="button" class="quickslots__toggle" data-quickslot-toggle aria-controls="quickslotBody" aria-expanded="true" title="Hotbar einklappen">›</button>
   <div id="quickslotBody" class="quickslots__body">
-    <label class="quickslots__bonus" for="quickslotBonus">Bonus
-      <input id="quickslotBonus" type="number" value="0" step="1" aria-label="Freier Bonus" title="Freier Bonus / Malus">
-    </label>
+    <button type="button" class="quickslots__modifiers-toggle" data-quickslot-modifiers-toggle aria-controls="quickslotModifiers" aria-expanded="false" title="Boni und Mali" aria-label="Boni und Mali ein- oder ausklappen">±</button>
+    <button type="button" class="quickslots__modifiers-toggle" data-quickslot-history-toggle aria-controls="quickslotHistory" aria-expanded="false" title="Wurfprotokoll" aria-label="Wurfprotokoll ein- oder ausklappen">≡</button>
     <div class="quickslots__list">
       {% for key in '1234567890ß' %}
       <button type="button" class="quickslot" data-quickslot-index="{{ forloop.counter0 }}" draggable="true">
@@ -18,6 +17,15 @@
       {% endfor %}
     </div>
   </div>
+  <section id="quickslotModifiers" class="quickslot-modifiers" data-quickslot-modifiers-panel aria-label="Boni und Mali" aria-hidden="true" inert>
+    <div class="quickslot-modifiers__heading">Boni &amp; Mali</div>
+    <div class="quickslot-modifiers__list" data-quickslot-modifiers-list></div>
+    <button type="button" class="quickslot-modifiers__add" data-quickslot-modifiers-add aria-label="Bonus oder Malus hinzufügen">+</button>
+  </section>
+  <section id="quickslotHistory" class="quickslot-modifiers quickslot-history" data-quickslot-history-panel aria-label="Letzte zehn Würfe" aria-hidden="true" inert>
+    <div class="quickslot-modifiers__heading">Letzte 10 Würfe</div>
+    <ol class="quickslot-history__list" data-quickslot-history-list></ol>
+  </section>
 </aside>
 <span id="quickslotStatus" class="quickslots__status" role="status" hidden></span>
 <dialog id="quickslotEditor" class="quickslot-editor">
@@ -37,11 +45,29 @@
     <label for="quickslotAction" id="quickslotActionLabel">Fertigkeit</label>
     <select id="quickslotAction"></select>
     </div>
+    <div id="quickslotDiceFields" class="quickslot-editor__dice-fields" hidden>
+      <div>
+        <label for="quickslotDiceCount">Anzahl</label>
+        <input id="quickslotDiceCount" type="number" min="1" max="100" step="1" value="1">
+      </div>
+      <div>
+        <label for="quickslotDiceSides">Würfel</label>
+        <select id="quickslotDiceSides">
+          <option value="2">W2</option><option value="4">W4</option>
+          <option value="6">W6</option><option value="8">W8</option>
+          <option value="10" selected>W10</option><option value="12">W12</option>
+          <option value="20">W20</option><option value="100">W100</option>
+        </select>
+      </div>
+    </div>
+    <label>Eigene Boni und Mali</label>
+    <div id="quickslotSlotModifiers" class="quickslot-editor__modifiers"></div>
+    <button type="button" class="quickslot-editor__add-modifier" data-quickslot-slot-modifier-add>+ Bonus oder Malus</button>
     <label class="quickslot-editor__check" for="quickslotIgnoreBonus">
       <input id="quickslotIgnoreBonus" type="checkbox">
-      Hotbar-Bonus ignorieren
+      Allgemeine Boni und Mali ignorieren
     </label>
-    <p class="quickslot-editor__hint">Gilt nur für diesen Slot.</p>
+    <p class="quickslot-editor__hint">Eigene Slot-Boni und Mali gelten weiterhin.</p>
     </fieldset>
     <fieldset class="quickslot-editor__section">
     <legend>Darstellung</legend>

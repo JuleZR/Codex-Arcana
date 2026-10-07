@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-table.css' %}?v=8">
     {% if request.user.settings.dddice_enabled %}
-    <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
+    <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-independent-dice"></script>
     {% endif %}
 
   </head>
@@ -567,8 +567,16 @@
             <div class="dashboard_account_toggle_grid">
               <label class="dashboard_account_toggle">
                 <span>
+                  <strong>Würfelfunktion</strong>
+                  <small>Hotbar und Würfe über die Wertefelder aktivieren.</small>
+                </span>
+                <input type="checkbox" name="dice_enabled" id="id_dice_enabled"
+                       {% if request.user.settings.dice_enabled %}checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span>
                   <strong>DDDdice</strong>
-                  <small>Online-Würfelraum verbinden.</small>
+                  <small>Animierte 3D-Würfel und Online-Würfelraum verwenden.</small>
                 </span>
                 <input type="checkbox" name="dddice_enabled" id="id_dddice_enabled"
                        {% if request.user.settings.dddice_enabled %}checked{% endif %}>

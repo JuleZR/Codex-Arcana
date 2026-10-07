@@ -199,6 +199,7 @@ export function initSheetActions() {
     let submitter = null;
     let submitterWasDisabled = false;
     let nativeFallbackStarted = false;
+    let removalSucceeded = false;
 
     try {
       submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
@@ -244,6 +245,7 @@ export function initSheetActions() {
         }
         throw new Error("sheet action invalid");
       }
+      removalSucceeded = Boolean(form.querySelector("[data-require-shift-delete]"));
       if (Array.isArray(payload.partials) && payload.partials.length) {
         applySheetPartials(payload);
       }
@@ -286,7 +288,7 @@ export function initSheetActions() {
       nativeFallbackStarted = true;
       form.submit();
     } finally {
-      if (!nativeFallbackStarted) {
+      if (!nativeFallbackStarted && !removalSucceeded) {
         delete form.dataset.sheetActionPending;
         if (
           (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) &&

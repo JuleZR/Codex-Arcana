@@ -45,6 +45,7 @@
                 class="bel_dot tooltip_target{% if row.has_conditional_modifiers %} has_conditional_modifiers{% endif %}"
                 data-tooltip-side="left"
                 data-tooltip="{{ row.calculation_tooltip }}"
+                {% if row.quickslot_id and not read_only and request.user.settings.dice_enabled %}data-quickslot-roll role="button" tabindex="0" aria-label="{{ row.display_name }} würfeln"{% endif %}
                 data-carry-value
                 data-carry-base="{{ row.carry_base_value }}"
                 data-carry-affected="{% if row.carry_affected %}1{% else %}0{% endif %}"

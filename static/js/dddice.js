@@ -1,13 +1,18 @@
-import { ThreeDDice, ThreeDDiceAPI, ThreeDDiceRollEvent } from "/static/js/vendor/dddice-latest.web.js";
-
 import { createResultAnimation } from "./charsheet/dice_result.js?v=20261007-critical-whole-words";
-import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-crop-bounds";
+import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-named-bonuses";
+import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261007-bonus-names-only";
 
 /* ---------------------------------------------------
    CONFIG
 --------------------------------------------------- */
 
 const configElement = document.getElementById("dddice-config");
+const dddiceEnabled = Boolean(configElement);
+let diceSdkPromise;
+function loadDiceSdk() {
+    return diceSdkPromise ||= import("/static/js/vendor/dddice-latest.web.js")
+        .catch(error => { diceSdkPromise = null; throw error; });
+}
 
 let dddiceConfig = {};
 try {
@@ -28,6 +33,7 @@ const SAVED_THEME_ID = dddiceConfig?.themeId ?? "";
 
 const canvas = document.getElementById("dddice");
 const resultAnimation = createResultAnimation(document.getElementById("dice-result-stage"));
+const rollHistory = initQuickslotHistory(document.getElementById("characterQuickslots"));
 
 const apiKeyInput = document.getElementById("id_dddice_api_key");
 const roomIdInput = document.getElementById("id_dddice_room_id");
@@ -186,6 +192,10 @@ function pickThemeForPercentile(themes) {
    ROLL ENGINE
 --------------------------------------------------- */
 
+function resizeDiceCanvas() {
+    dddice?.resize(window.innerWidth, window.innerHeight);
+}
+
 async function initDice() {
     if (!hasRollUI) {
         return false;
@@ -206,11 +216,14 @@ async function initDice() {
 
     connecting = (async () => {
         if (!dddice) {
-            dddice = new ThreeDDice(canvas, API_KEY);
+            const { ThreeDDice, ThreeDDiceRollEvent } = await loadDiceSdk();
+            dddice = new ThreeDDice(canvas, API_KEY, { dice: { size: 2 / 3 } });
             dddice.on(ThreeDDiceRollEvent.RollFinished, handleRollFinished);
+            window.addEventListener("resize", resizeDiceCanvas);
         }
 
         await dddice.start();
+        resizeDiceCanvas();
 
         if (ROOM_PASSCODE) {
             await dddice.connect(ROOM_SLUG, ROOM_PASSCODE);
@@ -265,6 +278,7 @@ async function getSettingsApi() {
         return settingsApi;
     }
 
+    const { ThreeDDiceAPI } = await loadDiceSdk();
     settingsApi = new ThreeDDiceAPI(apiKey);
     settingsApiSignature = signature;
 
@@ -546,12 +560,14 @@ function buildPercentileDicePayload(total, themeId) {
 }
 
 async function renderBackendRoll(sides = 10, count = 2, debug = null) {
-    const ready = await initDice();
-    if (!ready) {
-        throw new Error("DDDdice konnte nicht initialisiert werden.");
+    if (dddiceEnabled) {
+        const ready = await initDice();
+        if (!ready) {
+            throw new Error("DDDdice konnte nicht initialisiert werden.");
+        }
+        dddice.clear();
+        await ensureThemesAvailableForRolling();
     }
-
-    await ensureThemesAvailableForRolling();
 
     const backendRoll = await fetchBackendRoll(sides, count, debug);
 
@@ -559,13 +575,13 @@ async function renderBackendRoll(sides = 10, count = 2, debug = null) {
     let themeId;
 
     if (backendRoll.sides === 100) {
-        themeId = getPreferredThemeIdForPercentile();
+        themeId = dddiceEnabled ? getPreferredThemeIdForPercentile() : "";
         dicePayload = count === 1
             ? buildPercentileDicePayload(backendRoll.total, themeId)
             : backendRoll.rolls.flatMap(value => buildPercentileDicePayload(value, themeId));
     } else {
         const dieType = `d${sides}`;
-        themeId = getPreferredThemeIdForDie(dieType);
+        themeId = dddiceEnabled ? getPreferredThemeIdForDie(dieType) : "";
 
         dicePayload = backendRoll.rolls.map((value) => ({
             type: dieType,
@@ -574,6 +590,7 @@ async function renderBackendRoll(sides = 10, count = 2, debug = null) {
         }));
     }
 
+    if (!dddiceEnabled) return { backendRoll, dicePayload };
     await ensureRollThemeLoaded(themeId);
 
     const response = await fetch("https://dddice.com/api/1.0/roll", {
@@ -628,9 +645,22 @@ export async function rollDice(sides, count, options = {}) {
         if (!Number.isInteger(sides) || sides < 2 || !Number.isInteger(count) || count < 1) {
             throw new Error("Ungültige Würfelparameter.");
         }
+        let critical = options.critical ?? (sides === 10 && count === 2);
         const bonus = options.bonus ?? 0;
         if (!Number.isFinite(bonus)) throw new Error("Ungültiger freier Bonus.");
-        const bonusElements = bonus === 0 ? [] : [{ type: "modifier", value: bonus, label: "Freier Bonus" }];
+        const individualModifiers = options.modifiers ?? [];
+        const generalModifiers = options.bonusModifiers ?? (bonus === 0 ? [] : [{ value: bonus, label: "Freier Bonus" }]);
+        if (![individualModifiers, generalModifiers].every(entries => Array.isArray(entries)
+                && entries.every(entry => entry && Number.isFinite(entry.value)))) {
+            throw new Error("Ungültige individuelle Boni oder Mali.");
+        }
+        const bonusElements = [...individualModifiers.map(entry => ({
+            type: "modifier", value: entry.value, label: entry.label || "Slot-Bonus", named: true,
+        })), ...generalModifiers.map(entry => ({
+            type: "modifier", value: entry.value, label: entry.label || "Freier Bonus",
+            named: options.bonusModifiers !== undefined,
+        }))];
+        const extraTotal = bonusElements.reduce((sum, entry) => sum + entry.value, 0);
         const result = await renderBackendRoll(sides, count, addition.debug);
         const roll = result.backendRoll;
         const dice = sides === 100
@@ -639,30 +669,47 @@ export async function rollDice(sides, count, options = {}) {
                 die.type === "d10x" ? 100 : 10,
             ))
             : roll.rolls.map(value => fusionDie(value, sides));
+        let total = roll.total + (addition.modifier ?? 0) + extraTotal;
+        let modifiers = [...(addition.modifier === undefined ? []
+            : [{ type: "modifier", value: addition.modifier, label: addition.label || "Modifikator" }]), ...bonusElements];
         if (addition.complete) {
             const calculation = await addition.complete(roll);
+            total = calculation.total + extraTotal;
+            modifiers = [...calculation.modifiers, ...bonusElements];
+            critical = calculation.critical === true;
             await resultAnimation.playFusion([...dice, ...calculation.modifiers, ...bonusElements], {
-                ...calculation, total: calculation.total + bonus,
+                ...calculation, total,
             });
-        } else if (bonus !== 0) {
-            const modifiers = addition.modifier === undefined ? []
-                : [{ type: "modifier", value: addition.modifier, label: addition.label }];
-            await resultAnimation.playFusion([...dice, ...modifiers, ...bonusElements], {
-                total: roll.total + (addition.modifier ?? 0) + bonus, critical: options.critical === true,
+        } else if (bonusElements.length) {
+            await resultAnimation.playFusion([...dice, ...modifiers], {
+                total, critical: critical === true,
                 probeKind: options.probeKind,
             });
         } else if (sides === 10 && count === 2) {
             await resultAnimation.playResultAnimation(
                 roll.rolls[0] % 10, roll.rolls[1] % 10, null,
-                { ...addition, critical: options.critical === true, probeKind: options.probeKind },
+                { ...addition, critical: critical === true, probeKind: options.probeKind },
             );
         } else if (sides === 100) {
             await resultAnimation.playFusion(dice, { total: roll.total });
         } else {
             await resultAnimation.playFusion(roll.rolls.map(value => fusionDie(value, sides)), { total: roll.total });
         }
+        const historyLabel = options.label || addition.label
+            || (addition.debug ? addition.debug.mode === "krit" ? "Krit" : "MIS" : `${count}W${sides}`);
+        rollHistory?.record({
+            label: addition.debug && !/^DEBUG\b/i.test(historyLabel) ? `DEBUG · ${historyLabel}` : historyLabel,
+            debug: Boolean(addition.debug),
+            sides, count, dice: dice.map(die => die.arithmeticValue), total,
+            modifiers: modifiers.map(modifier => ({ ...modifier, label: modifier.label || "Modifikator" })),
+            critical: critical && sides === 10 && count === 2
+                ? dice.every(die => die.rawValue === 0) ? "success"
+                    : dice.every(die => die.rawValue === 1) ? "failure" : null
+                : null,
+        });
         return roll;
     } finally {
+        dddice?.clear();
         for (const pending of pendingRolls.values()) {
             clearTimeout(pending.timeout);
             pending.resolve();
