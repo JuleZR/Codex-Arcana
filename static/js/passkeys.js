@@ -144,6 +144,9 @@
       return;
     }
     button.addEventListener("click", async function () {
+      form.querySelectorAll("input[readonly]").forEach(function (input) {
+        input.removeAttribute("readonly");
+      });
       if (!form.reportValidity()) return;
       button.disabled = true;
       showError(root, "");

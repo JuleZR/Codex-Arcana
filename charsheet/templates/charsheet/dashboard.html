@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
-    <script defer src="{% static 'js/passkeys.js' %}?v=20260929a"></script>
+    <script defer src="{% static 'js/passkeys.js' %}?v=20261007a"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=11">
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=9"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
@@ -228,7 +228,7 @@
         <button type="button" id="dashboardAccountClose" class="payday-window__close" aria-label="Fenster schließen" title="Fenster schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
       </div>
       <div class="payday-window__body dashboard_account_body">
-        <form method="post" action="{% url 'update_account_settings' %}" class="dashboard_account_form">
+        <form method="post" action="{% url 'update_account_settings' %}" class="dashboard_account_form" autocomplete="off" data-lpignore="true" data-1p-ignore>
           {% csrf_token %}
           <div class="dashboard_account_shell">
             <nav class="dashboard_account_nav" aria-label="Kontobereiche">
@@ -248,11 +248,11 @@
             <div class="dashboard_account_grid">
               <label class="form_row">
                 <span>Benutzername</span>
-                <input class="dashboard_input" type="text" name="username" value="{{ request.user.get_username }}" required maxlength="150" autocomplete="username">
+                <input class="dashboard_input" type="text" name="username" value="{{ request.user.get_username }}" required maxlength="150" autocomplete="off" data-lpignore="true" data-1p-ignore>
               </label>
               <label class="form_row">
                 <span>E-Mail</span>
-                <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="email" placeholder="Optional">
+                <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Optional">
               </label>
               <div class="form_row">
                 <span>Status</span>
@@ -350,7 +350,7 @@
                 </div>
                 <label class="form_row dashboard_two_factor_code_field">
                   <span>Aktueller Authentifizierungscode</span>
-                  <input class="dashboard_input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" form="twoFactorSetupForm" required id="twoFactorSetupCode">
+                  <input class="dashboard_input" type="text" name="code" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore maxlength="6" form="twoFactorSetupForm" required id="twoFactorSetupCode">
                 </label>
                 <div class="dashboard_two_factor_actions">
                   <button type="submit" class="dashboard_account_link_button dashboard_two_factor_primary_action" form="twoFactorSetupForm">2FA aktivieren</button>
@@ -372,16 +372,16 @@
               <div class="dashboard_account_grid dashboard_account_grid--security">
                 <label class="form_row dashboard_account_grid_full">
                   <span>Passwort für neue Wiederherstellungscodes</span>
-                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="twoFactorRecoveryCodesForm">
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="twoFactorRecoveryCodesForm">
                 </label>
                 <button type="submit" class="dashboard_account_link_button" form="twoFactorRecoveryCodesForm">Wiederherstellungscodes erneuern</button>
                 <label class="form_row">
                   <span>Passwort zum Deaktivieren</span>
-                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="twoFactorDisableForm">
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="twoFactorDisableForm">
                 </label>
                 <label class="form_row">
                   <span>Authenticator- oder Wiederherstellungscode</span>
-                  <input class="dashboard_input" type="text" name="code" autocomplete="one-time-code" form="twoFactorDisableForm">
+                  <input class="dashboard_input" type="text" name="code" autocomplete="off" data-lpignore="true" data-1p-ignore form="twoFactorDisableForm">
                 </label>
                 <button type="submit" class="dashboard_account_link_button" form="twoFactorDisableForm">2FA deaktivieren</button>
               </div>
@@ -405,7 +405,7 @@
                     </div>
                     <label class="form_row dashboard_passkey_password">
                       <span>Passwort zum Entfernen</span>
-                      <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="passkeyRemove{{ passkey.pk }}" required>
+                      <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="passkeyRemove{{ passkey.pk }}" required>
                     </label>
                     <button type="submit" class="dashboard_account_link_button" form="passkeyRemove{{ passkey.pk }}">Entfernen</button>
                   </article>
@@ -416,11 +416,11 @@
               <div class="dashboard_account_grid dashboard_account_grid--security">
                 <label class="form_row">
                   <span>Name des Passkeys</span>
-                  <input class="dashboard_input" type="text" name="name" maxlength="80" placeholder="z. B. Bitwarden oder iPhone" form="passkeyRegistrationForm" required>
+                  <input class="dashboard_input" type="text" name="name" maxlength="80" placeholder="z. B. Bitwarden oder iPhone" form="passkeyRegistrationForm" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');" required>
                 </label>
                 <label class="form_row">
                   <span>Aktuelles Passwort zur Bestätigung</span>
-                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="passkeyRegistrationForm" required>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="passkeyRegistrationForm" readonly onfocus="this.removeAttribute('readonly');" required>
                 </label>
                 <button type="button" class="dashboard_account_link_button" data-passkey-register-button>Passkey hinzufügen</button>
                 <p class="dashboard_passkey_error dashboard_account_grid_full" role="alert" data-passkey-error hidden></p>
@@ -429,15 +429,15 @@
             <div class="dashboard_account_grid dashboard_account_grid--security">
               <label class="form_row dashboard_account_grid_full">
                 <span>Aktuelles Passwort</span>
-                <input class="dashboard_input" type="password" name="current_password" autocomplete="current-password">
+                <input class="dashboard_input" type="password" name="current_password" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');">
               </label>
               <label class="form_row">
                 <span>Neues Passwort</span>
-                <input class="dashboard_input" type="password" name="new_password1" id="id_new_password1" autocomplete="new-password">
+                <input class="dashboard_input" type="password" name="new_password1" id="id_new_password1" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');">
               </label>
               <label class="form_row">
                 <span>Neues Passwort wiederholen</span>
-                <input class="dashboard_input" type="password" name="new_password2" id="id_new_password2" autocomplete="new-password">
+                <input class="dashboard_input" type="password" name="new_password2" id="id_new_password2" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');">
               </label>
               <div class="dashboard_password_strength dashboard_account_grid_full" id="accountPasswordStrength" data-strength="empty" aria-live="polite">
                 <div class="dashboard_password_strength_header">
@@ -521,7 +521,7 @@
                 </div>
                 <label class="form_row">
                   <span>Aktuelles Passwort</span>
-                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="deactivateAccountForm" required>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="deactivateAccountForm" required>
                 </label>
                 <button type="submit" class="dashboard_button dashboard_button--danger" form="deactivateAccountForm">Konto deaktivieren</button>
               </article>
@@ -547,7 +547,7 @@
                 <div class="dashboard_account_grid dashboard_account_grid--security">
                   <label class="form_row">
                     <span>Aktuelles Passwort</span>
-                    <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="deleteAccountForm" required>
+                    <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="deleteAccountForm" required>
                   </label>
                   <label class="form_row">
                     <span>Zur Bestätigung „KONTO LÖSCHEN“ eingeben</span>
@@ -665,32 +665,32 @@
         <form method="post" action="{% url 'logout_other_sessions' %}" id="logoutOtherSessionsForm">
           {% csrf_token %}
         </form>
-        <form method="post" action="{% url 'deactivate_account' %}" id="deactivateAccountForm" onsubmit="return confirm('Konto wirklich deaktivieren und alle Sitzungen beenden?');">
+        <form method="post" action="{% url 'deactivate_account' %}" id="deactivateAccountForm" autocomplete="off" data-lpignore="true" data-1p-ignore onsubmit="return confirm('Konto wirklich deaktivieren und alle Sitzungen beenden?');">
           {% csrf_token %}
         </form>
-        <form method="post" action="{% url 'delete_account' %}" id="deleteAccountForm" onsubmit="return confirm('Konto und persönliche Daten wirklich unwiderruflich löschen?');">
+        <form method="post" action="{% url 'delete_account' %}" id="deleteAccountForm" autocomplete="off" data-lpignore="true" data-1p-ignore onsubmit="return confirm('Konto und persönliche Daten wirklich unwiderruflich löschen?');">
           {% csrf_token %}
         </form>
-        <form method="post" action="{% url 'two_factor_recovery_codes' %}" id="twoFactorRecoveryCodesForm">
+        <form method="post" action="{% url 'two_factor_recovery_codes' %}" id="twoFactorRecoveryCodesForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
           {% csrf_token %}
         </form>
         <form method="post" action="{% url 'two_factor_setup_start' %}" id="twoFactorSetupStartForm">
           {% csrf_token %}
         </form>
-        <form method="post" action="{% url 'two_factor_setup' %}" id="twoFactorSetupForm">
+        <form method="post" action="{% url 'two_factor_setup' %}" id="twoFactorSetupForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
           {% csrf_token %}
         </form>
         <form method="post" action="{% url 'two_factor_setup_cancel' %}" id="twoFactorSetupCancelForm">
           {% csrf_token %}
         </form>
-        <form method="post" action="{% url 'two_factor_disable' %}" id="twoFactorDisableForm">
+        <form method="post" action="{% url 'two_factor_disable' %}" id="twoFactorDisableForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
           {% csrf_token %}
         </form>
-        <form method="post" id="passkeyRegistrationForm">
+        <form method="post" id="passkeyRegistrationForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
           {% csrf_token %}
         </form>
         {% for passkey in registered_passkeys %}
-          <form method="post" action="{% url 'passkey_remove' passkey.pk %}" id="passkeyRemove{{ passkey.pk }}">
+          <form method="post" action="{% url 'passkey_remove' passkey.pk %}" id="passkeyRemove{{ passkey.pk }}" autocomplete="off" data-lpignore="true" data-1p-ignore>
             {% csrf_token %}
           </form>
         {% endfor %}
