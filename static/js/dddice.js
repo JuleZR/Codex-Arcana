@@ -633,16 +633,18 @@ export async function rollDice(sides, count, options = {}) {
         const bonusElements = bonus === 0 ? [] : [{ type: "modifier", value: bonus, label: "Freier Bonus" }];
         const result = await renderBackendRoll(sides, count, addition.debug);
         const roll = result.backendRoll;
+        const dice = sides === 100
+            ? result.dicePayload.map(die => fusionDie(
+                die.type === "d10x" ? die.value * 10 : die.value,
+                die.type === "d10x" ? 100 : 10,
+            ))
+            : roll.rolls.map(value => fusionDie(value, sides));
         if (addition.complete) {
             const calculation = await addition.complete(roll);
-            const dice = roll.rolls.map(value => fusionDie(value, sides));
             await resultAnimation.playFusion([...dice, ...calculation.modifiers, ...bonusElements], {
                 ...calculation, total: calculation.total + bonus,
             });
         } else if (bonus !== 0) {
-            const dice = sides === 100 && count === 1
-                ? [{ type: "die", value: roll.total }]
-                : roll.rolls.map(value => fusionDie(value, sides));
             const modifiers = addition.modifier === undefined ? []
                 : [{ type: "modifier", value: addition.modifier, label: addition.label }];
             await resultAnimation.playFusion([...dice, ...modifiers, ...bonusElements], {
@@ -655,7 +657,7 @@ export async function rollDice(sides, count, options = {}) {
                 { ...addition, critical: options.critical === true, probeKind: options.probeKind },
             );
         } else if (sides === 100) {
-            await resultAnimation.playTotal(roll.total);
+            await resultAnimation.playFusion(dice, { total: roll.total });
         } else {
             await resultAnimation.playFusion(roll.rolls.map(value => fusionDie(value, sides)), { total: roll.total });
         }
