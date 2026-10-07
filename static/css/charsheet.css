@@ -8,10 +8,9 @@
 @import url("./charsheet/commerce.css?v=20261006-divine-description-readable");
 @import url("./charsheet/_card.css?v=20260630n");
 @import url("./charsheet/card-hand.css?v=20261001-mobile-tray2");
-@import url("./charsheet/responsive.css?v=20261004-4k-breakpoint");
+@import url("./charsheet/responsive.css?v=20261007-ring");
 @import url("./charsheet/parchment.css?v=20260801b");
-@import url("./charsheet/quick-access.css?v=20261001-mobile-tools1");
-@import url("./charsheet/context-radial-menu.css");
+@import url("./charsheet/quick-access.css?v=20261007-ring");
 @import url("./charsheet/battle-calculator.css");
 @import url("./charsheet/window-system.css");
 @import url("./charsheet/print.css?v=20260731p");

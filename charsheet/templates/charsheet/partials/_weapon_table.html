@@ -18,7 +18,7 @@
       <tbody>
         {% for row in weapon_rows %}
           <tr data-crack-level="{{ row.structure_state.crack_level }}" class="{% if row.quality_color %}quality_tinted_row {% endif %}{% if row.structure_state.structure_status == 'destroyed' %}equipped_item--destroyed{% elif row.structure_state.crack_level %}equipped_item--damaged{% endif %}"{% if row.show_weapon_name %} data-equipped-row data-character-item-id="{{ row.character_item.pk }}" data-equipped="1" data-equip-drop-zone="weapon"{% endif %}{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}>
-            <td>
+            <td{% if not read_only %} draggable="true" data-quickslot-source="weapon" data-quickslot-id="{{ row.character_item.pk }}" data-quickslot-profile="{{ row.weapon_stats_id|default_if_none:'' }}" data-quickslot-mode="{{ row.mode }}" data-quickslot-attribute="{{ row.maneuver_attribute_label }}"{% endif %}>
               {% if row.show_weapon_name %}
                 <div class="weapon_name_cell weapon_name_cell--primary">
                   {% if row.can_unequip %}

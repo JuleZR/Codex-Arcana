@@ -25,7 +25,11 @@ from charsheet.constants import (
     WEAPON_MANEUVER_DAMAGE,
 )
 
-from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
+from charsheet.modifiers.definitions import (
+    ModifierOperator,
+    StackBehavior,
+    TargetDomain,
+)
 from charsheet.modifiers.targets import TargetResolver
 from charsheet.models import CharacterItem
 
@@ -35,8 +39,12 @@ from .item_engine import ItemEngine
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
 
 
-def _weapon_profiles_for_character_size(engine, item_engine: ItemEngine, *, dice_amount_bonus: int = 0) -> list[dict]:
-    """Return only the one- and two-handed profiles permitted by relative GK."""
+def _weapon_profiles_for_character_size(
+    engine, item_engine: ItemEngine, *, dice_amount_bonus: int = 0
+) -> list[dict]:
+    """Return only the one- and two-handed profiles permitted by relative GK.
+
+    """
     size_classes = [value for value, _label in GK_CHOICES]
     character_size = engine.size_class()
     weapon_size = item_engine.get_size_class()
@@ -132,7 +140,9 @@ def equipped_weapon_items(engine) -> list[CharacterItem]:
             .select_related("item__item_type", "item")
             .select_related("item__rangedweaponstats")
             .select_related("item__rangedweaponstats__weapon_type")
-            .select_related("item__shieldstats", "item__shieldstats__damage_source")
+            .select_related(
+                "item__shieldstats", "item__shieldstats__damage_source"
+            )
             .select_related("item__shieldstats__weapon_type")
             .prefetch_related(
                 "item__runes",
@@ -147,7 +157,7 @@ def equipped_weapon_items(engine) -> list[CharacterItem]:
                 "item__rangedweaponstats__flags",
                 "item__shieldstats__skills",
             )
-        )
+        ),
     )
 
 
@@ -240,33 +250,56 @@ def equipped_shield_items(engine) -> list[CharacterItem]:
 def weapon_quality_skill_modifier(engine) -> int:
     """Return the maneuver quality modifier of the first equipped weapon."""
     weapon = next(iter(engine.equipped_weapon_items()), None)
-    quality_bonus = ItemEngine(weapon).get_weapon_maneuver_quality_bonus() if weapon else 0
+    quality_bonus = (
+        ItemEngine(weapon).get_weapon_maneuver_quality_bonus() if weapon else 0
+    )
     return quality_bonus + engine.resolve_combat_value("melee_maneuvers")
 
 
-def _character_item_specific_maneuver_modifier(engine, character_item: CharacterItem) -> int:
-    """Return item-bound maneuver modifiers that should only affect this equipped weapon."""
-    return _character_item_specific_semantic_modifier(engine, character_item, MELEE_MANEUVERS)
-
-
-def _character_item_specific_damage_modifier(engine, character_item: CharacterItem) -> int:
-    """Return item-bound damage modifiers that should only affect this equipped weapon."""
-    return (
-        _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE)
-        + _character_item_specific_rune_modifier(engine, character_item, WEAPON_DAMAGE)
+def _character_item_specific_maneuver_modifier(
+    engine, character_item: CharacterItem
+) -> int:
+    """
+    Return item-bound maneuver modifiers that should only affect this equipped
+    weapon.
+    """
+    return _character_item_specific_semantic_modifier(
+        engine, character_item, MELEE_MANEUVERS
     )
 
 
-def _character_item_specific_damage_dice_modifier(engine, character_item: CharacterItem) -> int:
-    """Return item-bound modifiers that increase this weapon's damage dice count."""
-    return (
-        _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE_DICE)
-        + _character_item_specific_rune_modifier(engine, character_item, WEAPON_DAMAGE_DICE)
+def _character_item_specific_damage_modifier(
+    engine, character_item: CharacterItem
+) -> int:
+    """Return item-bound damage modifiers that should only affect this equipped
+    weapon.
+    """
+    return _character_item_specific_semantic_modifier(
+        engine, character_item, WEAPON_DAMAGE
+    ) + _character_item_specific_rune_modifier(
+        engine, character_item, WEAPON_DAMAGE
     )
 
 
-def _character_item_target_context(engine, character_item: CharacterItem) -> dict[str, tuple[str, ...]]:
-    """Return target context for effects bound to this concrete equipped item."""
+def _character_item_specific_damage_dice_modifier(
+    engine, character_item: CharacterItem
+) -> int:
+    """
+    Return item-bound modifiers that increase this weapon's damage dice count.
+    """
+    return _character_item_specific_semantic_modifier(
+        engine, character_item, WEAPON_DAMAGE_DICE
+    ) + _character_item_specific_rune_modifier(
+        engine, character_item, WEAPON_DAMAGE_DICE
+    )
+
+
+def _character_item_target_context(
+    engine, character_item: CharacterItem
+) -> dict[str, tuple[str, ...]]:
+    """Return target context for effects bound to this concrete equipped item.
+
+    """
     cache_key = ("target_context", int(character_item.id))
 
     def build_context() -> dict[str, tuple[str, ...]]:
@@ -286,7 +319,9 @@ def _character_item_target_context(engine, character_item: CharacterItem) -> dic
             weapon_type = getattr(stats, "weapon_type", None)
             if weapon_type and getattr(weapon_type, "slug", ""):
                 weapon_type_slugs.add(str(weapon_type.slug))
-                weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
+                weapon_type_names.add(
+                    str(getattr(weapon_type, "name", "") or weapon_type.slug)
+                )
 
             skill_manager = getattr(stats, "skills", None)
             if skill_manager is not None:
@@ -307,7 +342,9 @@ def _character_item_target_context(engine, character_item: CharacterItem) -> dic
             weapon_type = getattr(stats, "weapon_type", None)
             if weapon_type and getattr(weapon_type, "slug", ""):
                 weapon_type_slugs.add(str(weapon_type.slug))
-                weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
+                weapon_type_names.add(
+                    str(getattr(weapon_type, "name", "") or weapon_type.slug)
+                )
 
             skill_manager = getattr(stats, "skills", None)
             if skill_manager is not None:
@@ -327,8 +364,12 @@ def _character_item_target_context(engine, character_item: CharacterItem) -> dic
     return _cached_equipment_value(engine, cache_key, build_context)
 
 
-def _character_item_specific_semantic_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
-    """Return concrete CharacterItem semantic effects for one item-bound combat target."""
+def _character_item_specific_semantic_modifier(
+    engine, character_item: CharacterItem, target_key: str
+) -> int:
+    """Return concrete CharacterItem semantic effects for one item-bound combat
+    target.
+    """
     cache_key = ("semantic_modifier", int(character_item.id), str(target_key))
 
     def resolve_modifier() -> int:
@@ -343,14 +384,22 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
             elif source_type == "item":
                 if source_id != str(character_item.item_id):
                     continue
-                modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
-                if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                modifier_character_item_id = (modifier.metadata or {}).get(
+                    "character_item_id"
+                )
+                if modifier_character_item_id is not None and str(
+                    modifier_character_item_id
+                ) != str(character_item.id):
                     continue
             else:
                 continue
-            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+            if not engine.modifier_engine._modifier_matches_race_condition(
+                modifier
+            ):
                 continue
-            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
+            if not engine.modifier_engine._modifier_matches_school_condition(
+                modifier
+            ):
                 continue
             if modifier.target_domain != TargetDomain.COMBAT:
                 continue
@@ -383,9 +432,17 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
     return _cached_equipment_value(engine, cache_key, resolve_modifier)
 
 
-def _character_item_specific_armor_semantic_modifiers(engine, character_item: CharacterItem, target_key: str) -> list:
-    """Return item-bound semantic effects that affect this equipped armor or shield item."""
-    cache_key = ("armor_semantic_modifiers", int(character_item.id), str(target_key))
+def _character_item_specific_armor_semantic_modifiers(
+    engine, character_item: CharacterItem, target_key: str
+) -> list:
+    """Return item-bound semantic effects that affect this equipped armor or
+    shield item.
+    """
+    cache_key = (
+        "armor_semantic_modifiers",
+        int(character_item.id),
+        str(target_key),
+    )
 
     def collect_modifiers() -> list:
         modifiers = []
@@ -398,14 +455,22 @@ def _character_item_specific_armor_semantic_modifiers(engine, character_item: Ch
             elif source_type == "item":
                 if source_id != str(character_item.item_id):
                     continue
-                modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
-                if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                modifier_character_item_id = (modifier.metadata or {}).get(
+                    "character_item_id"
+                )
+                if modifier_character_item_id is not None and str(
+                    modifier_character_item_id
+                ) != str(character_item.id):
                     continue
             else:
                 continue
-            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+            if not engine.modifier_engine._modifier_matches_race_condition(
+                modifier
+            ):
                 continue
-            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
+            if not engine.modifier_engine._modifier_matches_school_condition(
+                modifier
+            ):
                 continue
             if modifier.target_domain != TargetDomain.DERIVED_STAT:
                 continue
@@ -417,21 +482,33 @@ def _character_item_specific_armor_semantic_modifiers(engine, character_item: Ch
     return _cached_equipment_value(engine, cache_key, collect_modifiers)
 
 
-def _character_item_specific_rune_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
-    """Return rune modifiers that affect only the item they are socketed into."""
+def _character_item_specific_rune_modifier(
+    engine, character_item: CharacterItem, target_key: str
+) -> int:
+    """Return rune modifiers that affect only the item they are socketed into.
+
+    """
     cache_key = ("rune_modifier", int(character_item.id), str(target_key))
     return _cached_equipment_value(
         engine,
         cache_key,
         lambda: sum(
-            int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-            for modifier in _character_item_specific_rune_modifiers(engine, character_item, target_key)
+            int(
+                engine.modifier_engine._resolve_numeric_modifier(modifier) or 0
+            )
+            for modifier in _character_item_specific_rune_modifiers(
+                engine, character_item, target_key
+            )
         ),
     )
 
 
-def _character_item_specific_rune_modifiers(engine, character_item: CharacterItem, target_key: str) -> list:
-    """Return rune modifier rows that affect only the item they are socketed into."""
+def _character_item_specific_rune_modifiers(
+    engine, character_item: CharacterItem, target_key: str
+) -> list:
+    """
+    Return rune modifier rows that affect only the item they are socketed into.
+    """
     cache_key = ("rune_modifiers", int(character_item.id), str(target_key))
 
     def collect_modifiers() -> list:
@@ -448,9 +525,13 @@ def _character_item_specific_rune_modifiers(engine, character_item: CharacterIte
         for modifier in engine.modifier_engine._active_item_rune_modifiers:
             if modifier.source_type != SOURCE_ITEM_RUNE:
                 continue
-            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+            if not engine.modifier_engine._modifier_matches_race_condition(
+                modifier
+            ):
                 continue
-            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
+            if not engine.modifier_engine._modifier_matches_school_condition(
+                modifier
+            ):
                 continue
             modifier_target_key = str(modifier.target_key or "")
             if modifier_target_key != target_key and not (
@@ -472,18 +553,30 @@ def _character_item_specific_rune_modifiers(engine, character_item: CharacterIte
     return _cached_equipment_value(engine, cache_key, collect_modifiers)
 
 
-def _resolve_item_bound_numeric_modifiers(engine, base_value: int, modifiers: list) -> int:
+def _resolve_item_bound_numeric_modifiers(
+    engine, base_value: int, modifiers: list
+) -> int:
     """Apply local item/rune numeric operators to an item base value."""
     resolved_total = int(base_value or 0)
     seen_unique_sources: set[tuple[str, str, str, str]] = set()
-    for modifier in sorted(modifiers, key=lambda entry: (entry.priority, entry.source_type, entry.source_id)):
+    for modifier in sorted(
+        modifiers,
+        key=lambda entry: (entry.priority, entry.source_type, entry.source_id),
+    ):
         if modifier.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
-            dedupe_key = (modifier.source_type, modifier.source_id, modifier.target_domain, modifier.target_key)
+            dedupe_key = (
+                modifier.source_type,
+                modifier.source_id,
+                modifier.target_domain,
+                modifier.target_key,
+            )
             if dedupe_key in seen_unique_sources:
                 continue
             seen_unique_sources.add(dedupe_key)
 
-        resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
+        resolved_value = engine.modifier_engine._resolve_numeric_modifier(
+            modifier
+        )
         if resolved_value is None:
             continue
 
@@ -508,7 +601,9 @@ def _global_weapon_context_combat_modifier(
     target_key: str,
     context: dict[str, tuple[str, ...]],
 ) -> int:
-    """Return non-item-bound unconditional combat modifiers for one concrete weapon context."""
+    """Return non-item-bound unconditional combat modifiers for one concrete
+    weapon context.
+    """
     total = 0
     modifier_engine = engine.modifier_engine
 
@@ -554,55 +649,80 @@ def _effective_armor_encumbrance(engine, character_item: CharacterItem) -> int:
             engine,
             int(ItemEngine(character_item).get_armor_encumbrance() or 0),
             [
-                *_character_item_specific_armor_semantic_modifiers(engine, character_item, ARMOR_ENCUMBRANCE),
-                *_character_item_specific_rune_modifiers(engine, character_item, ARMOR_ENCUMBRANCE),
+                *_character_item_specific_armor_semantic_modifiers(
+                    engine, character_item, ARMOR_ENCUMBRANCE
+                ),
+                *_character_item_specific_rune_modifiers(
+                    engine, character_item, ARMOR_ENCUMBRANCE
+                ),
             ],
         ),
     )
 
 
 def _effective_armor_rs(engine, character_item: CharacterItem) -> int:
-    """Return local armor RS including quality and item-bound semantic effects."""
+    """Return local armor RS including quality and item-bound semantic effects.
+
+    """
     return max(
         0,
         _resolve_item_bound_numeric_modifiers(
             engine,
             int(ItemEngine(character_item).get_armor_rs_raw() or 0),
             [
-                *_character_item_specific_armor_semantic_modifiers(engine, character_item, DEFENSE_RS),
-                *_character_item_specific_rune_modifiers(engine, character_item, DEFENSE_RS),
+                *_character_item_specific_armor_semantic_modifiers(
+                    engine, character_item, DEFENSE_RS
+                ),
+                *_character_item_specific_rune_modifiers(
+                    engine, character_item, DEFENSE_RS
+                ),
             ],
         ),
     )
 
 
 def _effective_armor_rs_delta(engine, character_item: CharacterItem) -> int:
-    """Return the local RS change compared to this armor's physical base value."""
+    """Return the local RS change compared to this armor's physical base value.
+
+    """
     raw_rs = int(ItemEngine(character_item).get_armor_rs_raw() or 0)
     return _effective_armor_rs(engine, character_item) - raw_rs
 
 
-def _effective_shield_encumbrance(engine, character_item: CharacterItem) -> int:
+def _effective_shield_encumbrance(
+    engine, character_item: CharacterItem
+) -> int:
     return max(
         0,
         _resolve_item_bound_numeric_modifiers(
             engine,
             int(ItemEngine(character_item).get_shield_encumbrance() or 0),
             [
-                *_character_item_specific_armor_semantic_modifiers(engine, character_item, SHIELD_ENCUMBRANCE),
-                *_character_item_specific_rune_modifiers(engine, character_item, SHIELD_ENCUMBRANCE),
+                *_character_item_specific_armor_semantic_modifiers(
+                    engine, character_item, SHIELD_ENCUMBRANCE
+                ),
+                *_character_item_specific_rune_modifiers(
+                    engine, character_item, SHIELD_ENCUMBRANCE
+                ),
             ],
         ),
     )
 
 
 def equipped_weapon_rows(engine) -> list[dict]:
-    """Return character-sheet-ready weapon rows with one prepared row per display profile."""
-    return _cached_equipment_value(engine, "weapon_rows", lambda: _build_equipped_weapon_rows(engine))
+    """
+    Return character-sheet-ready weapon rows with one prepared row per display
+    profile.
+    """
+    return _cached_equipment_value(
+        engine, "weapon_rows", lambda: _build_equipped_weapon_rows(engine)
+    )
 
 
 def unwieldable_equipped_weapon_ids(engine) -> set[int]:
-    """Return equipped weapon item ids with no profile allowed by effective GK."""
+    """Return equipped weapon item ids with no profile allowed by effective GK.
+
+    """
     equipped_ids = {int(item.pk) for item in engine.equipped_weapon_items()}
     wieldable_ids = {
         int(row["character_item"].pk)
@@ -612,10 +732,15 @@ def unwieldable_equipped_weapon_ids(engine) -> set[int]:
 
 
 def _build_equipped_weapon_rows(engine) -> list[dict]:
+    return weapon_rows_for_items(engine, engine.equipped_weapon_items())
+
+
+def weapon_rows_for_items(engine, character_items) -> list[dict]:
+    """Resolve existing weapon profiles for concrete owned items."""
     rows: list[dict] = []
     bel_malus = engine.load_penalty()
     strength = int(engine.attributes().get(ATTR_ST, 0) or 0)
-    for character_item in engine.equipped_weapon_items():
+    for character_item in character_items:
         base_item_engine = ItemEngine(character_item)
         weapon_stats_profiles = base_item_engine.get_weapon_stats_profiles()
 
@@ -636,11 +761,27 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
                 MELEE_MANEUVERS,
                 weapon_context
             )
-            mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
-            item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
-            item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)
-            item_specific_damage_dice_modifier = _character_item_specific_damage_dice_modifier(engine, character_item)
-            maneuver_attribute_codes = item_engine.get_weapon_maneuver_attribute_codes()
+            mastery_maneuver_bonus, mastery_damage_bonus = (
+                engine.weapon_mastery_bonus_for_item(character_item)
+            )
+            item_specific_maneuver_modifier = (
+                _character_item_specific_maneuver_modifier(
+                    engine, character_item
+                )
+            )
+            item_specific_damage_modifier = (
+                _character_item_specific_damage_modifier(
+                    engine, character_item
+                )
+            )
+            item_specific_damage_dice_modifier = (
+                _character_item_specific_damage_dice_modifier(
+                    engine, character_item
+                )
+            )
+            maneuver_attribute_codes = (
+                item_engine.get_weapon_maneuver_attribute_codes()
+            )
             common_maneuver_bonus = (
                 item_engine.get_weapon_maneuver_quality_bonus()
                 + maneuver_modifier
@@ -650,16 +791,30 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
             maneuver_options = []
             for attribute_code in maneuver_attribute_codes:
                 attribute_modifier = engine.attribute_modifier(attribute_code)
-                total_maneuver_modifier = attribute_modifier + common_maneuver_bonus
+                total_maneuver_modifier = (
+                    attribute_modifier + common_maneuver_bonus
+                )
                 maneuver_options.append(
                     {
                         "attribute_code": attribute_code,
                         "attribute_modifier": attribute_modifier,
-                        "attribute_modifier_display": f"{attribute_modifier:+d}" if attribute_modifier else "0",
+                        "attribute_modifier_display": (
+                            f"{attribute_modifier:+d}"
+                            if attribute_modifier
+                            else "0"
+                        ),
                         "total_modifier": total_maneuver_modifier,
-                        "total_modifier_display": f"{total_maneuver_modifier:+d}" if total_maneuver_modifier else "0",
+                        "total_modifier_display": (
+                            f"{total_maneuver_modifier:+d}"
+                            if total_maneuver_modifier
+                            else "0"
+                        ),
                         "with_bel": total_maneuver_modifier + bel_malus,
-                        "with_bel_display": f"{(total_maneuver_modifier + bel_malus):+d}" if (total_maneuver_modifier + bel_malus) else "0",
+                        "with_bel_display": (
+                            f"{(total_maneuver_modifier + bel_malus):+d}"
+                            if (total_maneuver_modifier + bel_malus)
+                            else "0"
+                        ),
                     }
                 )
             if not maneuver_options:
@@ -670,15 +825,27 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
                         "attribute_modifier": 0,
                         "attribute_modifier_display": "0",
                         "total_modifier": total_maneuver_modifier,
-                        "total_modifier_display": f"{total_maneuver_modifier:+d}" if total_maneuver_modifier else "0",
+                        "total_modifier_display": (
+                            f"{total_maneuver_modifier:+d}"
+                            if total_maneuver_modifier
+                            else "0"
+                        ),
                         "with_bel": total_maneuver_modifier + bel_malus,
-                        "with_bel_display": f"{(total_maneuver_modifier + bel_malus):+d}" if (total_maneuver_modifier + bel_malus) else "0",
+                        "with_bel_display": (
+                            f"{(total_maneuver_modifier + bel_malus):+d}"
+                            if (total_maneuver_modifier + bel_malus)
+                            else "0"
+                        ),
                     }
                 )
             primary_maneuver_option = maneuver_options[0]
             damage_source_slug = item_engine.get_weapon_damage_source_slug()
-            damage_stat_slug = damage_source_slug or item_engine.get_weapon_damage_type()
-            maneuver_attribute_mode = item_engine.get_weapon_maneuver_attribute_mode()
+            damage_stat_slug = (
+                damage_source_slug or item_engine.get_weapon_damage_type()
+            )
+            maneuver_attribute_mode = (
+                item_engine.get_weapon_maneuver_attribute_mode()
+            )
 
             if maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
                 damage_attribute_code = ATTR_GE
@@ -704,64 +871,102 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
                 else 0
             )
             damage_stat_modifier = (
-                engine.modifier_engine.resolve_numeric_total(TargetDomain.COMBAT, damage_stat_slug, context=weapon_context)
-                if damage_stat_slug and str(damage_stat_slug).startswith("dmg_")
-                else engine._resolve_stat_modifiers(damage_stat_slug)
+                engine.modifier_engine.resolve_numeric_total(
+                    TargetDomain.COMBAT,
+                    damage_stat_slug,
+                    context=weapon_context,
+                )
                 if damage_stat_slug
-                else 0
+                and str(damage_stat_slug).startswith("dmg_")
+                else (
+                    engine._resolve_stat_modifiers(damage_stat_slug)
+                    if damage_stat_slug
+                    else 0
+                )
             )
-            weapon_damage_modifier = _global_weapon_context_combat_modifier(engine, WEAPON_DAMAGE, weapon_context)
+            weapon_damage_modifier = _global_weapon_context_combat_modifier(
+                engine, WEAPON_DAMAGE, weapon_context
+            )
             dmg_mod = damage_stat_modifier + damage_attribute_modifier
-            total_damage_modifier = dmg_mod + mastery_damage_bonus + weapon_damage_modifier + item_specific_damage_modifier
+            total_damage_modifier = (
+                dmg_mod
+                + mastery_damage_bonus
+                + weapon_damage_modifier
+                + item_specific_damage_modifier
+            )
             profiles = _weapon_profiles_for_character_size(
                 engine,
                 item_engine,
                 dice_amount_bonus=item_specific_damage_dice_modifier,
             )
             for profile_index, profile in enumerate(profiles):
-                min_attribute_label = item_engine.get_weapon_min_attribute_label(profile["mode"])
+                min_attribute_label = (
+                    item_engine.get_weapon_min_attribute_label(profile["mode"])
+                )
                 rows.append(
                     {
                         "character_item": character_item,
                         "item": character_item.item,
                         "weapon_stats": weapon_stats,
-                        "weapon_stats_id": weapon_stats.id if weapon_stats is not None else None,
+                        "weapon_stats_id": (
+                            weapon_stats.id
+                            if weapon_stats is not None
+                            else None
+                        ),
                         "weapon_profile_name": (
                             weapon_stats.profile_name
                             if weapon_stats is not None
                             else ""
                         ),
                         "item_name": (
-                            f"{item_engine.get_name()} – {weapon_stats.profile_name}"
-                            if weapon_stats is not None and weapon_stats.profile_name
+                            f"{item_engine.get_name()} – "
+                            f"{weapon_stats.profile_name}"
+                            if weapon_stats is not None
+                            and weapon_stats.profile_name
                             else item_engine.get_name()
                         ),
                         "quality": item_engine.get_effective_quality(),
                         "quality_color": item_engine.get_quality_color(),
                         "dmg_mod": total_damage_modifier,
-                        "dmg_mod_display": f"{total_damage_modifier:+d}" if total_damage_modifier else "0",
+                        "dmg_mod_display": (
+                            f"{total_damage_modifier:+d}"
+                            if total_damage_modifier
+                            else "0"
+                        ),
                         "maneuver_options": maneuver_options,
                         "maneuver_mod_display": " / ".join(
-                            f"{option['attribute_code']} {option['total_modifier_display']}"
+                            f"{option['attribute_code']} "
+                            f"{option['total_modifier_display']}"
                             for option in maneuver_options
                         ),
                         "base_dmg_mod": dmg_mod,
-                        "base_dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
+                        "base_dmg_mod_display": (
+                            f"{dmg_mod:+d}" if dmg_mod else "0"
+                        ),
                         "damage_attribute_modifier": damage_attribute_modifier,
                         "damage_stat_modifier": damage_stat_modifier,
                         "weapon_damage_modifier": weapon_damage_modifier,
                         "damage_attribute_code": damage_attribute_code,
                         "bel_malus": bel_malus,
-                        "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
+                        "bel_malus_display": (
+                            f"{bel_malus:+d}" if bel_malus else "0"
+                        ),
                         "with_bel": total_damage_modifier + bel_malus,
-                        "with_bel_display": f"{(total_damage_modifier + bel_malus):+d}" if (total_damage_modifier + bel_malus) else "0",
+                        "with_bel_display": (
+                            f"{(total_damage_modifier + bel_malus):+d}"
+                            if (total_damage_modifier + bel_malus)
+                            else "0"
+                        ),
                         "maneuver_with_bel_display": " / ".join(
-                            f"{option['attribute_code']} {option['with_bel_display']}"
+                            f"{option['attribute_code']} "
+                            f"{option['with_bel_display']}"
                             for option in maneuver_options
                         ),
                         "wield_mode": item_engine.get_weapon_wield_mode(),
                         "size_class": item_engine.get_size_class(),
-                        "min_st": item_engine.get_weapon_min_st(profile["mode"]),
+                        "min_st": item_engine.get_weapon_min_st(
+                            profile["mode"]
+                        ),
                         "min_attribute_label": min_attribute_label,
                         "min_attribute_compact": "Ge" in min_attribute_label,
                         "reload_time": item_engine.get_weapon_reload_time(),
@@ -770,26 +975,48 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
                             modifier_engine=engine.modifier_engine,
                             context=weapon_context,
                         ),
-                        "maneuver_attribute_mode": item_engine.get_weapon_maneuver_attribute_mode(),
-                        "maneuver_attribute_label": item_engine.get_weapon_maneuver_attribute_label(),
-                        "maneuver_attribute_modifier": primary_maneuver_option["attribute_modifier"],
+                        "maneuver_attribute_mode": (
+                            item_engine.get_weapon_maneuver_attribute_mode()
+                        ),
+                        "maneuver_attribute_label": (
+                            item_engine.get_weapon_maneuver_attribute_label()
+                        ),
+                        "maneuver_attribute_modifier": primary_maneuver_option[
+                            "attribute_modifier"
+                        ],
                         "mode": profile["mode"],
                         "damage": profile["damage"],
                         "damage_data": profile["damage_data"],
                         "mode_label": profile["mode_label"],
                         "is_primary_profile": profile_index == 0,
-                        "quality_damage_bonus": item_engine.get_weapon_damage_quality_bonus(),
-                        "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
+                        "quality_damage_bonus": (
+                            item_engine.get_weapon_damage_quality_bonus()
+                        ),
+                        "quality_maneuver_bonus": (
+                            item_engine.get_weapon_maneuver_quality_bonus()
+                        ),
                         "weapon_mastery_damage_bonus": mastery_damage_bonus,
-                        "weapon_mastery_maneuver_bonus": mastery_maneuver_bonus,
+                        "weapon_mastery_maneuver_bonus": (
+                            mastery_maneuver_bonus
+                        ),
                         # Combat-skill rows already contain GK exactly once.
                         "size_modifier": 0,
-                        "weapon_mastery_quality_bonus": engine.weapon_mastery_quality_bonus_for_item(character_item.item),
+                        "weapon_mastery_quality_bonus": (
+                            engine.weapon_mastery_quality_bonus_for_item(
+                                character_item.item
+                            )
+                        ),
                         "trait_maneuver_modifier": maneuver_modifier,
-                        "item_maneuver_modifier": item_specific_maneuver_modifier,
+                        "item_maneuver_modifier": (
+                            item_specific_maneuver_modifier
+                        ),
                         "item_damage_modifier": item_specific_damage_modifier,
-                        "item_damage_dice_modifier": item_specific_damage_dice_modifier,
-                        "total_maneuver_modifier": primary_maneuver_option["total_modifier"],
+                        "item_damage_dice_modifier": (
+                            item_specific_damage_dice_modifier
+                        ),
+                        "total_maneuver_modifier": primary_maneuver_option[
+                            "total_modifier"
+                        ],
                     }
                 )
     return rows
@@ -797,7 +1024,9 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
 
 def equipped_armor_rows(engine) -> list[dict]:
     """Return equipped armor rows resolved through ItemEngine."""
-    return _cached_equipment_value(engine, "armor_rows", lambda: _build_equipped_armor_rows(engine))
+    return _cached_equipment_value(
+        engine, "armor_rows", lambda: _build_equipped_armor_rows(engine)
+    )
 
 
 def _build_equipped_armor_rows(engine) -> list[dict]:
@@ -815,7 +1044,9 @@ def _build_equipped_armor_rows(engine) -> list[dict]:
                 "quality_color": item_engine.get_quality_color(),
                 "rs": _effective_armor_rs(engine, character_item),
                 "bel_raw": item_engine.get_armor_bel_raw() or 0,
-                "bel_effective": _effective_armor_encumbrance(engine, character_item),
+                "bel_effective": _effective_armor_encumbrance(
+                    engine, character_item
+                ),
                 "min_st": item_engine.get_armor_min_st(),
             }
         )
@@ -824,7 +1055,9 @@ def _build_equipped_armor_rows(engine) -> list[dict]:
 
 def equipped_shield_rows(engine) -> list[dict]:
     """Return equipped shield rows resolved through ItemEngine."""
-    return _cached_equipment_value(engine, "shield_rows", lambda: _build_equipped_shield_rows(engine))
+    return _cached_equipment_value(
+        engine, "shield_rows", lambda: _build_equipped_shield_rows(engine)
+    )
 
 
 def _build_equipped_shield_rows(engine) -> list[dict]:
@@ -840,17 +1073,32 @@ def _build_equipped_shield_rows(engine) -> list[dict]:
                 "quality_color": item_engine.get_quality_color(),
                 "rs": item_engine.get_effective_shield_rs() or 0,
                 "bel_raw": item_engine.get_shield_bel_raw() or 0,
-                "bel_effective": _effective_shield_encumbrance(engine, character_item),
+                "bel_effective": _effective_shield_encumbrance(
+                    engine, character_item
+                ),
                 "min_st": item_engine.get_shield_min_st(),
-                "parade_bonus": int(getattr(getattr(character_item.item, "shieldstats", None), "parade_bonus", 0) or 0),
+                "parade_bonus": int(
+                    getattr(
+                        getattr(character_item.item, "shieldstats", None),
+                        "parade_bonus",
+                        0,
+                    )
+                    or 0
+                ),
             }
         )
     return rows
 
 
 def armor_zone_protection(engine) -> dict[str, int]:
-    """Return zone protection including armor, shields, quality, and item-rune bonuses."""
-    return _cached_equipment_value(engine, "armor_zone_protection", lambda: _armor_zone_protection(engine, for_grs=False))
+    """Return zone protection including armor, shields, quality, and item-rune
+    bonuses.
+    """
+    return _cached_equipment_value(
+        engine,
+        "armor_zone_protection",
+        lambda: _armor_zone_protection(engine, for_grs=False),
+    )
 
 
 def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
@@ -875,7 +1123,11 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
     component_groups: dict[int, dict[str, object]] = {}
     for character_item in engine.equipped_armor_items():
         item_engine = ItemEngine(character_item)
-        zone_values = item_engine.get_armor_grs_zone_rs() if for_grs else item_engine.get_armor_zone_rs()
+        zone_values = (
+            item_engine.get_armor_grs_zone_rs()
+            if for_grs
+            else item_engine.get_armor_zone_rs()
+        )
         if not zone_values:
             continue
         rs_delta = _effective_armor_rs_delta(engine, character_item)
@@ -901,19 +1153,33 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
             group_zones = group["zones"]
             for zone in armor_stats.MAIN_ZONE_FIELDS:
                 if zone in adjusted_zone_values:
-                    group_zones[zone] = int(group_zones.get(zone, 0)) + adjusted_zone_values[zone]
+                    group_zones[zone] = (
+                        int(group_zones.get(zone, 0))
+                        + adjusted_zone_values[zone]
+                    )
     if for_grs:
         for group in component_groups.values():
             group_zones = group["zones"]
             if len(group_zones) <= 1:
                 continue
             target_sum = int(group["target_rs"]) * 6
-            current_sum = sum(int(value or 0) for value in group_zones.values())
+            current_sum = sum(
+                int(value or 0) for value in group_zones.values()
+            )
             if current_sum >= target_sum:
                 continue
             target_zone = next(
                 zone
-                for zone in reversed(("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right"))
+                for zone in reversed(
+                    (
+                        "head",
+                        "torso",
+                        "arm_left",
+                        "arm_right",
+                        "leg_left",
+                        "leg_right",
+                    )
+                )
                 if zone in group_zones
             )
             totals[target_zone] += target_sum - current_sum
@@ -937,8 +1203,12 @@ def shield_protection(engine) -> int:
 
 
 def equipped_clothing_rows(engine) -> list[dict]:
-    """Return equipped clothing rows for the armor panel without combat stats."""
-    return _cached_equipment_value(engine, "clothing_rows", lambda: _build_equipped_clothing_rows(engine))
+    """Return equipped clothing rows for the armor panel without combat stats.
+
+    """
+    return _cached_equipment_value(
+        engine, "clothing_rows", lambda: _build_equipped_clothing_rows(engine)
+    )
 
 
 def _build_equipped_clothing_rows(engine) -> list[dict]:
@@ -958,8 +1228,14 @@ def _build_equipped_clothing_rows(engine) -> list[dict]:
 
 
 def equipped_magic_item_rows(engine) -> list[dict]:
-    """Return equipped magic item rows for the armor panel without combat stats."""
-    return _cached_equipment_value(engine, "magic_item_rows", lambda: _build_equipped_magic_item_rows(engine))
+    """
+    Return equipped magic item rows for the armor panel without combat stats.
+    """
+    return _cached_equipment_value(
+        engine,
+        "magic_item_rows",
+        lambda: _build_equipped_magic_item_rows(engine),
+    )
 
 
 def _build_equipped_magic_item_rows(engine) -> list[dict]:
@@ -973,7 +1249,11 @@ def _build_equipped_magic_item_rows(engine) -> list[dict]:
                 "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
-                "effect_summary": getattr(getattr(character_item.item, "magicitemstats", None), "effect_summary", ""),
+                "effect_summary": getattr(
+                    getattr(character_item.item, "magicitemstats", None),
+                    "effect_summary",
+                    "",
+                ),
             }
         )
     return rows
@@ -981,7 +1261,9 @@ def _build_equipped_magic_item_rows(engine) -> list[dict]:
 
 def get_grs(engine) -> int:
     """Calculate GRS from the six main hit zones, rounding only once."""
-    return _cached_equipment_value(engine, "grs", lambda: _calculate_grs(engine))
+    return _cached_equipment_value(
+        engine, "grs", lambda: _calculate_grs(engine)
+    )
 
 
 def _calculate_grs(engine) -> int:
@@ -992,7 +1274,14 @@ def _calculate_grs(engine) -> int:
     )
     main_zone_sum = sum(
         int(zone_totals[zone])
-        for zone in ("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right")
+        for zone in (
+            "head",
+            "torso",
+            "arm_left",
+            "arm_right",
+            "leg_left",
+            "leg_right",
+        )
     )
     global_modifiers = _non_local_rs_modifier(engine)
     return (main_zone_sum // 6) + global_modifiers
@@ -1012,7 +1301,9 @@ def _non_local_rs_modifier(engine) -> int:
 
 def _is_local_armor_rs_source(engine, modifier) -> bool:
     """Return whether a modifier belongs to an equipped armor item's own RS."""
-    armor_character_item_ids = {int(item.id) for item in engine.equipped_armor_items()}
+    armor_character_item_ids = {
+        int(item.id) for item in engine.equipped_armor_items()
+    }
     if not armor_character_item_ids:
         return False
 
@@ -1024,13 +1315,19 @@ def _is_local_armor_rs_source(engine, modifier) -> bool:
             return False
 
     if source_type == "item":
-        metadata_character_item_id = (modifier.metadata or {}).get("character_item_id")
+        metadata_character_item_id = (modifier.metadata or {}).get(
+            "character_item_id"
+        )
         if metadata_character_item_id is not None:
             try:
-                return int(metadata_character_item_id) in armor_character_item_ids
+                return (
+                    int(metadata_character_item_id) in armor_character_item_ids
+                )
             except (TypeError, ValueError):
                 return False
-        armor_item_ids = {int(item.item_id) for item in engine.equipped_armor_items()}
+        armor_item_ids = {
+            int(item.item_id) for item in engine.equipped_armor_items()
+        }
         try:
             return int(modifier.source_id) in armor_item_ids
         except (TypeError, ValueError):
@@ -1052,7 +1349,9 @@ def _is_local_armor_rs_source(engine, modifier) -> bool:
 
 def get_bel(engine) -> int:
     """Calculate the armor encumbrance value."""
-    return _cached_equipment_value(engine, "bel", lambda: _calculate_bel(engine))
+    return _cached_equipment_value(
+        engine, "bel", lambda: _calculate_bel(engine)
+    )
 
 
 def _calculate_bel(engine) -> int:
@@ -1070,15 +1369,21 @@ def _calculate_bel(engine) -> int:
 
 
 def load_penalty(engine) -> int:
-    """Return encumbrance as a signed penalty that can be added to derived values."""
+    """
+    Return encumbrance as a signed penalty that can be added to derived values.
+    """
     bel_value = int(engine.get_bel())
     return bel_value if bel_value <= 0 else -bel_value
 
 
 def _semantic_rs_modifier(engine) -> int:
-    """Return RS granted by semantic modifiers rather than physical armor stats."""
+    """
+    Return RS granted by semantic modifiers rather than physical armor stats.
+    """
     total = 0
-    for entry in engine.explain_modifier_resolution(TargetDomain.DERIVED_STAT, DEFENSE_RS):
+    for entry in engine.explain_modifier_resolution(
+        TargetDomain.DERIVED_STAT, DEFENSE_RS
+    ):
         resolved_value = entry.get("resolved_value")
         if isinstance(resolved_value, (int, float)):
             total += int(resolved_value)
@@ -1086,7 +1391,9 @@ def _semantic_rs_modifier(engine) -> int:
 
 
 def get_ms(engine) -> int:
-    """Return armor minimum strength using set MS or the loose-parts formula."""
+    """Return armor minimum strength using set MS or the loose-parts formula.
+
+    """
     return _cached_equipment_value(engine, "ms", lambda: _calculate_ms(engine))
 
 
@@ -1097,7 +1404,9 @@ def _calculate_ms(engine) -> int:
         armor_stats = item_engine._get_armor_stats()
         if armor_stats is None or armor_stats.parent_set_id is not None:
             continue
-        complete_armor_minimums.append(int(item_engine.get_armor_min_st() or 0))
+        complete_armor_minimums.append(
+            int(item_engine.get_armor_min_st() or 0)
+        )
     if complete_armor_minimums:
         return max(complete_armor_minimums)
 
@@ -1107,7 +1416,9 @@ def _calculate_ms(engine) -> int:
 
 def get_dmg_modifier_sum(engine, slug: str) -> int:
     """Return the total damage modifier for one damage-related stat slug."""
-    return engine._resolve_stat_modifiers(slug) + engine.attribute_modifier(ATTR_ST)
+    return engine._resolve_stat_modifiers(slug) + engine.attribute_modifier(
+        ATTR_ST
+    )
 
 
 def km_to_coins(engine) -> tuple[int, int, int]:

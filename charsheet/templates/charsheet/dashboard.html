@@ -567,14 +567,6 @@
             <div class="dashboard_account_toggle_grid">
               <label class="dashboard_account_toggle">
                 <span>
-                  <strong>Radialmenü</strong>
-                  <small>Schnellzugriff im Charakterbogen.</small>
-                </span>
-                <input type="checkbox" name="radial_menu_enabled" id="id_radial_menu_enabled"
-                       {% if request.user.settings.radial_menu_enabled %}checked{% endif %}>
-              </label>
-              <label class="dashboard_account_toggle">
-                <span>
                   <strong>DDDdice</strong>
                   <small>Online-Würfelraum verbinden.</small>
                 </span>
@@ -582,6 +574,25 @@
                        {% if request.user.settings.dddice_enabled %}checked{% endif %}>
               </label>
             </div>
+          </section>
+
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>Kritische Fertigkeitsproben</h4>
+              <p>Deine Ergebnisinschriften für alle Charaktere.</p>
+            </div>
+            <div class="dashboard_account_grid">
+              <label class="form_row">
+                <span>Text bei kritischem Erfolg</span>
+                <input class="dashboard_input" type="text" name="critical_success_text" id="id_critical_success_text" maxlength="64" value="{{ request.user.settings.critical_success_text|default:'KRITISCHER ERFOLG' }}" placeholder="KRITISCHER ERFOLG">
+              </label>
+              <label class="form_row">
+                <span>Text bei kritischem Fehlschlag</span>
+                <input class="dashboard_input" type="text" name="critical_failure_text" id="id_critical_failure_text" maxlength="64" value="{{ request.user.settings.critical_failure_text|default:'KRITISCHER FEHLSCHLAG' }}" placeholder="KRITISCHER FEHLSCHLAG">
+              </label>
+            </div>
+            <p>Kurze Inschriften für kritische Fertigkeitsproben, maximal 64 Zeichen. Leere Felder verwenden den Standard.</p>
+            <button type="button" class="dashboard_button" id="resetCriticalTexts">Krit-Texte auf Standard setzen</button>
           </section>
 
           <section class="dashboard_account_section" id="dddice_fields">
@@ -707,6 +718,10 @@
         const dddiceFields = document.getElementById("dddice_fields");
         const passwordInput = document.getElementById("id_new_password1");
         const passwordStrength = document.getElementById("accountPasswordStrength");
+        document.getElementById("resetCriticalTexts")?.addEventListener("click", () => {
+          document.getElementById("id_critical_success_text").value = "KRITISCHER ERFOLG";
+          document.getElementById("id_critical_failure_text").value = "KRITISCHER FEHLSCHLAG";
+        });
 
         const updatePasswordStrength = function () {
           if (!passwordInput || !passwordStrength) return;

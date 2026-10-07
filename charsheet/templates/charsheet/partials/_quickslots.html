@@ -1,0 +1,77 @@
+<aside id="characterQuickslots" class="quickslots" aria-label="Würfel-Hotbar"
+       data-storage-key="charsheet.quickslots.{{ request.user.pk }}.{{ character.pk }}"
+       data-actions-url="{% url 'quickslot_actions' character.pk %}"
+       data-debug-result-url="{% url 'quickslot_debug_result' character.pk %}"
+       data-weapon-result-url="{% url 'quickslot_weapon_result' character.pk %}">
+  <button type="button" class="quickslots__toggle" data-quickslot-toggle aria-controls="quickslotBody" aria-expanded="true" title="Hotbar einklappen">›</button>
+  <div id="quickslotBody" class="quickslots__body">
+    <label class="quickslots__bonus" for="quickslotBonus">Bonus
+      <input id="quickslotBonus" type="number" value="0" step="1" aria-label="Freier Bonus" title="Freier Bonus / Malus">
+    </label>
+    <div class="quickslots__list">
+      {% for key in '1234567890ß' %}
+      <button type="button" class="quickslot" data-quickslot-index="{{ forloop.counter0 }}" draggable="true">
+        <img class="quickslot__image" alt="" hidden>
+        <small class="quickslot__key">{{ key }}</small>
+        <span class="quickslot__label">+</span>
+        <span class="quickslot__modifier"></span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+</aside>
+<span id="quickslotStatus" class="quickslots__status" role="status" hidden></span>
+<dialog id="quickslotEditor" class="quickslot-editor">
+  <form method="dialog">
+    <h2 id="quickslotEditorTitle">Slot einrichten</h2>
+    <fieldset class="quickslot-editor__section">
+    <legend>Wurf</legend>
+    <label for="quickslotType">Aktion</label>
+    <select id="quickslotType">
+      <option value="skill">Fertigkeit</option>
+      <option value="weapon">Waffe</option>
+      <option value="initiative">Initiative</option>
+      <option value="dice">Freier Würfelwurf</option>
+      {% if request.user.is_staff %}<option value="debug">DEBUG</option>{% endif %}
+    </select>
+    <div id="quickslotActionField">
+    <label for="quickslotAction" id="quickslotActionLabel">Fertigkeit</label>
+    <select id="quickslotAction"></select>
+    </div>
+    <label class="quickslot-editor__check" for="quickslotIgnoreBonus">
+      <input id="quickslotIgnoreBonus" type="checkbox">
+      Hotbar-Bonus ignorieren
+    </label>
+    <p class="quickslot-editor__hint">Gilt nur für diesen Slot.</p>
+    </fieldset>
+    <fieldset class="quickslot-editor__section">
+    <legend>Darstellung</legend>
+    <label for="quickslotLabel">Beschriftung <small>optional</small></label>
+    <input id="quickslotLabel" type="text" maxlength="80" placeholder="Name der Aktion">
+    <div class="quickslot-editor__image-heading">
+      <span>Slotbild <small>optional</small></span>
+      <label class="quickslot-editor__file-button" for="quickslotImageFile">Bild wählen</label>
+    </div>
+    <input id="quickslotImageFile" class="quickslot-editor__file-input" type="file" accept="image/*" aria-label="Slotbild wählen">
+    <div class="quickslot-editor__image-preview" id="quickslotImagePreview" hidden>
+      <img id="quickslotImagePreviewImage" alt="Vorschau des Buttonbilds">
+      <button type="button" data-quickslot-image-adjust>Zuschneiden</button>
+      <button type="button" data-quickslot-image-remove>Bild löschen</button>
+    </div>
+    <section id="quickslotImageCrop" class="quickslot-editor__crop" aria-label="Bildausschnitt wählen" hidden>
+      <div class="quickslot-editor__crop-stage"><img id="quickslotCropImage" alt="Bildausschnitt"></div>
+      <p>Verschiebe und vergrößere den quadratischen Ausschnitt.</p>
+      <div class="quickslot-editor__buttons">
+        <button type="button" data-quickslot-crop-cancel>Abbrechen</button>
+        <button type="button" data-quickslot-crop-apply>Übernehmen</button>
+      </div>
+    </section>
+    </fieldset>
+    <p class="quickslot-editor__error" id="quickslotImageError" role="status" hidden></p>
+    <div class="quickslot-editor__buttons quickslot-editor__footer">
+      <button type="button" data-quickslot-remove class="quickslot-editor__clear">Slot leeren</button>
+      <button type="submit" value="cancel">Abbrechen</button>
+      <button type="button" data-quickslot-save class="quickslot-editor__save">Speichern</button>
+    </div>
+  </form>
+</dialog>

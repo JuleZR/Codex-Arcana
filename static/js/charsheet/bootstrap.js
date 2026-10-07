@@ -24,8 +24,6 @@ import { initSkillManager } from "./skill_manager.js?v=20261006-skill-sorting2";
 import { initArmorPanel } from "./armor_panel.js?v=20261006-item-damage";
 import { initBattleCalculator } from "./battle_calculator.js?v=20260731a";
 import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260919b";
-import { initContextRadialMenu } from "./context_radial_menu.js";
-import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20261001-mobile-tray3";
 import { initGodCards } from "./god_card.js?v=20260702a";
@@ -36,10 +34,6 @@ import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260920d";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
 import { initExternalSheetRefresh } from "./external_refresh.js?v=20261006-divine-entity-choice";
 import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260917e";
-
-function isRadialMenuEnabled() {
-  return document.body?.dataset.radialMenuEnabled === "1";
-}
 
 function initCharacterImageEditorSafely() {
   import("./character_image_editor.js?v=20260527c")
@@ -57,14 +51,6 @@ function runInit(callback) {
   } catch (_error) {
     return null;
   }
-}
-
-function initRadialMenusSafely() {
-  if (!isRadialMenuEnabled()) {
-    return;
-  }
-  runInit(initRadialMenuGem);
-  runInit(initContextRadialMenu);
 }
 
 function initDynamicSheetModules(windowControllers) {
@@ -112,7 +98,6 @@ onReady(() => {
   runInit(initTemporaryAttributes);
   runInit(initExternalSheetRefresh);
   runInit(initAlchemistAlmanac);
-  initRadialMenusSafely();
 
   document.addEventListener("charsheet:partials-applied", () => {
     windowControllers = runInit(initStandardFloatingWindows);

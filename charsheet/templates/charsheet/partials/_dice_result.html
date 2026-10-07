@@ -1,0 +1,54 @@
+<section class="dice-result-stage mode-normal" id="dice-result-stage" aria-live="polite" aria-atomic="true" data-critical-success-text="{{ request.user.settings.critical_success_text|default:'KRITISCHER ERFOLG' }}" data-critical-failure-text="{{ request.user.settings.critical_failure_text|default:'KRITISCHER FEHLSCHLAG' }}">
+  <canvas id="dice-result-particleCanvas" class="particle-canvas" aria-hidden="true"></canvas>
+  <div class="die-result die-result-top" id="dice-result-dieResultTop">
+    <span class="die-value" id="dice-result-topValue"></span>
+    <span class="value-trace"></span>
+  </div>
+  <div class="die-result die-result-bottom" id="dice-result-dieResultBottom">
+    <span class="die-value" id="dice-result-bottomValue"></span>
+    <span class="value-trace"></span>
+  </div>
+  <div class="die-result die-result-modifier" id="dice-result-modifierResult">
+    <span class="die-value" id="dice-result-modifierValue"></span>
+    <span class="modifier-label" id="dice-result-modifierLabel"></span>
+    <span class="value-trace"></span>
+  </div>
+  <div class="result-sigil" id="dice-result-resultSigil">
+    <div class="result-aura"></div>
+    <div class="magic-circle" aria-hidden="true">
+      <div class="mc-layer mc-nodes">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="mc-layer mc-outer-ring"></div>
+      <div class="mc-layer mc-large-incantation">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <path id="dice-result-largeTextPath" d="M 50 50 m -45 0 a 45 45 0 1 1 90 0 a 45 45 0 1 1 -90 0" />
+          </defs>
+          <text><textPath id="dice-result-largeRingText" href="#dice-result-largeTextPath" startOffset="0%">SI • ALEAE • FATALES • PRO • NOBIS • QUIS • CONTRA • NOS •</textPath></text>
+        </svg>
+      </div>
+      <div class="mc-layer mc-big-star"></div>
+      <div class="mc-layer mc-quarter-grid"><span></span><span></span><span></span><span></span></div>
+      <div class="mc-layer mc-cross-frame"></div>
+      <div class="mc-layer mc-cross-lines"></div>
+      <div class="mc-layer mc-striped-ring"></div>
+      <div class="mc-layer mc-middle-ring"></div>
+      <div class="mc-layer mc-small-incantation">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <path id="dice-result-smallTextPath" d="M 50 50 m -50 0 a 50 50 0 1 1 100 0 a 50 50 0 1 1 -100 0" />
+          </defs>
+          <text><textPath id="dice-result-smallRingText" href="#dice-result-smallTextPath" startOffset="0%">WENN DIE SCHICKSALHAFTEN WÜRFEL FÜR UNS SIND • WER KANN DANN GEGEN UNS SEIN •</textPath></text>
+        </svg>
+      </div>
+      <div class="mc-layer mc-double-ring"></div>
+      <div class="mc-layer mc-inner-square"></div>
+      <div class="mc-layer mc-core-ring"></div>
+    </div>
+    <div class="central-glow"></div>
+    <div class="result-value" id="dice-result-resultValue"></div>
+  </div>
+  <div class="fusion-flash" id="dice-result-fusionFlash"></div>
+</section>

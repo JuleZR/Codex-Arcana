@@ -5418,8 +5418,27 @@ def _build_skill_rows(
         if skill.requires_specification:
             skill_rows.append(_build_specification_parent_row(skill))
         for row in rows:
+            character_skill_id = (
+                row.get("character_skill_id")
+                if row.get("is_specification_child") else None
+            )
+            row["quickslot_id"] = (
+                f"character-skill-{character_skill_id}"
+                if character_skill_id else f"skill-{row['skill_id']}"
+            )
             skill_rows.append(row)
-            skill_rows.extend(_build_display_context_rows(row, skill))
+            context_rows = _build_display_context_rows(row, skill)
+            for context_row in context_rows:
+                context_row["quickslot_id"] = row["quickslot_id"]
+                context_row["quickslot_specification"] = (
+                    row.get("specification", "")
+                    if not character_skill_id else ""
+                )
+                context_row["quickslot_label"] = (
+                    f"{row['display_name']} – "
+                    f"{context_row['display_name']}"
+                )
+            skill_rows.extend(context_rows)
 
     resolved_equipment_names_by_character_item_id: dict[int, str] = {}
 
@@ -5460,6 +5479,11 @@ def _build_skill_rows(
                 rows.append(
                     {
                         "row_kind": "weapon_context",
+                        "quickslot_subentry": (
+                            f"weapon:{weapon_row['character_item'].pk}:"
+                            f"{weapon_row.get('weapon_stats_id') or ''}:"
+                            f"{option['attribute_code']}"
+                        ),
                         "is_context_row": True,
                         "skill_id": skill_id,
                         "name": base_row["name"],
@@ -5528,6 +5552,9 @@ def _build_skill_rows(
             rows.append(
                 {
                     "row_kind": "shield_context",
+                    "quickslot_subentry": (
+                        f"shield:{shield_row['character_item'].pk}"
+                    ),
                     "is_context_row": True,
                     "skill_id": int(base_row["skill_id"]),
                     "name": base_row["name"],
@@ -5643,6 +5670,9 @@ def _build_skill_rows(
             rows.append(
                 {
                     "row_kind": "conditional_effect_context",
+                    "quickslot_subentry": (
+                        f"condition:{normalized_condition}"
+                    ),
                     "is_context_row": True,
                     "skill_id": int(base_row["skill_id"]),
                     "name": base_row["name"],

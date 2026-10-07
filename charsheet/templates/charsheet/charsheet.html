@@ -31,16 +31,18 @@
         }
       }
     </script>
-    <script type="module" src="{% static 'js/dddice.js' %}?v=20261005-consumables"></script>
+    <link rel="stylesheet" href="{% static 'css/charsheet/dice-result.css' %}?v=20261007-critical-whole-words">
+    <link rel="stylesheet" href="{% static 'css/charsheet/quickslots.css' %}?v=20261007-bonus-border">
+    <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-remove-menus"></script>
     {% endif %}
     <link
       rel="stylesheet"
-      href="{% static 'css/charsheet.css' %}?v=20261006-skill-sorting"
+      href="{% static 'css/charsheet.css' %}?v=20261007-remove-menus"
     />
     <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261004c">
     <link rel="stylesheet" href="{% static 'css/charsheet/consumables.css' %}?v=20261005">
   </head>
-  <body class="charsheet-page{% if read_only %} is-read-only{% endif %}{% if is_vampire %} is-vampire-sheet{% endif %}{% if cultist_corruption_level %} has-cultist-corruption cultist-corruption--level-{{ cultist_corruption_level }}{% endif %}" data-read-only="{% if read_only %}1{% else %}0{% endif %}" data-radial-menu-enabled="{% if request.user.settings.radial_menu_enabled %}1{% else %}0{% endif %}" data-cultist-corruption-level="{{ cultist_corruption_level|default:0 }}"{% if not read_only %} data-external-refresh-url="{% url 'character_sheet_external_refresh' character.id %}" data-external-refresh-signature="{{ sheet_external_refresh_signature }}" data-open-item-transfer-count="{{ open_item_transfer_count|default:0 }}" data-item-transfer-notification-sound="{% static 'charsheet/mp3/notification.mp3' %}"{% endif %}>
+  <body class="charsheet-page{% if read_only %} is-read-only{% endif %}{% if is_vampire %} is-vampire-sheet{% endif %}{% if cultist_corruption_level %} has-cultist-corruption cultist-corruption--level-{{ cultist_corruption_level }}{% endif %}" data-read-only="{% if read_only %}1{% else %}0{% endif %}" data-cultist-corruption-level="{{ cultist_corruption_level|default:0 }}"{% if not read_only %} data-external-refresh-url="{% url 'character_sheet_external_refresh' character.id %}" data-external-refresh-signature="{{ sheet_external_refresh_signature }}" data-open-item-transfer-count="{{ open_item_transfer_count|default:0 }}" data-item-transfer-notification-sound="{% static 'charsheet/mp3/notification.mp3' %}"{% endif %}>
     <div class="charsheet-app" id="charsheetApp">
       {% if read_only %}
       <div class="readonly-banner" role="status">SL-Leseansicht · Änderungen sind deaktiviert</div>
@@ -52,7 +54,6 @@
       {% else %}
       {% include "charsheet/partials/_left_tools.html" %}
       {% endif %}
-      {% include "charsheet/partials/_context_radial_menu.html" %}
 
       <main class="book-spread">
         {% include "charsheet/partials/_character_header.html" %}
@@ -98,6 +99,10 @@
           }());
         </script>
       </main>
+
+      {% if request.user.settings.dddice_enabled and not read_only %}
+      {% include "charsheet/partials/_dice_result.html" %}
+      {% endif %}
 
       {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
       {{ battle_calculator_payload|json_script:"battle-calculator-data" }}
@@ -161,8 +166,12 @@
       </div>
     </div>
 
+    {% if request.user.settings.dddice_enabled and not read_only %}
+    {% include "charsheet/partials/_quickslots.html" %}
+    {% endif %}
+
     <script defer src="{% static 'js/charsheet/condition_picker.js' %}?v=20261004c"></script>
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261006-skill-sorting2"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261007-remove-menus"></script>
     <script type="module" src="{% static 'js/charsheet_diary.js' %}?v=20261001-mobile-tools1"></script>
     {% if read_only %}
     <script>

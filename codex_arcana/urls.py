@@ -20,8 +20,17 @@ from django.urls import include, path
 from charsheet import group_views, views
 from django.views.static import serve
 from django.conf import settings
+from charsheet.quickslots import (
+    quickslot_actions, quickslot_debug_result, quickslot_weapon_result,
+)
 
 urlpatterns = [
+    path("character/<int:character_id>/quickslots/debug-result/",
+         quickslot_debug_result, name="quickslot_debug_result"),
+    path("character/<int:character_id>/quickslots/weapon-result/",
+         quickslot_weapon_result, name="quickslot_weapon_result"),
+    path("character/<int:character_id>/quickslots/actions/",
+         quickslot_actions, name="quickslot_actions"),
     path("dashboard/announcements/", include("charsheet.announcement_urls")),
     path("admin/logout/", views.AppLogoutView.as_view(),
          name="admin_logout_override"),

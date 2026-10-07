@@ -19,7 +19,7 @@
         {% csrf_token %}
       </form>
     {% endif %}
-    <span class="inv_name_wrap">
+    <span class="inv_name_wrap"{% if row.item.item_type.is_weapon and not read_only %} draggable="true" data-quickslot-source="weapon" data-quickslot-id="{{ row.character_item.pk }}"{% endif %}>
       {% if row.can_manage_storage %}<span class="inv_drag_handle" draggable="true" data-drag-handle aria-label="Item verschieben" title="Zum Verschieben ziehen">
         <span class="inv_drag_handle_dots" aria-hidden="true"></span>
       </span>{% endif %}

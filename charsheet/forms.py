@@ -40,12 +40,13 @@ class UserSettingsForm(forms.ModelForm):
     class Meta:
         model = UserSettings
         fields = [
-            "radial_menu_enabled",
             "theme_mode",
             "print_include_inventory",
             "print_include_notes",
             "print_compact",
             "dddice_enabled",
+            "critical_success_text",
+            "critical_failure_text",
             "dddice_api_key",
             "dddice_room_id",
             "dddice_room_password",
@@ -58,6 +59,13 @@ class UserSettingsForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
+        for name in ("critical_success_text", "critical_failure_text"):
+            if name not in self.errors:
+                cleaned_data[name] = (
+                    cleaned_data.get(name) or
+                    UserSettings._meta.get_field(name).default
+                )
 
         dddice_enabled = cleaned_data.get("dddice_enabled")
         dddice_api_key = (cleaned_data.get("dddice_api_key") or "").strip()

@@ -15,7 +15,6 @@ class UserSettings(models.Model):
         related_name="settings",
     )
 
-    radial_menu_enabled = models.BooleanField(default=False)
     theme_mode = models.CharField(
         max_length=24,
         choices=ThemeMode.choices,
@@ -42,6 +41,14 @@ class UserSettings(models.Model):
     )
     two_factor_enabled_at = models.DateTimeField(blank=True, null=True)
     dddice_enabled = models.BooleanField(default=False)
+    critical_success_text = models.CharField(
+        max_length=64, blank=True, default="KRITISCHER ERFOLG",
+        verbose_name="Text bei kritischem Erfolg",
+    )
+    critical_failure_text = models.CharField(
+        max_length=64, blank=True, default="KRITISCHER FEHLSCHLAG",
+        verbose_name="Text bei kritischem Fehlschlag",
+    )
     dddice_api_key = models.CharField(max_length=255, blank=True, default="")
     dddice_room_id = models.CharField(max_length=255, blank=True, default="")
     dddice_room_password = models.CharField(

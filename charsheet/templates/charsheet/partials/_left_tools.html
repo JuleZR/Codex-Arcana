@@ -110,23 +110,7 @@
   </aside>
 
   {% if request.user.settings.dddice_enabled %}
-    <aside class="sheet-dice-dock sheet-window sheet-sidebar sheet-sidebar--dice" aria-label="Wuerfel-Schnellzugriff">
-      <div class="sheet-dice-dock__inner sheet-window__body sheet-sidebar__body">
-        <div class="left-tools__panel left-tools__panel--dice" aria-label="Wuerfel">
-          <button type="button" class="sheet-dice-dock__btn" id="roll-2d10" title="2D10 werfen">2D10</button>
-          <div class="sheet-dice-dock__row">
-            <button type="button" class="sheet-dice-dock__btn" id="roll-1d10" title="1W10 werfen">1D10</button>
-            <button type="button" class="sheet-dice-dock__btn" id="roll-1d100" title="1W100 werfen">1D100</button>
-          </div>
-        </div>
-      </div>
-    </aside>
-
     <canvas id="dddice" width="500" height="300"></canvas>
-    <div id="roll-result" aria-live="polite" aria-atomic="true">
-      <svg id="magicCircle" width="512" height="512" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"></svg>
-      <span id="roll-result-value">0</span>
-    </div>
   {% endif %}
 
   {% include "charsheet/partials/_card_hand_host.html" %}

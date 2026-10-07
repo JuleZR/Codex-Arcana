@@ -13,7 +13,7 @@
     </thead>
     <tbody>
       {% for row in skill_rows %}
-        <tr{% if row.is_context_row %} class="skill_context_row"{% endif %}>
+        <tr{% if row.is_context_row %} class="skill_context_row"{% endif %}{% if row.quickslot_id and not read_only %} draggable="true" data-quickslot-source="skill" data-quickslot-id="{{ row.quickslot_id }}" data-quickslot-subentry="{{ row.quickslot_subentry }}" data-quickslot-specification="{% if row.is_context_row %}{{ row.quickslot_specification }}{% elif not row.character_skill_id %}{{ row.specification }}{% endif %}"{% endif %}>
           <td class="skill_name{% if row.is_context_row %} skill_name--context{% endif %}">
             <div class="skill_name_wrap">
               <span class="skill_name_text{% if row.description %} tooltip_target{% endif %}"{% if row.description %} data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"{% if row.row_kind == "skill" or row.row_kind == "skill_specification_parent" %} data-tooltip-mode="skill-card" data-tooltip-inline="off" data-tooltip-card-variant="skill" data-tooltip-card-extra-sections="none" data-tooltip-title="{{ row.display_name }}" data-tooltip-subtitle="{{ row.category_name }}{% if row.attribute %} &middot; {{ row.attribute }}{% if row.rank != '' %} &middot; Rang {{ row.rank }}{% endif %}{% endif %}" data-tooltip-card-key="skill:{{ row.row_kind }}:{{ row.skill_id }}:{% if row.character_skill_id %}character-{{ row.character_skill_id }}{% elif row.specification %}spec-{{ row.specification|slugify }}{% else %}base{% endif %}"{% endif %}{% endif %}>{{ row.display_name }}</span>
