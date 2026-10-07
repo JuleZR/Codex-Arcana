@@ -128,15 +128,19 @@
 .quickslots .quickslot:not(.is-filled) { color: #c3b397; }
 .quickslot:not(.is-filled) .quickslot__label { visibility: hidden; }
 .quickslot__key { position: absolute; top: 1px; left: 4px; font-size: 9px; opacity: .7; }
-.quickslot__label { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-.quickslot__modifier { font-size: 11px; font-weight: 600; }
+.quickslot__label { position: absolute; left: 3px; right: 3px; top: 50%; transform: translateY(-50%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 10px; }
+.quickslot[data-label-position="top"] .quickslot__label { top: 12px; transform: none; }
+.quickslot[data-label-position="bottom"] .quickslot__label { top: auto; bottom: 3px; transform: none; }
+.quickslot[data-label-position="hidden"] .quickslot__label { display: none; }
 .quickslot__image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .quickslot__image[hidden] { display: none; }
 .quickslot.has-image::before { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 1px 1px 2px rgba(255, 252, 244, .4), inset -1px -2px 4px rgba(0, 0, 0, .4); }
 .quickslot.has-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 35%, rgba(16, 14, 11, .8)); pointer-events: none; }
+.quickslot.has-image[data-label-position="top"]::after { background: linear-gradient(rgba(16, 14, 11, .8), transparent 65%); }
+.quickslot.has-image[data-label-position="center"]::after { background: linear-gradient(transparent, rgba(16, 14, 11, .8) 50%, transparent); }
+.quickslot.has-image[data-label-position="hidden"]::after { display: none; }
 .quickslot.has-image .quickslot__key { z-index: 2; opacity: 1; color: #fff6e5; text-shadow: 0 1px 3px #000; }
-.quickslot.has-image .quickslot__label, .quickslot.has-image .quickslot__modifier { position: relative; z-index: 1; color: #fff6e5; text-shadow: 0 1px 3px #000; }
-.quickslot.has-image .quickslot__label { margin-top: auto; }
+.quickslot.has-image .quickslot__label { z-index: 1; color: #fff6e5; text-shadow: 0 1px 3px #000; }
 .quickslots .quickslot:hover, .quickslots .quickslot:focus-visible, .quickslots .quickslot.is-activated {
   border-color: var(--bronze-light, #c9a36c);
   filter: brightness(1.08);

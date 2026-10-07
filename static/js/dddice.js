@@ -1,7 +1,7 @@
 import { ThreeDDice, ThreeDDiceAPI, ThreeDDiceRollEvent } from "/static/js/vendor/dddice-latest.web.js";
 
 import { createResultAnimation } from "./charsheet/dice_result.js?v=20261007-critical-whole-words";
-import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-remove-menus";
+import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-crop-bounds";
 
 /* ---------------------------------------------------
    CONFIG

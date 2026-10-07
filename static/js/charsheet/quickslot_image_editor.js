@@ -15,6 +15,7 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
   const error = document.getElementById("quickslotImageError");
   const editor = document.getElementById("quickslotEditor");
   let cropper, objectUrl, picture = "", generation = 0, busy = false;
+  let removeSelectionLimit;
 
   function render() {
     preview.hidden = !picture;
@@ -23,6 +24,7 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
   }
   function cancel() {
     generation++;
+    removeSelectionLimit?.(); removeSelectionLimit = null;
     cropper?.destroy(); cropper = null;
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = null;
@@ -60,7 +62,33 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
       selection.aspectRatio = selection.initialAspectRatio = 1;
       selection.initialCoverage = .72;
       selection.movable = selection.resizable = true;
-      selection.$center?.(); selection.$render?.();
+      selection.precise = true;
+      const cropperImage = cropper.getCropperImage();
+      cropperImage.scalable = cropperImage.translatable = false;
+      cropperImage.rotatable = cropperImage.skewable = false;
+      await cropperImage.$ready();
+      if (token !== generation) return;
+      cropperImage.$center("contain");
+      const canvas = cropper.getCropperCanvas();
+      function bounds() {
+        const imageRect = cropperImage.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        return {
+          x: imageRect.left - canvasRect.left, y: imageRect.top - canvasRect.top,
+          width: imageRect.width, height: imageRect.height,
+        };
+      }
+      const limitSelection = event => {
+        const box = bounds();
+        const { x, y, width, height } = event.detail;
+        if (x < box.x || y < box.y || x + width > box.x + box.width
+            || y + height > box.y + box.height) event.preventDefault();
+      };
+      selection.addEventListener("change", limitSelection);
+      removeSelectionLimit = () => selection.removeEventListener("change", limitSelection);
+      const box = bounds();
+      const size = Math.min(box.width, box.height) * .72;
+      selection.$change(box.x + (box.width - size) / 2, box.y + (box.height - size) / 2, size, size);
     } catch (_error) {
       if (token === generation) { cancel(); report(); }
     }

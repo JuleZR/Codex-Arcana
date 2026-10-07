@@ -14,7 +14,6 @@
         <img class="quickslot__image" alt="" hidden>
         <small class="quickslot__key">{{ key }}</small>
         <span class="quickslot__label">+</span>
-        <span class="quickslot__modifier"></span>
       </button>
       {% endfor %}
     </div>
@@ -48,6 +47,13 @@
     <legend>Darstellung</legend>
     <label for="quickslotLabel">Beschriftung <small>optional</small></label>
     <input id="quickslotLabel" type="text" maxlength="80" placeholder="Name der Aktion">
+    <label for="quickslotLabelPosition">Beschriftung anzeigen</label>
+    <select id="quickslotLabelPosition">
+      <option value="top">Oben</option>
+      <option value="center">Mittig</option>
+      <option value="bottom">Unten</option>
+      <option value="hidden">Ausgeblendet</option>
+    </select>
     <div class="quickslot-editor__image-heading">
       <span>Slotbild <small>optional</small></span>
       <label class="quickslot-editor__file-button" for="quickslotImageFile">Bild wählen</label>

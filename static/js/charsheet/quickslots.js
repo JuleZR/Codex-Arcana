@@ -1,5 +1,5 @@
 import { getCsrfToken } from "./utils.js";
-import { initQuickslotImageEditor } from "./quickslot_image_editor.js?v=20261007-hotbar-images";
+import { initQuickslotImageEditor } from "./quickslot_image_editor.js?v=20261007-crop-bounds";
 
 const KEYS = [..."1234567890ß"];
 const MIME = "application/x-codex-quickslot";
@@ -26,6 +26,7 @@ export function normalizeAction(action) {
 
 function appearance(action, clean) {
   if (action.ignoreBonus === true) clean.ignoreBonus = true;
+  if (["top", "center", "bottom", "hidden"].includes(action.labelPosition)) clean.labelPosition = action.labelPosition;
   if (typeof action.customLabel === "string" && action.customLabel.trim()) clean.customLabel = action.customLabel.trim().slice(0, 80);
   if (typeof action.image === "string" && action.image.length <= 120000
       && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(action.image)) clean.image = action.image;
@@ -80,6 +81,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   let statusTimer;
   let revision = 0;
   const labelInput = document.getElementById("quickslotLabel");
+  const labelPositionSelect = document.getElementById("quickslotLabelPosition");
   const ignoreBonusInput = document.getElementById("quickslotIgnoreBonus");
   const imageEditor = initQuickslotImageEditor({
     onBusyChange: busy => { saveButton.disabled = busy || !choices.length; },
@@ -117,7 +119,7 @@ export function initQuickslots({ rollDice, isRolling }) {
       const label = action?.customLabel || current?.label || action?.label || "Leer";
       const modifier = available && Number.isFinite(current.modifier) ? `${current.modifier >= 0 ? "+" : ""}${current.modifier}` : "";
       button.querySelector(".quickslot__label").textContent = action ? label : "+";
-      button.querySelector(".quickslot__modifier").textContent = action && !available ? "–" : modifier;
+      button.dataset.labelPosition = action?.labelPosition || (action?.image ? "bottom" : "center");
       button.classList.toggle("is-unavailable", Boolean(action && !available));
       button.classList.toggle("is-filled", Boolean(action));
       button.classList.toggle("has-image", Boolean(action?.image));
@@ -211,6 +213,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   function openEditor(index) {
     editingIndex = index;
     labelInput.value = slots[index]?.customLabel || "";
+    labelPositionSelect.value = slots[index]?.labelPosition || (slots[index]?.image ? "bottom" : "center");
     ignoreBonusInput.checked = slots[index]?.ignoreBonus === true;
     labelInput.placeholder = slots[index]?.label || "Bezeichnung der Aktion";
     imageEditor.setImage(slots[index]?.image || "");
@@ -227,6 +230,7 @@ export function initQuickslots({ rollDice, isRolling }) {
     if (imageEditor.isBusy()) return;
     const action = normalizeAction({ ...choices[Number(actionSelect.value)],
       customLabel: labelInput.value, image: imageEditor.getImage(),
+      labelPosition: labelPositionSelect.value,
       ignoreBonus: ignoreBonusInput.checked,
     });
     if (!action) return;
