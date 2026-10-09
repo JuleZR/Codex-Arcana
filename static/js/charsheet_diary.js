@@ -1,5 +1,6 @@
 import { initBookViewer } from "./charsheet/book_viewer.js?v=20261001-mobile-tools1";
 import { journalTitle, renderJournalMarkdown } from "./charsheet/journal_markdown.js?v=20260917a";
+import { paginateJournal } from "./charsheet/journal_pagination.js?v=20261009a";
 
 document.addEventListener("DOMContentLoaded", () => {
   const diaryWindow = document.getElementById("diaryWindow");
@@ -9,6 +10,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const segmentEl = document.getElementById("diaryRollSegment");
   const inputEl = document.getElementById("diaryRollInput");
   const dateInputEl = document.getElementById("diaryRollDateInput");
+  const calendarInputEl = document.getElementById("diaryRollCalendarInput");
+  const gameDayEl = document.getElementById("diaryGameDayInput");
+  const gameMonthEl = document.getElementById("diaryGameMonthInput");
+  const gameYearEl = document.getElementById("diaryGameYearInput");
+  const gameFieldsEl = document.getElementById("diaryGameDateFields");
+  const gameDisplayEl = document.getElementById("diaryGameDateDisplay");
+  const dateDetailsEl = document.getElementById("diaryDateDetails");
   const dateDisplayEl = document.getElementById("diaryRollDateDisplay");
   const titleEl = document.getElementById("diaryRollEntryTitle");
   const modeBtn = document.getElementById("diaryRollModeBtn");
@@ -33,6 +41,9 @@ document.addEventListener("DOMContentLoaded", () => {
     || !segmentEl
     || !inputEl
     || !dateInputEl
+    || !calendarInputEl
+    || !gameDayEl || !gameMonthEl || !gameYearEl
+    || !gameFieldsEl || !gameDisplayEl || !dateDetailsEl
     || !dateDisplayEl
     || !titleEl
     || !modeBtn
@@ -114,6 +125,8 @@ document.addEventListener("DOMContentLoaded", () => {
   deleteBtn.innerHTML = deleteIcon;
 
   let entries = [];
+  let calendarDates = [];
+  let calendarSystems = [];
   let currentIndex = 0;
   let lastRequestedIndex = 0;
   let saveTimer = null;
@@ -124,7 +137,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let previewMode = false;
   let isTurning = false;
   let editingIndex = null;
+  let editingPageOffset = 0;
   let renderedPages = [];
+  let entryPageStarts = [];
 
   const closeMarkdownHelp = () => {
     markdownHelpEl.hidden = true;
@@ -156,6 +171,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const entryUrl = (entryId, action) => `${listUrl}${entryId}/${action}/`;
   const currentEntry = () => entries[currentIndex] || null;
+  const selectedCalendarDate = () => calendarInputEl.value ? {
+    system: calendarInputEl.value,
+    year: gameYearEl.value,
+    month: gameMonthEl.value,
+    day: gameDayEl.value,
+  } : null;
   const isEmpty = (entry) => !String(entry?.text || "").trim();
   const isTailEntry = (entry) => Boolean(entry) && currentIndex === entries.length - 1;
   const isPlaceholderEntry = (entry) => Boolean(entry) && !entry.is_fixed && isEmpty(entry) && isTailEntry(entry);
@@ -180,6 +201,33 @@ document.addEventListener("DOMContentLoaded", () => {
     hintEl.dataset.tone = tone;
   };
 
+  const renderDateDisplay = () => {
+    const system = calendarSystems.find((item) => String(item.id) === calendarInputEl.value);
+    const month = system?.months.find((item) => String(item.number) === gameMonthEl.value);
+    const hasGameDate = Boolean(calendarInputEl.value);
+    gameDisplayEl.hidden = !hasGameDate;
+    gameDisplayEl.textContent = hasGameDate
+      ? `${gameDayEl.value}. ${month?.name || gameMonthEl.value} ${gameYearEl.value} ${system?.abbreviation || ""}`.trim()
+      : "";
+    dateDisplayEl.textContent = formatHandwrittenDate(dateInputEl.value);
+    dateDisplayEl.classList.toggle("is-secondary", hasGameDate);
+  };
+
+  const renderCalendarFields = (date = null) => {
+    const system = calendarSystems.find((item) => String(item.id) === calendarInputEl.value);
+    const defaults = date || calendarDates.find((item) => String(item.system) === calendarInputEl.value);
+    gameFieldsEl.hidden = !calendarInputEl.value;
+    gameMonthEl.replaceChildren();
+    (system?.months || []).forEach((month) => {
+      gameMonthEl.add(new Option(month.name, String(month.number)));
+    });
+    gameDayEl.value = String(defaults?.day ?? 1);
+    gameMonthEl.value = String(defaults?.month ?? 1);
+    gameYearEl.value = String(defaults?.year ?? 0);
+    [gameDayEl, gameMonthEl, gameYearEl].forEach((field) => { field.disabled = inputEl.readOnly; });
+    renderDateDisplay();
+  };
+
   const setLoading = (loading) => {
     isLoading = loading;
     entryEl.classList.toggle("is-loading", loading);
@@ -192,23 +240,33 @@ document.addEventListener("DOMContentLoaded", () => {
     inputEl.scrollTop = 0;
     previewEl.scrollTop = 0;
     previewMode = false;
+    dateDetailsEl.open = false;
+  };
+
+  const renderContents = () => {
+    contentsEl.replaceChildren();
+    entries.forEach((item, index) => {
+      const heading = journalTitle(item.text);
+      const label = heading || item.entry_date || "Neuer Eintrag";
+      const startPage = String((entryPageStarts[index] ?? index) + 2);
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      const title = document.createElement("span");
+      title.textContent = label;
+      const number = document.createElement("small");
+      number.textContent = startPage;
+      button.append(title, number);
+      button.setAttribute("aria-current", index === currentIndex ? "page" : "false");
+      button.setAttribute("data-book-page-target", startPage);
+      row.append(button);
+      contentsEl.append(row);
+    });
   };
 
   const renderEntry = () => {
     const entry = currentEntry();
-    contentsEl.replaceChildren();
-    entries.forEach((item, index) => {
-      const heading = journalTitle(item.text);
-      const label = `${index + 1}. ${item.entry_date || "Neuer Eintrag"}${heading ? ` – ${heading}` : ""}`;
-      const row = document.createElement("li");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = label;
-      button.setAttribute("aria-current", index === currentIndex ? "page" : "false");
-      button.setAttribute("data-book-page-target", String(index + 2));
-      row.append(button);
-      contentsEl.append(row);
-    });
+    renderContents();
     if (!entry) {
       entryEl.dataset.entryId = "";
       inputEl.value = "";
@@ -234,11 +292,17 @@ document.addEventListener("DOMContentLoaded", () => {
     inputEl.value = entry.text || "";
     inputEl.readOnly = !editable;
     renderPreview();
-    dateInputEl.value = entry.entry_date || (placeholder ? new Date().toISOString().slice(0, 10) : "");
+    const today = new Date();
+    const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    dateInputEl.value = entry.entry_date || localToday;
     dateInputEl.disabled = readOnlyMode || !editable;
-    dateDisplayEl.textContent = entry.is_fixed ? formatHandwrittenDate(entry.entry_date) : "";
-    dateDisplayEl.hidden = !entry.is_fixed;
-    dateInputEl.hidden = Boolean(entry.is_fixed);
+    calendarInputEl.replaceChildren(new Option("Ohne Ingame-Datum", ""));
+    calendarSystems.forEach((system) => {
+      calendarInputEl.add(new Option(system.name, String(system.id)));
+    });
+    calendarInputEl.value = entry.calendar_date ? String(entry.calendar_date.system) : "";
+    calendarInputEl.disabled = !editable;
+    renderCalendarFields(entry.calendar_date);
     titleEl.textContent = journalTitle(entry.text) || (placeholder ? "Neuer Eintrag" : `Eintrag ${entryNumber}`);
     modeBtn.innerHTML = entry.is_fixed ? editIcon : fixIcon;
     modeBtn.title = readOnlyMode ? "Leseansicht" : (entry.is_fixed ? "Eintrag bewusst bearbeiten" : "Eintrag fixieren");
@@ -253,6 +317,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     entries = payload.entries;
+    if (Array.isArray(payload.calendar_dates)) calendarDates = payload.calendar_dates;
+    if (Array.isArray(payload.calendar_systems)) calendarSystems = payload.calendar_systems;
     const desiredId = preferredEntryId ?? payload.current_entry_id ?? currentEntry()?.id ?? null;
     const nextIndex = entries.findIndex((entry) => entry.id === desiredId);
     currentIndex = nextIndex >= 0 ? nextIndex : Math.min(lastRequestedIndex, Math.max(0, entries.length - 1));
@@ -261,60 +327,101 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const attachEditor = () => {
-    const page = renderedPages[editingIndex];
+    const start = entryPageStarts[editingIndex];
+    const end = entryPageStarts[editingIndex + 1] ?? renderedPages.length;
+    const page = renderedPages[Math.min(start + editingPageOffset, end - 1)];
     if (!page) return;
     renderedPages.forEach((renderedPage) => renderedPage.classList.remove("is-editing-page"));
     page.classList.add("is-editing-page");
+    entryEl.querySelector(".journal-book__date").hidden = editingPageOffset > 0;
     page.append(entryEl);
     entryEl.hidden = false;
   };
 
+  const createEntryPage = (entry, index, pageOffset, pageIndex) => {
+    const page = document.createElement("article");
+    page.className = "book_page journal-book__page";
+    page.setAttribute("data-book-page-index", String(pageIndex));
+    const layout = document.createElement("div");
+    layout.className = "journal-book__page-layout";
+    const toc = document.createElement("button");
+    toc.type = "button";
+    toc.className = "journal-book__page-action journal-book__page-action--contents";
+    toc.innerHTML = contentsIcon;
+    toc.title = "Zurück zum Inhaltsverzeichnis";
+    toc.setAttribute("aria-label", toc.title);
+    toc.setAttribute("data-book-page-target", "1");
+    const date = document.createElement("div");
+    date.className = "journal-book__entry-date";
+    date.hidden = pageOffset > 0;
+    const gameDate = document.createElement("span");
+    gameDate.textContent = entry.calendar_date?.label || formatHandwrittenDate(entry.entry_date);
+    date.append(gameDate);
+    if (entry.calendar_date && entry.entry_date) {
+      const realDate = document.createElement("small");
+      realDate.textContent = formatHandwrittenDate(entry.entry_date);
+      date.append(realDate);
+    }
+    const content = document.createElement("div");
+    content.className = "journal-book__markdown";
+    layout.append(toc, date, content);
+    if (!readOnlyMode) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "journal-book__page-action journal-book__page-action--edit";
+      edit.innerHTML = editIcon;
+      edit.title = entry.text ? "Eintrag bearbeiten" : "Eintrag schreiben";
+      edit.setAttribute("aria-label", edit.title);
+      edit.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await showEntryAt(index);
+        if (currentIndex !== index) return;
+        if (currentEntry()?.is_fixed) await beginEditing();
+        if (currentEntry()?.is_fixed) return;
+        editingIndex = index;
+        editingPageOffset = pageOffset;
+        attachEditor();
+        inputEl.focus();
+      });
+      layout.append(edit);
+    }
+    const number = document.createElement("span");
+    number.className = "book_page__number";
+    number.textContent = String(pageIndex);
+    page.append(layout, number);
+    return page;
+  };
+
   const renderBookPages = () => {
-    const pages = entries.map((entry, index) => {
-      const page = document.createElement("article");
-      page.className = "book_page journal-book__page";
-      page.setAttribute("data-book-page-index", String(index + 2));
-      const layout = document.createElement("div");
-      layout.className = "journal-book__page-layout";
-      const toc = document.createElement("button");
-      toc.type = "button";
-      toc.className = "journal-book__page-action journal-book__page-action--contents";
-      toc.innerHTML = contentsIcon;
-      toc.title = "Zurück zum Inhaltsverzeichnis";
-      toc.setAttribute("aria-label", toc.title);
-      toc.setAttribute("data-book-page-target", "1");
-      const date = document.createElement("p");
-      date.className = "journal-book__entry-date";
-      date.textContent = entry.entry_date || "Neuer Eintrag";
-      const content = document.createElement("div");
-      content.className = "journal-book__markdown";
-      content.innerHTML = renderJournalMarkdown(entry.text);
-      layout.append(toc, date, content);
-      if (!readOnlyMode) {
-        const edit = document.createElement("button");
-        edit.type = "button";
-        edit.className = "journal-book__page-action journal-book__page-action--edit";
-        edit.innerHTML = editIcon;
-        edit.title = entry.text ? "Eintrag bearbeiten" : "Eintrag schreiben";
-        edit.setAttribute("aria-label", edit.title);
-        edit.addEventListener("click", async (event) => {
-          event.stopPropagation();
-          await showEntryAt(index);
-          if (currentIndex !== index) return;
-          if (currentEntry()?.is_fixed) await beginEditing();
-          if (currentEntry()?.is_fixed) return;
-          editingIndex = index;
-          attachEditor();
-          inputEl.focus();
-        });
-        layout.append(edit);
-      }
-      const number = document.createElement("span");
-      number.className = "book_page__number";
-      number.textContent = String(index + 2);
-      page.append(layout, number);
-      return page;
+    const stage = diaryWindow.querySelector(".book_viewer_stage");
+    const probe = createEntryPage({}, 0, 0, 2);
+    const width = Math.max(260, Math.floor(stage.clientWidth / (window.innerWidth < 760 ? 1 : 2)));
+    const height = Math.max(320, stage.clientHeight);
+    Object.assign(probe.style, {
+      position: "absolute", visibility: "hidden", pointerEvents: "none",
+      width: renderedPages[0]?.style.width || `${width}px`,
+      height: renderedPages[0]?.style.height || `${height}px`,
+      minHeight: "0", borderLeft: "1px solid transparent",
     });
+    probe.setAttribute("aria-hidden", "true");
+    diaryWindow.append(probe);
+    const target = probe.querySelector(".journal-book__markdown");
+    const pages = [];
+    entryPageStarts = [];
+    try {
+      entries.forEach((entry, index) => {
+        entryPageStarts.push(pages.length);
+        const source = document.createElement("div");
+        source.innerHTML = renderJournalMarkdown(entry.text);
+        paginateJournal(source, target).forEach((fragment, pageOffset) => {
+          const page = createEntryPage(entry, index, pageOffset, pages.length + 2);
+          page.querySelector(".journal-book__markdown").replaceChildren(fragment);
+          pages.push(page);
+        });
+      });
+    } finally {
+      probe.remove();
+    }
     if (!pages.length) {
       const emptyPage = document.createElement("article");
       emptyPage.className = "book_page";
@@ -322,6 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
       pages.push(emptyPage);
     }
     renderedPages = pages;
+    renderContents();
     bookViewer.updatePages([coverEl, indexEl, ...pages, backEl]);
     if (editingIndex !== null) attachEditor();
   };
@@ -432,6 +540,7 @@ document.addEventListener("DOMContentLoaded", () => {
       body: JSON.stringify({
         text: payloadToSave.text,
         entry_date: payloadToSave.entryDate,
+        calendar_date: payloadToSave.calendarDate,
       }),
     });
     // Do not replace text typed while this request was in flight.
@@ -470,6 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
       entryId: entry.id,
       text: inputEl.value,
       entryDate: dateInputEl.value || "",
+      calendarDate: selectedCalendarDate(),
     };
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
@@ -531,6 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({
           text: inputEl.value,
           entry_date: dateInputEl.value || "",
+          calendar_date: selectedCalendarDate(),
         }),
       });
       editingIndex = null;
@@ -595,7 +706,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (readOnlyMode) {
       return;
     }
+    renderDateDisplay();
     queueSave();
+  });
+  calendarInputEl.addEventListener("change", () => {
+    renderCalendarFields();
+    queueSave();
+  });
+  [gameDayEl, gameMonthEl, gameYearEl].forEach((field) => {
+    field.addEventListener(field === gameMonthEl ? "change" : "input", () => {
+      renderDateDisplay();
+      queueSave();
+    });
   });
 
   previewBtn.addEventListener("click", () => {
@@ -638,8 +760,20 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   const bookViewer = initBookViewer(diaryWindow, {
     startClosed: true,
-    beforeOpen: () => initialLoad,
+    beforeOpen: async () => {
+      await initialLoad;
+      await loadEntries(currentEntry()?.id);
+      await document.fonts?.ready;
+      renderBookPages();
+    },
     beforeClose: finishEditing,
+  });
+  let resizeFrame = null;
+  window.addEventListener("resize", () => {
+    window.cancelAnimationFrame(resizeFrame);
+    resizeFrame = window.requestAnimationFrame(() => {
+      if (diaryWindow.classList.contains("is-open")) renderBookPages();
+    });
   });
   const initialLoad = loadEntries();
 });

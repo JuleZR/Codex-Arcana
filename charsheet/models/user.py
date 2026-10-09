@@ -41,6 +41,7 @@ class UserSettings(models.Model):
     )
     two_factor_enabled_at = models.DateTimeField(blank=True, null=True)
     dice_enabled = models.BooleanField(default=False)
+    show_character_date = models.BooleanField(default=False)
     dddice_enabled = models.BooleanField(default=False)
     critical_success_text = models.CharField(
         max_length=64, blank=True, default="KRITISCHER ERFOLG",

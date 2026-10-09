@@ -567,6 +567,14 @@
             <div class="dashboard_account_toggle_grid">
               <label class="dashboard_account_toggle">
                 <span>
+                  <strong>Charakterdatum</strong>
+                  <small>Kalenderdatum und Navigation auf dem Charakterbogen anzeigen.</small>
+                </span>
+                <input type="checkbox" name="show_character_date" id="id_show_character_date"
+                       {% if request.user.settings.show_character_date %}checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span>
                   <strong>Würfelfunktion</strong>
                   <small>Hotbar und Würfe über die Wertefelder aktivieren.</small>
                 </span>

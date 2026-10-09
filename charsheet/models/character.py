@@ -335,6 +335,11 @@ class CharacterDiaryEntry(models.Model):
     order_index = models.PositiveIntegerField(default=0)
     text = models.TextField(blank=True, default="")
     entry_date = models.DateField(null=True, blank=True)
+    calendar_system = models.ForeignKey(
+        "CalendarSystem", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="diary_entries",
+    )
+    calendar_absolute_day = models.BigIntegerField(null=True, blank=True)
     is_fixed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

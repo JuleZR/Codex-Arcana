@@ -1,0 +1,349 @@
+/* The calendar is an independent artefact outside the transformed book. */
+.character-date {
+  position: fixed;
+  top: var(--calendar-top, 32px);
+  right: 14px;
+  z-index: 100;
+  width: clamp(250px, 22vw, 330px);
+  max-width: calc(100vw - 28px);
+  font-family: "Cinzel", Georgia, serif;
+}
+.character-date [hidden] { display: none !important; }
+.calendar-artifact {
+  --accent: #c3b087;
+  --light: #e9dac0;
+  --aura: rgba(189, 159, 108, .18);
+  --pointer-x: 50%;
+  --pointer-y: 20%;
+  position: relative;
+  isolation: isolate;
+  color: #f2ebdc;
+  border: 1px solid #72634c;
+  border-color: color-mix(in srgb, var(--accent) 55%, #1b2024);
+  border-radius: 13px;
+  background:
+    repeating-linear-gradient(105deg, transparent 0 3px, rgba(255,255,255,.012) 3px 4px),
+    linear-gradient(155deg, #3a3d3c, #171d20 30%, #101518 70%, #2c2d2b);
+  box-shadow: 0 12px 28px #0009, inset 0 1px 1px #fff3, inset 0 -2px 4px #000b;
+  transition: border-color 750ms, box-shadow 750ms, color 750ms;
+}
+.calendar-artifact[data-season="spring"] { --accent: #8ed6a2; --light: #d6efd0; --aura: #56ad7d30; }
+.calendar-artifact[data-season="summer"] { --accent: #e8b866; --light: #ffdf9c; --aura: #d59a3a30; }
+.calendar-artifact[data-season="autumn"] { --accent: #d49a74; --light: #f5cdae; --aura: #b36b4330; }
+.calendar-artifact[data-season="winter"] { --accent: #9fcede; --light: #e4f5fb; --aura: #8dc9ec30; }
+.calendar-artifact::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  z-index: 0;
+  pointer-events: none;
+  border: 1px solid #fff1;
+  border-radius: 9px;
+  box-shadow: inset 0 0 20px var(--aura);
+  transition: box-shadow 750ms;
+}
+.calendar-artifact::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(180px circle at var(--pointer-x) var(--pointer-y), #fff2, transparent 80%);
+  opacity: 0;
+  transition: opacity 300ms;
+}
+.calendar-artifact:hover::after, .calendar-artifact:focus-within::after { opacity: 1; }
+.character-date-display {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  align-items: center;
+  min-height: 104px;
+  padding: 18px 6px;
+  box-sizing: border-box;
+}
+.character-date-display, .character-date-display * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.character-date button, .character-date input, .character-date select {
+  position: relative;
+  z-index: 1;
+  font: inherit;
+  font-size: .83rem;
+  color: #f4ecdd;
+  background: #11181dde;
+  border: 1px solid #697071;
+  border-radius: 6px;
+  min-height: 40px;
+  box-sizing: border-box;
+  transition: background-color 180ms, border-color 350ms, box-shadow 250ms, color 600ms;
+}
+.character-date button { cursor: pointer; padding: 7px 9px; }
+.character-date button:hover:not(:disabled) {
+  color: var(--light);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 14px var(--aura), 0 0 10px var(--aura);
+}
+.character-date button:active:not(:disabled) { background: #364047; }
+.character-date button:focus-visible, .character-date input:focus-visible, .character-date select:focus-visible {
+  outline: 2px solid var(--accent, #c3b087);
+  outline-offset: 3px;
+}
+.character-date button:disabled { opacity: .45; cursor: default; }
+.character-date button.calendar-day-arrow {
+  border: 0;
+  background: transparent;
+  font-family: Georgia, serif;
+  font-size: 2rem;
+  line-height: 1;
+  padding: 4px;
+  min-height: 48px;
+}
+.character-date button.calendar-date-face {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  padding: 6px 2px;
+}
+.calendar-date-primary {
+  color: #f6efde;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(1.6rem, 2vw, 1.95rem);
+  font-weight: 600;
+  line-height: 1.06;
+  min-width: 0;
+  white-space: nowrap;
+}
+.calendar-date-secondary { color: var(--light); font-size: .86rem; letter-spacing: .08em; min-width: 0; white-space: nowrap; transition: color 750ms; }
+.calendar-date-season { color: var(--accent); font-size: .65rem; letter-spacing: .1em; min-width: 0; white-space: nowrap; transition: color 750ms; }
+.calendar-date-season:empty { display: none; }
+.calendar-engraving {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--accent);
+  opacity: .55;
+  font-family: "Segoe UI Historic", "Segoe UI Symbol", serif;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 4px;
+  transition: color 750ms;
+  pointer-events: none;
+}
+.calendar-engraving--bottom { top: auto; bottom: 5px; }
+.calendar-ornament {
+  position: absolute;
+  inset: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: .8;
+  pointer-events: none;
+  opacity: .65;
+  transition: stroke 750ms;
+  animation: calendar-gleam 7s ease-in-out infinite;
+}
+.character-date-picker {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.character-date-picker > :not(.calendar-atmosphere) { position: relative; z-index: 1; }
+.calendar-picker-heading { min-width: 0; text-align: center; padding: 0 18px 8px; border-bottom: 1px solid #fff2; }
+.calendar-picker-eyebrow { display: block; color: var(--accent); font-size: .62rem; letter-spacing: .2em; text-transform: uppercase; }
+.calendar-picker-heading h2 {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.75rem;
+  color: #f6efde;
+  line-height: 1.1;
+  margin: 6px 0 3px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.calendar-picker-season { display: block; min-width: 0; white-space: nowrap; color: var(--accent); font-size: .76rem; }
+.character-date .calendar-picker-close { position: absolute; right: -12px; top: -12px; background: transparent; border: 0; font-size: 1.5rem; }
+.character-date-picker label { display: grid; gap: 6px; min-width: 0; color: #d5c9b8; font-size: .72rem; }
+.character-date-picker input, .character-date-picker select { width: 100%; min-width: 0; padding: 8px; color-scheme: dark; }
+.calendar-date-part { min-width: 0; }
+.calendar-field-caption { display: flex; justify-content: space-between; align-items: center; min-height: 26px; gap: 2px; margin-bottom: 6px; }
+.calendar-field-arrows { display: flex; }
+.character-date .calendar-field-arrows button { min-height: 26px; width: 22px; padding: 0; border: 0; font-size: 1.1rem; }
+.character-date button:is([data-date-step], [data-date-month-step], [data-date-year-step]) {
+  background: transparent;
+  text-shadow: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: color 180ms, border-color 180ms, text-shadow 180ms;
+}
+.character-date button:is([data-date-step], [data-date-month-step], [data-date-year-step]):active:not(:disabled) { background: transparent; }
+.character-date button:is([data-date-step], [data-date-month-step], [data-date-year-step]):is(:hover, :focus-visible):not(:disabled) {
+  color: var(--light);
+  box-shadow: none;
+  text-shadow: 0 0 5px var(--accent), 0 0 12px var(--aura);
+}
+.calendar-direct-fields { display: grid; grid-template-columns: 64px minmax(0, 1.35fr) minmax(68px, 1fr); gap: 6px; align-items: end; }
+.calendar-direct-fields > label { grid-template-rows: 26px auto; align-items: center; }
+.character-date-picker [data-date-day] { min-width: 64px; padding-inline: 4px; font-variant-numeric: tabular-nums; }
+.character-date-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  gap: 6px;
+  padding: 9px 0;
+  border-block: 1px solid #fff2;
+}
+.character-date-days button { min-height: 36px; padding: 5px; font-family: Georgia, serif; font-size: 1rem; }
+.character-date-days [aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 12px var(--aura), 0 0 0 1px var(--accent); }
+.character-date-days [aria-current="date"]::after { content: "◆"; position: absolute; bottom: 1px; right: 3px; font-size: .5rem; color: var(--accent); }
+.calendar-day-legend { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; color: #bfb5a4; font-size: .6rem; }
+.calendar-saved-date { margin: 0; min-width: 0; white-space: nowrap; font-size: .72rem; color: var(--light); line-height: 1.5; }
+.calendar-picker-footer { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.character-date .calendar-apply { border-color: var(--accent); color: var(--light); padding-inline: 16px; }
+.character-date-error:not(:empty) { display: block; margin-top: 8px; padding: 10px; border-radius: 7px; background: #181c20f2; color: #f2c1b0; font-size: .74rem; line-height: 1.5; }
+.character-date[aria-busy="true"] button, .character-date[aria-busy="true"] .character-date-picker { pointer-events: none; }
+.is-date-changing { animation: calendar-date-turn 320ms ease-out; }
+
+.calendar-atmosphere { position: absolute; z-index: 0; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.calendar-particles { position: absolute; inset: 0; opacity: 0; transition: opacity 800ms; }
+.calendar-particles[data-effect="spring"] { color: #a6e2b5; background: radial-gradient(ellipse at 70% 0, #42aa7233, transparent 70%); }
+.calendar-particles[data-effect="summer"] {
+  background: linear-gradient(125deg, #edc5800c, #d69a4d06 55%, #e7b6680a);
+}
+.calendar-particles[data-effect="summer"]::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(ellipse 75% 85% at 22% 30%, #f6cf8e52 0%, #edbb6a30 35%, #dea35400 82%),
+    radial-gradient(ellipse 85% 70% at 85% 75%, #e9b66b38 0%, #e3a85f16 40%, #e3a85f00 85%);
+  opacity: .72;
+  animation: calendar-summer-reflection 6.4s ease-in-out -2.1s infinite;
+  animation-play-state: paused;
+}
+.calendar-particles[data-effect="summer"]::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(ellipse 28% 52% at 18% 25%, #ffe5b854 0%, #efca8a24 35%, #efca8a00 78%),
+    radial-gradient(ellipse 36% 43% at 72% 70%, #ffdda449 0%, #f4ca8b20 40%, #f4ca8b00 82%),
+    radial-gradient(ellipse 26% 58% at 90% 18%, #f7d6a13d 0%, #f7d6a118 40%, #f7d6a100 84%),
+    radial-gradient(ellipse 32% 38% at 38% 88%, #eac08333 0%, #eac08314 40%, #eac08300 85%),
+    radial-gradient(ellipse 33% 65% at 48% 30%, #0c161b30 0%, #0c161b14 38%, #0c161b00 82%),
+    radial-gradient(ellipse 42% 48% at 12% 85%, #11191d24 0%, #11191d0e 40%, #11191d00 85%);
+  filter: blur(12px);
+  opacity: .65;
+  animation: calendar-summer-warmth 7.7s ease-in-out -4.6s infinite;
+  animation-play-state: paused;
+}
+.calendar-artifact[data-season="summer"] [data-effect="summer"]::before,
+.calendar-artifact[data-season="summer"] [data-effect="summer"]::after { animation-play-state: running; }
+.calendar-particles[data-effect="autumn"] { color: #d99c6e; background: radial-gradient(ellipse at 70% 0, #aa573c33, transparent 70%); }
+.calendar-particles[data-effect="winter"] { color: #cae9f7; background: radial-gradient(ellipse at 70% 0, #83c7e033, transparent 70%); }
+.calendar-particles[data-effect="winter"]::before,
+.calendar-particles[data-effect="winter"]::after {
+  content: "✧";
+  position: absolute;
+  top: -7px;
+  left: 7px;
+  font-family: Georgia, serif;
+  font-size: 30px;
+  opacity: .4;
+  text-shadow: 0 0 8px #c8edff;
+}
+.calendar-particles[data-effect="winter"]::after { top: auto; left: auto; bottom: -7px; right: 7px; }
+.calendar-particles i {
+  --fall: 130px;
+  position: absolute;
+  top: -10px;
+  left: calc(8% + var(--i) * 16%);
+  width: 5px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 60% 15% 65% 15%;
+  opacity: 0;
+  animation: calendar-particle-fall calc(10s + var(--i) * 1s) linear infinite;
+  animation-delay: calc(var(--i) * -2.1s);
+  animation-play-state: paused;
+}
+.character-date-picker .calendar-particles i { --fall: 650px; }
+.calendar-particles[data-effect="spring"] i:nth-child(3n) { width: 3px; height: 3px; border-radius: 50%; box-shadow: 0 0 5px #f2e6b9; }
+.calendar-particles[data-effect="spring"] i.calendar-cherry-blossom {
+  width: 9px;
+  height: 13px;
+  border-radius: 60% 75% 70% 35% / 65% 75% 60% 45%;
+  background: linear-gradient(135deg, #ffb7d3, #ef699f 58%, #c23e7c);
+  mask-image: radial-gradient(circle at 55% 0, transparent 0 1.3px, #000 1.8px);
+  animation-name: calendar-cherry-drift;
+  animation-duration: 29s;
+  animation-delay: -7s;
+}
+.calendar-particles[data-effect="spring"] i.calendar-cherry-blossom:nth-child(5) { animation-duration: 37s; animation-delay: -26s; }
+.calendar-particles[data-effect="winter"] i { width: 3px; height: 3px; border-radius: 50%; background: transparent; }
+.calendar-particles[data-effect="winter"] i::before { content: "❄"; font-size: 10px; position: absolute; color: inherit; }
+.calendar-particles[data-effect="autumn"] i { width: 7px; height: 10px; animation-timing-function: ease-in-out; }
+.calendar-artifact[data-season="spring"] [data-effect="spring"],
+.calendar-artifact[data-season="summer"] [data-effect="summer"],
+.calendar-artifact[data-season="autumn"] [data-effect="autumn"],
+.calendar-artifact[data-season="winter"] [data-effect="winter"] { opacity: 1; }
+.calendar-artifact[data-season="spring"] [data-effect="spring"] i,
+.calendar-artifact[data-season="autumn"] [data-effect="autumn"] i,
+.calendar-artifact[data-season="winter"] [data-effect="winter"] i { animation-play-state: running; }
+.character-date.is-paused *, .character-date.is-paused *::before, .character-date.is-paused *::after,
+.character-date-picker[hidden] *, .character-date-picker[hidden] *::before, .character-date-picker[hidden] *::after { animation-play-state: paused !important; }
+@keyframes calendar-particle-fall {
+  0% { opacity: 0; transform: translate(0, -8px) rotate(0); }
+  20% { opacity: .38; transform: translate(9px, calc(var(--fall) * .2)) rotate(35deg); }
+  60% { opacity: .32; transform: translate(-10px, calc(var(--fall) * .6)) rotate(110deg); }
+  100% { opacity: 0; transform: translate(12px, var(--fall)) rotate(170deg); }
+}
+@keyframes calendar-cherry-drift {
+  0%, 55%, 100% { opacity: 0; transform: translate(0, -8px) rotate(0); }
+  67% { opacity: .72; transform: translate(6px, calc(var(--fall) * .2)) rotate(25deg); }
+  82% { opacity: .64; transform: translate(-9px, calc(var(--fall) * .65)) rotate(85deg); }
+  92% { opacity: 0; transform: translate(5px, var(--fall)) rotate(130deg); }
+}
+@keyframes calendar-summer-reflection {
+  0%, 100% { opacity: .72; transform: translate3d(-8%, -3%, 0) scale(1.02); }
+  29% { opacity: .84; transform: translate3d(2%, 4%, 0) scale(1.06); }
+  63% { opacity: .66; transform: translate3d(9%, -2%, 0) scale(1.03); }
+  84% { opacity: .78; transform: translate3d(-2%, -5%, 0) scale(1.05); }
+}
+@keyframes calendar-summer-warmth {
+  0%, 100% { opacity: .65; transform: translate3d(10%, 4%, 0) rotate(-3deg) scale(1.04); }
+  34% { opacity: .77; transform: translate3d(-3%, -6%, 0) rotate(2deg) scale(1.08); }
+  69% { opacity: .57; transform: translate3d(-12%, 3%, 0) rotate(-1deg) scale(1.03); }
+}
+@keyframes calendar-gleam { 0%, 100% { opacity: .45; } 50% { opacity: .8; } }
+@keyframes calendar-date-turn { 0% { opacity: .35; transform: translateY(3px); } 100% { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1180px) {
+  .character-date { position: relative; top: auto; right: auto; width: min(330px, calc(100% - 68px)); max-width: none; margin: 10px 10px 12px auto; }
+}
+@media (max-width: 600px) {
+  .character-date-display { min-height: 100px; }
+  .calendar-date-primary { font-size: 1.7rem; }
+  .character-date .calendar-field-arrows button { width: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .character-date *, .character-date *::before, .character-date *::after { animation: none !important; transition: none !important; }
+  .calendar-particles i { display: none; }
+}
+@media print {
+  .character-date { position: absolute; width: 260px; }
+  .character-date-picker, .character-date-error, .calendar-atmosphere, .calendar-day-arrow, .calendar-engraving { display: none !important; }
+  .calendar-artifact { background: white; box-shadow: none; color: black; }
+  .calendar-date-primary, .calendar-date-secondary, .calendar-date-season { color: black; }
+}

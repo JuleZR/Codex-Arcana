@@ -10,6 +10,7 @@ class CharsheetConfig(AppConfig):
     name = "charsheet"
 
     def ready(self):
+        from . import calendar_admin  # noqa: F401
         from . import auth_security  # noqa: F401
         from . import image_conversion  # noqa: F401
         from . import session_management  # noqa: F401

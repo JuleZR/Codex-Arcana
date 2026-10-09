@@ -244,7 +244,6 @@ CREATION_SECTION_LABELS = {
     4: "Charakterausbau",
 }
 
-DIARY_ENTRY_CHAR_LIMIT = 2200
 SHEET_PARTIAL_TEMPLATES = {
     "attribute_panel": ("sheetAttributePanel", "charsheet/partials/_attribute_panel.html"),
     "skills_panel": ("sheetSkillsPanel", "charsheet/partials/_skills_panel.html"),
@@ -1539,11 +1538,21 @@ def _normalize_diary_entries(character: Character) -> list[CharacterDiaryEntry]:
 
 def _serialize_diary_entry(entry: CharacterDiaryEntry) -> dict[str, object]:
     """Return one diary entry payload for the character-sheet frontend."""
+    from charsheet.calendar_views import date_payload
+    from charsheet.engine.calendar_engine import CalendarEngine
+
+    calendar_date = None
+    if entry.calendar_system_id and entry.calendar_absolute_day is not None:
+        calendar_date = date_payload(
+            CalendarEngine(), entry.calendar_system,
+            entry.calendar_absolute_day,
+        )
     return {
         "id": entry.id,
         "order_index": entry.order_index,
         "text": entry.text,
         "entry_date": entry.entry_date.isoformat() if entry.entry_date else "",
+        "calendar_date": calendar_date,
         "is_fixed": bool(entry.is_fixed),
         "is_empty": entry.is_empty,
         "created_at": entry.created_at.isoformat(),
@@ -1553,14 +1562,85 @@ def _serialize_diary_entry(entry: CharacterDiaryEntry) -> dict[str, object]:
 
 def _diary_payload(character: Character, *, current_entry_id: int | None = None) -> dict[str, object]:
     """Return normalized diary state payload for one character."""
+    from charsheet.calendar_views import date_payload, initial_date
+    from charsheet.engine.calendar_engine import CalendarEngine
+    from charsheet.models import CalendarSystem, CharacterDate
+
     entries = _normalize_diary_entries(character)
+    engine = CalendarEngine()
+    systems = {}
+    for system in CalendarSystem.objects.select_related("calendar_definition"):
+        try:
+            engine.system_offset(system)
+        except ValidationError:
+            continue
+        systems[system.pk] = system
+    stored = CharacterDate.objects.filter(character=character).first()
+    calendar_dates = [
+        date_payload(
+            engine, system,
+            stored.absolute_day if stored else initial_date(
+                engine, system, systems,
+            ),
+        )
+        for system in systems.values()
+    ]
     if current_entry_id is None and entries:
         current_entry_id = entries[-1].id
     return {
         "ok": True,
         "entries": [_serialize_diary_entry(entry) for entry in entries],
         "current_entry_id": current_entry_id,
+        "calendar_dates": calendar_dates,
+        "calendar_systems": [
+            {
+                "id": system.pk,
+                "name": system.name,
+                "abbreviation": system.abbreviation,
+                "months": [
+                    {"number": number, "name": month.name}
+                    for number, month in enumerate(
+                        engine.structure(system.calendar_definition)[0], 1,
+                    )
+                ],
+            }
+            for system in systems.values()
+        ],
     }
+
+
+def _update_diary_calendar(entry, payload):
+    """Validate an optional calendar snapshot before saving the entry."""
+    from charsheet.calendar_views import integer
+    from charsheet.engine.calendar_engine import CalendarEngine
+    from charsheet.models import CalendarSystem
+
+    if "calendar_date" not in payload:
+        return []
+    value = payload["calendar_date"]
+    if value is None:
+        entry.calendar_system = None
+        entry.calendar_absolute_day = None
+    else:
+        if not isinstance(value, dict):
+            raise ValueError("Ungültiges Ingame-Datum.")
+        system = CalendarSystem.objects.filter(
+            pk=integer(value.get("system")),
+        ).first()
+        if system is None:
+            raise ValueError("Unbekannte Zeitrechnung.")
+        engine = CalendarEngine()
+        if "year" in value:
+            absolute = integer(engine.to_absolute(
+                system, integer(value.get("year")),
+                integer(value.get("month")), integer(value.get("day")),
+            ))
+        else:
+            absolute = integer(value.get("absolute_day"))
+            engine.from_absolute(system, absolute)
+        entry.calendar_system = system
+        entry.calendar_absolute_day = absolute
+    return ["calendar_system", "calendar_absolute_day"]
 
 
 def _read_json_payload(request) -> dict[str, object]:
@@ -2456,10 +2536,12 @@ def save_character_diary_entry(request, character_id: int, entry_id: int):
 
     payload = _read_json_payload(request)
     text = str(payload.get("text", entry.text or ""))
-    if len(text) > DIARY_ENTRY_CHAR_LIMIT:
-        return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
 
     update_fields = ["text", "updated_at"]
+    try:
+        update_fields.extend(_update_diary_calendar(entry, payload))
+    except (ValueError, TypeError, ValidationError) as error:
+        return JsonResponse({"ok": False, "error": str(error)}, status=400)
     entry.text = text
     requested_date = _parse_iso_date(payload.get("entry_date"))
     if requested_date is not None and requested_date != entry.entry_date:
@@ -2476,11 +2558,13 @@ def fix_character_diary_entry(request, character_id: int, entry_id: int):
     character, entry = _owned_diary_entry_or_404(request, character_id, entry_id)
     payload = _read_json_payload(request)
     text = str(payload.get("text", entry.text or ""))
-    if len(text) > DIARY_ENTRY_CHAR_LIMIT:
-        return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
     if not text.strip():
         return JsonResponse({"ok": False, "error": "empty_entry"}, status=400)
 
+    try:
+        calendar_fields = _update_diary_calendar(entry, payload)
+    except (ValueError, TypeError, ValidationError) as error:
+        return JsonResponse({"ok": False, "error": str(error)}, status=400)
     entry.text = text
     entry.is_fixed = True
     requested_date = _parse_iso_date(payload.get("entry_date"))
@@ -2488,7 +2572,9 @@ def fix_character_diary_entry(request, character_id: int, entry_id: int):
         entry.entry_date = requested_date
     elif entry.entry_date is None:
         entry.entry_date = timezone.localdate()
-    entry.save(update_fields=["text", "is_fixed", "entry_date", "updated_at"])
+    entry.save(update_fields=[
+        "text", "is_fixed", "entry_date", "updated_at", *calendar_fields,
+    ])
     return JsonResponse(_diary_payload(character, current_entry_id=entry.id))
 
 
@@ -2525,8 +2611,6 @@ def import_legacy_character_diary(request, character_id: int):
         if not isinstance(raw_entry, dict):
             continue
         text = str(raw_entry.get("text", ""))
-        if len(text) > DIARY_ENTRY_CHAR_LIMIT:
-            text = text[:DIARY_ENTRY_CHAR_LIMIT]
         if not text.strip():
             continue
         entry_date = _parse_iso_date(raw_entry.get("entry_date") or raw_entry.get("createdAt"))

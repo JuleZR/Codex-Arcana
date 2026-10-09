@@ -35,14 +35,13 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  box-sizing: border-box;
+  padding-top: 58px;
 }
 .journal-book__page-layout > .journal-book__markdown {
   flex: 1;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  overflow: hidden;
 }
 .journal-book__page > .book_page__number {
   z-index: 12;
@@ -66,8 +65,8 @@
   opacity: 0.82;
   transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
 }
-.journal-book__page-action--contents { left: calc(50% - 36px); }
-.journal-book__page-action--edit { left: calc(50% + 6px); }
+.journal-book__page-action--contents { left: 0; }
+.journal-book__page-action--edit { left: 36px; }
 .journal-book__page-action svg {
   width: 18px;
   height: 18px;
@@ -84,11 +83,27 @@
   opacity: 1;
 }
 .journal-book__entry-date {
-  margin: 0 0 3px;
-  padding-top: 34px;
-  text-align: center;
+  position: absolute;
+  top: 0;
+  right: 0;
+  max-width: calc(100% - 80px);
+  margin: 0;
+  text-align: right;
+  line-height: 1.2;
+}
+.journal-book__entry-date > span,
+.journal-book__entry-date > small {
+  display: block;
+}
+.journal-book__entry-date > small {
+  margin-top: 3px;
+  font-size: 0.75em;
+  color: rgba(55, 34, 20, 0.55);
 }
 .journal-book__writing {
+  position: relative;
+  box-sizing: border-box;
+  padding-top: 58px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -97,12 +112,10 @@
 }
 
 .journal-book__writing > h3 {
-  margin: 0 0 2px;
-  text-align: center;
-  line-height: 1.15;
+  display: none;
 }
 .journal-book__writing p { margin: 2px 0; }
-.journal-book__date, .journal-book__actions, .journal-book__navigation {
+.journal-book__actions, .journal-book__navigation {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -110,15 +123,72 @@
   gap: 8px;
 }
 .journal-book__date {
-  justify-content: center;
-  flex-wrap: nowrap;
-  gap: 6px;
-  padding: 0 clamp(18px, 8%, 36px);
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 4;
+  width: min(320px, 100%);
+  text-align: right;
 }
-.journal-book__date input {
-  flex: 0 1 150px;
+.journal-book__date > summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 8px;
+  cursor: pointer;
+  list-style: none;
+  line-height: 1.2;
+}
+.journal-book__date > summary::-webkit-details-marker { display: none; }
+.journal-book__date > summary > span { grid-column: 1; }
+.journal-book__date > summary::after {
+  content: "✎";
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+  color: #73532c;
+  font-size: 0.9em;
+}
+.journal-book__date .is-secondary {
+  font-size: 0.75em;
+  color: rgba(55, 34, 20, 0.55);
+}
+.journal-book__date-fields {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #73532c50;
+  border-radius: 5px;
+  background: #e5cf9e;
+  box-shadow: 0 5px 15px #37221425;
+  text-align: left;
+  font-size: 0.95em;
+}
+.journal-book__date-fields > label {
+  margin-top: 3px;
+  color: #73532c;
+  font-size: 0.8em;
+}
+.journal-book__date :is(input, select) {
+  width: 100%;
   min-width: 0;
-  height: 32px;
+  height: 30px;
+  padding: 3px 5px;
+  border: 0;
+  border-bottom: 1px solid #73532c65;
+  border-radius: 0;
+  background: #f5e7c530;
+  box-shadow: none;
+}
+.journal-book__game-date {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 70px;
+  gap: 6px;
 }
 .journal-book textarea {
   box-sizing: border-box;
@@ -247,7 +317,7 @@
 .journal-book__markdown pre { white-space: pre-wrap; }
 .journal-book__markdown code { font-size: 0.85em; background: #73532c18; }
 .journal-book__markdown a { color: #70431c; text-decoration: underline; }
-.journal-book .alchemist_almanac_toc__list button { display: block; overflow-wrap: anywhere; }
+.journal-book .alchemist_almanac_toc__list button { display: grid; overflow-wrap: anywhere; }
 .journal-book [aria-current="page"] { font-weight: bold; color: #7a4d1f; }
 .journal-book :focus-visible { outline: 2px solid #7a4d1f; outline-offset: 2px; }
 .journal-book__actions svg {

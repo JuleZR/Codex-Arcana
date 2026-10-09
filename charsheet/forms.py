@@ -45,6 +45,7 @@ class UserSettingsForm(forms.ModelForm):
             "print_include_notes",
             "print_compact",
             "dice_enabled",
+            "show_character_date",
             "dddice_enabled",
             "critical_success_text",
             "critical_failure_text",
@@ -64,8 +65,8 @@ class UserSettingsForm(forms.ModelForm):
         for name in ("critical_success_text", "critical_failure_text"):
             if name not in self.errors:
                 cleaned_data[name] = (
-                    cleaned_data.get(name) or
-                    UserSettings._meta.get_field(name).default
+                    cleaned_data.get(name)
+                    or UserSettings._meta.get_field(name).default
                 )
 
         dddice_enabled = cleaned_data.get("dddice_enabled")
@@ -74,9 +75,11 @@ class UserSettingsForm(forms.ModelForm):
 
         if dddice_enabled:
             if not dddice_api_key:
-                self.add_error("dddice_api_key", "Bitte einen API Key hinterlegen.")
+                self.add_error("dddice_api_key",
+                               "Bitte einen API Key hinterlegen.")
             if not dddice_room_id:
-                self.add_error("dddice_room_id", "Bitte eine Room ID hinterlegen.")
+                self.add_error("dddice_room_id",
+                               "Bitte eine Room ID hinterlegen.")
 
         return cleaned_data
 
@@ -325,16 +328,36 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "appearance",
         ]
         widgets = {
-            "name": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 100, "autocomplete": "off"}),
+            "name": forms.TextInput(attrs={
+                "class": "dashboard_input", "maxlength": 100,
+                "autocomplete": "off",
+            }),
             "gender": forms.Select(attrs={"class": "dashboard_input"}),
-            "age": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
-            "height": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
-            "skin_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
-            "hair_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
-            "eye_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
-            "country_of_origin": forms.Select(attrs={"class": "dashboard_input"}),
-            "weight": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
-            "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 300, "rows": 3, "style": "resize: none;"}),
+            "age": forms.NumberInput(attrs={
+                "class": "dashboard_input", "min": 0, "step": 1,
+            }),
+            "height": forms.NumberInput(attrs={
+                "class": "dashboard_input", "min": 0, "step": 1,
+            }),
+            "skin_color": forms.TextInput(attrs={
+                "class": "dashboard_input", "maxlength": 25,
+            }),
+            "hair_color": forms.TextInput(attrs={
+                "class": "dashboard_input", "maxlength": 25,
+            }),
+            "eye_color": forms.TextInput(attrs={
+                "class": "dashboard_input", "maxlength": 25,
+            }),
+            "country_of_origin": forms.Select(
+                attrs={"class": "dashboard_input"},
+            ),
+            "weight": forms.NumberInput(attrs={
+                "class": "dashboard_input", "min": 0, "step": 1,
+            }),
+            "appearance": forms.Textarea(attrs={
+                "class": "dashboard_input", "maxlength": 300, "rows": 3,
+                "style": "resize: none;",
+            }),
         }
 
     def __init__(self, *args, **kwargs):
@@ -342,20 +365,29 @@ class CharacterInfoInlineForm(forms.ModelForm):
         self._cropped_picture_content = None
         self._uploaded_picture_content = None
         self._locked_religion_entity = None
-        self.fields["religion_entity"].queryset = DivineEntity.objects.order_by("name")
+        self.fields["religion_entity"].queryset = (
+            DivineEntity.objects.order_by("name")
+        )
 
         if self.instance and self.instance.pk:
-            self._locked_religion_entity = locked_religion_entity(self.instance, repair=True)
+            self._locked_religion_entity = locked_religion_entity(
+                self.instance, repair=True)
             binding = getattr(self.instance, "divine_entity_binding", None)
             if self._locked_religion_entity is not None:
-                self.fields["religion_entity"].initial = self._locked_religion_entity.pk
+                self.fields["religion_entity"].initial = (
+                    self._locked_religion_entity.pk
+                )
                 self.fields["religion_entity"].disabled = True
-                self.fields["religion_entity"].help_text = "Durch die gelernte klerikale Schule festgelegt."
+                self.fields["religion_entity"].help_text = (
+                    "Durch die gelernte klerikale Schule festgelegt."
+                )
             elif binding is not None:
                 self.fields["religion_entity"].initial = binding.entity_id
             elif self.instance.religion:
                 self.fields["religion_entity"].initial = (
-                    DivineEntity.objects.filter(name=self.instance.religion).values_list("pk", flat=True).first()
+                    DivineEntity.objects.filter(
+                        name=self.instance.religion,
+                    ).values_list("pk", flat=True).first()
                 )
 
     @staticmethod
@@ -366,14 +398,16 @@ class CharacterInfoInlineForm(forms.ModelForm):
                 if image.mode not in ("RGB", "L"):
                     background = Image.new("RGB", image.size, "#f3ead8")
                     alpha_image = image.convert("RGBA")
-                    background.paste(alpha_image, mask=alpha_image.getchannel("A"))
+                    background.paste(
+                        alpha_image, mask=alpha_image.getchannel("A"))
                     image = background
                 else:
                     image = image.convert("RGB")
 
                 width, height = image.size
                 if width <= 0 or height <= 0:
-                    raise forms.ValidationError("Das hochgeladene Bild ist leer.")
+                    raise forms.ValidationError(
+                        "Das hochgeladene Bild ist leer.")
 
                 target_ratio = 4 / 5
                 current_ratio = width / height
@@ -390,7 +424,8 @@ class CharacterInfoInlineForm(forms.ModelForm):
 
                 left = max(0, (width - crop_width) // 2)
                 top = max(0, (height - crop_height) // 2)
-                image = image.crop((left, top, left + crop_width, top + crop_height))
+                image = image.crop(
+                    (left, top, left + crop_width, top + crop_height))
 
                 if image.size != (800, 1000):
                     image = image.resize((800, 1000), Image.Resampling.LANCZOS)
@@ -398,21 +433,25 @@ class CharacterInfoInlineForm(forms.ModelForm):
                 output = BytesIO()
                 image.save(output, format="JPEG", quality=92, optimize=True)
         except OSError as error:
-            raise forms.ValidationError("Das Bild konnte nicht verarbeitet werden.") from error
+            raise forms.ValidationError(
+                "Das Bild konnte nicht verarbeitet werden.") from error
 
         return output.getvalue(), "jpg"
 
     def clean_char_picture_cropped_data(self):
-        raw_value = (self.cleaned_data.get("char_picture_cropped_data") or "").strip()
+        raw_value = (self.cleaned_data.get(
+            "char_picture_cropped_data") or "").strip()
         if not raw_value:
             return ""
 
         if "," not in raw_value:
-            raise forms.ValidationError("Das zugeschnittene Bild konnte nicht gelesen werden.")
+            raise forms.ValidationError(
+                "Das zugeschnittene Bild konnte nicht gelesen werden.")
 
         header, encoded = raw_value.split(",", 1)
         if ";base64" not in header:
-            raise forms.ValidationError("Das zugeschnittene Bild ist ungültig.")
+            raise forms.ValidationError(
+                "Das zugeschnittene Bild ist ungültig.")
 
         mime_type = header.split(":", 1)[-1].split(";", 1)[0].lower()
         extension_by_mime = {
@@ -422,22 +461,27 @@ class CharacterInfoInlineForm(forms.ModelForm):
         }
         extension = extension_by_mime.get(mime_type)
         if extension is None:
-            raise forms.ValidationError("Bitte ein Bild als JPG, PNG oder WEBP verwenden.")
+            raise forms.ValidationError(
+                "Bitte ein Bild als JPG, PNG oder WEBP verwenden.")
 
         try:
             decoded = base64.b64decode(encoded)
         except (ValueError, binascii.Error) as error:
-            raise forms.ValidationError("Das zugeschnittene Bild ist beschädigt.") from error
+            raise forms.ValidationError(
+                "Das zugeschnittene Bild ist beschädigt.") from error
 
         if not decoded:
             raise forms.ValidationError("Das zugeschnittene Bild ist leer.")
 
         try:
-            normalized_bytes, normalized_extension = self._normalize_picture_bytes(decoded)
+            normalized_bytes, normalized_extension = (
+                self._normalize_picture_bytes(decoded)
+            )
         except forms.ValidationError as error:
             raise forms.ValidationError(error.message) from error
 
-        self._cropped_picture_content = (normalized_bytes, normalized_extension or extension)
+        self._cropped_picture_content = (
+            normalized_bytes, normalized_extension or extension)
         return raw_value
 
     def clean_char_picture_upload(self):
@@ -453,8 +497,10 @@ class CharacterInfoInlineForm(forms.ModelForm):
         if not uploaded_bytes:
             raise forms.ValidationError("Bitte ein gültiges Bild auswählen.")
 
-        normalized_bytes, normalized_extension = self._normalize_picture_bytes(uploaded_bytes)
-        self._uploaded_picture_content = (normalized_bytes, normalized_extension)
+        normalized_bytes, normalized_extension = self._normalize_picture_bytes(
+            uploaded_bytes)
+        self._uploaded_picture_content = (
+            normalized_bytes, normalized_extension)
         return uploaded
 
     def clean_religion_entity(self):
@@ -470,26 +516,37 @@ class CharacterInfoInlineForm(forms.ModelForm):
         if not clerical_entries:
             return selected_religion
         if len(clerical_entries) > 1:
-            raise forms.ValidationError("Religion kann bei mehreren klerikalen Schulen nicht eindeutig gesetzt werden.")
+            raise forms.ValidationError(
+                "Religion kann bei mehreren klerikalen Schulen "
+                "nicht eindeutig gesetzt werden.")
 
         school = clerical_entries[0].school
         if selected_religion is None:
             selected_religion = unique_divine_entity_for_school(school.id)
             if selected_religion is None:
-                raise forms.ValidationError("Bitte eine Religion passend zur klerikalen Schule waehlen.")
+                raise forms.ValidationError(
+                    "Bitte eine Religion passend zur klerikalen Schule "
+                    "waehlen.")
         if not divine_entities_for_school(school.id).filter(
             pk=selected_religion.pk,
         ).exists():
-            raise forms.ValidationError("Diese Religion passt nicht zur gelernten klerikalen Schule.")
+            raise forms.ValidationError(
+                "Diese Religion passt nicht zur gelernten klerikalen Schule."
+            )
         return selected_religion
 
     def save(self, commit=True):
         character = super().save(commit=False)
-        locked_entity = locked_religion_entity(character, repair=True) if character.pk else None
-        selected_religion = locked_entity or self.cleaned_data.get("religion_entity")
-        character.religion = selected_religion.name if selected_religion else ""
+        locked_entity = locked_religion_entity(
+            character, repair=True) if character.pk else None
+        selected_religion = locked_entity or self.cleaned_data.get(
+            "religion_entity")
+        character.religion = (
+            selected_religion.name if selected_religion else ""
+        )
         remove_picture = bool(self.cleaned_data.get("remove_char_picture"))
-        safe_name = "".join(ch.lower() if ch.isalnum() else "-" for ch in (character.name or "character")).strip("-")
+        safe_name = "".join(ch.lower() if ch.isalnum(
+        ) else "-" for ch in (character.name or "character")).strip("-")
         safe_name = safe_name or f"character-{character.pk or 'portrait'}"
 
         if self._cropped_picture_content:
@@ -523,8 +580,8 @@ class CharacterInfoInlineForm(forms.ModelForm):
                 for entry in active_clerical_school_entries(character)
             }
             if (
-                selected_religion is not None
-                and any(
+                selected_religion is not None and
+                any(
                     divine_entities_for_school(school_id).filter(
                         pk=selected_religion.pk,
                     ).exists()
@@ -536,7 +593,8 @@ class CharacterInfoInlineForm(forms.ModelForm):
                     defaults={"entity": selected_religion},
                 )
             elif not active_divine_school_ids:
-                CharacterDivineEntity.objects.filter(character=character).delete()
+                CharacterDivineEntity.objects.filter(
+                    character=character).delete()
             self.save_m2m()
         return character
 
@@ -624,7 +682,7 @@ class CharacterItemRuneSpecForm(forms.ModelForm):
 
 
 class CharacterTechniqueSpecificationForm(forms.ModelForm):
-    """Edit the specification text for learned techniques on the character sheet."""
+    """Edit the specification text of learned techniques."""
 
     class Meta:
         model = CharacterTechnique
@@ -641,7 +699,8 @@ class CharacterTechniqueSpecificationForm(forms.ModelForm):
         }
 
     def clean_specification_value(self):
-        specification_value = (self.cleaned_data.get("specification_value") or "").strip()
+        specification_value = (self.cleaned_data.get(
+            "specification_value") or "").strip()
         if not specification_value:
             return ""
         return " ".join(specification_value.split())
@@ -652,26 +711,34 @@ class AccountSettingsForm(forms.Form):
 
     username = forms.CharField(
         max_length=150,
-        widget=forms.TextInput(attrs={"class": "dashboard_input", "autocomplete": "username"}),
+        widget=forms.TextInput(
+            attrs={"class": "dashboard_input", "autocomplete": "username"}),
     )
     email = forms.EmailField(
         required=False,
-        widget=forms.EmailInput(attrs={"class": "dashboard_input", "autocomplete": "email"}),
+        widget=forms.EmailInput(
+            attrs={"class": "dashboard_input", "autocomplete": "email"}),
     )
     current_password = forms.CharField(
         required=False,
         strip=False,
-        widget=forms.PasswordInput(attrs={"class": "dashboard_input", "autocomplete": "current-password"}),
+        widget=forms.PasswordInput(
+            attrs={"class": "dashboard_input",
+                   "autocomplete": "current-password"}),
     )
     new_password1 = forms.CharField(
         required=False,
         strip=False,
-        widget=forms.PasswordInput(attrs={"class": "dashboard_input", "autocomplete": "new-password"}),
+        widget=forms.PasswordInput(
+            attrs={"class": "dashboard_input",
+                   "autocomplete": "new-password"}),
     )
     new_password2 = forms.CharField(
         required=False,
         strip=False,
-        widget=forms.PasswordInput(attrs={"class": "dashboard_input", "autocomplete": "new-password"}),
+        widget=forms.PasswordInput(
+            attrs={"class": "dashboard_input",
+                   "autocomplete": "new-password"}),
     )
 
     def __init__(self, user, *args, **kwargs):
@@ -688,9 +755,11 @@ class AccountSettingsForm(forms.Form):
 
         User = get_user_model()
 
-        duplicate_qs = User.objects.filter(username__iexact=username).exclude(pk=self.user.pk)
+        duplicate_qs = User.objects.filter(
+            username__iexact=username).exclude(pk=self.user.pk)
         if duplicate_qs.exists():
-            raise forms.ValidationError("Dieser Benutzername ist bereits vergeben.")
+            raise forms.ValidationError(
+                "Dieser Benutzername ist bereits vergeben.")
         return username
 
     def clean_email(self):
@@ -712,21 +781,25 @@ class AccountSettingsForm(forms.Form):
         current_password = cleaned.get("current_password") or ""
         new_password1 = cleaned.get("new_password1") or ""
         new_password2 = cleaned.get("new_password2") or ""
-        wants_password_change = bool(current_password or new_password1 or new_password2)
+        wants_password_change = bool(
+            current_password or new_password1 or new_password2)
         if not wants_password_change:
             return cleaned
 
         if not current_password:
-            self.add_error("current_password", "Bitte aktuelles Passwort angeben.")
+            self.add_error("current_password",
+                           "Bitte aktuelles Passwort angeben.")
             return cleaned
         if not self.user.check_password(current_password):
-            self.add_error("current_password", "Aktuelles Passwort ist falsch.")
+            self.add_error("current_password",
+                           "Aktuelles Passwort ist falsch.")
             return cleaned
         if not new_password1:
             self.add_error("new_password1", "Bitte neues Passwort eingeben.")
             return cleaned
         if new_password1 != new_password2:
-            self.add_error("new_password2", "Die neuen Passwörter stimmen nicht überein.")
+            self.add_error("new_password2",
+                           "Die neuen Passwörter stimmen nicht überein.")
             return cleaned
         validate_password(new_password1, self.user)
         return cleaned

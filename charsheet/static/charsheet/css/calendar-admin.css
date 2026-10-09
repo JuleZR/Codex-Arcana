@@ -1,0 +1,22 @@
+.calendar-month-summary, [data-calendar-summary] {
+  padding: 12px;
+  border-left: 4px solid var(--link-fg, #417690);
+  background: var(--darkened-bg, #f8f8f8);
+  line-height: 1.6;
+  max-width: 760px;
+}
+.calendar-month-summary.is-incomplete {
+  border-left-color: var(--error-fg, #ba2121);
+}
+.calendar-reference-date[hidden] { display: none !important; }
+.calendar-reference-date .description { font-weight: 600; }
+[data-calendar-summary] label { display: block; margin-top: 8px; }
+[data-calendar-summary] input { width: 100px; margin-left: 8px; }
+.inline-group details small { display: block; max-width: 260px; padding-top: 6px; }
+.inline-group details summary { cursor: pointer; }
+@media (max-width: 767px) {
+  .calendar-own-date .flex-container, .calendar-reference-date .flex-container {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

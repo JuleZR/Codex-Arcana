@@ -18,6 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from charsheet import group_views, views
+from charsheet.calendar_views import character_date
 from django.views.static import serve
 from django.conf import settings
 from charsheet.quickslots import (
@@ -26,6 +27,8 @@ from charsheet.quickslots import (
 )
 
 urlpatterns = [
+    path("character/<int:character_id>/date/", character_date,
+         name="character_date"),
     path("character/<int:character_id>/quickslots/layout/",
          quickslot_layout, name="quickslot_layout"),
     path("character/<int:character_id>/quickslots/debug-result/",

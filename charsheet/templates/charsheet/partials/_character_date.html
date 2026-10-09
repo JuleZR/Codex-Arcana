@@ -1,0 +1,62 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'charsheet/css/character-date.css' %}?v=20261009-display-no-selection">
+<script defer src="{% static 'charsheet/js/character-date.js' %}?v=20261009-calendar-day-month-year"></script>
+<div class="character-date" data-character-date data-url="{% url 'character_date' character.id %}">
+  {% csrf_token %}
+  <div class="character-date-display calendar-artifact" data-season="neutral">
+    <div class="calendar-atmosphere" data-date-atmosphere aria-hidden="true"></div>
+    <div class="calendar-engraving" aria-hidden="true">ᚠ ᚨ ᚱ ᚲ ᛋ</div>
+    <div class="calendar-engraving calendar-engraving--bottom" aria-hidden="true">ᛏ ᛒ ᛖ ᛗ ᛚ</div>
+    <button type="button" class="calendar-day-arrow" data-date-step="-1" aria-label="Einen Tag zurück" disabled>‹</button>
+    <button type="button" class="calendar-date-face" data-date-open aria-expanded="false" aria-haspopup="dialog" aria-controls="characterDatePicker" disabled>
+      <span class="calendar-date-primary" data-date-primary>Zeitensiegel</span>
+      <span class="calendar-date-secondary" data-date-secondary>Kalender wird geladen …</span>
+      <span class="calendar-date-season" data-date-season></span>
+    </button>
+    <button type="button" class="calendar-day-arrow" data-date-step="1" aria-label="Einen Tag vor" disabled>›</button>
+    <svg class="calendar-ornament" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path d="M5 28V5h23M272 5h23v23M5 72v23h23M272 95h23V72M12 23V12h11M277 12h11v11M12 77v11h11M277 88h11V77"/>
+    </svg>
+  </div>
+  <form id="characterDatePicker" class="character-date-picker calendar-artifact" data-season="neutral" role="dialog" aria-modal="false" aria-labelledby="characterDateTitle" hidden>
+    <div class="calendar-atmosphere" data-date-atmosphere aria-hidden="true"></div>
+    <header class="calendar-picker-heading">
+      <span class="calendar-picker-eyebrow">Das Zeitensiegel</span>
+      <button type="button" class="calendar-picker-close" data-date-close aria-label="Kalender schließen">×</button>
+      <h2 id="characterDateTitle" data-date-title>Kalender</h2>
+      <span class="calendar-picker-season" data-date-picker-season></span>
+    </header>
+    <label class="calendar-system-label">Zeitrechnung <select data-date-system required></select></label>
+    <div class="calendar-direct-fields">
+      <label>Tag <input type="number" min="1" step="1" data-date-day required></label>
+      <div class="calendar-date-part">
+        <div class="calendar-field-caption">
+          <label for="characterDateMonth">Monat</label>
+          <span class="calendar-field-arrows">
+            <button type="button" data-date-month-step="-1" aria-label="Vorheriger Monat">‹</button>
+            <button type="button" data-date-month-step="1" aria-label="Nächster Monat">›</button>
+          </span>
+        </div>
+        <select id="characterDateMonth" data-date-month required></select>
+      </div>
+      <div class="calendar-date-part">
+        <div class="calendar-field-caption">
+          <label for="characterDateYear">Jahr</label>
+          <span class="calendar-field-arrows">
+            <button type="button" data-date-year-step="-1" aria-label="Vorheriges Jahr">«</button>
+            <button type="button" data-date-year-step="1" aria-label="Nächstes Jahr">»</button>
+          </span>
+        </div>
+        <input id="characterDateYear" type="text" inputmode="text" pattern="-?[0-9]+" data-date-year required>
+      </div>
+    </div>
+    <div class="character-date-days" data-date-days aria-label="Monatstage auswählen"></div>
+    <div class="calendar-day-legend"><span>◆ Gespeichertes Datum</span><span>Umrandung: Auswahl</span></div>
+    <p class="calendar-saved-date" data-date-saved></p>
+    <footer class="calendar-picker-footer">
+      <button type="submit" class="calendar-apply" data-date-apply disabled>Datum übernehmen</button>
+      <button type="button" data-date-cancel>Abbrechen</button>
+    </footer>
+  </form>
+  <span class="character-date-error" data-date-error role="status" aria-live="polite"></span>
+</div>

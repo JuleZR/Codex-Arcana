@@ -28,12 +28,26 @@
         <article class="journal-book__entry journal-book__editor" id="diaryRollEntry" data-entry-id="" data-book-editor hidden>
           <div id="diaryRollSegment" class="journal-book__writing">
             <h3 id="diaryRollEntryTitle">Neuer Eintrag</h3>
-            <div class="journal-book__date">
-              <label for="diaryRollDateInput">Datum</label>
-              <span id="diaryRollDateDisplay" hidden></span>
-              <input type="date" id="diaryRollDateInput" aria-label="Eintragsdatum">
-            </div>
-            <textarea id="diaryRollInput" maxlength="2200" placeholder="Die Tinte wartet auf den nächsten Abschnitt..." aria-label="Tagebucheintrag"></textarea>
+            <details class="journal-book__date" id="diaryDateDetails">
+              <summary title="Datum bearbeiten" aria-label="Datum bearbeiten">
+                <span id="diaryGameDateDisplay" hidden></span>
+                <span id="diaryRollDateDisplay"></span>
+              </summary>
+              <div class="journal-book__date-fields">
+                <label for="diaryRollCalendarInput">Ingame-Kalender</label>
+                <select id="diaryRollCalendarInput" aria-label="Ingame-Kalender">
+                  <option value="">Ohne Ingame-Datum</option>
+                </select>
+                <div id="diaryGameDateFields" class="journal-book__game-date" hidden>
+                  <input type="number" id="diaryGameDayInput" min="1" step="1" aria-label="Ingame-Tag" title="Tag">
+                  <select id="diaryGameMonthInput" aria-label="Ingame-Monat" title="Monat"></select>
+                  <input type="number" id="diaryGameYearInput" step="1" aria-label="Ingame-Jahr" title="Jahr">
+                </div>
+                <label for="diaryRollDateInput">Reales Datum</label>
+                <input type="date" id="diaryRollDateInput" aria-label="Reales Eintragsdatum">
+              </div>
+            </details>
+            <textarea id="diaryRollInput" placeholder="Die Tinte wartet auf den nächsten Abschnitt..." aria-label="Tagebucheintrag"></textarea>
             <div id="diaryMarkdownPreview" class="journal-book__markdown" tabindex="0" aria-label="Formatierter Tagebucheintrag" hidden></div>
           </div>
           <aside class="journal-book__markdown-help" id="diaryMarkdownHelp" aria-labelledby="diaryMarkdownHelpTitle" hidden>

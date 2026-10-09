@@ -1,6 +1,10 @@
 """Domain models grouped by concern for the charsheet app."""
 
 from .announcement import DashboardAnnouncement
+from .calendar import (
+    CalendarDefinition, CalendarMonth, CalendarLeapRule, CalendarLeapException,
+    CalendarSystem, CalendarSeason, CharacterDate,
+)
 from .creation_templates import CharacterCreationTemplate
 from .auth_security import AccountSecurityEvent, AuthenticationThrottle
 from .user import (
@@ -195,6 +199,9 @@ from .techniques import (
 )
 
 __all__ = [
+    "CalendarDefinition", "CalendarMonth", "CalendarSeason",
+    "CalendarLeapRule",
+    "CalendarLeapException", "CalendarSystem", "CharacterDate",
     "CharacterQuickslotLayout",
     "CareerPathTechnique",
     "CharacterCareerPathPurchase",
