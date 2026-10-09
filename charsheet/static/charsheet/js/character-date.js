@@ -21,6 +21,28 @@
   const dateTexts = root.querySelectorAll(
     '[data-date-primary], [data-date-secondary], [data-date-season], [data-date-title], [data-date-picker-season], [data-date-saved]'
   );
+  // Only presentation is split; stored names and month options stay intact.
+  function renderDateName(target, data, prefix = '') {
+    const match = data?.month_name?.match(/^([\s\S]+)\[([^\[\]]+)\]\s*$/u);
+    const name = match?.[1].trim();
+    const alternative = match?.[2].trim();
+    target.classList.toggle('calendar-date-bilingual', Boolean(name && alternative));
+    if (!name || !alternative) {
+      target.textContent = prefix + (data ? data.label : 'Zeitensiegel');
+      return;
+    }
+    const main = document.createElement('span');
+    main.className = 'calendar-date-main';
+    const monthName = document.createElement('bdi');
+    monthName.textContent = name;
+    main.append(`${prefix}${String(data.day).padStart(2, '0')}. `, monthName,
+      ` ${data.year}\u00a0${data.abbreviation}`);
+    const subtitle = document.createElement('span');
+    subtitle.className = 'calendar-month-alternative';
+    subtitle.dir = 'auto';
+    subtitle.textContent = alternative;
+    target.replaceChildren(main, subtitle);
+  }
   function placePicker() {
     if (picker.hidden) return;
     picker.style.top = '';
@@ -142,9 +164,10 @@
     const changed = current && data.current &&
       (current.absolute_day !== data.current.absolute_day || current.system !== data.current.system);
     current = data.current;
-    primary.textContent = current?.date_text || 'Zeitensiegel';
-    root.querySelector('[data-date-secondary]').textContent = current ?
-      current.abbreviation : 'Kein Kalender verfügbar';
+    renderDateName(primary, current);
+    const secondary = root.querySelector('[data-date-secondary]');
+    secondary.textContent = current ? '' : 'Kein Kalender verfügbar';
+    secondary.hidden = Boolean(current);
     root.querySelector('[data-date-season]').textContent = current?.season?.name || '';
     open.setAttribute('aria-label', current ? `${current.label} – Kalender öffnen` : 'Kalender öffnen');
     open.disabled = !current;
@@ -168,10 +191,15 @@
     const entry = preview.months[preview.month - 1];
     directDay.max = entry.days;
     directDay.value = preview.day;
-    root.querySelector('[data-date-title]').textContent = preview.date_text;
+    renderDateName(root.querySelector('[data-date-title]'), preview);
     root.querySelector('[data-date-picker-season]').textContent = preview.season?.name || 'Arkaner Kalender';
-    root.querySelector('[data-date-saved]').textContent =
-      preview.saved_date ? `Gespeichert: ${preview.saved_date.label}` : '';
+    const savedDate = root.querySelector('[data-date-saved]');
+    if (preview.saved_date) {
+      renderDateName(savedDate, preview.saved_date, 'Gespeichert: ');
+    } else {
+      savedDate.replaceChildren();
+      savedDate.classList.remove('calendar-date-bilingual');
+    }
     theme(picker, preview.season);
     days.replaceChildren();
     for (let day = 1; day <= entry.days; day++) {

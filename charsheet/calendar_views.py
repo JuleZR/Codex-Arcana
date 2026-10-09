@@ -37,6 +37,7 @@ def date_payload(engine, system, absolute):
         "system": system.pk,
         "year": str(year),
         "month": month,
+        "month_name": months[month - 1].name,
         "day": day,
         "absolute_day": str(absolute),
         "day_month": f"{day}. {months[month - 1].name}",
