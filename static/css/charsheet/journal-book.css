@@ -65,8 +65,8 @@
   opacity: 0.82;
   transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
 }
-.journal-book__page-action--contents { left: 0; }
-.journal-book__page-action--edit { left: 36px; }
+.journal-book__page-action--contents { left: calc(50% - 36px); }
+.journal-book__page-action--edit { left: calc(50% + 6px); }
 .journal-book__page-action svg {
   width: 18px;
   height: 18px;

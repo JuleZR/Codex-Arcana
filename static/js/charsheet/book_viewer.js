@@ -66,6 +66,7 @@ export function initBookViewer(root, options = {}) {
         mobileScrollSupport: false,
         useMouseEvents: true,
         clickEventForward: true,
+        showPageCorners: !options.hoverEdgeWidth,
         flippingTime: prefersReducedMotion() ? 120 : 640,
       });
       const ready = new Promise((resolve) => pageFlip.on("init", resolve));
@@ -226,6 +227,24 @@ export function initBookViewer(root, options = {}) {
   root.addEventListener("click", handlePageTargetClick);
   closeControls.forEach((control) => control.addEventListener("click", close));
   document.addEventListener("keydown", handleKeydown);
+  window.addEventListener("mousemove", (event) => {
+    if (!options.hoverEdgeWidth || !pageFlip || !isOpen || activeBook !== root || isBusy || event.buttons) return;
+    const state = pageFlip.getState();
+    if (state !== "read" && state !== "fold_corner") return;
+    const rect = pageFlip.getUI().getDistElement().getBoundingClientRect();
+    const bounds = pageFlip.getBoundsRect();
+    const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    const x = point.x - bounds.left;
+    const y = point.y - bounds.top;
+    const atEdge = x >= 0 && x <= bounds.width && y >= 0 && y <= bounds.height
+      && (x <= options.hoverEdgeWidth || x >= bounds.width - options.hoverEdgeWidth);
+    const editor = event.target instanceof Element && event.target.closest("[data-book-editor]");
+    if (atEdge && !editor) {
+      pageFlip.getFlipController().showCorner(point);
+    } else if (state === "fold_corner") {
+      pageFlip.getFlipController().showCorner({ x: -1, y: -1 });
+    }
+  });
   window.addEventListener("resize", () => {
     if (unavailableOnMobile()) {
       close();

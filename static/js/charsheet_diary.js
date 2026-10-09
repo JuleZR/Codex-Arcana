@@ -1,4 +1,4 @@
-import { initBookViewer } from "./charsheet/book_viewer.js?v=20261001-mobile-tools1";
+import { initBookViewer } from "./charsheet/book_viewer.js?v=20261009-journal-hover-edge";
 import { journalTitle, renderJournalMarkdown } from "./charsheet/journal_markdown.js?v=20260917a";
 import { paginateJournal } from "./charsheet/journal_pagination.js?v=20261009a";
 
@@ -760,6 +760,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   const bookViewer = initBookViewer(diaryWindow, {
     startClosed: true,
+    hoverEdgeWidth: 16,
     beforeOpen: async () => {
       await initialLoad;
       await loadEntries(currentEntry()?.id);

@@ -78,12 +78,19 @@ class CalendarDefinition(models.Model):
 
 
 class CalendarSeason(models.Model):
+    class RainIntensity(models.TextChoices):
+        NONE = "none", "Kein zusätzlicher Regen"
+        DRIZZLE = "drizzle", "Nieselregen"
+        RAIN = "rain", "Regen"
+        MONSOON = "monsoon", "Monsun"
+
     class Style(models.TextChoices):
         NEUTRAL = "neutral", "Arkanes Metall"
         SPRING = "spring", "Frühling – Blüten und Smaragd"
         SUMMER = "summer", "Sommer – Gold und Glut"
         AUTUMN = "autumn", "Herbst – Kupfer und Blätter"
         WINTER = "winter", "Winter – Silber und Schnee"
+        RAIN = "rain", "Regenzeit – Regen / Monsun"
 
     name = models.CharField(max_length=80, unique=True)
     visual_style = models.CharField(
@@ -94,6 +101,18 @@ class CalendarSeason(models.Model):
         help_text="Die Monatszuordnung bestimmt, wann dieses Erscheinungsbild "
         "auf dem Charakterbogen verwendet wird.",
     )
+    rain_intensity = models.CharField(
+        "Regen / Monsun",
+        max_length=7,
+        choices=RainIntensity.choices,
+        default=RainIntensity.NONE,
+        help_text="Zusätzlicher Effekt, unabhängig vom Erscheinungsbild. "
+        "Wird über die Monatszuordnung mit dieser Jahreszeit aktiviert. "
+        "Das Erscheinungsbild Regenzeit verwendet standardmäßig Regen; "
+        "hier kann dessen Intensität angepasst werden.",
+    )
+    falling_rain = models.BooleanField("Fallender Regen", default=True)
+    surface_drops = models.BooleanField("Oberflächentropfen", default=True)
 
     class Meta:
         ordering = ("name", "pk")

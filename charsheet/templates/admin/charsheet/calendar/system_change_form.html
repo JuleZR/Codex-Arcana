@@ -1,0 +1,34 @@
+{% extends "admin/change_form.html" %}
+{% block field_sets %}
+{% for fieldset in adminform %}
+  {% include "admin/includes/fieldset.html" with heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=forloop.counter0 %}
+  {% if forloop.first %}
+  <div data-calendar-editor data-data-url="{{ calendar_data_url }}" data-preview-url="{{ calendar_preview_url }}" data-system-id="{{ original.pk|default:'' }}">
+    {{ calendar_snapshot|json_script:"calendar-snapshot" }}
+    <p data-calendar-shared role="status"></p>
+    <p>Definition, Monate und Schaltregeln werden zusammen mit der Zeitrechnung gespeichert. Die Vorschau speichert keine Daten.</p>
+    <details open><summary>Aufbau des Kalenderjahres</summary>
+      <div class="calendar-definition-fields">{{ calendar_editor.definition.as_p }}</div>
+    </details>
+    <details open><summary>Monate und Jahreszeiten</summary>
+      {{ calendar_editor.months.management_form }}{{ calendar_editor.months.non_form_errors }}
+      <div data-month-rows>
+      {% for form in calendar_editor.months %}<div data-month-row class="calendar-editor-row">{{ form.as_p }}</div>{% endfor %}
+      </div>
+      <button type="button" data-add-month>Monat hinzufügen</button>
+      <template data-month-template><div data-month-row class="calendar-editor-row">{{ calendar_editor.months.empty_form.as_p }}</div></template>
+      <p data-month-total role="status"></p>
+    </details>
+    <details open><summary>Schaltjahrregeln und Ausnahmen</summary>
+      {{ calendar_editor.rules.management_form }}{{ calendar_editor.rules.non_form_errors }}
+      <div data-rule-rows>
+      {% for bundle in calendar_editor.bundles %}{% include "admin/charsheet/calendar/editor_rule.html" %}{% endfor %}
+      </div>
+      <button type="button" data-add-rule>Schaltregel hinzufügen</button>
+      <template data-rule-template>{% include "admin/charsheet/calendar/editor_rule.html" with bundle=calendar_editor.empty_rule %}</template>
+    </details>
+    <p data-editor-preview role="status" aria-live="polite">Vorschau wird berechnet …</p>
+  </div>
+  {% endif %}
+{% endfor %}
+{% endblock %}

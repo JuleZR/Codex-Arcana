@@ -1,0 +1,10 @@
+<div data-rule-row class="calendar-rule-row">
+  <div class="calendar-editor-row">{{ bundle.form.as_p }}</div>
+  <details open><summary>Ausnahmen dieser Schaltregel</summary>
+    {{ bundle.exceptions.management_form }}{{ bundle.exceptions.non_form_errors }}
+    <div data-exception-rows>{% for form in bundle.exceptions %}<div data-exception-row class="calendar-editor-row">{{ form.as_p }}</div>{% endfor %}</div>
+    <button type="button" data-add-exception>Ausnahme hinzufügen</button>
+    <template data-exception-template><div data-exception-row class="calendar-editor-row">{{ bundle.empty_exception.as_p }}</div></template>
+    <p>„Gelten trotzdem“ hat Vorrang vor „entfallen“. Ausnahmen gelten nur in Jahren der Grundregel.</p>
+  </details>
+</div>

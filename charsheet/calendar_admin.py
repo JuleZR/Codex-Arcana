@@ -14,9 +14,14 @@ from charsheet.calendar_forms import (
     CalendarLeapExceptionForm,
     CalendarLeapRuleForm,
     CalendarMonthForm,
-    CalendarSystemForm,
     month_options,
 )
+from charsheet.calendar_editor import (
+    CalendarEditor,
+    IntegratedCalendarSystemForm,
+    calendar_data,
+)
+from charsheet.engine.calendar_engine import CalendarEngine
 from charsheet.engine.calendar_engine import rule_applies
 
 from charsheet.models.calendar import (
@@ -85,7 +90,7 @@ class MonthInline(admin.TabularInline):
 
 @admin.register(CalendarSeason)
 class CalendarSeasonAdmin(admin.ModelAdmin):
-    list_display = ("name", "visual_style")
+    list_display = ("name", "visual_style", "rain_intensity")
     search_fields = ("name",)
 
 
@@ -359,27 +364,180 @@ class CalendarLeapRuleAdmin(ProtectedCalendarAdmin):
 
 @admin.register(CalendarSystem)
 class CalendarSystemAdmin(ProtectedCalendarAdmin):
-    form = CalendarSystemForm
+    form = IntegratedCalendarSystemForm
+    change_form_template = "admin/charsheet/calendar/system_change_form.html"
+
+    class Media:
+        js = ("charsheet/js/calendar-editor.js",)
+        css = {"all": ("charsheet/css/calendar-editor.css",)}
+
+    def get_form(self, request, obj=None, **kwargs):
+        base = super().get_form(request, obj, **kwargs)
+
+        class RequestForm(base):
+            def __init__(self, *args, **kw):
+                kw["user"] = request.user
+                super().__init__(*args, **kw)
+
+        return RequestForm
+
+    def render_change_form(self, request, context, *args, **kwargs):
+        form = context["adminform"].form
+        context["calendar_editor"] = form.editor
+        context["calendar_snapshot"] = calendar_data(form.editor.selected)
+        context["calendar_data_url"] = reverse(
+            "admin:charsheet_calendarsystem_editor_data"
+        )
+        context["calendar_preview_url"] = reverse(
+            "admin:charsheet_calendarsystem_editor_preview"
+        )
+        return super().render_change_form(request, context, *args, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        form.save_calendar()
+        super().save_model(request, obj, form, change)
+
+    def get_urls(self):
+        return [
+            path(
+                "editor-data/",
+                self.admin_site.admin_view(self.editor_data),
+                name="charsheet_calendarsystem_editor_data",
+            ),
+            path(
+                "editor-preview/",
+                self.admin_site.admin_view(self.editor_preview),
+                name="charsheet_calendarsystem_editor_preview",
+            ),
+        ] + super().get_urls()
+
+    def editor_data(self, request):
+        if not (
+            self.has_view_or_change_permission(request)
+            or self.has_add_permission(request)
+        ):
+            raise PermissionDenied
+        if request.method != "GET":
+            return JsonResponse(
+                {"error": "Nur Leseanfragen erlaubt."}, status=405
+            )
+        try:
+            calendar = CalendarDefinition.objects.get(
+                pk=request.GET["calendar"]
+            )
+            return JsonResponse(calendar_data(calendar))
+        except (KeyError, ValueError, CalendarDefinition.DoesNotExist):
+            return JsonResponse(
+                {"error": "Bitte einen Kalender auswählen."}, status=400
+            )
+
+    def editor_preview(self, request):
+        if not (
+            self.has_add_permission(request)
+            or self.has_change_permission(request)
+        ):
+            raise PermissionDenied
+        if request.method != "POST":
+            return JsonResponse(
+                {"error": "Bitte Vorschau senden."}, status=405
+            )
+        try:
+            data = request.POST
+            selected = CalendarDefinition.objects.filter(
+                pk=data.get("calendar_definition") or None
+            ).first()
+            mode = data.get("calendar_mode", "existing")
+            engine = CalendarEngine()
+            notice = ""
+            if mode == "existing":
+                calendar = selected
+            else:
+                editor = CalendarEditor(data, selected, mode, request.user)
+                engine = editor.engine(preview=True)
+                calendar = editor.calendar
+                if not editor.months.management_form.is_valid():
+                    raise ValidationError(
+                        "Die Monatsverwaltung ist unvollständig."
+                    )
+                if not editor.rules.is_valid():
+                    raise ValidationError(
+                        "Bitte Monats- und Schaltregelfelder vervollständigen."
+                    )
+                if (
+                    not editor.months.is_valid()
+                    or not editor.definition.is_valid()
+                    or editor.definition.cleaned_data.get("months_per_year")
+                    != calendar.months_per_year
+                    or editor.definition.cleaned_data.get("days_per_year")
+                    != calendar.days_per_year
+                ):
+                    notice = (
+                        "Vorläufige Vorschau der vollständigen Monatszeilen. "
+                        "Der Kalenderentwurf ist noch unvollständig."
+                    )
+                if any(
+                    not b["exceptions"].is_valid()
+                    for b in editor.bundles
+                    if not b["form"].cleaned_data.get("DELETE")
+                ):
+                    raise ValidationError(
+                        "Bitte die Schaltausnahmen vervollständigen."
+                    )
+            if calendar is None:
+                raise ValidationError(
+                    "Bitte einen Kalender auswählen oder Monate anlegen."
+                )
+            year = forms.IntegerField().clean(data.get("anchor_year", 0))
+            own = month_options(calendar, year, engine)
+            reference = CalendarSystem.objects.filter(
+                pk=data.get("reference_system") or None
+            ).first()
+            ref_year = forms.IntegerField().clean(
+                data.get("reference_year") or 0
+            )
+            other = (
+                month_options(reference.calendar_definition, ref_year, engine)
+                if reference
+                else []
+            )
+            return JsonResponse(
+                {
+                    "months": own,
+                    "reference_months": other,
+                    "reference_name": reference.name if reference else "",
+                    "days": sum(row["days"] for row in own),
+                    "notice": notice,
+                }
+            )
+        except (ValueError, TypeError, ValidationError) as error:
+            message = (
+                " ".join(error.messages)
+                if isinstance(error, ValidationError)
+                else "Ungültige Eingaben."
+            )
+            return JsonResponse({"error": message}, status=400)
+
     readonly_fields = ("configuration_summary",)
     fieldsets = (
+        (
+            "Kalenderdefinition",
+            {
+                "fields": (
+                    "calendar_mode",
+                    "calendar_definition",
+                    "confirm_shared_calendar",
+                )
+            },
+        ),
         (
             "Allgemeine Angaben",
             {
                 "fields": (
                     "name",
                     "abbreviation",
-                    "calendar_definition",
                     "reference_system",
                     "configuration_summary",
                 ),
-            },
-        ),
-        (
-            "Verwendung auf Charakterbögen",
-            {
-                "fields": ("default_for_characters", "real_date_reference"),
-                "description": "Die Übernahme des realen Datums erfolgt nur "
-                "einmal beim ersten Öffnen des Charakterkalenders.",
             },
         ),
         (
@@ -399,6 +557,14 @@ class CalendarSystemAdmin(ProtectedCalendarAdmin):
                     ("reference_year", "reference_month", "reference_day"),
                 ),
                 "classes": ("calendar-reference-date",),
+            },
+        ),
+        (
+            "Verwendung auf Charakterbögen",
+            {
+                "fields": ("default_for_characters", "real_date_reference"),
+                "description": "Die Übernahme des realen Datums erfolgt nur "
+                "einmal beim ersten Öffnen des Charakterkalenders.",
             },
         ),
     )

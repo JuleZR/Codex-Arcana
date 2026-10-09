@@ -31,6 +31,7 @@
 .calendar-artifact[data-season="summer"] { --accent: #e8b866; --light: #ffdf9c; --aura: #d59a3a30; }
 .calendar-artifact[data-season="autumn"] { --accent: #d49a74; --light: #f5cdae; --aura: #b36b4330; }
 .calendar-artifact[data-season="winter"] { --accent: #9fcede; --light: #e4f5fb; --aura: #8dc9ec30; }
+.calendar-artifact[data-season="rain"] { --accent: #8baeb8; --light: #d2e4e9; --aura: #709da826; }
 .calendar-artifact::before {
   content: "";
   position: absolute;
@@ -217,6 +218,44 @@
 .is-date-changing { animation: calendar-date-turn 320ms ease-out; }
 
 .calendar-atmosphere { position: absolute; z-index: 0; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.calendar-atmosphere { container-type: size; }
+.calendar-rain, .calendar-surface-drops { position: absolute; inset: 0; pointer-events: none; }
+.calendar-rain { z-index: 2; }
+.calendar-surface-drops { z-index: 1; }
+.calendar-rain i {
+  position: absolute;
+  top: -28px;
+  left: var(--x);
+  width: 1px;
+  height: var(--length);
+  border-radius: 50%;
+  background: linear-gradient(transparent, rgba(191, 219, 229, .65));
+  opacity: 0;
+  animation: calendar-rain-fall var(--duration) linear var(--delay) infinite;
+}
+.calendar-surface-drops i {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 47% 53% 55% 45% / 44% 48% 52% 56%;
+  background: radial-gradient(ellipse at 28% 22%, #effaff99, #c1dfe52e 22%, #172d351a 52%, #07141866 78%, #b4d6df55);
+  box-shadow: inset 0 -.5px 1px #cee7ed55, 0 .6px 1px #0007;
+  opacity: 0;
+  animation: calendar-surface-wet var(--duration) ease-in-out var(--delay) infinite;
+}
+@keyframes calendar-rain-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(7deg); }
+  12%, 82% { opacity: var(--opacity); }
+  100% { opacity: 0; transform: translate(-16px, calc(100cqh + 56px)) rotate(7deg); }
+}
+@keyframes calendar-surface-wet {
+  0%, 12%, 55%, 100% { opacity: 0; transform: scale(.72); }
+  20% { opacity: .62; transform: scale(.9); }
+  34% { opacity: .52; transform: scale(1); }
+  48% { opacity: .25; transform: scale(1.06); }
+}
 .calendar-particles { position: absolute; inset: 0; opacity: 0; transition: opacity 800ms; }
 .calendar-particles[data-effect="spring"] { color: #a6e2b5; background: radial-gradient(ellipse at 70% 0, #42aa7233, transparent 70%); }
 .calendar-particles[data-effect="summer"] {
@@ -340,6 +379,9 @@
 @media (prefers-reduced-motion: reduce) {
   .character-date *, .character-date *::before, .character-date *::after { animation: none !important; transition: none !important; }
   .calendar-particles i { display: none; }
+  .calendar-rain { display: none; }
+  .calendar-surface-drops i { opacity: .35; transform: none; }
+  .calendar-surface-drops i:nth-child(n + 4) { display: none; }
 }
 @media print {
   .character-date { position: absolute; width: 260px; }

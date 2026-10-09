@@ -1,0 +1,12 @@
+[data-calendar-editor] { margin: 16px 0; }
+[data-calendar-editor] > details, .calendar-rule-row { padding: 12px; margin: 10px 0; border: 1px solid var(--hairline-color); border-radius: 4px; }
+[data-calendar-editor] summary { cursor: pointer; font-weight: bold; margin-bottom: 12px; }
+.calendar-editor-row, .calendar-definition-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.calendar-definition-fields > p, .calendar-editor-row > p { margin: 4px 0 12px; }
+.calendar-editor-row label, .calendar-definition-fields label { display: block; margin-bottom: 4px; }
+.calendar-editor-row input[type="number"] { width: 100px; }
+[data-calendar-shared] { color: var(--body-fg); font-weight: bold; }
+[data-editor-preview] { padding: 12px; background: var(--darkened-bg); }
+[data-calendar-editor][data-readonly="true"] [data-add-month],
+[data-calendar-editor][data-readonly="true"] [data-add-rule],
+[data-calendar-editor][data-readonly="true"] [data-add-exception] { display: none; }

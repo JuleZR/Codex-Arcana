@@ -80,6 +80,29 @@
       }
       host.append(layer);
     }
+    for (const surface of [false, true]) {
+      const layer = document.createElement('div');
+      layer.className = surface ? 'calendar-surface-drops' : 'calendar-rain';
+      layer.hidden = true;
+      layer.setAttribute('aria-hidden', 'true');
+      const count = surface ? 14 : 48;
+      for (let index = 0; index < count; index++) {
+        const drop = document.createElement('i');
+        const position = () => {
+          drop.style.setProperty('--x', `${3 + Math.random() * 94}%`);
+          if (surface) drop.style.setProperty('--y', `${4 + Math.random() * 90}%`);
+        };
+        position();
+        drop.style.setProperty('--length', `${9 + Math.random() * 13}px`);
+        drop.style.setProperty('--size', `${2 + Math.random() * 3}px`);
+        drop.style.setProperty('--duration', `${surface ? 9 + Math.random() * 12 : .85 + Math.random() * .8}s`);
+        drop.style.setProperty('--delay', `${-Math.random() * (surface ? 21 : 2)}s`);
+        drop.style.setProperty('--opacity', `${.3 + Math.random() * .35}`);
+        if (surface) drop.addEventListener('animationiteration', position);
+        layer.append(drop);
+      }
+      host.append(layer);
+    }
   }
   function pauseEffects() {
     root.classList.toggle('is-paused', document.hidden || !visible);
@@ -102,6 +125,18 @@
   }
   function theme(artifact, season) {
     artifact.dataset.season = season?.style || 'neutral';
+    const intensity = season?.style === 'rain' && (!season.rain_intensity || season.rain_intensity === 'none') ?
+      'rain' : season?.rain_intensity || 'none';
+    const counts = {none: [0, 0], drizzle: [8, 3], rain: [24, 8], monsoon: [48, 14]};
+    const [falling, surface] = counts[intensity] || counts.none;
+    for (const [selector, enabled, count] of [
+      ['.calendar-rain', season?.falling_rain, falling],
+      ['.calendar-surface-drops', season?.surface_drops, surface],
+    ]) {
+      const layer = artifact.querySelector(selector);
+      layer.hidden = !enabled || count === 0;
+      Array.from(layer.children).forEach((drop, index) => { drop.hidden = index >= count; });
+    }
   }
   function display(data) {
     const changed = current && data.current &&

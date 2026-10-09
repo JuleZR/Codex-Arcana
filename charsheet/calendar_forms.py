@@ -21,6 +21,9 @@ def season_payload(month):
         "id": month.season_id,
         "name": month.season.name,
         "style": month.season.visual_style,
+        "rain_intensity": month.season.rain_intensity,
+        "falling_rain": month.season.falling_rain,
+        "surface_drops": month.season.surface_drops,
     }
 
 
@@ -102,6 +105,8 @@ class CalendarSystemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if "anchor_year" not in self.fields:
+            return
         self.fields["anchor_year"].help_text = (
             "Positive und negative ganze Jahre sowie Jahr 0 sind erlaubt."
         )
@@ -150,12 +155,12 @@ class CalendarSystemForm(forms.ModelForm):
         except (TypeError, ValueError):
             return None
 
-    def _date_fields(self, prefix, calendar, required):
+    def _date_fields(self, prefix, calendar, required, engine=None):
         options = []
         try:
             if calendar:
                 options = month_options(
-                    calendar, int(self._value(prefix + "_year"))
+                    calendar, int(self._value(prefix + "_year")), engine
                 )
         except (ValueError, TypeError, ValidationError):
             pass

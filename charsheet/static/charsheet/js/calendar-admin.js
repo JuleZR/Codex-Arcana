@@ -1,4 +1,6 @@
 (() => {
+  function initialize() {
+  if (document.querySelector('[data-calendar-editor]')) return;
   const summary = document.querySelector('[data-calendar-summary]');
   if (!summary) return;
   const field = name => document.getElementById(`id_${name}`);
@@ -200,4 +202,7 @@
     if (advanced && Number(field('offset').value)) advanced.open = true;
     loadMonths();
   }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, {once: true});
+  else initialize();
 })();
