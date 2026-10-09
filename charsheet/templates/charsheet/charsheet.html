@@ -3,7 +3,7 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {% include "charsheet/partials/_viewport.html" %}
     <link
       rel="icon"
       type="image/x-icon"
@@ -33,9 +33,9 @@
     </script>
     {% endif %}
     {% if request.user.settings.dice_enabled and not read_only %}
-    <link rel="stylesheet" href="{% static 'css/charsheet/dice-result.css' %}?v=20261009-mw-texts">
+    <link rel="stylesheet" href="{% static 'css/charsheet/dice-result.css' %}?v=20261009-percentile-gold-pulse">
     <link rel="stylesheet" href="{% static 'css/charsheet/quickslots.css' %}?v=20261009-draggable-editor">
-    <script type="module" src="{% static 'js/dddice.js' %}?v=20261009-special-failure-12"></script>
+    <script type="module" src="{% static 'js/dddice.js' %}?v=20261009-percentile-gold"></script>
     {% endif %}
     <link
       rel="stylesheet"
@@ -45,9 +45,6 @@
     <link rel="stylesheet" href="{% static 'css/charsheet/consumables.css' %}?v=20261005">
   </head>
   <body class="charsheet-page{% if read_only %} is-read-only{% endif %}{% if is_vampire %} is-vampire-sheet{% endif %}{% if cultist_corruption_level %} has-cultist-corruption cultist-corruption--level-{{ cultist_corruption_level }}{% endif %}" data-read-only="{% if read_only %}1{% else %}0{% endif %}" data-cultist-corruption-level="{{ cultist_corruption_level|default:0 }}"{% if not read_only %} data-external-refresh-url="{% url 'character_sheet_external_refresh' character.id %}" data-external-refresh-signature="{{ sheet_external_refresh_signature }}" data-open-item-transfer-count="{{ open_item_transfer_count|default:0 }}" data-item-transfer-notification-sound="{% static 'charsheet/mp3/notification.mp3' %}"{% endif %}>
-    {% if request.user.settings.show_character_date and not read_only %}
-      {% include "charsheet/partials/_character_date.html" %}
-    {% endif %}
     <div class="charsheet-app" id="charsheetApp">
       {% if read_only %}
       <div class="readonly-banner" role="status">SL-Leseansicht · Änderungen sind deaktiviert</div>
@@ -58,6 +55,10 @@
       </div>
       {% else %}
       {% include "charsheet/partials/_left_tools.html" %}
+      {% endif %}
+
+      {% if request.user.settings.show_character_date and not read_only %}
+        {% include "charsheet/partials/_character_date.html" %}
       {% endif %}
 
       <main class="book-spread">

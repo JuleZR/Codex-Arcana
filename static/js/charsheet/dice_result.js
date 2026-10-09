@@ -904,7 +904,7 @@ function resetVisuals() {
   running = false;
   cancelAnimationFrame(frameId);
   frameId = null;
-  stage.classList.remove("is-active", "is-fading", "has-modifier");
+  stage.classList.remove("is-active", "is-fading", "has-modifier", "is-percentile-hundred");
   fusionPositions = [];
   mergeStartedAt = null;
   mergeProgress = 0;
@@ -1054,7 +1054,7 @@ async function playFusion(elements, options = {}) {
   if (!elements.length) return;
   elements = elements.map(entry => entry.type === "die" ? {
     ...entry, rawValue: entry.rawValue ?? entry.value,
-    value: entry.value === 0 ? 10 : entry.value,
+    value: entry.value === 0 && [undefined, 10].includes(entry.arithmeticValue) ? 10 : entry.value,
     arithmeticValue: entry.arithmeticValue ?? (entry.value === 0 ? 10 : entry.value),
   } : entry);
   resetVisuals(); running = true;
@@ -1062,8 +1062,12 @@ async function playFusion(elements, options = {}) {
   resizeCanvas();
   const result = options.total ?? elements.reduce((sum, entry) =>
     sum + (entry.type === "die" ? entry.arithmeticValue ?? entry.value : entry.value), 0);
-  const skipFusion = elements.length === 1 && elements[0].type === "die"
-    && result === elements[0].arithmeticValue;
+  const percentileHundred = elements.length === 2
+    && elements.every(entry => entry.type === "die" && entry.value === 0)
+    && elements[0].arithmeticValue === 100 && elements[1].arithmeticValue === 0;
+  if (percentileHundred) stage.classList.add("is-percentile-hundred");
+  const skipFusion = percentileHundred || (elements.length === 1 && elements[0].type === "die"
+    && result === elements[0].arithmeticValue);
   const nodes = skipFusion ? [] : prepareFusionNodes(elements);
   initParticles(); stage.classList.add("is-active");
   frameId = requestAnimationFrame(renderParticles);

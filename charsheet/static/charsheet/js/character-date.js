@@ -12,6 +12,7 @@
   const apply = root.querySelector('[data-date-apply]');
   const error = root.querySelector('[data-date-error]');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const mobile = matchMedia('(max-width: 900px)');
   let current = null;
   let preview = null;
   let busy = false;
@@ -50,6 +51,7 @@
   function placePicker() {
     if (picker.hidden) return;
     picker.style.top = '';
+    if (mobile.matches) return;
     const box = picker.getBoundingClientRect();
     if (box.bottom > window.innerHeight - 8) {
       const top = Math.max(8, window.innerHeight - box.height - 8);
@@ -60,6 +62,7 @@
     for (const text of dateTexts) {
       if (text.classList.contains('calendar-layout')) continue;
       text.style.fontSize = '';
+      if (mobile.matches) continue;
       const available = text.clientWidth;
       if (available && text.scrollWidth > available) {
         const size = parseFloat(getComputedStyle(text).fontSize);

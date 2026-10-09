@@ -21,9 +21,13 @@ from charsheet.models import CharacterItem, CharacterQuickslotLayout
 from charsheet.sheet_context import _build_skill_rows
 
 
-def _validated_debug_rolls(rolls):
-    if (not isinstance(rolls, list) or len(rolls) != 2
-            or any(type(value) is not int or not 1 <= value <= 10
+def _validated_debug_rolls(rolls, sides=10):
+    if (type(sides) is not int or sides not in (10, 100)
+            or not isinstance(rolls, list)
+            or len(rolls) != 2
+            or any(type(value) is not int
+                   or not (0 <= value <= 9 if sides == 100
+                           else 1 <= value <= 10)
                    for value in rolls)):
         raise ValueError
     return rolls
@@ -66,9 +70,11 @@ def _validated_layout(payload):
               or not action["id"]):
             raise ValueError
         if action["type"] == "debug":
-            if action["id"] != "custom":
+            if action["id"] not in ("custom", "w100"):
                 raise ValueError
-            _validated_debug_rolls(action.get("rolls"))
+            _validated_debug_rolls(
+                action.get("rolls"), 100 if action["id"] == "w100" else 10,
+            )
         for key in (
                 "id", "label", "subentry", "specification", "profile",
                 "mode", "attribute", "customLabel"):
@@ -228,6 +234,10 @@ def quickslot_actions(request, character_id):
             "type": "debug", "id": "custom", "label": "DEBUG",
             "rolls": [5, 5], "available": True,
         })
+        actions.append({
+            "type": "debug", "id": "w100", "label": "DEBUG W100",
+            "rolls": [5, 0], "available": True,
+        })
     return JsonResponse({"actions": actions})
 
 
@@ -241,10 +251,14 @@ def quickslot_debug_result(request, character_id):
         return JsonResponse({"error": "Nur für Staff verfügbar."}, status=403)
     _owned_character_or_404(request, character_id)
     try:
-        rolls = _validated_debug_rolls(json.loads(request.body)["rolls"])
+        payload = json.loads(request.body)
+        sides = payload.get("sides", 10)
+        rolls = _validated_debug_rolls(payload["rolls"], sides)
     except (ValueError, TypeError, KeyError):
         return JsonResponse({"error": "Ungültiger DEBUG-Wurf."}, status=400)
-    return JsonResponse({"sides": 10, "count": 2, "rolls": rolls,
+    if sides == 100:
+        rolls = [rolls[0] * 10 + rolls[1] or 100]
+    return JsonResponse({"sides": sides, "count": len(rolls), "rolls": rolls,
                          "total": sum(rolls)})
 
 

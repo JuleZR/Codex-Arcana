@@ -1,9 +1,9 @@
-/* The calendar is an independent artefact outside the transformed book. */
+/* Float beside the book on desktop, below the main menu on mobile. */
 .character-date {
   position: fixed;
   top: var(--calendar-top, 32px);
   right: 14px;
-  z-index: 100;
+  z-index: 3;
   width: clamp(250px, 22vw, 330px);
   max-width: calc(100vw - 28px);
   font-family: "Cinzel", Georgia, serif;
@@ -391,10 +391,48 @@
 @media (max-width: 1180px) {
   .character-date { position: relative; top: auto; right: auto; width: min(330px, calc(100% - 68px)); max-width: none; margin: 10px 10px 12px auto; }
 }
+@media (max-width: 900px) {
+  .character-date {
+    position: relative;
+    width: calc(100% - 24px);
+    max-width: calc(100vw - 24px);
+    min-width: 0;
+    margin: 12px auto 0;
+    box-sizing: border-box;
+  }
+  .character-date-picker {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: 12px;
+    padding: 12px;
+    min-width: 0;
+  }
+  .charsheet-page .character-date:has(.calendar-layout) .character-date-display {
+    max-height: none;
+    overflow: visible;
+  }
+  .calendar-date-primary.calendar-layout { overflow: visible; }
+  .calendar-date-primary .calendar-layout-group { flex-wrap: wrap !important; }
+  .calendar-date-primary .calendar-layout-element {
+    flex-shrink: 1 !important;
+    max-width: 100% !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+  }
+  .calendar-date-primary, .calendar-date-secondary, .calendar-date-season,
+  .calendar-date-main, .calendar-picker-heading h2, .calendar-picker-season,
+  .calendar-saved-date {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .calendar-direct-fields { grid-template-columns: minmax(64px, 1fr) minmax(0, 2fr); }
+  .calendar-date-part:has([data-date-month]) { grid-column: 1 / -1; grid-row: 2; }
+  .character-date .calendar-field-arrows button { width: 32px; min-height: 32px; }
+}
 @media (max-width: 600px) {
   .character-date-display { min-height: 100px; }
   .calendar-date-primary { font-size: 1.7rem; }
-  .character-date .calendar-field-arrows button { width: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .character-date *, .character-date *::before, .character-date *::after { animation: none !important; transition: none !important; }

@@ -3,7 +3,7 @@
 <html lang="de"{% if active_auth_panel == 'register' %} class="registration_page_root"{% endif %}>
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% include "charsheet/partials/_viewport.html" %}
     {% if active_auth_panel != 'register' %}
       <meta property="og:type" content="website">
       <meta property="og:site_name" content="Codex Arcana">

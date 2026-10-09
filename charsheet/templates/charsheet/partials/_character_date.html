@@ -1,9 +1,9 @@
 {% load static %}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;500&amp;family=Noto+Serif+JP:wght@400;500&amp;display=swap">
-<link rel="stylesheet" href="{% static 'charsheet/css/character-date.css' %}?v=20261009-calm-date">
+<link rel="stylesheet" href="{% static 'charsheet/css/character-date.css' %}?v=20261009-mobile-flow">
 <link rel="stylesheet" href="{% static 'charsheet/css/calendar-layout.css' %}?v=20261009-layout-5">
 <script defer src="{% static 'charsheet/js/calendar-layout.js' %}?v=20261009-layout-5"></script>
-<script defer src="{% static 'charsheet/js/character-date.js' %}?v=20261009-layout-3"></script>
+<script defer src="{% static 'charsheet/js/character-date.js' %}?v=20261009-mobile-flow"></script>
 <div class="character-date" data-character-date data-url="{% url 'character_date' character.id %}">
   {% csrf_token %}
   <div class="character-date-display calendar-artifact" data-season="neutral">

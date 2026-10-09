@@ -1,5 +1,5 @@
-import { createResultAnimation } from "./charsheet/dice_result.js?v=20261009-special-failure";
-import { initQuickslots } from "./charsheet/quickslots.js?v=20261009-draggable-editor";
+import { createResultAnimation } from "./charsheet/dice_result.js?v=20261009-percentile-gold";
+import { initQuickslots } from "./charsheet/quickslots.js?v=20261009-debug-w100-restore";
 import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261009-special-failure";
 
 /* ---------------------------------------------------
@@ -529,21 +529,8 @@ function buildPercentileDicePayload(total, themeId) {
         throw new Error(`Ungültiger d100-Wert: ${total}`);
     }
 
-    let tensValue;
-    let onesValue;
-
-    if (total === 100) {
-        tensValue = 9;
-        onesValue = 10;
-    } else {
-        tensValue = Math.floor(total / 10);
-        onesValue = total % 10;
-
-        if (onesValue === 0) {
-            onesValue = 10;
-            tensValue -= 1;
-        }
-    }
+    const tensValue = Math.floor((total % 100) / 10);
+    const onesValue = total % 10 || 10;
 
     return [
         {
@@ -667,10 +654,14 @@ export async function rollDice(sides, count, options = {}) {
         const result = await renderBackendRoll(sides, count, addition.debug);
         const roll = result.backendRoll;
         const dice = sides === 100
-            ? result.dicePayload.map(die => fusionDie(
-                die.type === "d10x" ? die.value * 10 : die.value,
-                die.type === "d10x" ? 100 : 10,
-            ))
+            ? result.dicePayload.map((die, index) => {
+                const value = die.type === "d10x" ? die.value * 10 : die.value % 10;
+                return {
+                    type: "die", rawValue: value, value,
+                    arithmeticValue: die.type === "d10x" && value === 0
+                        && result.dicePayload[index + 1].value % 10 === 0 ? 100 : value,
+                };
+            })
             : roll.rolls.map(value => fusionDie(value, sides));
         let total = roll.total + (addition.modifier ?? 0) + extraTotal;
         let modifiers = [...(addition.modifier === undefined || addition.modifier === 0 ? []

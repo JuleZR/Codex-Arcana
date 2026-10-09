@@ -1319,6 +1319,27 @@
 
   user-select: none;
 }
+.dice-result-stage.is-percentile-hundred .result-value {
+  color: #ffe49a;
+  text-shadow: 0 0 8px rgba(255, 220, 128, 0.9),
+    0 0 28px rgba(255, 190, 55, 0.75),
+    0 0 60px rgba(255, 170, 30, 0.5);
+}
+.dice-result-stage.is-percentile-hundred .result-value.visible {
+  animation: percentile-hundred-glow 2s ease-in-out 620ms infinite;
+}
+@keyframes percentile-hundred-glow {
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(255, 220, 128, 0.9),
+      0 0 28px rgba(255, 190, 55, 0.75),
+      0 0 60px rgba(255, 170, 30, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 12px rgba(255, 220, 128, 1),
+      0 0 42px rgba(255, 190, 55, 0.95),
+      0 0 85px rgba(255, 170, 30, 0.75);
+  }
+}
 .dice-result-stage .result-value.is-critical-text {
   inset: auto;
   left: 50%;

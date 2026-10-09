@@ -30,10 +30,14 @@ export function normalizeAction(action) {
   if (!["skill", "weapon", "initiative", "debug"].includes(action.type) || typeof action.id !== "string") return null;
   if (action.type === "debug") {
     // Preserve existing DEBUG slots as editable pairs.
+    const sides = action.id === "w100" ? 100 : 10;
     const rolls = action.rolls ?? ({ krit: [10, 10], mis: [1, 1] })[action.id];
-    if (!["custom", "krit", "mis"].includes(action.id) || !Array.isArray(rolls)
-        || rolls.length !== 2 || rolls.some(value => !Number.isInteger(value) || value < 1 || value > 10)) return null;
-    return appearance(action, { type: "debug", id: "custom", label: "DEBUG", rolls: [...rolls] });
+    if (!["custom", "krit", "mis", "w100"].includes(action.id) || !Array.isArray(rolls)
+        || rolls.length !== 2
+        || rolls.some(value => !Number.isInteger(value)
+          || value < (sides === 100 ? 0 : 1) || value > (sides === 100 ? 9 : 10))) return null;
+    return appearance(action, { type: "debug", id: sides === 100 ? "w100" : "custom",
+      label: sides === 100 ? "DEBUG W100" : "DEBUG", rolls: [...rolls] });
   }
   const clean = { type: action.type, id: action.id, label: String(action.label || action.id) };
   for (const key of ["subentry", "specification", "profile", "mode", "attribute"]) {
@@ -306,14 +310,15 @@ export function initQuickslots({ rollDice, isRolling }) {
       } else {
         const weapon = action.type === "weapon";
         const debug = action.type === "debug";
-        await rollDice(weapon ? null : 10, weapon ? null : 2, {
+        const debugW100 = debug && action.id === "w100";
+        await rollDice(weapon ? null : debugW100 ? 100 : 10, weapon ? null : debugW100 ? 1 : 2, {
           target: action.target,
           bonus,
           bonusModifiers,
           modifiers: individualModifiers,
           label: action.customLabel || (debug ? action.label : undefined),
-          probeKind: action.type === "skill" || debug ? "skill" : weapon ? "damage" : "initiative",
-          critical: action.type === "skill" || debug,
+          probeKind: debugW100 ? "free" : action.type === "skill" || debug ? "skill" : weapon ? "damage" : "initiative",
+          critical: action.type === "skill" || (debug && !debugW100),
           resolve: async () => {
             const actions = await refreshCatalog();
             const current = actions.find(entry => actionMatches(action, entry));
@@ -345,7 +350,7 @@ export function initQuickslots({ rollDice, isRolling }) {
 
   function fillChoices() {
     choices = typeSelect.value === "dice" ? FREE_DICE : catalog.filter(action => action.type === typeSelect.value);
-    document.getElementById("quickslotActionField").hidden = ["initiative", "dice", "debug"].includes(typeSelect.value);
+    document.getElementById("quickslotActionField").hidden = ["initiative", "dice"].includes(typeSelect.value);
     document.getElementById("quickslotDiceFields").hidden = typeSelect.value !== "dice";
     document.getElementById("quickslotDebugFields").hidden = typeSelect.value !== "debug";
     document.getElementById("quickslotActionLabel").textContent = {
@@ -362,7 +367,19 @@ export function initQuickslots({ rollDice, isRolling }) {
       ? action.sides === slots[editingIndex]?.sides && action.count === slots[editingIndex]?.count
       : actionMatches(slots[editingIndex], action));
     if (selected !== -1) actionSelect.value = String(selected);
+    updateDebugFields();
     saveButton.disabled = !choices.length || imageEditor.isBusy();
+  }
+
+  function updateDebugFields() {
+    const w100 = typeSelect.value === "debug" && choices[Number(actionSelect.value)]?.id === "w100";
+    debugInputs.forEach((input, index) => {
+      input.min = w100 ? 0 : 1;
+      input.max = w100 ? 9 : 10;
+      input.parentElement.querySelector("label").textContent = w100
+        ? index === 0 ? "Zehnerwürfel (0–9)" : "Einerwürfel (0–9)"
+        : `Würfel ${index + 1}`;
+    });
   }
 
   function openEditor(index) {
@@ -376,13 +393,13 @@ export function initQuickslots({ rollDice, isRolling }) {
     diceSidesSelect.value = slots[index]?.type === "dice" ? slots[index].sides : 10;
     diceOperatorSelect.value = slots[index]?.type === "dice" ? slots[index].operator || "+" : "+";
     diceOperandInput.value = slots[index]?.type === "dice" ? slots[index].operand ?? 0 : 0;
-    debugInputs.forEach((input, i) => { input.value = slots[index]?.rolls?.[i] ?? 5; });
     slotModifiers.setEntries(slots[index]?.modifiers || []);
     labelInput.placeholder = slots[index]?.label || "Bezeichnung der Aktion";
     imageEditor.setImage(slots[index]?.image || "");
     document.getElementById("quickslotEditorTitle").textContent = `Slot ${KEYS[index]} einrichten`;
     typeSelect.value = slots[index]?.type || "dice";
     fillChoices();
+    debugInputs.forEach((input, i) => { input.value = slots[index]?.rolls?.[i] ?? 5; });
     if (!editor.open) editor.show();
     refreshCatalog().then(() => { if (editor.open) fillChoices(); }).catch(error => notify(error.message));
   }
@@ -393,6 +410,7 @@ export function initQuickslots({ rollDice, isRolling }) {
     if (!await persist()) { collapsed = !collapsed; render(); }
   });
   typeSelect.addEventListener("change", fillChoices);
+  actionSelect.addEventListener("change", updateDebugFields);
   saveButton.addEventListener("click", async () => {
     if (!ready || saving || imageEditor.isBusy()) return;
     const selected = typeSelect.value === "dice"
@@ -400,7 +418,9 @@ export function initQuickslots({ rollDice, isRolling }) {
         operator: diceOperatorSelect.value, operand: String(diceOperandInput.value).trim() === "" ? NaN : Number(diceOperandInput.value) }
       : choices[Number(actionSelect.value)];
     const action = normalizeAction({ ...selected,
-      ...(typeSelect.value === "debug" ? { rolls: debugInputs.map(input => Number(input.value)) } : {}),
+      ...(typeSelect.value === "debug" ? {
+        rolls: debugInputs.map(input => Number(input.value)),
+      } : {}),
       target: targetInput.value.trim() === "" ? undefined : Number(targetInput.value),
       modifiers: slotModifiers.getEntries(),
       customLabel: labelInput.value, image: imageEditor.getImage(),
