@@ -1,6 +1,6 @@
-import { createResultAnimation } from "./charsheet/dice_result.js?v=20261007-zero-modifiers";
-import { initQuickslots } from "./charsheet/quickslots.js?v=20261007-central-layout";
-import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261007-named-history-values";
+import { createResultAnimation } from "./charsheet/dice_result.js?v=20261009-special-failure";
+import { initQuickslots } from "./charsheet/quickslots.js?v=20261009-draggable-editor";
+import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261009-special-failure";
 
 /* ---------------------------------------------------
    CONFIG
@@ -492,7 +492,7 @@ async function fetchBackendRoll(sides = 10, count = 2, debug = null) {
         body: JSON.stringify({
             sides,
             count,
-            ...(debug ? { debug: debug.mode } : {}),
+            ...(debug ? { rolls: debug.rolls } : {}),
         }),
     });
 
@@ -645,7 +645,10 @@ export async function rollDice(sides, count, options = {}) {
         if (!Number.isInteger(sides) || sides < 2 || !Number.isInteger(count) || count < 1) {
             throw new Error("Ungültige Würfelparameter.");
         }
-        let critical = options.critical ?? (sides === 10 && count === 2);
+        const criticalEligible = sides === 10 && count === 2
+            && [undefined, "free", "skill"].includes(options.probeKind)
+            && options.critical !== false;
+        let critical = criticalEligible;
         const bonus = options.bonus ?? 0;
         if (!Number.isFinite(bonus)) throw new Error("Ungültiger freier Bonus.");
         const individualModifiers = options.modifiers ?? [];
@@ -672,36 +675,53 @@ export async function rollDice(sides, count, options = {}) {
         let total = roll.total + (addition.modifier ?? 0) + extraTotal;
         let modifiers = [...(addition.modifier === undefined || addition.modifier === 0 ? []
             : [{ type: "modifier", value: addition.modifier, label: addition.label || "Modifikator" }]), ...bonusElements];
-        if (addition.complete) {
+        const isCritical = criticalEligible && (dice.every(die => die.rawValue === 0)
+            || dice.every(die => die.rawValue === 1));
+        const specialFailure = criticalEligible && (
+            (dice[0].rawValue === 1 && dice[1].rawValue === 2)
+            || (dice[0].rawValue === 2 && dice[1].rawValue === 1));
+        const outcomeOptions = {
+            probeKind: options.probeKind ?? "free", specialFailure,
+            target: specialFailure ? undefined : options.target,
+        };
+        if (isCritical || specialFailure) {
+            total = roll.total;
+            modifiers = [];
+            await resultAnimation.playResultAnimation(
+                dice[0].rawValue, dice[1].rawValue, null,
+                { critical: true, probeKind: options.probeKind ?? "free", specialFailure },
+            );
+        } else if (addition.complete) {
             const calculation = await addition.complete(roll);
             const calculationModifiers = calculation.modifiers.filter(entry => entry.value !== 0);
             total = calculation.total + extraTotal;
             modifiers = [...calculationModifiers, ...bonusElements];
-            critical = calculation.critical === true;
+            critical = criticalEligible && calculation.critical === true;
             await resultAnimation.playFusion([...dice, ...calculationModifiers, ...bonusElements], {
-                ...calculation, total,
+                ...calculation, total, critical, ...outcomeOptions,
             });
         } else if (bonusElements.length) {
             await resultAnimation.playFusion([...dice, ...modifiers], {
                 total, critical: critical === true,
-                probeKind: options.probeKind,
+                ...outcomeOptions,
             });
         } else if (sides === 10 && count === 2) {
             await resultAnimation.playResultAnimation(
                 roll.rolls[0] % 10, roll.rolls[1] % 10, null,
                 { ...addition, modifier: addition.modifier === 0 ? undefined : addition.modifier,
-                    critical: critical === true, probeKind: options.probeKind },
+                    critical: critical === true, ...outcomeOptions },
             );
         } else if (sides === 100) {
-            await resultAnimation.playFusion(dice, { total: roll.total });
+            await resultAnimation.playFusion(dice, { total: roll.total, target: options.target });
         } else {
-            await resultAnimation.playFusion(roll.rolls.map(value => fusionDie(value, sides)), { total: roll.total });
+            await resultAnimation.playFusion(roll.rolls.map(value => fusionDie(value, sides)), { total: roll.total, target: options.target });
         }
         const historyLabel = options.label || addition.label
-            || (addition.debug ? addition.debug.mode === "krit" ? "Krit" : "MIS" : `${count}W${sides}`);
+            || (addition.debug ? "DEBUG" : `${count}W${sides}`);
         rollHistory?.record({
             label: addition.debug && !/^DEBUG\b/i.test(historyLabel) ? `DEBUG · ${historyLabel}` : historyLabel,
             debug: Boolean(addition.debug),
+            specialFailure,
             sides, count, dice: dice.map(die => die.arithmeticValue), total,
             modifiers: modifiers.map(modifier => ({ ...modifier, label: modifier.label || "Modifikator" })),
             critical: critical && sides === 10 && count === 2

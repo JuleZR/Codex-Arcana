@@ -173,6 +173,10 @@
 [data-quickslot-roll] { cursor: pointer; }
 [data-quickslot-roll]:focus-visible { outline: 1px solid var(--bronze-light, #c9a36c); outline-offset: 2px; }
 .quickslot-editor {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 1200;
   width: min(420px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
@@ -187,7 +191,8 @@
   box-shadow: var(--sheet-window-shadow, 0 8px 32px rgba(49, 36, 23, .25));
 }
 .quickslot-editor::backdrop { background: rgba(23, 19, 14, .45); backdrop-filter: blur(3px); }
-.quickslot-editor h2 { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--sheet-window-border, #a18a68); font-size: 16px; }
+.quickslot-editor h2 { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--sheet-window-border, #a18a68); font-size: 16px; cursor: grab; touch-action: none; user-select: none; }
+.quickslot-editor.is-dragging h2 { cursor: grabbing; }
 .quickslot-editor__section { min-width: 0; margin: 0 0 12px; padding: 6px 12px 12px; border: 1px solid rgba(103, 75, 44, .22); background: rgba(251, 247, 239, .24); }
 .quickslot-editor__section legend { padding: 0 6px; font-size: 12px; color: var(--ink-soft); }
 .quickslot-editor__dice-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(48px, .7fr) minmax(0, 1fr); gap: 6px; }

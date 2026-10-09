@@ -4,6 +4,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q, Value
+from django.conf import settings
+
+from charsheet.calendar_layout import validate_layout
 
 
 def used_system_ids():
@@ -283,6 +286,11 @@ class CalendarLeapException(models.Model):
 
 
 class CalendarSystem(models.Model):
+    date_layout = models.JSONField(
+        "Standardlayout der Datumsanzeige",
+        null=True, blank=True, validators=[validate_layout],
+        help_text="Ohne eigenes Layout wird die bisherige Anzeige verwendet.",
+    )
     name = models.CharField("Name der Zeitrechnung", max_length=120)
     abbreviation = models.CharField(
         "Kürzel", max_length=20, help_text="Darf mehrfach verwendet werden."
@@ -356,6 +364,11 @@ class CalendarSystem(models.Model):
         super().clean()
         from charsheet.engine.calendar_engine import CalendarEngine
 
+        if self.date_layout is not None:
+            try:
+                validate_layout(self.date_layout)
+            except ValidationError as error:
+                raise ValidationError({"date_layout": error.messages})
         dates = (
             self.anchor_year,
             self.anchor_month,
@@ -414,6 +427,26 @@ class CalendarSystem(models.Model):
             self.root_origin_day = own_day
 
     def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class UserCalendarLayout(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE
+    )
+    system = models.ForeignKey(CalendarSystem, on_delete=models.CASCADE)
+    layout = models.JSONField(validators=[validate_layout])
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "system"), name="unique_user_calendar_layout"
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        validate_layout(self.layout)
         self.full_clean()
         return super().save(*args, **kwargs)
 

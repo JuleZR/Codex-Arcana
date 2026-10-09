@@ -165,6 +165,8 @@ export function initBookViewer(root, options = {}) {
     }
     event.preventDefault();
     if (pageFlip) {
+      // Finish the old animation before flip() changes the current spread.
+      pageFlip.getRender().finishAnimation();
       pageFlip.flip(pageIndex, "bottom");
       return;
     }
@@ -224,6 +226,14 @@ export function initBookViewer(root, options = {}) {
   };
 
   document.addEventListener("click", handleTriggerClick);
+  ["mousedown", "touchstart"].forEach((eventName) => {
+    root.addEventListener(eventName, (event) => {
+      if (event.target instanceof Element && event.target.closest("[data-book-page-target]")) {
+        // PageFlip only excludes the button itself, not its text or icon children.
+        event.stopPropagation();
+      }
+    }, { capture: true });
+  });
   root.addEventListener("click", handlePageTargetClick);
   closeControls.forEach((control) => control.addEventListener("click", close));
   document.addEventListener("keydown", handleKeydown);

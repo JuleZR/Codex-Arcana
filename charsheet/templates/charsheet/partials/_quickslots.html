@@ -72,6 +72,18 @@
         <input id="quickslotDiceOperand" type="number" step="any" value="0" title="Würfelsumme berechnen und kaufmännisch runden; Boni und Mali anschließend addieren.">
       </div>
     </div>
+    <div id="quickslotDebugFields" class="quickslot-editor__dice-fields" hidden>
+      <div>
+        <label for="quickslotDebugFirst">Würfel 1</label>
+        <input id="quickslotDebugFirst" type="number" min="1" max="10" step="1" value="5">
+      </div>
+      <div>
+        <label for="quickslotDebugSecond">Würfel 2</label>
+        <input id="quickslotDebugSecond" type="number" min="1" max="10" step="1" value="5">
+      </div>
+    </div>
+    <label for="quickslotTarget">MW <small>optional</small></label>
+    <input id="quickslotTarget" type="number" step="any" placeholder="Mindestwurf">
     <label>Eigene Boni und Mali</label>
     <div id="quickslotSlotModifiers" class="quickslot-editor__modifiers"></div>
     <button type="button" class="quickslot-editor__add-modifier" data-quickslot-slot-modifier-add>+ Bonus oder Malus</button>

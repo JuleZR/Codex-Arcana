@@ -70,7 +70,8 @@ export function initQuickslotHistory(root) {
       });
       const result = document.createElement("strong"); result.className = "quickslot-history__result";
       const critical = entry.critical === "success" ? " · Kritischer Erfolg"
-        : entry.critical === "failure" ? " · Kritischer Fehlschlag" : "";
+        : entry.critical === "failure" ? " · Kritischer Fehlschlag"
+          : entry.specialFailure === true ? " · Fehlschlag" : "";
       result.textContent = `Ergebnis: ${entry.total}${critical}`;
       row.append(formula, time, modifierList, dice, result); list.append(row);
     });

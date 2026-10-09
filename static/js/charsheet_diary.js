@@ -1,4 +1,4 @@
-import { initBookViewer } from "./charsheet/book_viewer.js?v=20261009-journal-hover-edge";
+import { initBookViewer } from "./charsheet/book_viewer.js?v=20261009-journal-page-targets";
 import { journalTitle, renderJournalMarkdown } from "./charsheet/journal_markdown.js?v=20260917a";
 import { paginateJournal } from "./charsheet/journal_pagination.js?v=20261009a";
 

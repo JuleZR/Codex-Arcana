@@ -560,6 +560,10 @@ class CalendarSystemAdmin(ProtectedCalendarAdmin):
             },
         ),
         (
+            "Standardlayout der Datumsanzeige",
+            {"fields": ("date_layout",)},
+        ),
+        (
             "Verwendung auf Charakterbögen",
             {
                 "fields": ("default_for_characters", "real_date_reference"),

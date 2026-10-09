@@ -611,6 +611,38 @@
             <button type="button" class="dashboard_button" id="resetCriticalTexts">Krit-Texte auf Standard setzen</button>
           </section>
 
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>MW-Proben</h4>
+              <p>Deine Ergebnistexte für alle Charaktere.</p>
+            </div>
+            <div class="dashboard_account_grid">
+              <label class="form_row">
+                <span>Text bei erreichtem MW</span>
+                <input class="dashboard_input" type="text" name="mw_success_text" id="id_mw_success_text" maxlength="64" value="{{ request.user.settings.mw_success_text|default:'Erfolgreich' }}" placeholder="Erfolgreich">
+              </label>
+              <label class="form_row">
+                <span>Text bei nicht erreichtem MW</span>
+                <input class="dashboard_input" type="text" name="mw_failure_text" id="id_mw_failure_text" maxlength="64" value="{{ request.user.settings.mw_failure_text|default:'Nicht erfolgreich' }}" placeholder="Nicht erfolgreich">
+              </label>
+            </div>
+            <p>Maximal 64 Zeichen. Leere Felder verwenden den Standard.</p>
+            <button type="button" class="dashboard_button" id="resetMwTexts">MW-Texte auf Standard setzen</button>
+          </section>
+
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>Fehlschlag bei 1 + 2</h4>
+              <p>Für freie Würfe und Fertigkeitsproben, auch bei 2 + 1.</p>
+            </div>
+            <label class="form_row">
+              <span>Text bei Fehlschlag</span>
+              <input class="dashboard_input" type="text" name="special_failure_text" id="id_special_failure_text" maxlength="64" value="{{ request.user.settings.special_failure_text|default:'Fehlschlag' }}" placeholder="Fehlschlag">
+            </label>
+            <p>Maximal 64 Zeichen. Ein leeres Feld verwendet den Standard.</p>
+            <button type="button" class="dashboard_button" id="resetSpecialFailureText">Fehlschlag-Text auf Standard setzen</button>
+          </section>
+
           <section class="dashboard_account_section" id="dddice_fields">
             <span id="accountIntegrations" class="dashboard_account_anchor"></span>
             <div class="dashboard_account_section_header">
@@ -737,6 +769,13 @@
         document.getElementById("resetCriticalTexts")?.addEventListener("click", () => {
           document.getElementById("id_critical_success_text").value = "KRITISCHER ERFOLG";
           document.getElementById("id_critical_failure_text").value = "KRITISCHER FEHLSCHLAG";
+        });
+        document.getElementById("resetMwTexts")?.addEventListener("click", () => {
+          document.getElementById("id_mw_success_text").value = "Erfolgreich";
+          document.getElementById("id_mw_failure_text").value = "Nicht erfolgreich";
+        });
+        document.getElementById("resetSpecialFailureText")?.addEventListener("click", () => {
+          document.getElementById("id_special_failure_text").value = "Fehlschlag";
         });
 
         const updatePasswordStrength = function () {

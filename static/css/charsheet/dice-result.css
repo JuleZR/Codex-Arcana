@@ -29,11 +29,11 @@
   --success-inner-word-spacing: 3.2px;
   --success-inner-radius: 130px;
 
-  --success-particle: 83, 204, 109;
-  --success-particle-cool: 142, 232, 160;
-  --success-accent: 83, 204, 109;
-  --success-accent-bright: 190, 255, 201;
-  --success-secondary: 111, 187, 127;
+  --success-particle: 48, 240, 95;
+  --success-particle-cool: 164, 255, 185;
+  --success-accent: 48, 240, 95;
+  --success-accent-bright: 224, 255, 232;
+  --success-secondary: 84, 224, 120;
 
 
   
@@ -47,11 +47,11 @@
   --fail-inner-word-spacing: 4.5px;
   --fail-inner-radius: 140px;
 
-  --fail-particle: 211, 67, 67;
-  --fail-particle-cool: 238, 110, 98;
-  --fail-accent: 211, 67, 67;
-  --fail-accent-bright: 255, 181, 170;
-  --fail-secondary: 170, 53, 53;
+  --fail-particle: 255, 42, 42;
+  --fail-particle-cool: 255, 126, 112;
+  --fail-accent: 255, 42, 42;
+  --fail-accent-bright: 255, 224, 218;
+  --fail-secondary: 230, 52, 52;
 }
 
 
@@ -201,6 +201,26 @@
     var(--fail-inner-radius);
 }
 
+
+.dice-result-stage.has-target {
+  --success-particle: 112, 166, 123;
+  --success-particle-cool: 150, 184, 158;
+  --success-accent: 112, 166, 123;
+  --success-accent-bright: 175, 211, 184;
+  --success-secondary: 106, 144, 116;
+  --fail-particle: 179, 104, 101;
+  --fail-particle-cool: 197, 145, 135;
+  --fail-accent: 179, 104, 101;
+  --fail-accent-bright: 222, 174, 164;
+  --fail-secondary: 151, 90, 87;
+  --ring-font-size: var(--normal-outer-font-size);
+  --ring-letter-spacing: var(--normal-outer-letter-spacing);
+  --ring-word-spacing: var(--normal-outer-word-spacing);
+  --small-ring-font-size: var(--normal-inner-font-size);
+  --small-ring-letter-spacing: var(--normal-inner-letter-spacing);
+  --small-ring-word-spacing: var(--normal-inner-word-spacing);
+  --small-ring-radius: var(--normal-inner-radius);
+}
 
  .dice-result-stage {
   position: fixed;
@@ -1321,6 +1341,41 @@
 
   transform:
     scale(1);
+}
+.dice-result-stage .result-status {
+  position: absolute;
+  top: calc(50% + 62px);
+  left: 50%;
+  width: 300px;
+  transform: translateX(-50%);
+  overflow-wrap: anywhere;
+  z-index: 20;
+  color: rgb(var(--accent-bright-rgb));
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 450ms ease;
+}
+.dice-result-stage .result-status.visible { opacity: 1; }
+.dice-result-stage.has-target .result-sigil.visible .central-glow,
+.dice-result-stage.has-target .result-sigil.visible .result-aura { opacity: 0.5; }
+.dice-result-stage.has-target .result-value {
+  text-shadow: 0 0 4px rgba(var(--accent-bright-rgb), 0.3),
+    0 0 12px rgba(var(--accent-rgb), 0.16);
+}
+.dice-result-stage:is(.mode-crit-success, .mode-crit-fail):not(.has-target) .magic-circle {
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.6))
+    drop-shadow(0 0 12px rgba(var(--accent-rgb), 0.3));
+}
+.dice-result-stage:is(.mode-crit-success, .mode-crit-fail):not(.has-target) .central-glow {
+  background: radial-gradient(circle, rgba(var(--accent-bright-rgb), 0.55),
+    rgba(var(--accent-rgb), 0.22) 48%, transparent 74%);
+}
+.dice-result-stage:is(.mode-crit-success, .mode-crit-fail):not(.has-target) .result-value {
+  text-shadow: 0 0 5px rgba(var(--accent-bright-rgb), 0.8),
+    0 0 22px rgba(var(--accent-rgb), 0.6),
+    0 0 48px rgba(var(--accent-rgb), 0.35);
 }
 .dice-result-stage .fusion-flash{
   position: absolute;

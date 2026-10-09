@@ -49,6 +49,9 @@ class UserSettingsForm(forms.ModelForm):
             "dddice_enabled",
             "critical_success_text",
             "critical_failure_text",
+            "mw_success_text",
+            "mw_failure_text",
+            "special_failure_text",
             "dddice_api_key",
             "dddice_room_id",
             "dddice_room_password",
@@ -62,7 +65,9 @@ class UserSettingsForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        for name in ("critical_success_text", "critical_failure_text"):
+        for name in (
+                "critical_success_text", "critical_failure_text",
+                "mw_success_text", "mw_failure_text", "special_failure_text"):
             if name not in self.errors:
                 cleaned_data[name] = (
                     cleaned_data.get(name)

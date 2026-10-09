@@ -1,4 +1,4 @@
-<section class="dice-result-stage mode-normal" id="dice-result-stage" aria-live="polite" aria-atomic="true" data-critical-success-text="{{ request.user.settings.critical_success_text|default:'KRITISCHER ERFOLG' }}" data-critical-failure-text="{{ request.user.settings.critical_failure_text|default:'KRITISCHER FEHLSCHLAG' }}">
+<section class="dice-result-stage mode-normal" id="dice-result-stage" aria-live="polite" aria-atomic="true" data-critical-success-text="{{ request.user.settings.critical_success_text|default:'KRITISCHER ERFOLG' }}" data-critical-failure-text="{{ request.user.settings.critical_failure_text|default:'KRITISCHER FEHLSCHLAG' }}" data-mw-success-text="{{ request.user.settings.mw_success_text|default:'Erfolgreich' }}" data-mw-failure-text="{{ request.user.settings.mw_failure_text|default:'Nicht erfolgreich' }}" data-special-failure-text="{{ request.user.settings.special_failure_text|default:'Fehlschlag' }}">
   <canvas id="dice-result-particleCanvas" class="particle-canvas" aria-hidden="true"></canvas>
   <div class="die-result die-result-top" id="dice-result-dieResultTop">
     <span class="die-value" id="dice-result-topValue"></span>
@@ -49,6 +49,7 @@
     </div>
     <div class="central-glow"></div>
     <div class="result-value" id="dice-result-resultValue"></div>
+    <div class="result-status" id="dice-result-resultStatus"></div>
   </div>
   <div class="fusion-flash" id="dice-result-fusionFlash"></div>
 </section>

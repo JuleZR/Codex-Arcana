@@ -139,6 +139,7 @@ const resultSigil =
 
 const resultValue =
   stage.querySelector("#dice-result-resultValue");
+const resultStatus = stage.querySelector("#dice-result-resultStatus");
 
 const fusionFlash =
   stage.querySelector("#dice-result-fusionFlash");
@@ -918,6 +919,9 @@ function resetVisuals() {
   topValue.textContent = "";
   bottomValue.textContent = "";
   resultValue.textContent = "";
+  resultStatus.textContent = "";
+  resultStatus.classList.remove("visible");
+  stage.classList.remove("has-target");
   resultValue.classList.remove("is-critical-text");
   setVariantText(RING_VARIANTS.normal);
 
@@ -1064,14 +1068,29 @@ async function playFusion(elements, options = {}) {
   initParticles(); stage.classList.add("is-active");
   frameId = requestAnimationFrame(renderParticles);
   const dice = elements.filter(entry => entry.type === "die");
-  const variant = options.critical === true && dice.length === 2
+  const specialFailure = options.specialFailure === true && options.critical === true
+    && dice.length === 2 && [undefined, "free", "skill"].includes(options.probeKind);
+  const hasTarget = !specialFailure && Number.isFinite(options.target);
+  const variant = hasTarget
+    ? { ...RING_VARIANTS.normal, modeClass: result >= options.target ? "mode-crit-success" : "mode-crit-fail" }
+    : specialFailure ? RING_VARIANTS.critFail
+    : options.critical === true && dice.length === 2
+      && [undefined, "free", "skill"].includes(options.probeKind)
     ? getRingVariant(dice[0].rawValue, dice[1].rawValue) : RING_VARIANTS.normal;
+  if (hasTarget) {
+    stage.classList.add("has-target");
+    const success = result >= options.target;
+    const configured = stage.dataset?.[success ? "mwSuccessText" : "mwFailureText"];
+    resultStatus.textContent = Array.from(String(configured || "").trim()).slice(0, 64).join("")
+      || (success ? "Erfolgreich" : "Nicht erfolgreich");
+  }
   resultValue.textContent = result;
-  if (options.probeKind === "skill" && variant !== RING_VARIANTS.normal) {
+  if (!hasTarget && ["skill", "free"].includes(options.probeKind) && variant !== RING_VARIANTS.normal) {
     const success = variant === RING_VARIANTS.critSuccess;
-    const configured = stage.dataset?.[success ? "criticalSuccessText" : "criticalFailureText"];
+    const configured = stage.dataset?.[specialFailure ? "specialFailureText"
+      : success ? "criticalSuccessText" : "criticalFailureText"];
     const text = Array.from(String(configured || "").trim()).slice(0, 64).join("")
-      || (success ? "KRITISCHER ERFOLG" : "KRITISCHER FEHLSCHLAG");
+      || (specialFailure ? "Fehlschlag" : success ? "KRITISCHER ERFOLG" : "KRITISCHER FEHLSCHLAG");
     const fitted = layoutCriticalText(text, typeof ctx.measureText === "function" ? (line, size) => {
       ctx.font = `800 ${size}px Cinzel`;
       return ctx.measureText(line).width;
@@ -1097,7 +1116,9 @@ async function playFusion(elements, options = {}) {
       await wait(TIMING.runeDelay, token);
     }
     resultSigil.classList.add("visible"); particleMode = "result";
-    await wait(TIMING.resultDelay, token); resultValue.classList.add("visible"); scheduleResultFade();
+    await wait(TIMING.resultDelay, token); resultValue.classList.add("visible");
+    if (hasTarget) resultStatus.classList.add("visible");
+    scheduleResultFade();
     await wait(TIMING.settleDelay, token); resultSigil.classList.add("settled");
     return result;
   } catch (error) { if (error !== cancelled) throw error; }

@@ -209,3 +209,4 @@ AGENTS.md
 VERSION.tmp
 /.codex
 /tmp
+/.playwright-mcp

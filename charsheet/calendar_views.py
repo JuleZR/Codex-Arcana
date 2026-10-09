@@ -11,8 +11,12 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from charsheet.calendar_forms import month_options, season_payload
+from charsheet.calendar_layout import (
+    effective_layout, layout_values, validate_layout,
+)
 from charsheet.engine.calendar_engine import CalendarEngine
 from charsheet.models import CalendarSystem, Character, CharacterDate
+from charsheet.models.calendar import UserCalendarLayout
 
 
 def integer(value):
@@ -114,6 +118,22 @@ def character_date(request, character_id):
                                 "Kalender eingerichtet."
                             )
                         absolute = initial_date(engine, system, systems)
+                elif action in ("save_layout", "reset_layout"):
+                    system = systems[integer(payload["system"])]
+                    if action == "save_layout":
+                        layout = validate_layout(payload["layout"])
+                        UserCalendarLayout.objects.update_or_create(
+                            user=request.user, system=system,
+                            defaults={"layout": layout},
+                        )
+                    else:
+                        UserCalendarLayout.objects.filter(
+                            user=request.user, system=system
+                        ).delete()
+                    if stored is None:
+                        raise ValueError("Bitte zuerst ein Datum festlegen.")
+                    system = systems[stored.system_id]
+                    absolute = stored.absolute_day
                 elif action == "step":
                     delta = integer(payload["delta"])
                     if stored is None or delta not in (-1, 1):
@@ -138,7 +158,9 @@ def character_date(request, character_id):
                     else:
                         raise ValueError("Unbekannte Datumsaktion.")
                 integer(absolute)
-                if action != "initialize" or stored is None:
+                if action not in ("save_layout", "reset_layout") and (
+                    action != "initialize" or stored is None
+                ):
                     CharacterDate.objects.update_or_create(
                         character=character,
                         defaults={
@@ -154,6 +176,11 @@ def character_date(request, character_id):
             if stored
             else None
         )
+        if current:
+            current.update(effective_layout(
+                request.user, systems[stored.system_id]
+            ))
+            current["layout_values"] = layout_values(current)
         result = {
             "current": current,
             "default_system": default_system.pk if default_system else None,
@@ -182,11 +209,19 @@ def character_date(request, character_id):
             else:
                 raise ValueError("Bitte eine Jahreszahl eingeben.")
             preview = date_payload(engine, system, absolute)
+            preview.update(effective_layout(request.user, system))
+            preview["layout_values"] = layout_values(preview)
             preview["months"] = month_options(
                 system.calendar_definition,
                 int(preview["year"]),
                 engine,
             )
+            longest = max(
+                preview["months"], key=lambda row: len(row["name"])
+            )
+            long_payload = dict(preview, month_name=longest["name"])
+            long_payload["season"] = longest.get("season")
+            preview["long_layout_values"] = layout_values(long_payload)
             preview["saved_date"] = (
                 date_payload(engine, system, stored.absolute_day)
                 if stored

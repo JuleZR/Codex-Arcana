@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 
 from charsheet.engine.calendar_engine import CalendarEngine
+from charsheet.calendar_layout_widget import CalendarLayoutWidget
 from charsheet.models.calendar import (
     CalendarDefinition,
     CalendarLeapException,
@@ -102,6 +103,7 @@ class CalendarSystemForm(forms.ModelForm):
     class Meta:
         model = CalendarSystem
         fields = "__all__"
+        widgets = {"date_layout": CalendarLayoutWidget()}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

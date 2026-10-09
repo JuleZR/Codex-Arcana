@@ -135,6 +135,7 @@
         adjustments = [];
         dates('anchor', data.months);
         if (field('reference_system').value) dates('reference', data.reference_months);
+        form.dispatchEvent(new CustomEvent('calendar-layout-preview', {detail: data.months}));
         describe();
       } catch (error) {
         if (error.name !== 'AbortError') {

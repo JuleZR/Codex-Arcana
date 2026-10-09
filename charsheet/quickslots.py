@@ -21,6 +21,14 @@ from charsheet.models import CharacterItem, CharacterQuickslotLayout
 from charsheet.sheet_context import _build_skill_rows
 
 
+def _validated_debug_rolls(rolls):
+    if (not isinstance(rolls, list) or len(rolls) != 2
+            or any(type(value) is not int or not 1 <= value <= 10
+                   for value in rolls)):
+        raise ValueError
+    return rolls
+
+
 def _validated_layout(payload):
     slots = payload["slots"]
     if (not isinstance(slots, list) or len(slots) != 11
@@ -30,6 +38,7 @@ def _validated_layout(payload):
         "type", "id", "label", "sides", "count", "operator", "operand",
         "subentry", "specification", "profile", "mode", "attribute",
         "modifiers", "ignoreBonus", "labelPosition", "customLabel", "image",
+        "target", "rolls",
     }
     clean = []
     for action in slots:
@@ -56,6 +65,10 @@ def _validated_layout(payload):
         elif (not isinstance(action.get("id"), str)
               or not action["id"]):
             raise ValueError
+        if action["type"] == "debug":
+            if action["id"] != "custom":
+                raise ValueError
+            _validated_debug_rolls(action.get("rolls"))
         for key in (
                 "id", "label", "subentry", "specification", "profile",
                 "mode", "attribute", "customLabel"):
@@ -70,6 +83,10 @@ def _validated_layout(payload):
                 )):
             raise ValueError
         if "ignoreBonus" in action and type(action["ignoreBonus"]) is not bool:
+            raise ValueError
+        if "target" in action and (
+                type(action["target"]) not in (int, float)
+                or not math.isfinite(action["target"])):
             raise ValueError
         if ("labelPosition" in action and action["labelPosition"]
                 not in ("top", "center", "bottom", "hidden")):
@@ -207,12 +224,10 @@ def quickslot_actions(request, character_id):
     )
     actions = build_quickslot_actions(character, engine)
     if request.user.is_staff:
-        actions.extend([
-            {"type": "debug", "id": "krit", "label": "DEBUG - Krit",
-             "available": True},
-            {"type": "debug", "id": "mis", "label": "DEBUG - MIS",
-             "available": True},
-        ])
+        actions.append({
+            "type": "debug", "id": "custom", "label": "DEBUG",
+            "rolls": [5, 5], "available": True,
+        })
     return JsonResponse({"actions": actions})
 
 
@@ -226,12 +241,9 @@ def quickslot_debug_result(request, character_id):
         return JsonResponse({"error": "Nur für Staff verfügbar."}, status=403)
     _owned_character_or_404(request, character_id)
     try:
-        mode = json.loads(request.body)["debug"]
-        if mode not in ("krit", "mis"):
-            raise ValueError
+        rolls = _validated_debug_rolls(json.loads(request.body)["rolls"])
     except (ValueError, TypeError, KeyError):
         return JsonResponse({"error": "Ungültiger DEBUG-Wurf."}, status=400)
-    rolls = [10, 10] if mode == "krit" else [1, 1]
     return JsonResponse({"sides": 10, "count": 2, "rolls": rolls,
                          "total": sum(rolls)})
 

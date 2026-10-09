@@ -28,7 +28,13 @@ export function normalizeAction(action) {
     return appearance(action, clean);
   }
   if (!["skill", "weapon", "initiative", "debug"].includes(action.type) || typeof action.id !== "string") return null;
-  if (action.type === "debug" && !["krit", "mis"].includes(action.id)) return null;
+  if (action.type === "debug") {
+    // Preserve existing DEBUG slots as editable pairs.
+    const rolls = action.rolls ?? ({ krit: [10, 10], mis: [1, 1] })[action.id];
+    if (!["custom", "krit", "mis"].includes(action.id) || !Array.isArray(rolls)
+        || rolls.length !== 2 || rolls.some(value => !Number.isInteger(value) || value < 1 || value > 10)) return null;
+    return appearance(action, { type: "debug", id: "custom", label: "DEBUG", rolls: [...rolls] });
+  }
   const clean = { type: action.type, id: action.id, label: String(action.label || action.id) };
   for (const key of ["subentry", "specification", "profile", "mode", "attribute"]) {
     if (typeof action[key] === "string") clean[key] = action[key];
@@ -37,6 +43,10 @@ export function normalizeAction(action) {
 }
 
 function appearance(action, clean) {
+  if (action.target !== undefined) {
+    if (!Number.isFinite(action.target)) return null;
+    clean.target = action.target;
+  }
   if (action.modifiers !== undefined) {
     if (!Array.isArray(action.modifiers) || action.modifiers.some(entry =>
       !entry || !["number", "string"].includes(typeof entry.value) || !Number.isFinite(Number(entry.value))
@@ -85,12 +95,53 @@ export function initQuickslots({ rollDice, isRolling }) {
   const buttons = [...root.querySelectorAll("[data-quickslot-index]")];
   const toggle = root.querySelector("[data-quickslot-toggle]");
   const editor = document.getElementById("quickslotEditor");
+  const editorTitle = document.getElementById("quickslotEditorTitle");
+  let editorDrag = null;
+  function moveEditor(left, top) {
+    editor.style.margin = "0";
+    editor.style.right = "auto";
+    editor.style.bottom = "auto";
+    editor.style.left = `${Math.max(16, Math.min(left, window.innerWidth - editor.offsetWidth - 16))}px`;
+    editor.style.top = `${Math.max(16, Math.min(top, window.innerHeight - editor.offsetHeight - 16))}px`;
+  }
+  editorTitle.addEventListener("pointerdown", event => {
+    if (event.button !== 0) return;
+    const rect = editor.getBoundingClientRect();
+    editorDrag = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    editorTitle.setPointerCapture(event.pointerId);
+    editor.classList.add("is-dragging");
+    moveEditor(rect.left, rect.top);
+    event.preventDefault();
+  });
+  editorTitle.addEventListener("pointermove", event => {
+    if (editorDrag) moveEditor(event.clientX - editorDrag.x, event.clientY - editorDrag.y);
+  });
+  editorTitle.addEventListener("lostpointercapture", () => {
+    editorDrag = null;
+    editor.classList.remove("is-dragging");
+  });
+  editorTitle.addEventListener("pointerup", event => {
+    if (editorTitle.hasPointerCapture(event.pointerId)) editorTitle.releasePointerCapture(event.pointerId);
+  });
+  window.addEventListener("resize", () => {
+    if (!editor.open) return;
+    const rect = editor.getBoundingClientRect();
+    moveEditor(rect.left, rect.top);
+  });
+  editor.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !saving) {
+      event.preventDefault();
+      event.stopPropagation();
+      editor.close();
+    }
+  });
   const typeSelect = document.getElementById("quickslotType");
   const actionSelect = document.getElementById("quickslotAction");
   const diceCountInput = document.getElementById("quickslotDiceCount");
   const diceSidesSelect = document.getElementById("quickslotDiceSides");
   const diceOperatorSelect = document.getElementById("quickslotDiceOperator");
   const diceOperandInput = document.getElementById("quickslotDiceOperand");
+  const debugInputs = [document.getElementById("quickslotDebugFirst"), document.getElementById("quickslotDebugSecond")];
   const slotModifiers = initModifierList(document.getElementById("quickslotSlotModifiers"),
     editor.querySelector("[data-quickslot-slot-modifier-add]"));
   const saveButton = editor.querySelector("[data-quickslot-save]");
@@ -109,6 +160,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   const labelInput = document.getElementById("quickslotLabel");
   const labelPositionSelect = document.getElementById("quickslotLabelPosition");
   const ignoreBonusInput = document.getElementById("quickslotIgnoreBonus");
+  const targetInput = document.getElementById("quickslotTarget");
   const imageEditor = initQuickslotImageEditor({
     onBusyChange: busy => { saveButton.disabled = busy || !choices.length; },
   });
@@ -231,6 +283,8 @@ export function initQuickslots({ rollDice, isRolling }) {
       if (!Number.isFinite(bonus)) throw new Error("Bitte gültige Werte für alle Boni und Mali eingeben.");
       if (action.type === "dice") {
         await rollDice(action.sides, action.count, {
+          probeKind: "free",
+          target: action.target,
           bonus, bonusModifiers, modifiers: individualModifiers, label: action.customLabel || action.label,
           resolve: action.operator ? async () => ({
             complete: async roll => {
@@ -253,19 +307,20 @@ export function initQuickslots({ rollDice, isRolling }) {
         const weapon = action.type === "weapon";
         const debug = action.type === "debug";
         await rollDice(weapon ? null : 10, weapon ? null : 2, {
+          target: action.target,
           bonus,
           bonusModifiers,
           modifiers: individualModifiers,
           label: action.customLabel || (debug ? action.label : undefined),
           probeKind: action.type === "skill" || debug ? "skill" : weapon ? "damage" : "initiative",
-          critical: !weapon,
+          critical: action.type === "skill" || debug,
           resolve: async () => {
             const actions = await refreshCatalog();
             const current = actions.find(entry => actionMatches(action, entry));
             if (!current || current.available === false || (!weapon && !debug && !Number.isFinite(current.modifier))) {
               throw new Error(`${action.label}: nicht verfügbar. Bitte den Slot neu belegen oder entfernen.`);
             }
-            if (debug) return { debug: { url: root.dataset.debugResultUrl, mode: current.id } };
+            if (debug) return { debug: { url: root.dataset.debugResultUrl, rolls: action.rolls } };
             if (!weapon) return { modifier: current.modifier, label: current.label };
             return {
               sides: current.sides, count: current.count, label: current.label,
@@ -290,8 +345,9 @@ export function initQuickslots({ rollDice, isRolling }) {
 
   function fillChoices() {
     choices = typeSelect.value === "dice" ? FREE_DICE : catalog.filter(action => action.type === typeSelect.value);
-    document.getElementById("quickslotActionField").hidden = ["initiative", "dice"].includes(typeSelect.value);
+    document.getElementById("quickslotActionField").hidden = ["initiative", "dice", "debug"].includes(typeSelect.value);
     document.getElementById("quickslotDiceFields").hidden = typeSelect.value !== "dice";
+    document.getElementById("quickslotDebugFields").hidden = typeSelect.value !== "debug";
     document.getElementById("quickslotActionLabel").textContent = {
       skill: "Fertigkeit", weapon: "Waffe", dice: "Würfelwurf", debug: "DEBUG-Wurf",
     }[typeSelect.value] || "Aktion";
@@ -315,17 +371,19 @@ export function initQuickslots({ rollDice, isRolling }) {
     labelInput.value = slots[index]?.customLabel || "";
     labelPositionSelect.value = slots[index]?.labelPosition || (slots[index]?.image ? "bottom" : "center");
     ignoreBonusInput.checked = slots[index]?.ignoreBonus === true;
+    targetInput.value = slots[index]?.target ?? "";
     diceCountInput.value = slots[index]?.type === "dice" ? slots[index].count : 1;
     diceSidesSelect.value = slots[index]?.type === "dice" ? slots[index].sides : 10;
     diceOperatorSelect.value = slots[index]?.type === "dice" ? slots[index].operator || "+" : "+";
     diceOperandInput.value = slots[index]?.type === "dice" ? slots[index].operand ?? 0 : 0;
+    debugInputs.forEach((input, i) => { input.value = slots[index]?.rolls?.[i] ?? 5; });
     slotModifiers.setEntries(slots[index]?.modifiers || []);
     labelInput.placeholder = slots[index]?.label || "Bezeichnung der Aktion";
     imageEditor.setImage(slots[index]?.image || "");
     document.getElementById("quickslotEditorTitle").textContent = `Slot ${KEYS[index]} einrichten`;
     typeSelect.value = slots[index]?.type || "dice";
     fillChoices();
-    if (!editor.open) editor.showModal();
+    if (!editor.open) editor.show();
     refreshCatalog().then(() => { if (editor.open) fillChoices(); }).catch(error => notify(error.message));
   }
 
@@ -342,6 +400,8 @@ export function initQuickslots({ rollDice, isRolling }) {
         operator: diceOperatorSelect.value, operand: String(diceOperandInput.value).trim() === "" ? NaN : Number(diceOperandInput.value) }
       : choices[Number(actionSelect.value)];
     const action = normalizeAction({ ...selected,
+      ...(typeSelect.value === "debug" ? { rolls: debugInputs.map(input => Number(input.value)) } : {}),
+      target: targetInput.value.trim() === "" ? undefined : Number(targetInput.value),
       modifiers: slotModifiers.getEntries(),
       customLabel: labelInput.value, image: imageEditor.getImage(),
       labelPosition: labelPositionSelect.value,
@@ -349,7 +409,7 @@ export function initQuickslots({ rollDice, isRolling }) {
     });
     if (!action) {
       const error = document.getElementById("quickslotImageError");
-      error.textContent = "Bitte gültige Würfel und Werte für die Slot-Boni und Mali eingeben.";
+      error.textContent = "Bitte gültige Würfel, MW und Werte für die Slot-Boni und Mali eingeben.";
       error.hidden = false;
       return;
     }

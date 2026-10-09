@@ -16,6 +16,10 @@
   let preview = null;
   let busy = false;
   let visible = true;
+  const layoutDialog = root.querySelector('[data-date-layout-dialog]');
+  let layoutEditor = null;
+  let editingDate = null;
+  const layoutChannel = 'BroadcastChannel' in window ? new BroadcastChannel('calendar-layout') : null;
 
   const primary = root.querySelector('[data-date-primary]');
   const dateTexts = root.querySelectorAll(
@@ -54,6 +58,7 @@
   }
   function fitDateText() {
     for (const text of dateTexts) {
+      if (text.classList.contains('calendar-layout')) continue;
       text.style.fontSize = '';
       const available = text.clientWidth;
       if (available && text.scrollWidth > available) {
@@ -62,6 +67,10 @@
       }
     }
     placePicker();
+    if (layoutDialog.open && layoutEditor && editingDate) {
+      layoutEditor.setValues({...editingDate.layout_values,
+        _season: editingDate.season?.style, _width: root.clientWidth}, editingDate.long_layout_values);
+    }
   }
   window.addEventListener('resize', fitDateText, {passive: true});
   if ('ResizeObserver' in window) {
@@ -164,11 +173,17 @@
     const changed = current && data.current &&
       (current.absolute_day !== data.current.absolute_day || current.system !== data.current.system);
     current = data.current;
-    renderDateName(primary, current);
+    if (current?.layout) {
+      primary.classList.remove('calendar-date-bilingual');
+      window.CalendarLayout.render(primary, current.layout, current.layout_values);
+    } else {
+      primary.classList.remove('calendar-layout');
+      renderDateName(primary, current);
+    }
     const secondary = root.querySelector('[data-date-secondary]');
     secondary.textContent = current ? '' : 'Kein Kalender verfügbar';
     secondary.hidden = Boolean(current);
-    root.querySelector('[data-date-season]').textContent = current?.season?.name || '';
+    root.querySelector('[data-date-season]').textContent = current?.layout ? '' : current?.season?.name || '';
     open.setAttribute('aria-label', current ? `${current.label} – Kalender öffnen` : 'Kalender öffnen');
     open.disabled = !current;
     root.querySelectorAll('[data-date-step]').forEach(button => { button.disabled = !current; });
@@ -274,7 +289,55 @@
   });
   root.querySelector('[data-date-close]').addEventListener('click', () => close());
   root.querySelector('[data-date-cancel]').addEventListener('click', () => close());
+  root.querySelector('[data-date-layout-open]').addEventListener('click', () => {
+    if (!preview || busy) return;
+    editingDate = {...preview};
+    root.querySelector('[data-date-layout-description]').textContent =
+      `${system.selectedOptions[0].textContent} · ${preview.personal_layout ? 'Persönliches Layout' : 'Administratives Standardlayout'} · Gilt für alle eigenen Charakterbögen mit dieser Zeitrechnung.`;
+    root.querySelector('[data-date-layout-error]').textContent = '';
+    const data = {...preview.layout_values, _season: preview.season?.style, _width: root.clientWidth};
+    layoutEditor?.destroy();
+    layoutEditor = window.CalendarLayout.editor(root.querySelector('[data-date-layout-editor]'),
+      preview.layout, data, () => {}, preview.long_layout_values);
+    layoutDialog.showModal();
+  });
+  root.querySelector('[data-date-layout-close]').addEventListener('click', () => layoutDialog.close());
+  root.querySelector('[data-date-layout-discard]').addEventListener('click', () => {
+    if (!busy && layoutEditor) layoutEditor.setLayout(editingDate.layout);
+  });
+  async function persistLayout(action) {
+    if (busy || !editingDate) return;
+    const controls = Array.from(layoutDialog.querySelectorAll('button, input, select'),
+      control => [control, control.disabled]);
+    controls.forEach(([control]) => { control.disabled = true; });
+    root.querySelector('[data-date-layout-editor]').inert = true;
+    const data = await request(null, {action, system: editingDate.system,
+      ...(action === 'save_layout' ? {layout: layoutEditor.getLayout()} : {})});
+    if (data) {
+      display(data);
+      const refreshed = await request({system: editingDate.system, absolute: editingDate.absolute_day});
+      if (refreshed) {
+        render(refreshed);
+        editingDate = {...refreshed.preview};
+        layoutEditor.setLayout(editingDate.layout);
+        root.querySelector('[data-date-layout-description]').textContent =
+          `${system.selectedOptions[0].textContent} · ${editingDate.personal_layout ? 'Persönliches Layout gespeichert' : 'Aktuelles Standardlayout übernommen'}`;
+      }
+      layoutChannel?.postMessage({system: editingDate.system});
+    }
+    root.querySelector('[data-date-layout-error]').textContent = error.textContent;
+    controls.forEach(([control, disabled]) => { control.disabled = disabled; });
+    root.querySelector('[data-date-layout-editor]').inert = false;
+  }
+  root.querySelector('[data-date-layout-save]').addEventListener('click', () => persistLayout('save_layout'));
+  root.querySelector('[data-date-layout-reset]').addEventListener('click', () => persistLayout('reset_layout'));
+  layoutChannel?.addEventListener('message', async event => {
+    if (busy || current?.system !== event.data.system) return;
+    const data = await request();
+    if (data) display(data);
+  });
   root.addEventListener('keydown', event => {
+    if (layoutDialog.open) return;
     if (event.key === 'Escape' && !picker.hidden) { event.preventDefault(); close(); }
   });
   document.addEventListener('click', event => {

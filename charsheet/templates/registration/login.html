@@ -4,6 +4,21 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% if active_auth_panel != 'register' %}
+      <meta property="og:type" content="website">
+      <meta property="og:site_name" content="Codex Arcana">
+      <meta property="og:title" content="Codex Arcana – Dein digitaler Charakterbogen">
+      <meta property="og:description" content="Erschaffe und verwalte deine Helden, Gegenstände und Abenteuer in Codex Arcana.">
+      <meta property="og:url" content="https://codexarcana.de/">
+      <meta property="og:image" content="https://codexarcana.de/static/img/og/codex-arcana-og-1200x630.png">
+      <meta property="og:image:width" content="1200">
+      <meta property="og:image:height" content="630">
+      <meta name="twitter:card" content="summary_large_image">
+      <meta name="twitter:title" content="Codex Arcana – Dein digitaler Charakterbogen">
+      <meta name="twitter:description" content="Erschaffe und verwalte deine Helden, Gegenstände und Abenteuer in Codex Arcana.">
+      <meta name="twitter:image" content="https://codexarcana.de/static/img/og/codex-arcana-og-1200x630.png">
+      <link rel="canonical" href="https://codexarcana.de/">
+    {% endif %}
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <link rel="stylesheet" href="{% static 'css/login.css' %}?v=20261001i">
     {% if auth_turnstile_enabled %}

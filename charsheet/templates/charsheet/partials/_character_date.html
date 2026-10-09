@@ -1,7 +1,9 @@
 {% load static %}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;500&amp;family=Noto+Serif+JP:wght@400;500&amp;display=swap">
 <link rel="stylesheet" href="{% static 'charsheet/css/character-date.css' %}?v=20261009-calm-date">
-<script defer src="{% static 'charsheet/js/character-date.js' %}?v=20261009-calm-date"></script>
+<link rel="stylesheet" href="{% static 'charsheet/css/calendar-layout.css' %}?v=20261009-layout-5">
+<script defer src="{% static 'charsheet/js/calendar-layout.js' %}?v=20261009-layout-5"></script>
+<script defer src="{% static 'charsheet/js/character-date.js' %}?v=20261009-layout-3"></script>
 <div class="character-date" data-character-date data-url="{% url 'character_date' character.id %}">
   {% csrf_token %}
   <div class="character-date-display calendar-artifact" data-season="neutral">
@@ -54,10 +56,27 @@
     <div class="character-date-days" data-date-days aria-label="Monatstage auswählen"></div>
     <div class="calendar-day-legend"><span>◆ Gespeichertes Datum</span><span>Umrandung: Auswahl</span></div>
     <p class="calendar-saved-date" data-date-saved></p>
+    <button type="button" data-date-layout-open>Datumsanzeige anpassen</button>
     <footer class="calendar-picker-footer">
       <button type="submit" class="calendar-apply" data-date-apply disabled>Datum übernehmen</button>
       <button type="button" data-date-cancel>Abbrechen</button>
     </footer>
   </form>
+  <dialog class="calendar-layout-dialog" data-date-layout-dialog aria-labelledby="dateLayoutTitle">
+    <header class="calendar-layout-dialog-header">
+      <h2 id="dateLayoutTitle">Datumsanzeige anpassen</h2>
+      <p data-date-layout-description></p>
+    </header>
+    <div class="calendar-layout-dialog-main"><div data-date-layout-editor></div></div>
+    <footer class="calendar-layout-dialog-footer">
+      <p data-date-layout-error role="status" aria-live="polite"></p>
+      <div class="calendar-layout-actions">
+      <button type="button" data-date-layout-save>Speichern</button>
+      <button type="button" data-date-layout-discard>Änderungen verwerfen</button>
+      <button type="button" data-date-layout-reset>Auf Standard zurücksetzen</button>
+      <button type="button" data-date-layout-close>Schließen</button>
+      </div>
+    </footer>
+  </dialog>
   <span class="character-date-error" data-date-error role="status" aria-live="polite"></span>
 </div>

@@ -33,9 +33,9 @@
     </script>
     {% endif %}
     {% if request.user.settings.dice_enabled and not read_only %}
-    <link rel="stylesheet" href="{% static 'css/charsheet/dice-result.css' %}?v=20261007-critical-whole-words">
-    <link rel="stylesheet" href="{% static 'css/charsheet/quickslots.css' %}?v=20261007-label-hyphenation">
-    <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-central-layout"></script>
+    <link rel="stylesheet" href="{% static 'css/charsheet/dice-result.css' %}?v=20261009-mw-texts">
+    <link rel="stylesheet" href="{% static 'css/charsheet/quickslots.css' %}?v=20261009-draggable-editor">
+    <script type="module" src="{% static 'js/dddice.js' %}?v=20261009-special-failure-12"></script>
     {% endif %}
     <link
       rel="stylesheet"
@@ -180,7 +180,7 @@
 
     <script defer src="{% static 'js/charsheet/condition_picker.js' %}?v=20261004c"></script>
     <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261007-mobile-dice-values"></script>
-    <script type="module" src="{% static 'js/charsheet_diary.js' %}?v=20261009-journal-hover-edge"></script>
+    <script type="module" src="{% static 'js/charsheet_diary.js' %}?v=20261009-journal-page-targets"></script>
     {% if read_only %}
     <script>
       document.querySelectorAll("form button, form input, form textarea, form select").forEach(function (control) {

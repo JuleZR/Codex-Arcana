@@ -51,6 +51,18 @@ class UserSettings(models.Model):
         max_length=64, blank=True, default="KRITISCHER FEHLSCHLAG",
         verbose_name="Text bei kritischem Fehlschlag",
     )
+    mw_success_text = models.CharField(
+        max_length=64, blank=True, default="Erfolgreich",
+        verbose_name="Text bei erreichtem MW",
+    )
+    mw_failure_text = models.CharField(
+        max_length=64, blank=True, default="Nicht erfolgreich",
+        verbose_name="Text bei nicht erreichtem MW",
+    )
+    special_failure_text = models.CharField(
+        max_length=64, blank=True, default="Fehlschlag",
+        verbose_name="Text bei Fehlschlag (1 + 2)",
+    )
     dddice_api_key = models.CharField(max_length=255, blank=True, default="")
     dddice_room_id = models.CharField(max_length=255, blank=True, default="")
     dddice_room_password = models.CharField(
