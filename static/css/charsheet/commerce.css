@@ -1911,8 +1911,7 @@
   height: 100%;
 }
 
-#learnWindow.sheet-window.payday-window,
-#shopWindow.sheet-window.payday-window {
+#learnWindow.sheet-window.payday-window {
   background:
     radial-gradient(circle at 50% -10%, rgba(226, 195, 143, 0.16), transparent 34%),
     linear-gradient(180deg, rgba(119, 86, 58, 0.985), rgba(78, 54, 37, 0.992));
@@ -1923,13 +1922,11 @@
     inset 0 0 0 1px rgba(82, 56, 33, 0.34);
 }
 
-#learnWindow.sheet-window.payday-window::before,
-#shopWindow.sheet-window.payday-window::before {
+#learnWindow.sheet-window.payday-window::before {
   border-color: rgba(182, 143, 90, 0.24);
 }
 
-#learnWindow.sheet-window.payday-window::after,
-#shopWindow.sheet-window.payday-window::after {
+#learnWindow.sheet-window.payday-window::after {
   background: linear-gradient(90deg, transparent, rgba(222, 188, 128, 0.2), transparent);
 }
 

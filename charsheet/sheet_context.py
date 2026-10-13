@@ -7739,12 +7739,16 @@ def _build_language_rows(character: Character) -> tuple[list[dict], object]:
 def _build_shop_item_groups() -> list[dict]:
     """Build grouped shop rows from all buyable items."""
     grouped_items: dict[str, list[dict]] = {}
+    group_icons = {}
+    qualities = list(Quality.objects.all())
     race_item_ids = _race_item_ids()
     buyable_items = (
         Item.objects
         .filter(catalog_group__isnull=True)
         .select_related(
             "item_type",
+            "default_quality",
+            "material__quality_overwrite",
             "armorstats",
             "shieldstats",
             "magicitemstats",
@@ -7838,6 +7842,17 @@ def _build_shop_item_groups() -> list[dict]:
             if armor_stats is not None and armor_stats.parent_set_id
             else item.item_type_id
         )
+        group_icons[group_key] = item.item_type.icon_path
+        quality_prices = {}
+        for tier in qualities:
+            effective = (
+                item.material.get_effective_quality(tier)
+                if item.material else tier
+            )
+            quality_prices[tier.pk] = {
+                "price": item_engine.get_price_for_quality(tier),
+                "quality": effective.pk,
+            }
         grouped_items.setdefault(group_key, []).append(
             {
                 "id": item.id,
@@ -7847,7 +7862,8 @@ def _build_shop_item_groups() -> list[dict]:
                 "stackable": bool(item.stackable),
                 "base_price": int(item.price),
                 "default_price": item_engine.get_price(),
-                "default_quality": quality["value"],
+                "default_quality": item.default_quality_id,
+                "quality_prices": quality_prices,
                 "default_quality_label": quality["label"],
                 "default_quality_color": quality["color"],
                 "stats": stats_payload,
@@ -7859,6 +7875,7 @@ def _build_shop_item_groups() -> list[dict]:
         {
             "key": item_type,
             "label": label,
+            "icon_path": group_icons[item_type],
             "items": grouped_items[item_type],
         }
         for item_type, label in _shop_type_groups()
@@ -7869,6 +7886,7 @@ def _build_shop_item_groups() -> list[dict]:
 def _build_shop_sell_item_groups(character: Character) -> list[dict]:
     """Build grouped sell rows from the character inventory."""
     grouped_items: dict[str, list[dict]] = {}
+    group_icons = {}
     inventory_items = (
         CharacterItem.objects
         .filter(owner=character)
@@ -7894,6 +7912,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
             if armor_stats is not None and armor_stats.parent_set_id
             else item.item_type_id
         )
+        group_icons[group_key] = item.item_type.icon_path
         grouped_items.setdefault(group_key, []).append(
             {
                 "character_item_id": character_item.id,
@@ -7915,6 +7934,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         {
             "key": item_type,
             "label": label,
+            "icon_path": group_icons[item_type],
             "items": grouped_items[item_type],
         }
         for item_type, label in _shop_type_groups()
@@ -9729,6 +9749,8 @@ def build_character_sheet_context(
             "value": quality.code,
             "label": quality.name,
             "color": quality.hex_color,
+            "price_multiplier": str(quality.price_multiplier),
+            "is_default": quality.is_default,
         }
         for quality in Quality.objects.all()
     ]

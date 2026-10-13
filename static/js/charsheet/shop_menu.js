@@ -1,5 +1,6 @@
-import { escapeHtml, getCsrfToken, initPersistentDetails, readInt, saveJsonStorage } from "./utils.js?v=20260622a";
+import { escapeHtml, getCsrfToken, initPersistentDetails, readInt } from "./utils.js?v=20261013-market-details";
 import { applySheetPartials } from "./partial_updates.js";
+import { animateMoneyBalance } from "./money_animation.js?v=20261013-sidebar-money";
 
 export function initShopMenu() {
   const shopWindow = document.getElementById("shopWindow");
@@ -7,18 +8,16 @@ export function initShopMenu() {
     return;
   }
   const filterInput = document.getElementById("shopFilterInput");
-  const shopList = document.querySelector(".shop_list_scroll");
-  const cartWrapper = document.querySelector(".shop_cart_wrapper");
+  const shopList = document.querySelector(".market_catalog");
+  const cartWrapper = document.querySelector(".market_cart");
   const cartBody = document.getElementById("shopCartBody");
   const subtotalEl = document.getElementById("shopCartSubtotal");
   const finalEl = document.getElementById("shopCartFinal");
   const finalLabelEl = document.getElementById("shopCartFinalLabel");
   const balanceEl = document.getElementById("shopCartBalance");
-  const discountRow = document.querySelector(".shop_cart_discount_row");
   const discountInput = document.getElementById("shopDiscountInput");
   const discountDecBtn = document.getElementById("shopDiscountDec");
   const discountIncBtn = document.getElementById("shopDiscountInc");
-  const resaleRow = document.querySelector(".shop_cart_resale_row");
   const resaleInput = document.getElementById("shopResaleInput");
   const resaleDecBtn = document.getElementById("shopResaleDec");
   const resaleIncBtn = document.getElementById("shopResaleInc");
@@ -57,25 +56,6 @@ export function initShopMenu() {
     shopWindow.dataset.shopMenuBound = "1";
   }
 
-  const FALLBACK_QUALITY_ORDER = ["wretched", "very_poor", "poor", "common", "fine", "excellent", "legendary"];
-  const FALLBACK_QUALITY_LABELS = {
-    wretched: "Extrem schlecht",
-    very_poor: "Sehr schlecht",
-    poor: "Schlecht",
-    common: "Normal",
-    fine: "Gut",
-    excellent: "Exzellent",
-    legendary: "Legendaer",
-  };
-  const FALLBACK_QUALITY_COLORS = {
-    wretched: "#DD2828",
-    very_poor: "#7A7A7A",
-    poor: "#000000",
-    common: "#33CC33",
-    fine: "#0000FF",
-    excellent: "#CC00CC",
-    legendary: "#FF9933",
-  };
   const readQualityChoices = () => {
     const script = document.getElementById("shopQualityChoices");
     if (!script) {
@@ -89,24 +69,10 @@ export function initShopMenu() {
     }
   };
   const qualityChoices = readQualityChoices();
-  const QUALITY_ORDER = qualityChoices.length
-    ? qualityChoices.map((quality) => String(quality.value || ""))
-    : FALLBACK_QUALITY_ORDER;
-  const QUALITY_LABELS = qualityChoices.length
-    ? Object.fromEntries(qualityChoices.map((quality) => [String(quality.value || ""), String(quality.label || quality.value || "")]))
-    : FALLBACK_QUALITY_LABELS;
-  const QUALITY_COLORS = qualityChoices.length
-    ? Object.fromEntries(qualityChoices.map((quality) => [String(quality.value || ""), String(quality.color || "#777")]))
-    : FALLBACK_QUALITY_COLORS;
-  const QUALITY_PRICE_MODS = {
-    wretched: 0.25,
-    very_poor: 0.5,
-    poor: 0.75,
-    common: 1,
-    fine: 2,
-    excellent: 5,
-    legendary: 20,
-  };
+  const QUALITY_ORDER = qualityChoices.map((quality) => String(quality.value || ""));
+  const defaultQuality = qualityChoices.find((quality) => quality.is_default)?.value || QUALITY_ORDER[0] || "";
+  const QUALITY_LABELS = Object.fromEntries(qualityChoices.map((quality) => [String(quality.value), String(quality.label)]));
+  const QUALITY_COLORS = Object.fromEntries(qualityChoices.map((quality) => [String(quality.value), String(quality.color)]));
 
   let baseBalance = readInt(cartWrapper.getAttribute("data-shop-balance") || "0", 0);
   const buyUrl = String(cartWrapper.getAttribute("data-buy-url") || "");
@@ -115,6 +81,10 @@ export function initShopMenu() {
   const cart = new Map();
   let cartCounter = 0;
   let currentMode = "buy";
+  let transactionPending = false;
+  let lastResalePercent = null;
+  const headerBalance = document.getElementById("shopHeaderBalance");
+  const statusEl = document.getElementById("shopStatus");
   const groupDisclosureState = initPersistentDetails(
     "#shopWindow [data-shop-group]",
     "codexArcana.shop.categoryDisclosure.v1",
@@ -128,8 +98,8 @@ export function initShopMenu() {
   const fmtNumber = (value) => Number(value || 0).toLocaleString("de-DE");
   const fmtKs = (value) => `${fmtNumber(value)} KS`;
   const normalizeQuality = (quality) => {
-    const normalized = String(quality || "common");
-    return QUALITY_ORDER.includes(normalized) ? normalized : "common";
+    const normalized = String(quality || defaultQuality);
+    return QUALITY_ORDER.includes(normalized) ? normalized : defaultQuality;
   };
   const shiftQuality = (quality, delta) => {
     const index = QUALITY_ORDER.indexOf(normalizeQuality(quality));
@@ -138,9 +108,10 @@ export function initShopMenu() {
   };
   const qualityBadge = (quality) => {
     const normalized = normalizeQuality(quality);
-    const label = QUALITY_LABELS[normalized] || QUALITY_LABELS.common;
-    const color = QUALITY_COLORS[normalized] || QUALITY_COLORS.common;
-    return `<span class="shop_quality_value shop_quality_dot" style="--quality-color: ${color};" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">&#11044;</span>`;
+    const label = QUALITY_LABELS[normalized] || "Qualität unbekannt";
+    const rawColor = QUALITY_COLORS[normalized] || "";
+    const color = /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : "#777777";
+    return `<span class="market_quality_dot" style="--quality-color: ${color};" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">&#11044;</span>`;
   };
   const createEntryKey = () => {
     cartCounter += 1;
@@ -154,9 +125,7 @@ export function initShopMenu() {
   const cartHasBuyEntries = () => Array.from(cart.values()).some((entry) => entry.mode === "buy");
   const cartHasSellEntries = () => Array.from(cart.values()).some((entry) => entry.mode === "sell");
   const syncActionSeal = () => {
-    actionBtn.innerHTML = '<span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span>';
-    actionBtn.setAttribute("aria-label", "Handeln");
-    actionBtn.setAttribute("title", "Handeln");
+    actionBtn.innerHTML = '<span aria-hidden="true">✦</span><span>Handel abschließen</span><span aria-hidden="true">→</span>';
   };
   const syncModeUi = () => {
     const isSellMode = currentMode === "sell";
@@ -170,15 +139,9 @@ export function initShopMenu() {
     if (addItemBtn instanceof HTMLElement) {
       addItemBtn.hidden = isSellMode;
     }
-    if (discountRow instanceof HTMLElement) {
-      discountRow.hidden = !cartHasBuyEntries();
-    }
-    if (resaleRow instanceof HTMLElement) {
-      resaleRow.hidden = !cartHasSellEntries();
-    }
-    listTitle.textContent = isSellMode ? "Verkaufbare Gegenstaende" : "Kaufbare Gegenstaende";
-    cartTitle.textContent = "Handelskorb";
-    finalLabelEl.textContent = "Saldo";
+    listTitle.textContent = isSellMode ? "Besitzwaren" : "Handelswaren";
+    cartTitle.textContent = "Deine Auswahl";
+    finalLabelEl.textContent = "Handelssaldo";
     syncActionSeal();
   };
   syncActionSeal();
@@ -187,8 +150,7 @@ export function initShopMenu() {
     if (entry.mode === "sell") {
       return Math.max(0, Math.round(readInt(entry.unitPrice, 0) * readResalePercent() / 100));
     }
-    const mod = QUALITY_PRICE_MODS[normalizeQuality(entry.quality)] ?? 1;
-    return Math.max(0, Math.round(entry.basePrice * mod));
+    return Math.max(0, readInt(entry.qualityPrices[normalizeQuality(entry.quality)]?.price, entry.defaultPrice));
   };
   const parseRowPayload = (row) => {
     const mode = String(row.getAttribute("data-shop-mode") || "buy");
@@ -200,7 +162,7 @@ export function initShopMenu() {
         itemType: row.getAttribute("data-shop-item-type") || "misc",
         stackable: row.getAttribute("data-shop-stackable") === "1",
         availableQty: readInt(row.getAttribute("data-shop-available-qty"), 1),
-        quality: normalizeQuality(row.getAttribute("data-shop-quality") || "common"),
+        quality: normalizeQuality(row.getAttribute("data-shop-quality")),
         unitPrice: readInt(row.getAttribute("data-shop-unit-price"), 0),
       };
     }
@@ -211,7 +173,9 @@ export function initShopMenu() {
       itemType: row.getAttribute("data-shop-item-type") || "misc",
       stackable: row.getAttribute("data-shop-stackable") === "1",
       basePrice: readInt(row.getAttribute("data-shop-base-price"), 0),
-      quality: normalizeQuality(row.getAttribute("data-shop-quality") || "common"),
+      defaultPrice: readInt(row.getAttribute("data-shop-default-price"), 0),
+      qualityPrices: JSON.parse(row.querySelector('script[type="application/json"]')?.textContent || "{}"),
+      quality: normalizeQuality(row.getAttribute("data-shop-quality")),
       stats: {
         damageDiceAmount: readOptionalInt(row.getAttribute("data-shop-damage-dice-amount")),
         damageDiceFaces: readOptionalInt(row.getAttribute("data-shop-damage-dice-faces")),
@@ -228,77 +192,81 @@ export function initShopMenu() {
   };
   const applyFilter = () => {
     const query = String(filterInput.value || "").trim().toLowerCase();
+    let matchCount = 0;
     currentGroups().forEach((group) => {
       const rows = group.querySelectorAll("[data-shop-item]");
-      let hasMatch = false;
+      let count = 0;
       rows.forEach((row) => {
         const haystack = String(row.getAttribute("data-shop-search") || "").toLowerCase();
         const isMatch = !query || haystack.includes(query);
-        row.hidden = !isMatch;
+        if (row.hidden === isMatch) row.hidden = !isMatch;
         if (isMatch) {
-          hasMatch = true;
+          count += 1;
         }
       });
-      group.hidden = !hasMatch;
-      if (query && hasMatch) {
+      const counter = group.querySelector(".market_group_count");
+      if (counter) counter.textContent = String(count);
+      matchCount += count;
+      group.hidden = count === 0;
+      if (query && count) {
         group.open = true;
       } else if (!query) {
         (currentMode === "sell" ? sellGroupDisclosureState : groupDisclosureState).restore(group);
       }
     });
+    const counter = document.getElementById("shopItemCount");
+    if (counter) counter.textContent = `${fmtNumber(matchCount)} Artikel`;
   };
   const render = () => {
-    if (discountRow instanceof HTMLElement) {
-      discountRow.hidden = !cartHasBuyEntries();
-    }
-    if (resaleRow instanceof HTMLElement) {
-      resaleRow.hidden = !cartHasSellEntries();
-    }
-    let subtotal = 0;
     const rows = [];
     cart.forEach((entry, cartKey) => {
       const unitPrice = unitPriceForEntry(entry);
       const lineTotal = unitPrice * entry.qty;
-      subtotal += lineTotal;
       const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
       const qualityAdjustable = entry.mode === "buy";
       const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
       const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
       const qualityControls = qualityAdjustable
-        ? `<div class="shop_quality_stepper">
-            <button type="button" class="shop_step_btn" data-cart-quality-dec aria-label="Qualitaet senken" ${disableDown}>&#9660;</button>
-            ${qualityBadge(entry.quality)}
-            <button type="button" class="shop_step_btn" data-cart-quality-inc aria-label="Qualitaet erhoehen" ${disableUp}>&#9650;</button>
+        ? `<div class="market_quality_stepper">
+            <button type="button" data-cart-quality-inc aria-label="Qualität erhöhen" ${disableUp}>&#9650;</button>
+            ${qualityBadge(entry.qualityPrices[entry.quality]?.quality || entry.quality)}
+            <button type="button" data-cart-quality-dec aria-label="Qualität senken" ${disableDown}>&#9660;</button>
           </div>`
         : entry.mode === "sell"
           ? qualityBadge(entry.quality)
           : "";
       const qtyMax = entry.mode === "sell" ? Math.max(1, readInt(entry.availableQty, 1)) : null;
       const qtyControls = entry.stackable
-        ? `<div class="shop_qty_stepper">
-            <button type="button" class="shop_step_btn" data-cart-qty-dec aria-label="Menge verringern">-</button>
-            <input type="text" class="shop_cart_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge"${qtyMax ? ` max="${qtyMax}"` : ""}>
-            <button type="button" class="shop_step_btn" data-cart-qty-inc aria-label="Menge erhoehen">+</button>
+        ? `<div class="market_qty_stepper">
+            <button type="button" data-cart-qty-dec aria-label="Menge verringern" ${entry.qty <= 1 ? "disabled" : ""}>−</button>
+            <input type="text" class="market_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge"${qtyMax ? ` max="${qtyMax}"` : ""}>
+            <button type="button" data-cart-qty-inc aria-label="Menge erhöhen" ${qtyMax && entry.qty >= qtyMax ? "disabled" : ""}>+</button>
           </div>`
-        : `<span class="shop_cart_qty_fixed">1</span>`;
+        : `<span>1 Stück</span>`;
+      const shownQuality = entry.qualityPrices?.[entry.quality]?.quality || entry.quality;
       rows.push(`
         <tr data-cart-key="${cartKey}">
-          <td>${escapeHtml(entry.name)}</td>
-          <td>${qualityControls}</td>
-          <td>${qtyControls}</td>
-          <td>${fmtKs(unitPrice)}</td>
-          <td>${fmtKs(lineTotal)}</td>
-          <td><button type="button" class="shop_cart_remove_btn" data-cart-remove aria-label="Gegenstand entfernen">x</button></td>
+          <td class="market_cart_main">
+            <div class="market_cart_quality">${qualityControls}</div>
+            <div class="market_cart_description">
+              <div class="market_cart_name"><span>${escapeHtml(entry.name)}</span><button type="button" class="market_remove" data-cart-remove aria-label="Gegenstand entfernen">×</button></div>
+              <small>${entry.mode === "sell" ? "Verkaufen" : "Kaufen"} · ${escapeHtml(QUALITY_LABELS[shownQuality] || "")} · ${fmtKs(unitPrice)} / Stück</small>
+            </div>
+          </td>
+          <td class="market_cart_qty">${qtyControls}</td>
+          <td class="market_cart_total">${fmtKs(lineTotal)}</td>
         </tr>
       `);
     });
 
     cartBody.innerHTML = rows.length
       ? rows.join("")
-      : `<tr class="shop_cart_empty_row"><td colspan="6">${currentMode === "sell" ? "Noch keine Gegenstaende zum Verkauf ausgewaehlt." : "Noch keine Gegenstaende ausgewaehlt."}</td></tr>`;
+      : '<tr class="market_cart_empty"><td colspan="3">Noch keine Gegenstände ausgewählt.<br>Wähle eine Ware aus dem Verzeichnis.</td></tr>';
+    const cartCount = document.getElementById("shopCartCount");
+    if (cartCount) cartCount.textContent = fmtNumber(cart.size);
 
     const discountPercent = cartHasBuyEntries()
-      ? Math.min(100, Math.max(-100, readInt(discountInput.value, 0)))
+      ? Math.min(100, Math.max(0, readInt(discountInput.value, 0)))
       : 0;
     if (cartHasBuyEntries() && readInt(discountInput.value, 0) !== discountPercent) {
       discountInput.value = String(discountPercent);
@@ -307,27 +275,37 @@ export function initShopMenu() {
     if (readInt(resaleInput.value, 50) !== resalePercent) {
       resaleInput.value = String(resalePercent);
     }
-    document.querySelectorAll('[data-shop-item][data-shop-mode="sell"]').forEach((row) => {
+    if (lastResalePercent !== resalePercent) document.querySelectorAll('[data-shop-item][data-shop-mode="sell"]').forEach((row) => {
       const priceCell = row.querySelector(".shop_item_price");
       if (priceCell) {
         const effectivePrice = readInt(row.getAttribute("data-shop-unit-price"), 0);
         priceCell.textContent = fmtKs(Math.round(effectivePrice * resalePercent / 100));
       }
     });
+    lastResalePercent = resalePercent;
     const buySubtotal = Array.from(cart.values())
       .filter((entry) => entry.mode === "buy")
       .reduce((sum, entry) => sum + (unitPriceForEntry(entry) * entry.qty), 0);
     const sellSubtotal = Array.from(cart.values())
       .filter((entry) => entry.mode === "sell")
       .reduce((sum, entry) => sum + (unitPriceForEntry(entry) * entry.qty), 0);
-    const discountedBuyTotal = Math.max(0, Math.round(buySubtotal * (100 - discountPercent) / 100));
+    const numerator = buySubtotal * (100 - discountPercent);
+    const quotient = Math.floor(numerator / 100);
+    const remainder = numerator % 100;
+    const discountedBuyTotal = quotient + (remainder > 50 || (remainder === 50 && quotient % 2) ? 1 : 0);
     const finalValue = discountedBuyTotal - sellSubtotal;
     const simulatedBalance = baseBalance - finalValue;
 
-    subtotalEl.textContent = fmtKs(subtotal);
+    subtotalEl.textContent = fmtKs(buySubtotal);
+    document.getElementById("shopSellSubtotal").textContent = fmtKs(Array.from(cart.values())
+      .filter((entry) => entry.mode === "sell")
+      .reduce((sum, entry) => sum + entry.unitPrice * entry.qty, 0));
+    document.getElementById("shopDiscountAmount").textContent = `−${fmtKs(buySubtotal - discountedBuyTotal)}`;
+    document.getElementById("shopResaleAmount").textContent = `+${fmtKs(sellSubtotal)}`;
     finalEl.textContent = fmtKs(finalValue);
     balanceEl.textContent = fmtKs(simulatedBalance);
     balanceEl.classList.toggle("is-negative", simulatedBalance < 0);
+    actionBtn.disabled = transactionPending || !cart.size;
   };
   const switchMode = (nextMode) => {
     if (nextMode !== "buy" && nextMode !== "sell") {
@@ -338,15 +316,12 @@ export function initShopMenu() {
     applyFilter();
     render();
   };
-  const closeShopWindow = () => {
-    document.getElementById("shopWindow")?.classList.remove("is-open");
-    document.getElementById("shopWindow")?.setAttribute("aria-hidden", "true");
-    saveJsonStorage("charsheet.shopWindow", {
-      isOpen: false,
-      left: null,
-      top: null,
-    });
+  const setAllGroups = (open) => {
+    const state = currentMode === "sell" ? sellGroupDisclosureState : groupDisclosureState;
+    currentGroups().forEach((group) => { if (!group.hidden) state.set(group, open); });
   };
+  document.getElementById("shopExpandAll")?.addEventListener("click", () => setAllGroups(true));
+  document.getElementById("shopCollapseAll")?.addEventListener("click", () => setAllGroups(false));
 
   filterInput.addEventListener("input", applyFilter);
   [buyModeBtn, sellModeBtn].forEach((tabBtn) => {
@@ -355,7 +330,7 @@ export function initShopMenu() {
       switchMode(currentMode);
     });
     tabBtn.addEventListener("keydown", (event) => {
-      if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) {
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
         return;
       }
       window.requestAnimationFrame(() => {
@@ -366,6 +341,7 @@ export function initShopMenu() {
   });
 
   shopList.addEventListener("click", (event) => {
+    if (transactionPending) return;
     const target = event.target;
     if (!(target instanceof HTMLElement) || !target.hasAttribute("data-shop-pick")) {
       return;
@@ -414,6 +390,7 @@ export function initShopMenu() {
   });
 
   cartBody.addEventListener("click", (event) => {
+    if (transactionPending) return;
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -472,6 +449,7 @@ export function initShopMenu() {
   });
 
   cartBody.addEventListener("input", (event) => {
+    if (transactionPending) return;
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-cart-qty")) {
       return;
@@ -487,12 +465,43 @@ export function initShopMenu() {
     }
     const maxQty = entry.mode === "sell" ? Math.max(1, readInt(entry.availableQty, 1)) : Number.MAX_SAFE_INTEGER;
     entry.qty = Math.min(maxQty, Math.max(1, readInt(target.value, 1)));
+    const rawValue = target.value;
+    const selectionStart = target.selectionStart;
+    const selectionEnd = target.selectionEnd;
+    render();
+    const replacement = cartBody.querySelector(`[data-cart-key="${cartKey}"] [data-cart-qty]`);
+    if (replacement && !rawValue) replacement.value = "";
+    replacement?.focus();
+    replacement?.setSelectionRange(selectionStart, selectionEnd);
+  });
+
+  document.addEventListener("charsheet:partials-applied", (event) => {
+    if (transactionPending) return;
+    const targets = event.detail?.targets || [];
+    if (targets.includes("shop-panel-sell")) {
+      modePanels = Array.from(document.querySelectorAll("[data-shop-mode-panel]"));
+      sellGroupDisclosureState = initPersistentDetails(
+        "#shop-panel-sell [data-shop-group]",
+        "codexArcana.shop.categoryDisclosure.v1",
+      );
+      lastResalePercent = null;
+      syncModeUi();
+      applyFilter();
+    }
+    if (targets.includes("sheetWalletPanel")) {
+      const value = document.querySelector("#sheetWalletPanel .wallet_total__value");
+      if (value) {
+        baseBalance = readInt(value.textContent.replace(/[^\d-]/g, ""), baseBalance);
+        cartWrapper.setAttribute("data-shop-balance", String(baseBalance));
+        if (headerBalance) headerBalance.textContent = fmtKs(baseBalance);
+      }
+    }
     render();
   });
 
   discountInput.addEventListener("input", render);
   discountDecBtn.addEventListener("click", () => {
-    discountInput.value = String(Math.max(-100, readInt(discountInput.value, 0) - 5));
+    discountInput.value = String(Math.max(0, readInt(discountInput.value, 0) - 5));
     render();
   });
   discountIncBtn.addEventListener("click", () => {
@@ -529,11 +538,15 @@ export function initShopMenu() {
           character_item_id: entry.characterItemId,
           qty: entry.stackable ? entry.qty : 1,
         })),
-      discount: readInt(discountInput.value, 0),
+      discount: Math.min(100, Math.max(0, readInt(discountInput.value, 0))),
       resale_percent: readResalePercent(),
     };
 
+    transactionPending = true;
     actionBtn.disabled = true;
+    [discountInput, discountDecBtn, discountIncBtn, resaleInput, resaleDecBtn, resaleIncBtn]
+      .forEach((control) => { control.disabled = true; });
+    if (statusEl) statusEl.textContent = "Handel wird gebucht …";
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -546,7 +559,8 @@ export function initShopMenu() {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      if (data?.ok) {
+      if (response.ok && data?.ok) {
+        const previousBalance = baseBalance;
         baseBalance = readInt(data.new_money, baseBalance);
         cartWrapper.setAttribute("data-shop-balance", String(baseBalance));
         cart.clear();
@@ -554,6 +568,7 @@ export function initShopMenu() {
           document.body.dataset.externalRefreshSignature = String(data.signature);
         }
         applySheetPartials(data);
+        lastResalePercent = null;
         modePanels = Array.from(document.querySelectorAll("[data-shop-mode-panel]"));
         sellGroupDisclosureState = initPersistentDetails(
           "#shop-panel-sell [data-shop-group]",
@@ -562,7 +577,8 @@ export function initShopMenu() {
         syncModeUi();
         applyFilter();
         render();
-        closeShopWindow();
+        await animateMoneyBalance(previousBalance, baseBalance);
+        if (statusEl) statusEl.textContent = "Handel abgeschlossen.";
         return;
       }
       if (data?.error === "insufficient_funds") {
@@ -570,10 +586,16 @@ export function initShopMenu() {
         void balanceEl.offsetWidth;
         balanceEl.classList.add("is-fail-flash");
       }
+      if (statusEl) statusEl.textContent = data?.error === "insufficient_funds"
+        ? "Der Kassenbestand reicht für diesen Handel nicht aus."
+        : "Der Handel konnte nicht abgeschlossen werden. Bitte prüfe die ausgewählten Gegenstände.";
     } catch (_error) {
-      // no-op
+      if (statusEl) statusEl.textContent = "Der Handel konnte nicht bestätigt werden. Bitte prüfe deinen Kassenbestand, bevor du erneut handelst.";
     } finally {
-      actionBtn.disabled = false;
+      transactionPending = false;
+      actionBtn.disabled = !cart.size;
+      [discountInput, discountDecBtn, discountIncBtn, resaleInput, resaleDecBtn, resaleIncBtn]
+        .forEach((control) => { control.disabled = false; });
     }
   });
 
@@ -581,4 +603,5 @@ export function initShopMenu() {
   syncModeUi();
   applyFilter();
   render();
+  if (headerBalance) headerBalance.textContent = fmtKs(baseBalance);
 }

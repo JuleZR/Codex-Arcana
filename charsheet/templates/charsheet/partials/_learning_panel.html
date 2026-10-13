@@ -1,7 +1,7 @@
 <section class="payday-window payday-window--large sheet-window" id="learnWindow" aria-hidden="true" data-force-close="{% if close_learn_window_once %}1{% else %}0{% endif %}">
   <div class="payday-window__titlebar sheet-window__header" id="learnWindowHandle">
     <div class="sheet-window__heading">
-      <h3 class="payday-window__title sheet-window__title">Lernmenü</h3>
+      <h3 class="payday-window__title sheet-window__title">Die Chronik der Legenden</h3>
     </div>
     <div class="sheet-window__actions">
       <button type="button" class="payday-window__close sheet-window__close" id="learnWindowClose" aria-label="Lernmenü schließen">x</button>
@@ -10,10 +10,24 @@
   <div class="payday-window__body sheet-window__body shop-window__body learn-window__body">
     <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form" data-sheet-action data-selected-divine-entity="{{ learn_selected_divine_entity_id|default:'' }}">
       {% csrf_token %}
+      <header class="learn_chronicle_header">
+        <span class="learn_chronicle_sigil" aria-hidden="true">✥</span>
+        <div class="learn_chronicle_heading">
+          <span class="learn_chronicle_eyebrow">Codex Arcana · Die Wege der Erfahrung</span>
+          <h2>Die Chronik der Legenden</h2>
+          <p>Jede Erfahrung hinterlässt ihre Spuren.</p>
+        </div>
+        <div class="learn_chronicle_resources" aria-label="Ressourcen">
+          <div><span>{% if character.is_npc %}Verwendete Erfahrung{% else %}Verfügbare Erfahrung{% endif %}</span><strong data-learn-top-ep>{% if character.is_npc %}{{ character.used_experience }}{% else %}{{ character.current_experience }}{% endif %} EP</strong></div>
+          {% if learn_magic_tab_visible %}<div><span>Zauberslots</span><strong data-learn-top-slots>{{ learn_magic_slot_summary.remaining|default:0 }} frei</strong></div>{% endif %}
+          {% if learn_brew_tab_visible %}<div><span>Almanachplätze</span><strong data-learn-top-brews>{{ learn_brew_slot_remaining }} frei</strong></div>{% endif %}
+        </div>
+      </header>
       <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
         <div class="learn_tabs" data-tabs>
           <section class="sheet-window__section shop_panel learn_nav_panel" aria-label="Lernkategorien">
             <aside class="learn_tabs__sidebar">
+              <span class="learn_chronicle_eyebrow">Disziplinen</span>
               <div class="learn_tabs__list" role="tablist" aria-label="Lernkategorien" aria-orientation="vertical">
                     <button
                       type="button"
@@ -25,7 +39,7 @@
                       data-tab-target="learn-panel-attributes"
                     >
                       <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9Z"/><path d="m12 7 4.5 2.5v5L12 17l-4.5-2.5v-5Z M12 3v4 M20 7.5l-3.5 2 M20 16.5l-3.5-2 M12 21v-4 M4 16.5l3.5-2 M4 7.5l3.5 2"/></svg></span></span>
-                      <span class="learn_tabs__label">Attribute</span>
+                      <span class="learn_tabs__label">Eigenschaften</span>
                     </button>
                     <button
                       type="button"
@@ -38,7 +52,7 @@
                       tabindex="-1"
                     >
                       <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 4v15 M8 21h8 M5 7h14 M12 3l2 2-2 2-2-2Z M5 7 2 14h6L5 7Z M19 7l-3 7h6l-3-7Z"/><path d="M2 14c0 4 6 4 6 0 M16 14c0 4 6 4 6 0"/></svg></span></span>
-                      <span class="learn_tabs__label">Vor- & Nachteile</span>
+                      <span class="learn_tabs__label">Vorzüge &amp; Schwächen</span>
                     </button>
                     <button
                       type="button"
@@ -140,12 +154,13 @@
             </aside>
           </section>
 
-          <section class="sheet-window__section shop_panel">
+          <section class="sheet-window__section shop_panel learn_development_panel">
             <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll learn_list_scroll" aria-label="Lernoptionen">
               <div class="learn_tabs__content">
                   <div class="learn_tabs__content_head">
                     <div class="sheet-window__section-head shop_panel_header">
-                      <h2 class="sheet-window__section-title">Lernoptionen</h2>
+                      <div><span class="learn_chronicle_eyebrow" id="learnSectionEyebrow">Die Chronik · Eigenschaften</span><h2 class="sheet-window__section-title" id="learnSectionTitle">Eigenschaften</h2><p id="learnSectionIntro">Die Grundlagen deiner Entwicklung.</p></div>
+                      <span id="learnSectionCount" class="learn_section_count"></span>
                     </div>
                   <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
                     <input
@@ -155,6 +170,7 @@
                         placeholder="Lernoptionen filtern"
                         aria-label="Lernoptionen filtern"
                       >
+                    <select id="learnGroupFilter" aria-label="Lerngruppe filtern"><option value="">Alle Gruppen</option></select>
                     {% if learn_magic_tab_visible %}
                       <div class="learn_magic_filter_menu" data-learn-magic-source-filter-menu>
                         <button
@@ -244,9 +260,7 @@
                       {% endif %}
                     {% endif %}
                     </div>
-                    <div class="learn_options_budget">
-                      {% include "charsheet/partials/_learning_budget.html" %}
-                    </div>
+                    <p class="learn_catalog_empty" data-learn-catalog-empty hidden>Keine Lernoptionen für diese Filter.</p>
                   </div>
               <section
                 class="learn_tabs__panel"
@@ -255,8 +269,8 @@
                 aria-labelledby="learn-tab-attributes"
                 data-tab-panel
               >
-                <details class="shop_group" data-learn-group data-collapse-key="attributes">
-                  <summary><span>Eigenschaften</span><span class="shop_group_count">{{ learn_attr_rows|length }}</span></summary>
+                <section class="shop_group" data-learn-group data-collapse-key="attributes">
+                  <header class="learn_group_heading"><span>Eigenschaften</span><span class="shop_group_count">{{ learn_attr_rows|length }}</span></header>
                   <table class="shop_table">
                     <tbody>
                       {% for row in learn_attr_rows %}
@@ -278,7 +292,7 @@
                       {% endfor %}
                     </tbody>
                   </table>
-                </details>
+                </section>
               </section>
 
               <section
@@ -290,8 +304,8 @@
                 hidden
               >
                 {% for group in learn_trait_groups %}
-                  <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="traits:{{ group.name|slugify }}">
-                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                  <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="traits:{{ group.name|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
@@ -313,7 +327,7 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                  </details>
+                  </section>
                 {% endfor %}
               </section>
 
@@ -326,8 +340,8 @@
                 hidden
               >
                 {% for group in learn_skill_groups %}
-                  <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="skills:{{ group.name|slugify }}">
-                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                  <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="skills:{{ group.name|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
@@ -368,7 +382,7 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                  </details>
+                  </section>
                 {% endfor %}
               </section>
 
@@ -380,8 +394,8 @@
                 data-tab-panel
                 hidden
               >
-                <details class="shop_group" data-learn-group data-collapse-key="languages">
-                  <summary><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
+                <section class="shop_group" data-learn-group data-collapse-key="languages">
+                  <header class="learn_group_heading"><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></header>
                   <table class="shop_table">
                     <tbody>
                       {% for row in learn_language_rows %}
@@ -404,7 +418,7 @@
                       {% endfor %}
                     </tbody>
                   </table>
-                </details>
+                </section>
               </section>
 
               <section
@@ -416,8 +430,8 @@
                 hidden
               >
                 {% for group in learn_school_groups %}
-                  <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="schools:{{ group.name|slugify }}">
-                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                  <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="schools:{{ group.name|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
@@ -450,15 +464,15 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                  </details>
+                  </section>
                 {% endfor %}
               </section>
               {% if learn_advanced_tab_visible %}
                 <section class="learn_tabs__panel" id="learn-panel-advanced" role="tabpanel" aria-labelledby="learn-tab-advanced" data-tab-panel hidden>
                   {% regroup learn_career_path_rows by school_name as career_school_groups %}
                   {% for group in career_school_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:careers:{{ group.grouper|slugify }}">
-                      <summary><span>{{ group.grouper }}: Zusätzliche Laufbahnen</span><span class="shop_group_count">{{ group.list|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:careers:{{ group.grouper|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.grouper }}: Zusätzliche Laufbahnen</span><span class="shop_group_count">{{ group.list|length }}</span></header>
                       <table class="shop_table"><tbody>
                         {% for row in group.list %}
                           <tr data-learn-source data-kind="advanced-buy" data-key="career:{{ row.path_id }}:{{ row.value }}" data-career-path="{{ row.path_id }}" data-career-name="{{ row.path_name }}" data-career-technique="{{ row.technique_name }}" data-career-previous="{{ row.previous_field_name }}" data-input-name="{{ row.field_name }}" data-name="{{ row.path_name }}: {{ row.technique_name }}" data-unit-cost="{{ row.ep_cost }}" data-max="1" data-learn-search="{{ row.school_name|lower }} {{ row.path_name|lower }} laufbahn" tabindex="0" role="button" aria-label="{{ row.technique_name }} lernen"{% if row.previous_field_name %} hidden{% endif %}>
@@ -467,11 +481,11 @@
                           </tr>
                         {% endfor %}
                       </tbody></table>
-                    </details>
+                    </section>
                   {% endfor %}
                   {% if learn_advanced_weapon_masteries %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:weapon-masteries">
-                      <summary><span>Waffenmeister: Einheit von Körper und Waffe</span><span class="shop_group_count">{{ learn_advanced_weapon_masteries|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:weapon-masteries">
+                      <header class="learn_group_heading"><span>Waffenmeister: Einheit von Körper und Waffe</span><span class="shop_group_count">{{ learn_advanced_weapon_masteries|length }}</span></header>
                       <table class="shop_table"><tbody>
                         {% for row in learn_advanced_weapon_masteries %}
                           <tr data-learn-source data-kind="advanced-weapon" data-key="advanced-weapon:{{ row.key }}" data-input-name="learn_advanced_weapon_{{ row.key }}" data-side-name="advanced_weapon_side_{{ row.key }}" data-name="Waffenmeister: {{ row.name }}" data-unit-cost="{{ row.cost }}" data-max="{{ row.max_steps }}" data-maneuver="{{ row.maneuver }}" data-damage="{{ row.damage }}" data-first-bonus="{{ row.first_bonus_kind }}" data-new="{% if row.new %}1{% else %}0{% endif %}" data-learn-search="waffenmeister {{ row.name|lower }} spezialisierung" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
@@ -480,11 +494,11 @@
                           </tr>
                         {% endfor %}
                       </tbody></table>
-                    </details>
+                    </section>
                   {% endif %}
                   {% if learn_advanced_weapon_runes %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:weapon-runes">
-                      <summary><span>Waffenmeister: Zusätzliche Runen</span><span class="shop_group_count">{{ learn_advanced_weapon_runes|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:weapon-runes">
+                      <header class="learn_group_heading"><span>Waffenmeister: Zusätzliche Runen</span><span class="shop_group_count">{{ learn_advanced_weapon_runes|length }}</span></header>
                       <table class="shop_table"><tbody>
                         {% for row in learn_advanced_weapon_runes %}
                           <tr data-learn-source data-kind="advanced-buy" data-key="advanced-weapon:{{ row.key }}" data-input-name="learn_advanced_weapon_{{ row.key }}" data-name="Waffenmeister-Rune: {{ row.name }}" data-unit-cost="{{ row.cost }}" data-max="1" data-learn-search="waffenmeister rune {{ row.name|lower }}" tabindex="0" role="button" aria-label="Rune {{ row.name }} lernen"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
@@ -493,14 +507,14 @@
                           </tr>
                         {% endfor %}
                       </tbody></table>
-                    </details>
+                    </section>
                   {% endif %}
                   {% regroup learn_advanced_bonus_options by school_name as bonus_school_groups %}
                   {% for school_group in bonus_school_groups %}
                     {% regroup school_group.list by name as bonus_groups %}
                     {% for group in bonus_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:bonus:{{ school_group.grouper|slugify }}:{{ group.grouper|slugify }}">
-                      <summary><span>{{ school_group.grouper }}: {{ group.grouper }}</span><span class="shop_group_count">{{ group.list|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:bonus:{{ school_group.grouper|slugify }}:{{ group.grouper|slugify }}">
+                      <header class="learn_group_heading"><span>{{ school_group.grouper }}: {{ group.grouper }}</span><span class="shop_group_count">{{ group.list|length }}</span></header>
                       <table class="shop_table"><tbody>
                         {% for row in group.list %}
                           {% if row.text_field %}
@@ -512,13 +526,13 @@
                           </tr>
                         {% endfor %}
                       </tbody></table>
-                    </details>
+                    </section>
                     {% endfor %}
                   {% endfor %}
                   {% regroup learn_advanced_options by school_name as advanced_groups %}
                   {% for group in advanced_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:{{ group.grouper|slugify }}">
-                      <summary><span>{{ group.grouper }}{% if group.grouper == 'Bardenschule' %}: Erwachte Begabung{% endif %}</span><span class="shop_group_count">{{ group.list|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:{{ group.grouper|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.grouper }}{% if group.grouper == 'Bardenschule' %}: Erwachte Begabung{% endif %}</span><span class="shop_group_count">{{ group.list|length }}</span></header>
                       <table class="shop_table"><tbody>
                         {% for row in group.list %}
                           <tr data-learn-source data-kind="advanced-buy" data-key="advanced-buy:{{ row.key }}" data-input-name="learn_advanced_buy_{{ row.key }}" data-name="{{ row.name }}" data-unit-cost="{{ row.cost }}" data-max="{% if row.repeatable %}100{% else %}1{% endif %}" data-learn-search="{{ row.name|lower }} {{ row.school_name|lower }} spezialisierung" tabindex="0" role="button" aria-label="{{ row.name }} lernen"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
@@ -527,11 +541,11 @@
                           </tr>
                         {% endfor %}
                       </tbody></table>
-                    </details>
+                    </section>
                   {% endfor %}
                   {% if learn_advanced_owned %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:owned">
-                      <summary><span>Erlernte zusätzliche Spezialisierungen</span><span class="shop_group_count">{{ learn_advanced_owned|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="advanced:owned">
+                      <header class="learn_group_heading"><span>Erlernte zusätzliche Spezialisierungen</span><span class="shop_group_count">{{ learn_advanced_owned|length }}</span></header>
                       <table class="shop_table"><tbody>
                         {% for row in learn_advanced_owned %}
                           <tr data-learn-source data-kind="advanced-remove" data-key="advanced-remove:{{ row.id }}" data-input-name="learn_advanced_remove_{{ row.id }}" data-name="{{ row.name }} verlernen" data-unit-cost="{{ row.cost }}" data-max="1" data-learn-search="{{ row.name|lower }} {{ row.school_name|lower }} spezialisierung verlernen" tabindex="0" role="button" aria-label="{{ row.name }} verlernen">
@@ -540,7 +554,7 @@
                           </tr>
                         {% endfor %}
                       </tbody></table>
-                    </details>
+                    </section>
                   {% endif %}
                 </section>
               {% endif %}
@@ -554,8 +568,8 @@
                   hidden
                 >
                   {% for group in learn_lesson_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="lessons:{{ group.name|slugify }}">
-                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="lessons:{{ group.name|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
@@ -608,7 +622,7 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                    </details>
+                    </section>
                   {% endfor %}
                 </section>
               {% endif %}
@@ -631,8 +645,8 @@
                     <strong><span data-learn-brew-slot-remaining>{{ learn_brew_slot_remaining }}</span> / {{ learn_brew_slot_total }}</strong>
                   </div>
                   {% for group in learn_brew_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="brews:{{ group.name|slugify }}">
-                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="brews:{{ group.name|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
@@ -669,7 +683,7 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                    </details>
+                    </section>
                   {% empty %}
                     <p class="shop_empty">Keine weiteren Gebräue verfügbar.</p>
                   {% endfor %}
@@ -684,7 +698,7 @@
                   data-tab-panel
                   hidden
                 >
-                  {% if learn_magic_slot_summary.remaining > 0 %}
+                  {% if learn_magic_slot_summary.total > 0 %}
                     <div
                       class="learn_magic_budget"
                       data-learn-magic-budget
@@ -696,7 +710,6 @@
                       <div class="learn_magic_slot_sources" aria-label="Verfuegbare Zauber-Slots">
                         <div class="learn_magic_slot_source_meters" hidden>
                           {% for source in learn_magic_slot_summary.sources.values %}
-                            {% if source.remaining > 0 %}
                               <span
                                 data-learn-slot-source-chip
                                 data-slot-source-key="{{ source.key }}"
@@ -714,7 +727,6 @@
                                 </span>
                                 <span data-learn-slot-source-count>{{ source.remaining }}</span>
                               </span>
-                            {% endif %}
                           {% endfor %}
                         </div>
                         {% if learn_magic_slot_summary.school_slot_sources %}
@@ -724,6 +736,7 @@
                                 class="learn_magic_school_slot_card"
                                 data-learn-school-slot-card
                                 data-slot-source-key="{{ source.key }}"
+                                data-slot-source-name="{{ source.name }}"
                                 data-slot-source-remaining="{{ source.remaining }}"
                                 aria-label="{{ source.name }}: {{ source.remaining }} freie Slots"
                               >
@@ -768,7 +781,7 @@
                                     </span>
                                   </th>
                                   {% for cell in row.cells %}
-                                    <td data-learn-slot-cell data-slot-source-key="{{ cell.key }}" data-slot-source-grade="{{ cell.grade }}" data-slot-source-remaining="{{ cell.remaining }}">
+                                    <td data-learn-slot-cell data-slot-source-key="{{ cell.key }}" data-slot-source-name="{{ row.label }} · Stufe / Grad {{ cell.grade }}" data-slot-source-grade="{{ cell.grade }}" data-slot-source-remaining="{{ cell.remaining }}">
                                       {% if cell.remaining > 0 %}
                                         <span class="learn_magic_slot_cell_open" title="{{ cell.remaining }} offener Slot{% if cell.remaining > 1 %}s{% endif %}" aria-label="{{ cell.remaining }} offener Slot{% if cell.remaining > 1 %}s{% endif %}">
                                           {{ cell.remaining }}
@@ -786,8 +799,8 @@
                     </div>
                   {% endif %}
                   {% for group in learn_magic_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="magic:{{ group.name|slugify }}">
-                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                    <section class="shop_group learn_subgroup" data-learn-group data-collapse-key="magic:{{ group.name|slugify }}">
+                      <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
@@ -870,7 +883,7 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                    </details>
+                    </section>
                   {% empty %}
                     <p class="shop_empty">Keine verf&uuml;gbaren Zauber oder Aspekte.</p>
                   {% endfor %}
@@ -878,31 +891,50 @@
               {% endif %}
               {% if is_vampire %}
                 <section class="learn_tabs__panel" id="learn-panel-vampire" role="tabpanel" aria-labelledby="learn-tab-vampire" data-tab-panel hidden>
-                  <details class="shop_group" data-learn-group data-collapse-key="vampire:values" open>
-                    <summary><span>Vampirwerte</span><span class="shop_group_count">2</span></summary>
+                  {% for group in vampire_panel.trait_groups %}
+                    <section class="shop_group" data-learn-group data-collapse-key="vampire:traits:{{ group.key }}">
+                      <header class="learn_group_heading"><span>Vampirische {{ group.label }}</span><span class="shop_group_count">{{ group.traits|length }}</span></header>
+                      <p>Diese Merkmale werden automatisch zugeordnet.</p>
+                      <table class="shop_table"><tbody>
+                        {% for row in group.traits %}
+                          <tr data-learn-source data-kind="vampire-trait" data-key="vampire-trait:{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.rank }}" data-tooltip="{{ row.description }}" data-locked-reason="Automatisch zugeordnet" data-learn-search="{{ row.name|lower }} {{ group.label|lower }} vampir merkmal" tabindex="0" role="button" aria-disabled="true" aria-label="{{ row.name }} ansehen"><td class="shop_item_name">{{ row.name }}</td><td class="shop_item_price">Rang {{ row.rank }} · {{ row.source }}</td></tr>
+                        {% endfor %}
+                      </tbody></table>
+                    </section>
+                  {% endfor %}
+                  <section class="shop_group" data-learn-group data-collapse-key="vampire:values">
+                    <header class="learn_group_heading"><span>Vampirwerte</span><span class="shop_group_count">2</span></header>
                     <table class="shop_table"><tbody>
                       <tr data-learn-source data-kind="vampire-age" data-key="vampire-age" data-name="Alterszyklus" data-base="{{ vampire_panel.age_cycle }}" data-max="99" data-unit-cost="{{ vampire_panel.age_unit_cost }}" data-learn-search="vampir alterszyklus alter" tabindex="0" role="button" aria-label="Alterszyklus erhöhen"><td class="shop_item_name">Alterszyklus</td><td class="shop_item_price">{{ vampire_panel.age_unit_cost }} EP je Stufe</td></tr>
                       <tr data-learn-source data-kind="vampire-capacity" data-key="vampire-capacity" data-name="Zusätzliche Blutkapazität" data-base="{{ vampire_panel.capacity_bonus }}" data-max="99" data-unit-cost="{{ vampire_panel.capacity_unit_cost }}" data-learn-search="vampir blut kapazität" tabindex="0" role="button" aria-label="Blutkapazität erhöhen"><td class="shop_item_name">Zusätzliche Blutkapazität</td><td class="shop_item_price">{{ vampire_panel.capacity_unit_cost }} EP je Punkt</td></tr>
                     </tbody></table>
-                  </details>
-                  <details class="shop_group" data-learn-group data-collapse-key="vampire:powers" open>
-                    <summary><span>Vampirkräfte</span><span class="shop_group_count">{{ vampire_panel.available_powers|length }}</span></summary>
+                  </section>
+                  <section class="shop_group" data-learn-group data-collapse-key="vampire:powers">
+                    <header class="learn_group_heading"><span>Vampirkräfte</span><span class="shop_group_count">{{ vampire_panel.available_powers|length }}</span></header>
                     <table class="shop_table"><tbody>
                       {% for row in vampire_panel.available_powers %}<tr data-learn-source data-kind="vampire-power" data-key="vampire-power:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.level }}" data-max="{{ row.max_level }}" data-unit-cost="{{ row.cost_with_weakness }}" data-cost-with-weakness="{{ row.cost_with_weakness }}" data-cost-without-weakness="{{ row.cost_without_weakness }}" data-can-choose-without-weakness="{% if row.can_choose_without_weakness %}1{% else %}0{% endif %}" data-weakness="{{ row.weakness }}" data-learn-search="{{ row.name|lower }} vampir kraft {{ row.weakness|lower }}" class="tooltip_target" data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-variant="spell" data-tooltip-title="{{ row.name|escape }}" data-tooltip-subtitle="Vampirkraft{% if row.level and row.max_level > 1 %} · Rang {{ row.level }}{% endif %}" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}" data-tooltip-effect="{{ row.description|default:'Keine Beschreibung' }}" data-tooltip-weakness="{{ row.weakness }}" tabindex="0" role="button" aria-label="{{ row.name }} lernen"><td class="shop_item_name">{{ row.name }}{% if row.level and row.max_level > 1 %} ({{ row.level }}){% endif %}</td><td class="shop_item_price">{% if row.can_choose_without_weakness %}{{ row.cost_with_weakness }} / {{ row.cost_without_weakness }}{% else %}{{ row.cost_with_weakness }}{% endif %} EP</td></tr>{% empty %}<tr><td colspan="2">Keine weiteren Vampirkräfte verfügbar.</td></tr>{% endfor %}
                     </tbody></table>
-                  </details>
-                  {% if vampire_panel.owned_powers %}<details class="shop_group" data-learn-group data-collapse-key="vampire:owned-powers"><summary><span>Erlernte Vampirkräfte</span><span class="shop_group_count">{{ vampire_panel.owned_powers|length }}</span></summary><table class="shop_table"><tbody>{% for row in vampire_panel.owned_powers %}<tr data-learn-source data-kind="vampire-power-remove" data-key="vampire-power-remove:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }} {% if row.level > 1 %}Rang verringern{% else %}verlernen{% endif %}" data-max="1" data-unit-cost="-{{ row.refund }}" data-learn-search="{{ row.name|lower }} vampir kraft verlernen rang verringern" class="tooltip_target" data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-variant="spell" data-tooltip-title="{{ row.name|escape }}" data-tooltip-subtitle="Vampirkraft{% if row.can_be_learned_multiple_times %} · Rang {{ row.level }}{% endif %}" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}" data-tooltip-effect="{{ row.description|default:'Keine Beschreibung' }}" data-tooltip-weakness="{{ row.weakness }}" tabindex="0" role="button" aria-label="{{ row.name }} {% if row.level > 1 %}Rang verringern{% else %}verlernen{% endif %}"><td class="shop_item_name">{{ row.name }}{% if row.can_be_learned_multiple_times %} ({{ row.level }}){% endif %}</td><td class="shop_item_price">−{{ row.refund }} EP</td></tr>{% endfor %}</tbody></table></details>{% endif %}
-                  {% if vampire_panel.buyoff_options %}<details class="shop_group" data-learn-group data-collapse-key="vampire:buyoff"><summary><span>Schwächen freikaufen</span><span class="shop_group_count">{{ vampire_panel.buyoff_options|length }}</span></summary><table class="shop_table"><tbody>{% for row in vampire_panel.buyoff_options %}<tr data-learn-source data-kind="vampire-buyoff" data-key="vampire-buyoff:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} {{ row.weakness|lower }} schwäche entfernen freikaufen" tabindex="0" role="button" aria-label="Schwäche von {{ row.name }} entfernen"><td class="shop_item_name">{{ row.name }}</td><td class="shop_item_price">{{ row.cost }} EP</td></tr>{% endfor %}</tbody></table></details>{% endif %}
+                  </section>
+                  {% if vampire_panel.owned_powers %}<section class="shop_group" data-learn-group data-collapse-key="vampire:owned-powers"><header class="learn_group_heading"><span>Erlernte Vampirkräfte</span><span class="shop_group_count">{{ vampire_panel.owned_powers|length }}</span></header><table class="shop_table"><tbody>{% for row in vampire_panel.owned_powers %}<tr data-learn-source data-kind="vampire-power-remove" data-key="vampire-power-remove:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }} {% if row.level > 1 %}Rang verringern{% else %}verlernen{% endif %}" data-max="1" data-unit-cost="-{{ row.refund }}" data-learn-search="{{ row.name|lower }} vampir kraft verlernen rang verringern" class="tooltip_target" data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-variant="spell" data-tooltip-title="{{ row.name|escape }}" data-tooltip-subtitle="Vampirkraft{% if row.can_be_learned_multiple_times %} · Rang {{ row.level }}{% endif %}" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}" data-tooltip-effect="{{ row.description|default:'Keine Beschreibung' }}" data-tooltip-weakness="{{ row.weakness }}" tabindex="0" role="button" aria-label="{{ row.name }} {% if row.level > 1 %}Rang verringern{% else %}verlernen{% endif %}"><td class="shop_item_name">{{ row.name }}{% if row.can_be_learned_multiple_times %} ({{ row.level }}){% endif %}</td><td class="shop_item_price">−{{ row.refund }} EP</td></tr>{% endfor %}</tbody></table></section>{% endif %}
+                  {% if vampire_panel.buyoff_options %}<section class="shop_group" data-learn-group data-collapse-key="vampire:buyoff"><header class="learn_group_heading"><span>Schwächen freikaufen</span><span class="shop_group_count">{{ vampire_panel.buyoff_options|length }}</span></header><table class="shop_table"><tbody>{% for row in vampire_panel.buyoff_options %}<tr data-learn-source data-kind="vampire-buyoff" data-key="vampire-buyoff:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} {{ row.weakness|lower }} schwäche entfernen freikaufen" tabindex="0" role="button" aria-label="Schwäche von {{ row.name }} entfernen"><td class="shop_item_name">{{ row.name }}</td><td class="shop_item_price">{{ row.cost }} EP</td></tr>{% endfor %}</tbody></table></section>{% endif %}
                 </section>
               {% endif %}
               </div>
             </div>
           </section>
 
-        <section class="sheet-window__section shop_panel">
-          <div class="sheet-window__section-head shop_panel_header">
-            <h2 class="sheet-window__section-title">Lern-Warenkorb</h2>
-          </div>
+          <aside class="sheet-window__section shop_panel learn_inspector" aria-label="Studium und Details">
+            <div class="sheet-window__section-head shop_panel_header"><div><span class="learn_chronicle_eyebrow">Regeln · Voraussetzungen · Entwicklung</span><h2 class="sheet-window__section-title">Studium &amp; Details</h2></div></div>
+            <div id="learnInspector" class="learn_inspector_scroll"><p class="learn_inspector_placeholder">Wähle eine Lernoption, um ihre Entwicklung zu planen.</p></div>
+            <div id="learnPendingChoiceNotice" class="learn_pending_choices" data-pending-choice-notice{% if not learn_pending_decisions %} hidden{% endif %}>
+              <button type="button" data-pending-choice-trigger>Offene Entscheidungen <span data-pending-choice-count>{{ learn_pending_decisions|length }}</span></button>
+            </div>
+          </aside>
+        </div>
+      </div>
+      <details class="learn_plan_drawer" id="learnPlanDrawer">
+        <summary><span>Entwicklungsplan</span><span id="learnPlanSummary">Noch keine Lernschritte vorgemerkt</span></summary>
+        <div class="learn_plan_body">
           <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper">
             <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll learn_cart_scroll">
               <table class="shop_cart_table">
@@ -922,12 +954,18 @@
               </table>
             </div>
             <div id="learnPendingChoiceInputs"></div>
-            <div class="sheet-window__footer shop_cart_actions">
-              <button type="submit" id="learnApplyBtn" class="wax_seal_btn" aria-label="Lernen anwenden" title="Lernen anwenden"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
-            </div>
           </div>
-        </section>
-      </div>
+          <section class="learn_plan_account" aria-label="Abrechnung">
+            <h3>Abrechnung</h3>
+            {% include "charsheet/partials/_learning_budget.html" %}
+            <div id="learnPlanSlots" class="learn_plan_slots" aria-label="Verbleibende Slots nach Quelle"></div>
+            <div class="learn_plan_actions">
+              <button type="button" id="learnDiscardBtn">Verwerfen</button>
+              <button type="submit" id="learnApplyBtn">Entwicklung abschließen</button>
+            </div>
+          </section>
+        </div>
+      </details>
     </form>
   </div>
 </section>

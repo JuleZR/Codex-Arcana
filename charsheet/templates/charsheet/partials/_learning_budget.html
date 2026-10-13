@@ -8,15 +8,15 @@
 >
   <div class="learn_budget_grid">
     <div class="shop_cart_total_row">
-      <span>{% if character.is_npc %}Bisher verwendet{% else %}EP Budget{% endif %}</span>
+      <span>{% if character.is_npc %}Bisher verwendet{% else %}Verfügbare EP{% endif %}</span>
       <span id="learnBudgetValue">{% if character.is_npc %}{{ character.used_experience }} EP{% else %}{{ character.current_experience }} EP{% endif %}</span>
     </div>
     <div class="shop_cart_total_row">
-      <span>Verbrauch</span>
+      <span>Lernaufwand</span>
       <span id="learnSpentValue">0 EP</span>
     </div>
     <div class="shop_cart_total_row">
-      <span>{% if character.is_npc %}Nach Kauf{% else %}Rest{% endif %}</span>
+      <span>{% if character.is_npc %}Nach Entwicklung{% else %}Verbleibende EP{% endif %}</span>
       <span id="learnRemainingValue">{% if character.is_npc %}{{ character.used_experience }} EP{% else %}{{ character.current_experience }} EP{% endif %}</span>
     </div>
   </div>

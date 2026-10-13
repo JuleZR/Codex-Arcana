@@ -1,5 +1,6 @@
 import { createChoiceModalController } from "./choice_modal.js?v=20260922b";
-import { clamp, escapeHtml, initPersistentDetails, readInt } from "./utils.js?v=20260622a";
+import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
+import { initLearningChronicle } from "./learning_chronicle.js?v=20261014d";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
 const renderOpenSpellSlotMarkup = (remaining) => {
@@ -562,7 +563,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       liveValidationHint.textContent = messages.join(" ");
     }
     applyBtn.disabled = (
-      (!npc && remaining < 0)
+      (getRows().length === 0 && !form.querySelector("#learnPendingChoiceInputs input"))
+      || (!npc && remaining < 0)
       || invalidWrite
       || spellSlotRemaining < 0
       || brewSlotRemaining < 0
@@ -571,6 +573,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         return Boolean(limit) && selected > limit.remaining;
       })
     );
+    form.dispatchEvent(new CustomEvent("learn:plan-updated", {
+      detail: { spent, remaining, spellSlotRemaining, brewSlotRemaining },
+    }));
   };
 
   const bindRow = (row) => {
@@ -625,7 +630,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     }
   };
 
-  const createRowFromSource = (source) => {
+  const createRowFromSource = (source, specification = "") => {
     const kind = source.getAttribute("data-kind") || "";
     const key = source.getAttribute("data-key") || "";
     const name = source.getAttribute("data-name") || key;
@@ -654,6 +659,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-min", String(min));
       row.setAttribute("data-max", String(max));
+      row.setAttribute("data-premium-threshold", String(premiumThreshold));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_attr_add_${shortName}" value="${startAdd}" data-learn-hidden></td>
         <td>
@@ -731,14 +737,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const slug = source.getAttribute("data-slug") || "";
       const max = readInt(source.getAttribute("data-max"), 10);
       const aboveBaseCost = readInt(source.getAttribute("data-above-base-cost"), 2);
-      // eslint-disable-next-line no-alert
-      const spec = window.prompt(`Spezialisierung für "${name}" eingeben:`);
+      const spec = specification;
       if (!spec || !spec.trim()) {
         return null;
       }
       const specTrimmed = spec.trim();
       const uniqueKey = `skill-new-spec:${slug}:${specTrimmed}`;
-      const existingInCart = cartBody.querySelector(`[data-learn-cart-item][data-key="${uniqueKey}"]`);
+      const existingInCart = getRows().find((entry) => entry.getAttribute("data-key") === uniqueKey);
       if (existingInCart) {
         const input = existingInCart.querySelector("[data-learn-value]");
         if (input instanceof HTMLInputElement) {
@@ -758,7 +763,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           <span>${escapeHtml(name)}: ${escapeHtml(specTrimmed)}</span>
           <span data-learn-level-info>(${startAdd})</span>
           <input type="hidden" name="learn_new_skill_slug_${idx}" value="${escapeHtml(slug)}">
-          <input type="hidden" name="learn_new_skill_spec_${idx}" value="${escapeHtml(specTrimmed)}">
+          <label class="learn_spec_name">Bezeichnung <input type="text" name="learn_new_skill_spec_${idx}" value="${escapeHtml(specTrimmed)}" required aria-label="Bezeichnung der Spezialisierung"></label>
           <input type="hidden" name="learn_new_skill_level_${idx}" value="${startAdd}" data-learn-hidden>
         </td>
         <td>
@@ -1119,7 +1124,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     return null;
   };
 
-  const addFromSource = (source) => {
+  const addFromSource = (source, specification = "") => {
     if (source.dataset.careerAvailable === "0") {
       return;
     }
@@ -1128,36 +1133,62 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (!key && kind !== "skill-new-spec") {
       return;
     }
+    if (kind === "skill-new-spec") {
+      const existing = getRows().find((entry) => entry.learningSource === source
+        && entry.querySelector('input[name^="learn_new_skill_spec_"]')?.value.trim() === specification.trim());
+      if (existing) return existing;
+    }
     if (key) {
       const existing = kind === "magic-spell"
         ? cartBody.querySelector(`[data-learn-cart-item][data-spell-id="${source.getAttribute("data-id")}"]`)
-        : cartBody.querySelector(`[data-learn-cart-item][data-key="${key}"]`);
+        : getRows().find((entry) => entry.getAttribute("data-key") === key);
       if (existing) {
         const input = existing.querySelector("[data-learn-value]");
         if (input instanceof HTMLInputElement) {
           input.focus();
         }
-        return;
+        return existing;
       }
     }
-    const row = createRowFromSource(source);
+    const row = createRowFromSource(source, specification);
     if (!row) {
       return;
     }
     cartBody.appendChild(row);
+    row.learningSource = source;
     bindRow(row);
     ensureEmptyRow();
     refreshTotals();
+    return row;
+  };
+
+  const getOfferCost = (source) => {
+    const kind = source.dataset.kind;
+    if (source.getAttribute("aria-disabled") === "true") return "";
+    if (kind === "magic-spell") {
+      return source.querySelector("[data-learn-spell-offer-cost]")?.textContent || source.dataset.costLabel || "";
+    }
+    if (kind === "skill-new-spec") return `${calcSkillCost(1)} EP`;
+    if (kind === "advanced-weapon") return `${readInt(source.dataset.unitCost, 0)} EP`;
+    const preview = createRowFromSource(source);
+    if (!preview) return "";
+    syncRow(preview);
+    return preview.querySelector("[data-learn-cost]")?.textContent || "";
   };
 
   Array.from(document.querySelectorAll("[data-learn-source]")).forEach((source) => {
     source.addEventListener("click", () => {
-      addFromSource(source);
+      if (document.getElementById("learnInspector")) {
+        form.dispatchEvent(new CustomEvent("learn:select-source", { detail: source }));
+      } else {
+        addFromSource(source);
+      }
     });
     source.addEventListener("keydown", (event) => {
+      if (event.target !== source) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        addFromSource(source);
+        source.click();
       }
     });
   });
@@ -1175,7 +1206,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     refreshTotals();
   };
 
-  return { clearCart, refreshTotals };
+  return { clearCart, refreshTotals, addFromSource, getOfferCost };
 }
 
 export function initLearningMenu({ choiceWindowController = null } = {}) {
@@ -1200,12 +1231,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   }
   form.dataset.learningMenuBound = "1";
 
-  const groupDisclosureState = initPersistentDetails(
-    "#learnWindow [data-learn-group]",
-    "codexArcana.learn.categoryDisclosure.v1",
-  );
-
   const cartController = initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn);
+  initLearningChronicle(form, cartBody, cartController);
   const entityDialog = document.getElementById("learnDivineEntityDialog");
   const entityForm = document.getElementById("learnDivineEntityForm");
   if (entityDialog instanceof HTMLDialogElement && entityForm instanceof HTMLFormElement) {
@@ -1277,7 +1304,7 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
     return (section.dataset.choiceInputType || "options") !== "unsupported";
   }).length;
 
-  const syncPendingNotice = () => {
+  const syncPendingNotice = (event = null) => {
     if (!pendingNotices.length) {
       return;
     }
@@ -1297,6 +1324,11 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       centerPendingNotice.hidden = true;
       centerPendingNotice.style.display = "none";
     }
+    pendingNotices.forEach((notice) => {
+      const count = notice.querySelector("[data-pending-choice-count]");
+      if (count) count.textContent = String(event?.detail?.pendingCount ?? getRenderedPendingChoiceCount());
+    });
+    cartController.refreshTotals();
   };
 
   pendingTriggers.forEach((trigger) => {
@@ -1395,6 +1427,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   };
 
   const applyLearningFilters = () => {
+    const groupKey = form.querySelector("#learnGroupFilter")?.value || "";
+    const activePanel = form.querySelector('[data-tab-panel]:not([hidden])');
     const needle = filterInput instanceof HTMLInputElement
       ? String(filterInput.value || "").trim().toLowerCase()
       : "";
@@ -1412,29 +1446,25 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       const matchesGrade = !activeMagicGradeFilter
         || kind !== "magic-spell"
         || String(row.getAttribute("data-level") || "") === activeMagicGradeFilter;
-      row.hidden = !(matchesText && matchesSource && matchesGrade && row.dataset.careerAvailable !== "0");
+      const matchesGroup = !groupKey || !activePanel?.contains(row)
+        || (row.dataset.groupKey || row.closest("[data-learn-group]")?.dataset.collapseKey) === groupKey;
+      row.hidden = !(matchesText && matchesSource && matchesGrade && matchesGroup && row.dataset.careerAvailable !== "0");
     });
     Array.from(document.querySelectorAll("[data-learn-group]")).forEach((group) => {
       const visible = Array.from(group.querySelectorAll("tr[data-learn-source]")).some((row) => !row.hidden);
       group.hidden = !visible;
-      if (group.querySelector("[data-career-path]")) {
-        const count = group.querySelector(".shop_group_count");
-        if (count) {
-          count.textContent = String(Array.from(group.querySelectorAll("[data-career-path]")).filter((row) => !row.hidden).length);
-        }
-      }
-      if ((needle || activeMagicSourceFilter || activeMagicGradeFilter) && visible && group instanceof HTMLDetailsElement) {
-        group.open = true;
-      } else if (!needle && !activeMagicSourceFilter && !activeMagicGradeFilter && group instanceof HTMLDetailsElement) {
-        groupDisclosureState.restore(group);
-      }
+      const count = group.querySelector(".shop_group_count");
+      if (count) count.textContent = String(Array.from(group.querySelectorAll("[data-learn-source]")).filter((row) => !row.hidden).length);
     });
     syncMagicFilterButtons();
+    form.dispatchEvent(new CustomEvent("learn:filters-updated"));
   };
 
   if (filterInput instanceof HTMLInputElement) {
     filterInput.addEventListener("input", applyLearningFilters);
   }
+  form.querySelector("#learnGroupFilter")?.addEventListener("change", applyLearningFilters);
+  form.addEventListener("learn:category-updated", applyLearningFilters);
 
   if (sourceFilterTrigger instanceof HTMLButtonElement && sourceFilterPopover instanceof HTMLElement) {
     sourceFilterTrigger.addEventListener("click", (event) => {

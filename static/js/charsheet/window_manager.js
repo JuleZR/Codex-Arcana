@@ -8,6 +8,50 @@ export function placeWindow(windowEl, left, top) {
   windowEl.style.top = `${clamp(top, 12, maxTop)}px`;
 }
 
+function bindWindowDragging(windowEl, handle, saveState, canDrag = () => true) {
+  let dragPointerId = null;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !canDrag()
+        || event.target?.closest?.("button, input, select, textarea, a")) {
+      return;
+    }
+    const rect = windowEl.getBoundingClientRect();
+    dragPointerId = event.pointerId;
+    dragOffsetX = event.clientX - rect.left;
+    dragOffsetY = event.clientY - rect.top;
+    handle.setPointerCapture(event.pointerId);
+    windowEl.classList.add("is-dragging");
+  });
+
+  handle.addEventListener("pointermove", (event) => {
+    if (dragPointerId !== event.pointerId) {
+      return;
+    }
+    placeWindow(windowEl, event.clientX - dragOffsetX, event.clientY - dragOffsetY);
+    saveState();
+  });
+
+  const stopDragging = (event) => {
+    if (dragPointerId !== event.pointerId) {
+      return;
+    }
+    windowEl.classList.remove("is-dragging");
+    try {
+      handle.releasePointerCapture(event.pointerId);
+    } catch (_error) {
+      // no-op
+    }
+    dragPointerId = null;
+    saveState();
+  };
+
+  handle.addEventListener("pointerup", stopDragging);
+  handle.addEventListener("pointercancel", stopDragging);
+}
+
 export function createFloatingWindowController({
   trigger = null,
   windowEl,
@@ -95,46 +139,7 @@ export function createFloatingWindowController({
     event.stopPropagation();
   });
 
-  let dragPointerId = null;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
-
-  handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) {
-      return;
-    }
-    const rect = windowEl.getBoundingClientRect();
-    dragPointerId = event.pointerId;
-    dragOffsetX = event.clientX - rect.left;
-    dragOffsetY = event.clientY - rect.top;
-    handle.setPointerCapture(event.pointerId);
-    windowEl.classList.add("is-dragging");
-  });
-
-  handle.addEventListener("pointermove", (event) => {
-    if (dragPointerId !== event.pointerId) {
-      return;
-    }
-    placeWindow(windowEl, event.clientX - dragOffsetX, event.clientY - dragOffsetY);
-    saveState();
-  });
-
-  const stopDragging = (event) => {
-    if (dragPointerId !== event.pointerId) {
-      return;
-    }
-    windowEl.classList.remove("is-dragging");
-    try {
-      handle.releasePointerCapture(event.pointerId);
-    } catch (_error) {
-      // no-op
-    }
-    dragPointerId = null;
-    saveState();
-  };
-
-  handle.addEventListener("pointerup", stopDragging);
-  handle.addEventListener("pointercancel", stopDragging);
+  bindWindowDragging(windowEl, handle, saveState);
 
   const controller = {
     boundTriggers: new Set(trigger instanceof HTMLElement ? [trigger] : []),
@@ -154,14 +159,109 @@ export function createFloatingWindowController({
   return controller;
 }
 
+export function createOverlayWindowController({ trigger, windowEl, closeButton, handle, overlayEl, storageKey }) {
+  if (!windowEl || !closeButton || !overlayEl) return null;
+  if (windowEl.__floatingWindowController) return windowEl.__floatingWindowController;
+  let previousFocus = null;
+  const desktop = window.matchMedia("(min-width: 761px)");
+  const positionWindow = () => {
+    if (!desktop.matches) {
+      windowEl.style.position = "";
+      windowEl.style.left = "";
+      windowEl.style.top = "";
+      return;
+    }
+    windowEl.style.position = "fixed";
+    const rect = windowEl.getBoundingClientRect();
+    const left = Number.parseFloat(windowEl.style.left);
+    const top = Number.parseFloat(windowEl.style.top);
+    placeWindow(
+      windowEl,
+      Number.isFinite(left) ? left : (window.innerWidth - rect.width) / 2,
+      Number.isFinite(top) ? top : (window.innerHeight - rect.height) / 2,
+    );
+  };
+  const saveState = () => saveJsonStorage(storageKey, {
+    isOpen: !overlayEl.hidden, left: null, top: null,
+  });
+  const open = () => {
+    if (!overlayEl.hidden) return;
+    previousFocus = document.activeElement;
+    overlayEl.hidden = false;
+    windowEl.classList.add("is-open");
+    windowEl.setAttribute("aria-hidden", "false");
+    document.body.classList.add("market-modal-open");
+    positionWindow();
+    windowEl.querySelector("[aria-selected='true']")?.focus();
+    saveState();
+  };
+  const close = () => {
+    const editor = document.getElementById("shopItemWindow");
+    if (editor?.classList.contains("is-open")) editor.__floatingWindowController?.close();
+    overlayEl.hidden = true;
+    windowEl.classList.remove("is-open");
+    windowEl.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("market-modal-open");
+    previousFocus?.focus();
+    saveState();
+  };
+  const backdropClick = (event) => { if (event.target === overlayEl) close(); };
+  const keydown = (event) => {
+    if (overlayEl.hidden) return;
+    const editor = document.getElementById("shopItemWindow");
+    const editorOpen = editor?.classList.contains("is-open");
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (editorOpen) editor.__floatingWindowController?.close();
+      else close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusRoot = editorOpen ? editor : windowEl;
+    const controls = Array.from(focusRoot.querySelectorAll(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]',
+    )).filter((control) => control.getClientRects().length
+      && control.getAttribute("tabindex") !== "-1" && !control.closest("[hidden]"));
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); return; }
+    if (event.shiftKey && (document.activeElement === first || !focusRoot.contains(document.activeElement))) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !focusRoot.contains(document.activeElement))) {
+      event.preventDefault(); first.focus();
+    }
+  };
+  trigger?.addEventListener("click", open);
+  closeButton.addEventListener("click", close);
+  overlayEl.addEventListener("click", backdropClick);
+  document.addEventListener("keydown", keydown);
+  if (handle) bindWindowDragging(windowEl, handle, saveState, () => desktop.matches);
+  window.addEventListener("resize", positionWindow);
+  const controller = {
+    windowEl, open, close, saveState,
+    destroy() {
+      trigger?.removeEventListener("click", open);
+      closeButton.removeEventListener("click", close);
+      overlayEl.removeEventListener("click", backdropClick);
+      document.removeEventListener("keydown", keydown);
+      window.removeEventListener("resize", positionWindow);
+      document.body.classList.remove("market-modal-open");
+      delete windowEl.__floatingWindowController;
+    },
+  };
+  windowEl.__floatingWindowController = controller;
+  if (loadJsonStorage(storageKey, null)?.isOpen) open();
+  return controller;
+}
+
 export function initStandardFloatingWindows() {
   const controllers = {
-    shop: createFloatingWindowController({
+    shop: createOverlayWindowController({
       trigger: document.getElementById("shopScaleTrigger"),
       windowEl: document.getElementById("shopWindow"),
       closeButton: document.getElementById("shopWindowClose"),
       handle: document.getElementById("shopWindowHandle"),
-      startTop: 92,
+      overlayEl: document.getElementById("shopOverlay"),
       storageKey: "charsheet.shopWindow",
     }),
     shopItem: createFloatingWindowController({

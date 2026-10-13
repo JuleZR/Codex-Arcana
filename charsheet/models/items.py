@@ -300,6 +300,15 @@ class RuneSemanticEffect(SemanticEffectFields):
 class ItemType(models.Model):
     """Catalog category and orthogonal equipment capabilities."""
 
+    ICON_CHOICES = (
+        ("item", "Gegenstand"), ("ring", "Ring"), ("amulet", "Amulett"),
+        ("shield", "Schild"), ("armor", "Rüstung"),
+        ("body_armor", "Körperrüstung"), ("full_armor", "Vollrüstung"),
+        ("helmet", "Helm"), ("gauntlet", "Handschuh"),
+        ("armored_boots", "Rüstungsstiefel"), ("clothing", "Kleidung"),
+        ("magic_item", "Magischer Gegenstand"),
+    )
+
     slug = models.SlugField(max_length=50, primary_key=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -332,6 +341,18 @@ class ItemType(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def icon_path(self):
+        key = self.icon_key
+        if key not in dict(self.ICON_CHOICES):
+            key = "item"
+        return f"img/equipment_icons/{key}.svg"
+
+    def clean(self):
+        super().clean()
+        if self.icon_key and self.icon_key not in dict(self.ICON_CHOICES):
+            raise ValidationError({"icon_key": "Unbekannter Icon-Schlüssel."})
 
 
 class Item(models.Model):

@@ -6086,13 +6086,35 @@ class QualityAdmin(admin.ModelAdmin):
 
 @admin.register(ItemType)
 class ItemTypeAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "sort_order", "is_active")
+    list_display = (
+        "name", "slug", "icon_preview", "sort_order", "is_active",
+    )
     list_filter = ("is_active", "is_weapon", "is_armor", "is_magic_equipment")
     search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
 
     def get_readonly_fields(self, request, obj=None):
-        return ("slug",) if obj else ()
+        return ("slug", "icon_preview") if obj else ("icon_preview",)
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "icon_key":
+            return forms.ChoiceField(
+                choices=(
+                    (("", "Standard: Gegenstand"),) + ItemType.ICON_CHOICES
+                ),
+                required=False, label="Kategorie-Icon",
+            )
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    @admin.display(description="Icon-Vorschau")
+    def icon_preview(self, obj):
+        from django.templatetags.static import static
+
+        path = obj.icon_path if obj else "img/equipment_icons/item.svg"
+        return format_html(
+            '<img src="{}" width="32" height="32" alt="Kategorie-Icon">',
+            static(path),
+        )
 
     def get_prepopulated_fields(self, request, obj=None):
         return {} if obj else self.prepopulated_fields

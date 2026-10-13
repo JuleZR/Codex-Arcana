@@ -54,11 +54,19 @@ export function initPersistentDetails(selector, storageKey) {
     .filter((entry) => entry instanceof HTMLDetailsElement);
   const stored = loadJsonStorage(storageKey, {});
   const state = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  const currentState = () => {
+    const latest = loadJsonStorage(storageKey, state);
+    return latest && typeof latest === "object" && !Array.isArray(latest) ? latest : state;
+  };
+  const remember = (key, open) => {
+    Object.assign(state, currentState(), { [key]: open });
+    saveJsonStorage(storageKey, state);
+  };
 
   const keyFor = (entry) => String(entry.getAttribute("data-collapse-key") || "").trim();
   const restore = (entry) => {
     const key = keyFor(entry);
-    entry.open = key ? state[key] === true : false;
+    entry.open = key ? currentState()[key] === true : false;
   };
 
   details.forEach((entry) => {
@@ -70,14 +78,20 @@ export function initPersistentDetails(selector, storageKey) {
         if (!key) {
           return;
         }
-        state[key] = entry.open;
-        saveJsonStorage(storageKey, state);
+        remember(key, entry.open);
       }, 0);
     });
   });
 
   return {
     restore,
+    set(entry, open) {
+      entry.open = open;
+      const key = keyFor(entry);
+      if (key) {
+        remember(key, open);
+      }
+    },
     restoreAll() {
       details.forEach(restore);
     },

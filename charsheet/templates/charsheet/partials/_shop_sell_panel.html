@@ -1,12 +1,14 @@
-<section class="learn_tabs__panel" id="shop-panel-sell" role="tabpanel"
+{% load static %}
+<section class="market_tabs__panel" id="shop-panel-sell" role="tabpanel"
          aria-labelledby="shop-tab-sell" data-tab-panel data-shop-mode-panel="sell" hidden>
   {% for group in shop_sell_item_groups %}
-    <details class="shop_group" data-shop-group data-collapse-key="sell:{{ group.key }}">
+    <details class="market_group" data-shop-group data-collapse-key="sell:{{ group.key }}">
       <summary>
+        <img class="market_category_icon" src="{% static group.icon_path|default:'img/equipment_icons/item.svg' %}" alt="" width="28" height="28">
         <span>{{ group.label }}</span>
-        <span class="shop_group_count">{{ group.items|length }}</span>
+        <span class="market_group_count">{{ group.items|length }}</span>
       </summary>
-      <table class="shop_table">
+      <table class="market_table">
         <tbody>
           {% for item in group.items %}
             <tr
@@ -25,7 +27,7 @@
               data-shop-quality="{{ item.quality }}"
             >
               <td class="shop_item_name">
-                <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
+                <button type="button" class="market_pick" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
               </td>
               <td class="shop_item_price">{{ item.unit_price }} KS</td>
             </tr>

@@ -1,22 +1,32 @@
-<section class="payday-window payday-window--large sheet-window" id="shopWindow" aria-hidden="true">
+{% load static %}
+<div class="market_overlay" id="shopOverlay" hidden>
+<section class="payday-window payday-window--large sheet-window" id="shopWindow" role="dialog" aria-modal="true" aria-labelledby="shopMarketTitle" aria-hidden="true">
   {{ shop_quality_choices|json_script:"shopQualityChoices" }}
-  <div class="payday-window__titlebar sheet-window__header" id="shopWindowHandle">
-    <div class="sheet-window__heading">
-      <h3 class="payday-window__title sheet-window__title">Laden</h3>
+  <div class="market_header" id="shopWindowHandle">
+    <span class="market_emblem" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v18M7 21h10M5 6h14M5 6l-3 7h6L5 6Zm14 0-3 7h6l-3-7ZM2 13a3 3 0 0 0 6 0m8 0a3 3 0 0 0 6 0"/>
+      </svg>
+    </span>
+    <div class="market_heading">
+      <span class="market_guild">CODEX ARCANA &middot; HANDELSGILDE</span>
+      <h3 class="market_title" id="shopMarketTitle">Der Arkane Markt</h3>
+      <p class="market_subtitle">Waren und Sch&auml;tze aus den Reichen Kreijors</p>
     </div>
+    <div class="market_wallet"><span>Dein Vermögen</span><strong id="shopHeaderBalance">{{ character.money }} KS</strong></div>
     <div class="sheet-window__actions">
-      <button type="button" class="payday-window__close sheet-window__close" id="shopWindowClose" aria-label="Laden schlie&szlig;en">x</button>
+      <button type="button" class="payday-window__close sheet-window__close" id="shopWindowClose" aria-label="Markt schlie&szlig;en">x</button>
     </div>
   </div>
-  <div class="payday-window__body sheet-window__body shop-window__body learn-window__body">
-    <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
-      <div class="learn_tabs" data-tabs>
-        <section class="sheet-window__section shop_panel learn_nav_panel" aria-label="Handelsmodus">
-          <aside class="learn_tabs__sidebar">
-            <div class="learn_tabs__list" role="tablist" aria-label="Handelsmodus" aria-orientation="vertical">
+  <div class="market_body">
+    <div class="market_layout">
+      <div class="market_tabs" data-tabs>
+        <section class="market_nav" aria-label="Handelsmodus">
+          <aside class="market_tabs__sidebar">
+            <div class="market_tabs__list" role="tablist" aria-label="Handelsmodus" aria-orientation="vertical">
               <button
                 type="button"
-                class="learn_tabs__tab"
+                class="market_tabs__tab"
                 id="shop-tab-buy"
                 role="tab"
                 aria-selected="true"
@@ -24,12 +34,12 @@
                 data-tab-target="shop-panel-buy"
                 data-shop-mode-btn="buy"
               >
-                <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#10010;</span></span>
-                <span class="learn_tabs__label">Kaufen</span>
+                <span class="market_tabs__icon_frame" aria-hidden="true"><svg class="market_tabs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 4v16m-6-6 6 6 6-6"/></svg></span>
+                <span class="market_tabs__label">Kaufen</span>
               </button>
               <button
                 type="button"
-                class="learn_tabs__tab"
+                class="market_tabs__tab"
                 id="shop-tab-sell"
                 role="tab"
                 aria-selected="false"
@@ -38,34 +48,37 @@
                 data-shop-mode-btn="sell"
                 tabindex="-1"
               >
-                <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#8596;</span></span>
-                <span class="learn_tabs__label">Verkaufen</span>
+                <span class="market_tabs__icon_frame" aria-hidden="true"><svg class="market_tabs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 20V4m-6 6 6-6 6 6"/></svg></span>
+                <span class="market_tabs__label">Verkaufen</span>
               </button>
             </div>
           </aside>
         </section>
 
-        <section class="sheet-window__section shop_panel">
-          <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll learn_list_scroll" aria-label="Kaufbare Gegenst&auml;nde">
-            <div class="learn_tabs__content">
-              <div class="learn_tabs__content_head">
-                <div class="sheet-window__section-head shop_panel_header">
-                  <h2 class="sheet-window__section-title" id="shopListTitle">Kaufbare Gegenst&auml;nde</h2>
+        <section class="market_panel">
+          <div class="market_catalog" aria-label="Warenverzeichnis">
+            <div class="market_tabs__content">
+              <div class="market_tabs__content_head">
+                <div class="market_section_head">
+                  <div><span class="market_eyebrow">Das Warenverzeichnis</span><h2 class="market_section_title" id="shopListTitle">Handelswaren</h2></div><span id="shopItemCount" class="market_count"></span>
                 </div>
-                <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
+                <div class="market_toolbar">
+                  <div class="market_search_wrap"><span class="market_search_icon" aria-hidden="true">⌕</span>
                   <input
                     type="text"
                     id="shopFilterInput"
-                    class="sheet-window__field shop_filter_input"
+                    class="market_search"
                     placeholder="Gegenstand suchen..."
                     aria-label="Gegenst&auml;nde filtern"
                   >
-                  <button type="button" id="shopAddItemBtn" class="sheet-window__control shop_add_btn" title="Neuen Gegenstand anlegen" aria-label="Neuen Gegenstand anlegen">+</button>
+                  <span class="market_search_hint" aria-hidden="true">Suche</span></div>
+                  <button type="button" id="shopAddItemBtn" class="market_add" title="Neuen Gegenstand anlegen" aria-label="Neuen Gegenstand anlegen">+</button>
                 </div>
               </div>
 
+              <div class="market_columns"><span>Gegenstand</span><span>Wert</span></div>
               <section
-                class="learn_tabs__panel"
+                class="market_tabs__panel"
                 id="shop-panel-buy"
                 role="tabpanel"
                 aria-labelledby="shop-tab-buy"
@@ -73,12 +86,12 @@
                 data-shop-mode-panel="buy"
               >
                 {% for group in shop_item_groups %}
-                  <details class="shop_group" data-shop-group data-collapse-key="buy:{{ group.key }}">
+                  <details class="market_group" data-shop-group data-collapse-key="buy:{{ group.key }}">
                     <summary>
-                      <span>{{ group.label }}</span>
-                      <span class="shop_group_count">{{ group.items|length }}</span>
+                      <img class="market_category_icon" src="{% static group.icon_path|default:'img/equipment_icons/item.svg' %}" alt="" width="28" height="28"><span>{{ group.label }}</span>
+                      <span class="market_group_count">{{ group.items|length }}</span>
                     </summary>
-                    <table class="shop_table">
+                    <table class="market_table">
                       <tbody>
                         {% for item in group.items %}
                           <tr
@@ -114,7 +127,8 @@
                             data-shop-min-st="{{ item.stats.min_st|default_if_none:'' }}"
                           >
                             <td class="shop_item_name">
-                              <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
+                              {{ item.quality_prices|json_script }}
+                              <button type="button" class="market_pick" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
                             </td>
                             <td class="shop_item_price">{{ item.default_price }} KS</td>
                           </tr>
@@ -128,67 +142,57 @@
               </section>
 
               {% include "charsheet/partials/_shop_sell_panel.html" %}
+              <div class="market_disclosures"><span>✧ Alle Waren</span><button type="button" id="shopExpandAll">Alle &ouml;ffnen</button><button type="button" id="shopCollapseAll">Alle schlie&szlig;en</button></div>
             </div>
           </div>
         </section>
-        <section class="sheet-window__section shop_panel">
-          <div class="sheet-window__section-head shop_panel_header">
-            <h2 class="sheet-window__section-title" id="shopCartTitle">Warenkorb</h2>
+        <section class="market_panel">
+          <div class="market_section_head">
+            <div><span class="market_eyebrow">Handelsabschluss</span><h2 class="market_section_title" id="shopCartTitle">Deine Auswahl</h2></div><span id="shopCartCount" class="market_count">0</span>
           </div>
-          <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}" data-sell-url="{% url 'sell_shop_cart' character.id %}" data-trade-url="{% url 'trade_shop_cart' character.id %}">
-            <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll">
-              <table class="shop_cart_table">
-                <thead>
-                  <tr>
-                    <th id="shopCartItemHeader">Gegenstand</th>
-                    <th>Qualit&auml;t</th>
-                    <th>Menge</th>
-                    <th>Einzel</th>
-                    <th>Summe</th>
-                    <th></th>
-                  </tr>
-                </thead>
+          <div class="market_cart" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}" data-sell-url="{% url 'sell_shop_cart' character.id %}" data-trade-url="{% url 'trade_shop_cart' character.id %}">
+            <div class="market_columns market_columns--cart"><span>Gegenstand / Qualität</span><span>Menge</span><span>Wert</span></div>
+            <div class="market_cart_scroll">
+              <table class="market_cart_table">
                 <tbody id="shopCartBody">
-                  <tr class="shop_cart_empty_row">
-                    <td colspan="6">Noch keine Gegenst&auml;nde ausgew&auml;hlt.</td>
+                  <tr class="market_cart_empty">
+                    <td colspan="3">Noch keine Gegenst&auml;nde ausgew&auml;hlt.<br>Wähle eine Ware aus dem Verzeichnis.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div class="shop_cart_totals">
-              <div class="shop_cart_total_row">
-                <span>Gesamtpreis</span>
-                <span id="shopCartSubtotal">0 KS</span>
-              </div>
-              <div class="shop_cart_total_row shop_cart_discount_row">
+            <div class="market_totals">
+              <div class="market_total_row"><span>Kaufwaren</span><span></span><span id="shopCartSubtotal">0 KS</span></div>
+              <div class="market_total_row shop_cart_discount_row">
                 <label for="shopDiscountInput">Kaufrabatt</label>
-                <div class="shop_discount_input_wrap">
-                  <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
+                <div class="market_percent">
+                  <button type="button" class="market_percent_button" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
                   <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
-                  <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
+                  <button type="button" class="market_percent_button" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
                   <span>%</span>
                 </div>
+                <span id="shopDiscountAmount">0 KS</span>
               </div>
-              <div class="shop_cart_total_row shop_cart_resale_row">
+              <div class="market_total_row"><span>Verkaufswaren</span><span></span><span id="shopSellSubtotal">0 KS</span></div>
+              <div class="market_total_row shop_cart_resale_row">
                 <label for="shopResaleInput">Verkaufswert</label>
-                <div class="shop_discount_input_wrap">
-                  <button type="button" class="shop_step_btn" id="shopResaleDec" aria-label="Verkaufswert verringern">-</button>
+                <div class="market_percent">
+                  <button type="button" class="market_percent_button" id="shopResaleDec" aria-label="Verkaufswert verringern">-</button>
                   <input type="text" id="shopResaleInput" inputmode="numeric" value="50" aria-label="Verkaufswert in Prozent">
-                  <button type="button" class="shop_step_btn" id="shopResaleInc" aria-label="Verkaufswert erh&ouml;hen">+</button>
+                  <button type="button" class="market_percent_button" id="shopResaleInc" aria-label="Verkaufswert erh&ouml;hen">+</button>
                   <span>%</span>
                 </div>
+                <span id="shopResaleAmount">0 KS</span>
               </div>
-              <div class="shop_cart_total_row">
-                <span id="shopCartFinalLabel">Saldo</span>
-                <span id="shopCartFinal">0 KS</span>
-              </div>
-              <div class="shop_cart_total_row">
-                <span>Neuer Kassenstand</span>
+              <div class="market_total_row market_balance_row">
+                <span>Neuer Kassenstand</span><span></span>
                 <span id="shopCartBalance">{{ character.money }} KS</span>
               </div>
-              <div class="sheet-window__footer shop_cart_actions">
-                <button type="button" id="shopActionBtn" class="wax_seal_btn" aria-label="Handeln" title="Handeln"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+              <div class="market_checkout">
+                <div class="market_balance"><span id="shopCartFinalLabel">Handelssaldo</span><strong id="shopCartFinal">0 KS</strong></div>
+                <button type="button" id="shopActionBtn" class="market_submit">Handel abschlie&szlig;en</button>
               </div>
+              <p id="shopStatus" class="market_status" role="status" aria-live="polite"></p>
             </div>
           </div>
         </section>
@@ -196,6 +200,7 @@
     </div>
   </div>
 </section>
+</div>
 
 <section class="payday-window payday-window--large sheet-window" id="shopItemWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="shopItemWindowHandle">

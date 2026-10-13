@@ -1,4 +1,5 @@
 import { applySheetPartials } from "./partial_updates.js";
+import { animateMoneyBalance, readWalletBalance } from "./money_animation.js?v=20261013-sidebar-money";
 import { prepareConsumable } from "./consumables.js?v=20261005";
 
 function flashSheetFeedback(level) {
@@ -246,8 +247,13 @@ export function initSheetActions() {
         throw new Error("sheet action invalid");
       }
       removalSucceeded = Boolean(form.querySelector("[data-require-shift-delete]"));
+      const previousMoney = form.querySelector(".wallet_delta_input") ? readWalletBalance() : null;
       if (Array.isArray(payload.partials) && payload.partials.length) {
         applySheetPartials(payload);
+      }
+      if (previousMoney !== null) {
+        const newMoney = readWalletBalance();
+        if (newMoney !== null) await animateMoneyBalance(previousMoney, newMoney);
       }
       if (payload.reputationPoints) {
         document.dispatchEvent(new CustomEvent("charsheet:reputation-points-updated", {

@@ -540,7 +540,7 @@ function startsStructuredBlock(line, nextLine = "") {
   return header.length > 0 && header.length === divider.length && isTableDividerRow(divider);
 }
 
-function renderTooltipMarkup(rawText) {
+export function renderTooltipMarkup(rawText) {
   const text = String(rawText || "").trim();
   if (!text) {
     return "";
