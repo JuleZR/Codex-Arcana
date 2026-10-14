@@ -885,6 +885,23 @@ class ModifierEngine:
                 continue
 
             expected = self._expected_skill_specification(modifier)
+            binding = modifier.metadata.get("choice_binding") or {}
+            choice_map = {
+                "technique_choice_definition": (
+                    self.character_engine._technique_choices_by_definition_id
+                ),
+                "race_choice_definition": (
+                    self.character_engine._race_choices_by_definition_id
+                ),
+            }.get(binding.get("kind"), {})
+            for choice in choice_map.get(binding.get("id"), []):
+                if choice.selected_skill_id != skill_id:
+                    continue
+                selected = choice.selected_specification
+                normalized = self._normalize_skill_specification(selected)
+                if selected and (expected is None or expected == normalized):
+                    specifications.add(normalized)
+                    display_values.setdefault(normalized, selected)
             if not expected:
                 continue
 
@@ -1631,6 +1648,12 @@ class ModifierEngine:
 
             if any(
                 choice.selected_skill_id == skill_id
+                and (
+                    not choice.selected_specification
+                    or self._normalize_skill_specification(
+                        choice.selected_specification,
+                    ) == self._normalize_skill_specification(specification)
+                )
                 and self._choice_skill_modifier_matches_specification(
                     modifier,
                     specification=specification,

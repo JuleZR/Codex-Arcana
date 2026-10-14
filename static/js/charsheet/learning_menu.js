@@ -1,4 +1,4 @@
-import { createChoiceModalController } from "./choice_modal.js?v=20260922b";
+import { createChoiceModalController } from "./choice_modal.js?v=20261014-open-choices-only";
 import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
 import { initLearningChronicle } from "./learning_chronicle.js?v=20261014u";
 
@@ -1321,7 +1321,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
     if (!(section instanceof HTMLElement)) {
       return false;
     }
-    return (section.dataset.choiceInputType || "options") !== "unsupported";
+    return section.dataset.choiceSaved !== "1"
+      && (section.dataset.choiceInputType || "options") !== "unsupported";
   }).length;
 
   const syncPendingNotice = (event = null) => {

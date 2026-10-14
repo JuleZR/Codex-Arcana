@@ -396,7 +396,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
 
     # Track (field_name, raw_value) pairs already saved this submission to avoid
     # processing duplicate field names when multiple open slots share the same name.
-    saved_field_name_values: set[tuple[str, str]] = set()
+    saved_field_name_values: set[tuple[str, str, str]] = set()
 
     for row in progression_context["learn_choice_rows"]:
         if not row["supported"]:
@@ -413,7 +413,10 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             raw_value = str(post_data.get(submitted_field_name, "")).strip()
         if not raw_value:
             continue
-        dedup_key = (submitted_field_name, raw_value)
+        specification = str(post_data.get(
+            f"{submitted_field_name}_specification", "",
+        )).strip()
+        dedup_key = (submitted_field_name, raw_value, specification)
         if dedup_key in saved_field_name_values:
             continue
         saved_field_name_values.add(dedup_key)
@@ -531,6 +534,13 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             else:
                 skill_value = raw_value.split(":", 1)[1] if raw_value.startswith("skill:") else raw_value
                 choice_payload["selected_skill_id"] = int(skill_value)
+                if choice_scope in {"technique", "race"}:
+                    skill = Skill.objects.get(pk=int(skill_value))
+                    if skill.requires_specification and not specification:
+                        raise LearningSubmissionError(
+                            f"{skill.name}: Bitte eine Spezifikation angeben."
+                        )
+                    choice_payload["selected_specification"] = specification
         elif target_kind == Technique.ChoiceTargetKind.SKILL_CATEGORY:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Kategorienwahl.")

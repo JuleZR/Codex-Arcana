@@ -14,9 +14,13 @@ from charsheet.constants import (
 from charsheet.models import (
     Attribute,
     CharacterDaemonicPower,
+    CharacterCreatureTraitChoice,
+    CharacterRaceChoice,
     CharacterSkill,
     CharacterSpecializationChoice,
+    CharacterTechniqueChoice,
     CharacterTrait,
+    CharacterTraitChoice,
     Item,
     DaemonicPower,
     Rune,
@@ -127,6 +131,7 @@ def _build_decision_option(
     description: str = "",
     badge: str = "",
     facts: list[dict[str, str]] | None = None,
+    specification_submit_name: str = "",
 ) -> dict[str, object]:
     """Return one serialized option for the choice modal payload."""
     return {
@@ -139,6 +144,7 @@ def _build_decision_option(
         "description": description,
         "submit_name": submit_name,
         "submit_value": submit_value,
+        "specification_submit_name": specification_submit_name,
     }
 
 
@@ -466,6 +472,117 @@ def build_learning_magic_groups(
         ),
         str(group["name"]).casefold(),
     ))
+
+
+def _saved_choice_decisions(character):
+    """Expose persisted targets without adding an unsupported replacement action."""
+    decisions = []
+    sources = (
+        ("technique", CharacterTechniqueChoice.objects.filter(
+            character=character,
+        ).select_related("technique", "definition")),
+        ("race", CharacterRaceChoice.objects.filter(
+            character=character, definition__race=character.race,
+        ).select_related("definition", "definition__race")),
+        ("specialization", CharacterSpecializationChoice.objects.filter(
+            character_specialization__character=character,
+        ).select_related(
+            "definition", "character_specialization__specialization",
+            "selected_character_skill__skill",
+        )),
+        ("trait", CharacterTraitChoice.objects.filter(
+            character_trait__owner=character,
+        ).select_related("definition", "character_trait__trait")),
+        ("creature", CharacterCreatureTraitChoice.objects.filter(
+            character_creature_trait__creature__owner=character,
+            character_creature_trait__creature__active=True,
+            character_creature_trait__active=True,
+        ).select_related(
+            "definition", "character_creature_trait__trait",
+        )),
+    )
+    for scope, choices in sources:
+        for choice in choices.order_by("pk"):
+            if scope == "technique":
+                source = choice.technique
+            elif scope == "race":
+                source = choice.definition.race
+            elif scope == "specialization":
+                source = choice.character_specialization.specialization
+            elif scope == "creature":
+                source = choice.character_creature_trait.trait
+            else:
+                source = choice.character_trait.trait
+            decisions.append({
+                "decision_id": f"saved-{scope}-{choice.pk}",
+                "title": str(source.name),
+                "summary": choice.selected_target_display(),
+                "description": (
+                    choice.definition.description if choice.definition else ""
+                ),
+            })
+
+    # These decisions are stored as progression entries rather than generic
+    # Choice records. Keep them in the history after their open offer disappears.
+    for entry in character.selected_school_paths.select_related("school", "path"):
+        decisions.append({
+            "decision_id": f"saved-school-path-{entry.pk}",
+            "title": f"Pfadwahl: {entry.school.name}",
+            "summary": entry.path.name,
+            "description": entry.path.description,
+        })
+    for entry in character.weapon_masteries.select_related(
+        "school", "weapon_type", "weapon_item",
+    ):
+        decisions.append({
+            "decision_id": f"saved-weapon-mastery-{entry.pk}",
+            "title": f"{entry.school.name}: Waffentyp {entry.pick_order}",
+            "summary": (
+                f"{entry.weapon_type_label()}, "
+                f"{entry.get_first_bonus_kind_display()}"
+            ),
+            "description": "",
+        })
+    for entry in character.weapon_mastery_arcana_entries.select_related(
+        "school", "rune",
+    ):
+        decisions.append({
+            "decision_id": f"saved-weapon-arcana-{entry.pk}",
+            "title": f"{entry.school.name}: Arkane Meisterschaft",
+            "summary": (
+                entry.rune.name if entry.rune_id else "+1/+1 Bonuskapazität"
+            ),
+            "description": entry.rune.description if entry.rune_id else "",
+        })
+    for entry in character.learned_specializations.filter(
+        source_choice__isnull=True,
+    ).select_related("specialization", "specialization__school"):
+        decisions.append({
+            "decision_id": f"saved-specialization-pick-{entry.pk}",
+            "title": f"Spezialisierung: {entry.specialization.school.name}",
+            "summary": entry.specialization.name,
+            "description": entry.specialization.description,
+        })
+    for entry in character.learned_techniques.filter(
+        technique__acquisition_type=Technique.AcquisitionType.CHOICE,
+        technique__is_choice_placeholder=False,
+    ).select_related("technique", "technique__school"):
+        decisions.append({
+            "decision_id": f"saved-technique-pick-{entry.pk}",
+            "title": f"Technikwahl: {entry.technique.school.name}",
+            "summary": entry.technique.name,
+            "description": entry.technique.selection_notes,
+        })
+    for entry in CharacterDaemonicPower.objects.filter(
+        character=character, granting_technique__isnull=False,
+    ).select_related("granting_technique", "power"):
+        decisions.append({
+            "decision_id": f"saved-daemonic-power-{entry.pk}",
+            "title": f"Dämonische Kraft: {entry.granting_technique.name}",
+            "summary": entry.power.name,
+            "description": entry.power.description,
+        })
+    return decisions
 
 
 def build_learning_progression_context(character, *, engine, synchronize: bool = True) -> dict[str, object]:
@@ -1226,6 +1343,10 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         meta=option["meta"],
                         submit_name=row["field_name"],
                         submit_value=str(option["value"]),
+                        specification_submit_name=(
+                            f"{row['field_name']}_specification"
+                            if option.get("requires_specification") else ""
+                        ),
                     )
                     for option in row["options"]
                 ],
@@ -1330,6 +1451,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
         "learn_choice_rows": [row for rows in choice_groups.values() for row in rows],
         "learn_choice_count": sum(len(rows) for rows in choice_groups.values()),
         "learn_pending_decisions": pending_decisions,
+        "learn_saved_decisions": _saved_choice_decisions(character),
         "learn_pending_choice_count": len(pending_decisions),
         "learn_has_pending_choices": bool(pending_decisions),
     }
@@ -1393,6 +1515,8 @@ def _build_choice_row(
                 "value": skill.id,
                 "label": skill.name,
                 "meta": skill.category.name,
+                "requires_specification": skill.requires_specification,
+                "allow_multiple": skill.requires_specification,
             }
             for skill in filtered_skills
         ]
@@ -1441,7 +1565,8 @@ def _build_choice_row(
         options = [
             option
             for option in options
-            if str(option["value"]) not in selected_values
+            if option.get("requires_specification")
+            or str(option["value"]) not in selected_values
         ]
 
     return {
@@ -1514,6 +1639,8 @@ def _build_race_choice_row(
                 "value": skill.id,
                 "label": skill.name,
                 "meta": skill.category.name,
+                "requires_specification": skill.requires_specification,
+                "allow_multiple": skill.requires_specification,
             }
             for skill in filtered_skills
         ]

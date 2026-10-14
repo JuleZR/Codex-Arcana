@@ -23,6 +23,10 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   }
 
   let activeDecisionId = "";
+  let submitting = false;
+  const confirmedIds = new Set();
+  const lockedInputs = new Map();
+  const previousBtn = modalWindow.querySelector("[data-choice-previous]");
 
   // Explicit selection tracker — decisionId → optionId.
   // Stays up-to-date even when sections are hidden so that grouping
@@ -48,6 +52,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   };
 
   const getSections = () => Array.from(panelListEl.querySelectorAll("[data-choice-decision-id]"));
+  const getVisibleSections = () => getSections().filter(
+    (section) => !isSavedSection(section),
+  );
   const getNavItems = () => Array.from(navListEl.querySelectorAll("[data-choice-nav-id]"));
   const getDecisionId = (section) => section.dataset.choiceDecisionId || "";
   const getDecisionInputs = (decisionId) => Array.from(hiddenInputContainer.querySelectorAll(`input[data-choice-decision-id="${decisionId}"]`));
@@ -59,6 +66,10 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   const getNavItemByDecisionId = (decisionId) => navListEl.querySelector(`[data-choice-nav-id="${decisionId}"]`);
   const getPanelSummaryEl = (section) => section.querySelector("[data-choice-panel-summary]");
   const getPanelStateEl = (section) => section.querySelector("[data-choice-panel-state]");
+  const unlockInputs = () => {
+    lockedInputs.forEach((disabled, input) => { input.disabled = disabled; });
+    lockedInputs.clear();
+  };
 
   const clearDecisionInputs = (decisionId) => {
     getDecisionInputs(decisionId).forEach((input) => {
@@ -79,6 +90,8 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
 
   const getSelectedRadio = (section) => section.querySelector("input[type='radio']:checked:not([data-choice-side-option])");
   const getSelectedSideRadio = (section) => section.querySelector("input[data-choice-side-option]:checked");
+  const getSpecificationInput = (selected) => selected?.closest(".learn_choice_option")
+    ?.querySelector("[data-choice-specification-input]");
   const getSelectedOptionId = (section) => {
     const selected = getSelectedRadio(section);
     if (!(selected instanceof HTMLInputElement)) {
@@ -87,7 +100,10 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     return selected.dataset.choiceOptionId || selected.value || "";
   };
 
-  const isActionableSection = (section) => getInputType(section) !== "unsupported";
+  const isSavedSection = (section) => section.dataset.choiceSaved === "1"
+    || confirmedIds.has(getDecisionId(section));
+  const isActionableSection = (section) => !isSavedSection(section)
+    && getInputType(section) !== "unsupported";
   const isSectionResolvedByHidden = (section) => {
     const inputs = getDecisionInputs(getDecisionId(section));
     if (!inputs.length) {
@@ -95,6 +111,17 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     }
     if (getInputType(section) === "text") {
       return Boolean(String(inputs[0].value || "").trim());
+    }
+    const mainInput = inputs.find((input) => input.dataset.choiceSideOption !== "1"
+      && input.dataset.choiceSpecification !== "1");
+    const selected = getSectionOptionInputs(section).find(
+      (input) => input.dataset.choiceOptionId === mainInput?.dataset.choiceOptionId,
+    );
+    const specificationInput = getSpecificationInput(selected);
+    if (specificationInput && !inputs.some(
+      (input) => input.name === specificationInput.dataset.choiceSubmitName && input.value.trim(),
+    )) {
+      return false;
     }
     return !section.querySelector("[data-choice-side-option]")
       || (inputs.some((input) => input.dataset.choiceSideOption === "1")
@@ -111,6 +138,10 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       return input instanceof HTMLInputElement
         ? Boolean(String(input.value || "").trim())
         : isSectionResolvedByHidden(section);
+    }
+    const specificationInput = getSpecificationInput(getSelectedRadio(section));
+    if (specificationInput && !specificationInput.value.trim()) {
+      return false;
     }
     if (section.querySelector("[data-choice-side-option]")) {
       return Boolean(getSelectedRadio(section) && getSelectedSideRadio(section))
@@ -131,7 +162,11 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     }
     const option = selected.closest(".learn_choice_option");
     const title = option?.querySelector(".learn_choice_option_title");
-    const weaponLabel = title?.textContent?.trim() || selected.value || "";
+    let weaponLabel = title?.textContent?.trim() || selected.value || "";
+    const specification = getSpecificationInput(selected)?.value.trim();
+    if (specification) {
+      weaponLabel = `${weaponLabel.replace(/\[Specification\]/g, "").replace(/[:\s]+$/, "")}: ${specification}`;
+    }
     const side = getSelectedSideRadio(section);
     if (!side) {
       return weaponLabel;
@@ -144,20 +179,20 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     if (!(section instanceof HTMLElement)) {
       return;
     }
-    const resolved = isSectionResolved(section);
-    const actionable = isActionableSection(section);
+    if (section.dataset.choiceSaved === "1") return;
+    const selected = getSelectedRadio(section);
+    section.querySelectorAll("[data-choice-specification-wrap]").forEach((wrap) => {
+      wrap.hidden = wrap.closest(".learn_choice_option") !== selected?.closest(".learn_choice_option");
+    });
+    const resolved = isSavedSection(section);
+    const selectedLocally = isSectionResolved(section);
     const navItem = getNavItemByDecisionId(getDecisionId(section));
-    const stateText = !actionable
-      ? "Info"
-      : resolved
-        ? "Ausgewaehlt"
-        : "Offen";
-    const summaryText = resolved
-      ? (getSelectionLabel(section) || "Auswahl gespeichert")
-      : "Noch nicht ausgewaehlt";
+    const stateText = resolved ? "✓ Gespeichert" : selectedLocally ? "! Vorgemerkt" : "! Offen";
+    const summaryText = getSelectionLabel(section) || "Noch keine Auswahl";
 
     section.classList.toggle("is-resolved", resolved);
-    section.classList.toggle("is-pending", actionable && !resolved);
+    section.classList.toggle("is-pending", !resolved);
+    section.classList.toggle("is-staged", !resolved && selectedLocally);
 
     const panelSummary = getPanelSummaryEl(section);
     if (panelSummary instanceof HTMLElement) {
@@ -170,7 +205,8 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
 
     if (navItem instanceof HTMLElement) {
       navItem.classList.toggle("is-resolved", resolved);
-      navItem.classList.toggle("is-pending", actionable && !resolved);
+      navItem.classList.toggle("is-pending", !resolved);
+      navItem.classList.toggle("is-staged", !resolved && selectedLocally);
       const navSummary = navItem.querySelector("[data-choice-nav-summary]");
       const navState = navItem.querySelector("[data-choice-nav-state]");
       if (navSummary instanceof HTMLElement) {
@@ -187,6 +223,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     selectionGroupId = "",
     optionId = "",
     sideOption = false,
+    specificationOption = false,
     submitName,
     submitValue,
   }) => {
@@ -202,10 +239,14 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     if (sideOption) {
       input.dataset.choiceSideOption = "1";
     }
+    if (specificationOption) {
+      input.dataset.choiceSpecification = "1";
+    }
     hiddenInputContainer.appendChild(input);
   };
 
   const syncSectionFromHidden = (section) => {
+    if (section.dataset.choiceSaved === "1") return;
     const decisionId = getDecisionId(section);
     const inputs = getDecisionInputs(decisionId);
     const inputType = getInputType(section);
@@ -224,7 +265,13 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       }
     });
     let restoredOptionId = "";
+    section.querySelectorAll("[data-choice-specification-input]").forEach((input) => {
+      input.value = inputs.find((hidden) => hidden.name === input.dataset.choiceSubmitName)?.value || "";
+    });
     inputs.forEach((hiddenInput) => {
+      if (hiddenInput.dataset.choiceSpecification === "1") {
+        return;
+      }
       const optionId = hiddenInput.dataset.choiceOptionId || "";
       const selector = hiddenInput.dataset.choiceSideOption === "1"
         ? `input[data-choice-side-option][data-choice-option-id="${optionId}"]`
@@ -332,7 +379,10 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   };
 
   const setActiveDecision = (decisionId, { focusNav = false } = {}) => {
-    activeDecisionId = decisionId || "";
+    const visibleSections = getVisibleSections();
+    activeDecisionId = visibleSections.some((section) => getDecisionId(section) === decisionId)
+      ? decisionId
+      : (visibleSections[0] ? getDecisionId(visibleSections[0]) : "");
     getSections().forEach((section) => {
       const active = getDecisionId(section) === activeDecisionId;
       section.hidden = !active;
@@ -342,17 +392,35 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       const active = item.getAttribute("data-choice-nav-id") === activeDecisionId;
       item.classList.toggle("is-active", active);
       item.setAttribute("aria-pressed", active ? "true" : "false");
+      item.setAttribute("aria-current", active ? "step" : "false");
       if (active && focusNav) {
         item.focus();
       }
     });
+    const sections = getSections();
+    getNavItems().forEach((item) => {
+      const section = sections.find((entry) => getDecisionId(entry) === item.dataset.choiceNavId);
+      item.hidden = Boolean(section && isSavedSection(section));
+    });
+    if (previousBtn) previousBtn.disabled = visibleSections.findIndex(
+      (section) => getDecisionId(section) === activeDecisionId,
+    ) <= 0;
   };
 
   const getPendingSections = () => getSections().filter(
-    (section) => isActionableSection(section) && !isSectionResolvedByHidden(section),
+    (section) => isActionableSection(section),
   );
   const hasPendingChoices = () => getPendingSections().length > 0;
   const emitPendingChange = () => {
+    const sections = getSections();
+    const saved = sections.filter(isSavedSection).length;
+    const label = modalWindow.querySelector("[data-choice-progress-label]");
+    const progress = modalWindow.querySelector("[data-choice-progress]");
+    if (label) label.textContent = `${saved} / ${sections.length}`;
+    if (progress) {
+      progress.max = Math.max(1, sections.length);
+      progress.value = saved;
+    }
     document.dispatchEvent(new CustomEvent("learn:choices-updated", {
       detail: { pendingCount: getPendingSections().length },
     }));
@@ -392,12 +460,40 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     });
 
     document.body.appendChild(tempForm);
-    tempForm.addEventListener("sheet:action-success", () => {
+    const onFailure = () => {
+      unlockInputs();
+      submitting = false;
+      confirmBtn.disabled = false;
+      setHint("Die Auswahl wurde nicht gespeichert. Bitte erneut übernehmen.");
+      tempForm.remove();
+    };
+    tempForm.addEventListener("sheet:action-success", (event) => {
+      if (event.detail?.learningFeedback?.level === "error" || event.detail?.ok !== true) {
+        onFailure();
+        return;
+      }
+      // A successful action may replace the entire learning partial. Its server
+      // context is authoritative; never paint a rejected/still-open choice green.
+      const currentPanels = document.getElementById("learnChoicePanelList");
+      unlockInputs();
+      if (currentPanels === panelListEl) {
+        getSections().forEach((section) => {
+          if (isSectionResolvedByHidden(section)) {
+            confirmedIds.add(getDecisionId(section));
+            section.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+            updateDecisionResolvedState(section);
+          }
+        });
+        emitPendingChange();
+        setActiveDecision(activeDecisionId);
+        if (!getVisibleSections().length) closeModal();
+        setHint("Auswahl gespeichert.");
+      }
+      submitting = false;
+      confirmBtn.disabled = !hasPendingChoices();
       tempForm.remove();
     }, { once: true });
-    tempForm.addEventListener("sheet:action-failed", () => {
-      tempForm.remove();
-    }, { once: true });
+    tempForm.addEventListener("sheet:action-failed", onFailure, { once: true });
     const submitEvent = typeof SubmitEvent === "function"
       ? new SubmitEvent("submit", {
           bubbles: true,
@@ -431,7 +527,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     updateGroupedOptionAvailability();
     const pendingSections = [];
     getSections().forEach((section) => {
-      const pending = isActionableSection(section) && !isSectionResolvedByHidden(section);
+      const pending = isActionableSection(section);
       section.classList.toggle("is-pending", pending);
       if (pending) {
         pendingSections.push(section);
@@ -441,7 +537,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
 
     setActiveDecision(chooseBestActiveSection(pendingSections));
 
-    titleEl.textContent = pendingSections.length > 1 ? "Offene Wahlen" : "Offene Wahl";
+    titleEl.textContent = "Wege der Entscheidung";
     if (introEl instanceof HTMLElement) {
       introEl.textContent = pendingSections.length > 1
         ? "Links siehst du alle offenen Choices. Rechts bearbeitest du die jeweils ausgewaehlte Entscheidung direkt."
@@ -480,8 +576,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       const sideInput = section.querySelector("[data-choice-side-option]")
         ? getSelectedSideRadio(section)
         : null;
-      if ((selectedInput && !sideInput && section.querySelector("[data-choice-side-option]"))
-        || (sideInput && !selectedInput)) {
+      if (selectedInput && !sideInput && section.querySelector("[data-choice-side-option]")) {
         return { ok: false, hint: "Bitte Startbonus und Waffentyp zusammen auswaehlen." };
       }
       if (!(selectedInput instanceof HTMLInputElement)) {
@@ -489,15 +584,25 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       }
 
       const optionId = selectedInput.dataset.choiceOptionId || selectedInput.value;
+      const specificationInput = getSpecificationInput(selectedInput);
+      const specification = specificationInput?.value.trim() || "";
+      if (specificationInput && (!specification || specification === "*")) {
+        setActiveDecision(decisionId);
+        specificationInput.focus();
+        return { ok: false, hint: "Bitte eine konkrete Spezifikation angeben." };
+      }
+      const selectionKey = specificationInput
+        ? `${selectedInput.dataset.choiceSubmitValue}:${specification.toLowerCase()}`
+        : optionId;
       if (selectionGroupId && !allowsDuplicateSelections(section)) {
         const existing = groupedSelections.get(selectionGroupId) || new Set();
-        if (existing.has(optionId)) {
+        if (existing.has(selectionKey)) {
           return {
             ok: false,
             hint: "Dieselbe Option kann in einer gemeinsamen Choice-Gruppe nicht mehrfach gleichzeitig gewaehlt werden.",
           };
         }
-        existing.add(optionId);
+        existing.add(selectionKey);
         groupedSelections.set(selectionGroupId, existing);
       }
 
@@ -508,6 +613,14 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         submitName: selectedInput.dataset.choiceSubmitName || "",
         submitValue: selectedInput.dataset.choiceSubmitValue || selectedInput.value,
       });
+      if (specificationInput) {
+        results.push({
+          decisionId,
+          specificationOption: true,
+          submitName: specificationInput.dataset.choiceSubmitName,
+          submitValue: specification,
+        });
+      }
       if (sideInput instanceof HTMLInputElement) {
         results.push({
           decisionId,
@@ -531,6 +644,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   };
 
   const applyPendingDecisions = () => {
+    if (submitting) return false;
     const pendingSections = getPendingSections();
     const collected = collectPendingValues(pendingSections);
     if (!collected.ok) {
@@ -551,24 +665,31 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         selectionGroupId: entry.selectionGroupId,
         optionId: entry.optionId || "",
         sideOption: entry.sideOption || false,
+        specificationOption: entry.specificationOption || false,
         submitName: entry.submitName,
         submitValue: entry.submitValue,
       });
     });
 
-    emitPendingChange();
-    const stillPending = renderPendingDecisions();
+    submitting = true;
+    panelListEl.querySelectorAll("input, select").forEach((input) => {
+      lockedInputs.set(input, input.disabled);
+      input.disabled = true;
+    });
+    confirmBtn.disabled = true;
+    setHint("Auswahl wird gespeichert …");
     if (!submitResolvedChoices()) {
-      if (!stillPending.length) {
-        closeModal();
-      }
+      unlockInputs();
+      submitting = false;
+      confirmBtn.disabled = false;
+      setHint("Auswahl ist vorgemerkt. Bitte im Lernmenü übernehmen.");
     }
     return true;
   };
 
   const openPendingChoices = () => {
-    const pendingSections = renderPendingDecisions();
-    if (!pendingSections.length) {
+    if (!submitting) renderPendingDecisions();
+    if (!getVisibleSections().length) {
       closeModal();
       return false;
     }
@@ -633,6 +754,12 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     });
   });
 
+  previousBtn?.addEventListener("click", () => {
+    const sections = getVisibleSections();
+    const index = sections.findIndex((section) => getDecisionId(section) === activeDecisionId);
+    if (index > 0) setActiveDecision(getDecisionId(sections[index - 1]), { focusNav: true });
+  });
+
   getSections().forEach((section) => {
     bindSearchFilter(section);
     section.querySelectorAll("input[type='radio']").forEach((input) => {
@@ -656,6 +783,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         updateDecisionResolvedState(section);
       });
     }
+    section.querySelectorAll("[data-choice-specification-input]").forEach((input) => {
+      input.addEventListener("input", () => updateDecisionResolvedState(section));
+    });
   });
 
   formEl.addEventListener("submit", (event) => {

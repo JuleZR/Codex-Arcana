@@ -1,0 +1,138 @@
+/* Wege der Entscheidung: keep the shared window controller and frame. */
+#learnChoiceWindow.sheet-window.payday-window {
+  width: min(1230px, calc(100vw - 32px));
+  height: min(840px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  border: 5px solid #614837eb;
+  outline: 1px solid #b79564;
+  background: transparent;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #503524;
+  font: 12px "Segoe UI", sans-serif;
+  box-shadow: 0 30px 75px #140c0877, 0 0 0 3px #a18362;
+}
+#learnChoiceWindow, #learnChoiceWindow * { box-sizing: border-box; }
+#learnChoiceWindow [hidden] { display: none !important; }
+#learnChoiceWindow::before { inset: 0; border-color: #c5a16a55; }
+#learnChoiceWindow::after { display: none; }
+#learnChoiceWindow :focus-visible { outline: 2px solid #b79564; outline-offset: 3px; }
+#learnChoiceWindow button, #learnChoiceWindow input, #learnChoiceWindow select { font: inherit; }
+#learnChoiceWindow button { cursor: pointer; }
+#learnChoiceWindow button:disabled { opacity: .45; cursor: default; }
+#learnChoiceWindow .sheet-window__header { background: transparent; }
+#learnChoiceWindow .learn_choice_window_body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+#learnChoiceWindow .learn_choice_banner {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 22px;
+  padding: 22px 44px 22px 20px;
+  border-bottom: 2px solid #b79564;
+  color: #f5e8ce;
+  background: radial-gradient(ellipse at 16% 0%, #bb895b25, transparent 60%), linear-gradient(115deg, #3c2a23e6, #624737e6 55%, #34271fe6);
+}
+#learnChoiceWindow .learn_choice_emblem { display: grid; place-items: center; width: 56px; height: 56px; flex: 0 0 56px; border: 1px solid #b79564; color: #dec398; font-size: 32px; transform: rotate(5deg); }
+#learnChoiceWindow .learn_choice_eyebrow { color: #dec398; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; }
+#learnChoiceWindow .learn_choice_banner h2 { margin: 4px 0; color: #f8ebd3; font: 600 34px/1 "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow .learn_choice_banner p { margin: 4px 0 0; color: #d9bfa0; font: italic 17px "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow .learn_choice_progress { margin-left: auto; min-width: 120px; text-align: right; }
+#learnChoiceWindow .learn_choice_progress strong { display: block; margin: 8px 0; color: #f3dfb8; font: 26px "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow progress { display: block; width: 100%; height: 6px; border: 1px solid #96734d; background: #241b18; accent-color: #dec398; }
+#learnChoiceWindow progress::-webkit-progress-bar { background: #241b18; }
+#learnChoiceWindow progress::-webkit-progress-value { background: #dec398; }
+#learnChoiceWindow progress::-moz-progress-bar { background: #dec398; }
+#learnChoiceWindow .learn_choice_form { flex: 1; min-height: 0; height: auto; }
+#learnChoiceWindow .learn_choice_layout { grid-template-columns: 290px minmax(0, 1fr); gap: 0; }
+#learnChoiceWindow .shop_panel { min-width: 0; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
+#learnChoiceWindow .shop_panel::before, #learnChoiceWindow .shop_panel::after,
+#learnChoiceWindow .shop_panel_header::after { display: none; }
+#learnChoiceWindow .learn_choice_sidebar { background: linear-gradient(90deg, #281f1ae6, #403027e6, #30241ee6); border-right: 1px solid #97714d; color: #e3cba7; }
+#learnChoiceWindow .shop_panel_header { flex: 0 0 auto; padding: 20px 18px 6px; min-height: 0; background: transparent; border: 0; }
+#learnChoiceWindow .sheet-window__section-title { color: #dec398; font-size: 12px; }
+#learnChoiceWindow .learn_choice_nav { gap: 7px; padding: 12px; border: 0; border-radius: 0; background: transparent; box-shadow: none; scrollbar-width: thin; scrollbar-color: #816148 transparent; }
+#learnChoiceWindow .learn_choice_nav_item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #a4594a;
+  border-left: 4px solid #df8475;
+  border-radius: 3px;
+  background: linear-gradient(95deg, #6c2e2a, #4b2925);
+  color: #f6d0c8;
+  box-shadow: none;
+}
+#learnChoiceWindow .learn_choice_nav_item.is-resolved { border-color: #628265; border-left-color: #94bf8e; background: linear-gradient(95deg, #355c3c, #293d2d); color: #dcebd6; }
+#learnChoiceWindow .learn_choice_nav_item.is-staged { border-color: #b67735; border-left-color: #f3b35c; background: linear-gradient(95deg, #79471e, #50341f); color: #ffe0ac; }
+#learnChoiceWindow .learn_choice_panel.is-staged .learn_choice_panel_state { border-color: #b67735; background: #fae3be; color: #874910; }
+#learnChoiceWindow .learn_choice_nav_item:hover { filter: brightness(1.12); }
+#learnChoiceWindow .learn_choice_nav_item.is-active { outline: 1px solid #e6c58b; outline-offset: 1px; box-shadow: inset 0 0 0 1px #e6c58b; }
+#learnChoiceWindow .learn_choice_nav_item:focus-visible { outline: 2px solid #f5dfb8; outline-offset: 2px; }
+#learnChoiceWindow .learn_choice_nav_title { font: 600 18px/1.15 "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow .learn_choice_nav_summary { color: inherit; opacity: .85; font-size: 10px; overflow-wrap: anywhere; }
+#learnChoiceWindow .learn_choice_nav_state { min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; font: 10px "Segoe UI", sans-serif; letter-spacing: 0; text-transform: none; }
+#learnChoiceWindow .learn_choice_legend { margin: 0; padding: 14px 18px; border-top: 1px solid #98714d55; color: #c7a980; font-size: 10px; line-height: 1.6; }
+#learnChoiceWindow .learn_choice_detail_wrap { background: radial-gradient(ellipse at 50% 0, #ffffffa8, transparent 70%), linear-gradient(140deg, #f6eedf, #e9dbc3); }
+#learnChoiceWindow .learn_choice_panel_list { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: hidden; }
+#learnChoiceWindow .learn_choice_panel { grid-template-rows: auto minmax(0, 1fr) auto; gap: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+#learnChoiceWindow .learn_choice_panel_header { padding: 24px 30px 20px; border-bottom: 1px solid #cbb99a; align-items: center; }
+#learnChoiceWindow .learn_choice_panel_title { color: #563523; font: 700 32px/1.1 "Cormorant Garamond", Georgia, serif; letter-spacing: 0; text-transform: none; }
+#learnChoiceWindow .learn_choice_panel_summary { color: #91795d; font: italic 17px "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow .learn_choice_panel_state { min-width: 0; padding: 5px 8px; border-radius: 2px; font-size: 9px; letter-spacing: 0; }
+#learnChoiceWindow .learn_choice_panel_body { padding: 18px 30px; gap: 12px; scrollbar-width: thin; scrollbar-color: #b5a184 transparent; }
+#learnChoiceWindow .learn_choice_filter_bar { display: flex; gap: 10px; }
+#learnChoiceWindow .learn_inline_text { min-width: 0; min-height: 40px; padding: 8px 12px; border: 1px solid #c6b394; border-radius: 3px; background: #fffbf1; color: #503624; }
+#learnChoiceWindow .learn_choice_search_input { flex: 1; width: 100%; }
+#learnChoiceWindow .learn_choice_options { gap: 6px; }
+#learnChoiceWindow .learn_choice_option { align-items: start; padding: 12px 14px; border: 1px solid #d6c6a9; border-radius: 3px; background: #fffbf28c; box-shadow: none; }
+#learnChoiceWindow .learn_choice_option:hover { border-color: #b79b74; background: #fffaf0; }
+#learnChoiceWindow .learn_choice_option:has(input[type="radio"]:checked) { border-color: #73896e; background: linear-gradient(90deg, #e7f2dee6, #f9fcf4cc); box-shadow: inset 3px 0 #628260; }
+#learnChoiceWindow .learn_choice_option input[type="radio"] { accent-color: #638365; margin-top: 4px; }
+#learnChoiceWindow .learn_choice_option_text { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; }
+#learnChoiceWindow .learn_choice_option_title { font: 600 20px/1.2 "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow .learn_choice_option_details { display: contents; }
+#learnChoiceWindow .learn_choice_option_details > summary { grid-column: 2; grid-row: 1; margin: 4px 0 0; color: #89663e; font-size: 10px; }
+#learnChoiceWindow .learn_choice_option_details > :not(summary) { grid-column: 1 / -1; }
+#learnChoiceWindow .learn_choice_option_details[open] { padding: 0; border: 0; background: transparent; }
+#learnChoiceWindow .learn_choice_option_meta_row { justify-content: start; }
+#learnChoiceWindow .learn_choice_text_wrap { grid-column: 1 / -1; }
+#learnChoiceWindow .learn_choice_selection { padding: 14px 30px; border-top: 1px solid #c2ae8d; background: #e4d5bb88; }
+#learnChoiceWindow .learn_choice_selection > span { display: block; color: #896c48; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+#learnChoiceWindow .learn_choice_selection strong, #learnChoiceWindow .learn_choice_saved_value { display: block; margin-top: 4px; color: #533826; font: 600 22px "Cormorant Garamond", Georgia, serif; }
+#learnChoiceWindow .learn_choice_footer { display: block; padding: 14px 30px; background: #e6d7bf; border-top: 1px solid #c1a982; }
+#learnChoiceWindow .learn_choice_hint { margin: 0 0 10px; }
+#learnChoiceWindow .learn_choice_actions { display: flex; width: 100%; gap: 10px; }
+#learnChoiceWindow .learn_choice_actions button { min-height: 39px; padding: 0 16px; border: 1px solid #bfac8d; border-radius: 3px; background: #f3e9d7; color: #674932; box-shadow: none; }
+#learnChoiceWindow #learnChoiceConfirmBtn { order: 3; color: #f9e8c9; background: linear-gradient(#865044, #63372e); border-color: #a47b5b; }
+#learnChoiceWindow #learnChoiceCancelBtn { margin-left: auto; }
+@media (max-width: 760px) {
+  #learnChoiceWindow.sheet-window.payday-window { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
+  #learnChoiceWindow .learn_choice_banner { padding: 18px 28px 14px 12px; gap: 10px; }
+  #learnChoiceWindow .learn_choice_banner h2 { font-size: 27px; }
+  #learnChoiceWindow .learn_choice_emblem, #learnChoiceWindow .learn_choice_banner p { display: none; }
+  #learnChoiceWindow .learn_choice_progress { min-width: 70px; }
+  #learnChoiceWindow .learn_choice_layout { display: flex; flex-direction: column; }
+  #learnChoiceWindow .learn_choice_sidebar { height: auto; flex: 0 0 auto; border-right: 0; border-bottom: 1px solid #a27b50; }
+  #learnChoiceWindow .shop_panel_header { padding: 8px 12px 4px; }
+  #learnChoiceWindow .learn_choice_nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 8px; }
+  #learnChoiceWindow .learn_choice_nav_item { width: 185px; }
+  #learnChoiceWindow .learn_choice_legend { display: none; }
+  #learnChoiceWindow .learn_choice_detail_wrap { flex: 1; min-height: 0; }
+  #learnChoiceWindow .learn_choice_panel_header { padding: 12px 16px; }
+  #learnChoiceWindow .learn_choice_panel_title { font-size: 27px; }
+  #learnChoiceWindow .learn_choice_panel_body, #learnChoiceWindow .learn_choice_selection { padding: 12px 16px; }
+  #learnChoiceWindow .learn_choice_footer { padding: 10px; }
+  #learnChoiceWindow .learn_choice_actions { flex-wrap: wrap; }
+  #learnChoiceWindow .learn_choice_actions button { padding: 0 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #learnChoiceWindow, #learnChoiceWindow *, #learnChoiceWindow *::before, #learnChoiceWindow *::after { transition: none; animation: none; }
+}

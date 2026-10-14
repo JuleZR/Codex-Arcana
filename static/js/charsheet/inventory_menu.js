@@ -556,6 +556,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (runeWeaponTwoHandFields instanceof HTMLElement && runeWeaponWieldMode instanceof HTMLSelectElement) {
       runeWeaponTwoHandFields.hidden = runeWeaponWieldMode.value === "1h";
     }
+    [runeArmorFields, runeWeaponFields, runeShieldFields].forEach((section) => {
+      section?.querySelectorAll("input, select").forEach((field) => {
+        field.disabled = section.hidden || Boolean(field.closest("[hidden]"));
+      });
+    });
   };
 
   // ── Magic effect rows ──────────────────────────────────────────────────────
@@ -1475,6 +1480,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       "shield_rs",
       "shield_encumbrance",
       "shield_min_st",
+      "shield_parade_bonus",
       "not_buyable",
       "not_sellable",
     ].forEach((fieldName) => {
@@ -1669,7 +1675,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     runeForm?.querySelector(".rune_window_save_error")?.remove();
   });
 
-  runeForm?.addEventListener("sheet:action-failed", () => {
+  runeForm?.addEventListener("sheet:action-failed", (event) => {
     pendingRuneSubmit = false;
     const saveBtn = runeForm?.querySelector(".rune_window_save_seal");
     if (saveBtn instanceof HTMLButtonElement) {
@@ -1679,8 +1685,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (!existingError) {
       const msg = document.createElement("p");
       msg.className = "rune_window_save_error shop_item_form_hint shop_item_form_hint--error";
-      msg.textContent = "Speichern fehlgeschlagen. Bitte Eingaben prüfen.";
-      runeForm?.querySelector(".shop_item_form_actions")?.before(msg);
+      msg.textContent = event.detail?.error || "Speichern fehlgeschlagen. Bitte Eingaben prüfen.";
+      saveBtn?.before(msg);
     }
   });
 

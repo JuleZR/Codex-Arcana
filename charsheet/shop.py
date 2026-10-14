@@ -1034,7 +1034,7 @@ def _normalize_redundant_character_item_overrides(character_item: CharacterItem)
                 "shield_rs_override": shield.rs,
                 "shield_encumbrance_override": shield.encumbrance,
                 "shield_min_st_override": shield.min_st,
-                "shield_parade_bonus": shield.parade_bonus,
+                "shield_parade_bonus_override": shield.parade_bonus,
             }
         )
     for field_name, base_value in comparisons.items():
@@ -1220,6 +1220,10 @@ def apply_character_item_modifications(
                     post_data, "shield_encumbrance", shield_stats.encumbrance, minimum=0
                 )
                 character_item.shield_min_st_override = _read_int(post_data, "shield_min_st", shield_stats.min_st, minimum=1)
+                character_item.shield_parade_bonus_override = _read_int(
+                    post_data, "shield_parade_bonus",
+                    shield_stats.parade_bonus,
+                )
             _normalize_redundant_character_item_overrides(character_item)
             character_item.full_clean()
             character_item.save()

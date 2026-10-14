@@ -1104,7 +1104,7 @@
   line-height: 1.4;
 }
 
-.learn_choice_text_wrap {
+.learn_choice_text_wrap:not([hidden]) {
   display: grid;
   gap: 6px;
 }
@@ -3216,7 +3216,7 @@
   z-index: 1 !important;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) {
   background:
     radial-gradient(circle at 50% -8%, rgba(225, 194, 142, 0.14), transparent 36%),
     linear-gradient(180deg, rgba(118, 86, 58, 0.985), rgba(78, 54, 37, 0.992));
@@ -3227,17 +3227,17 @@
     inset 0 0 0 1px rgba(82, 56, 33, 0.3);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow)::before {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow)::before {
   border-color: rgba(182, 143, 90, 0.2);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow)::after {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow)::after {
   background: linear-gradient(90deg, transparent, rgba(222, 188, 128, 0.16), transparent);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__section,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__section,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_panel,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_panel {
   position: relative;
   overflow: hidden;
   background:
@@ -3252,24 +3252,24 @@
     0 12px 24px rgba(45, 29, 16, 0.08);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel::before,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel::before {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_panel::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_panel::before {
   inset: 9px;
   border-color: rgba(186, 145, 89, 0.14);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel_header,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel_header,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__section-head {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_panel_header,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_panel_header,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__section-head {
   position: relative;
   background:
     linear-gradient(180deg, rgba(252, 248, 238, 0.5), rgba(238, 228, 206, 0.12));
   border-bottom: 0 !important;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel_header::after,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel_header::after,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__section-head::after {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_panel_header::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_panel_header::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__section-head::after {
   content: "";
   position: absolute;
   left: 14px;
@@ -3280,16 +3280,16 @@
   background: linear-gradient(180deg, rgba(191, 152, 97, 0.1), rgba(191, 152, 97, 0.035) 40%, rgba(245, 236, 218, 0) 100%);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_toolbar,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__toolbar {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_toolbar,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__toolbar {
   position: relative;
   padding: 10px 14px 10px;
   background: linear-gradient(180deg, rgba(250, 246, 237, 0.26), rgba(239, 231, 214, 0.08));
   border-bottom: 0;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_toolbar::after,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__toolbar::after {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_toolbar::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__toolbar::after {
   content: "";
   position: absolute;
   left: 14px;
@@ -3300,48 +3300,48 @@
   background: linear-gradient(180deg, rgba(182, 144, 89, 0.055), rgba(182, 144, 89, 0));
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_list_scroll,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_wrapper,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_scroll,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_panel_list,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel_body,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__surface--form {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_list_scroll,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_wrapper,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_scroll,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_panel_list,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_nav,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_panel_body,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__surface--form {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .payday-window__body.sheet-window__body {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .payday-window__body.sheet-window__body {
   gap: 12px;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_window_layout,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_layout,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_layout {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_window_layout,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_layout,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_layout {
   gap: 14px;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_table {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_table,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_table {
   width: calc(100% - 20px);
   margin: 0 10px 8px;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_group {
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group > summary {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_group > summary {
   position: relative;
   margin: 0 10px 2px;
   background: linear-gradient(180deg, rgba(249, 243, 232, 0.46), rgba(237, 229, 214, 0.12));
   box-shadow: none;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group > summary::before {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_group > summary::before {
   content: "";
   position: absolute;
   left: 14px;
@@ -3352,10 +3352,10 @@
   background: linear-gradient(180deg, rgba(182, 144, 89, 0.075), rgba(182, 144, 89, 0));
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group > summary::after,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table tr[data-shop-item]::after,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table tr[data-learn-source]::after,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_table tbody tr::after {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_group > summary::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_table tr[data-shop-item]::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_table tr[data-learn-source]::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_table tbody tr::after {
   background: linear-gradient(180deg, rgba(255, 251, 241, 0.62), rgba(242, 233, 212, 0.34));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.48),
@@ -3363,14 +3363,14 @@
     0 6px 14px -14px rgba(67, 46, 23, 0.22);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table tr[data-shop-item],
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_table tbody tr,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_option,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav_item,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_checklist_item,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_magic_effect_card,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_fieldset,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_conditional {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_table tr[data-shop-item],
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_table tbody tr,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_option,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_nav_item,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_checklist_item,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_magic_effect_card,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_fieldset,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_conditional {
   background: rgba(255, 249, 239, 0.18);
   border-color: rgba(145, 114, 79, 0.16);
   box-shadow:
@@ -3378,20 +3378,20 @@
     0 6px 14px -16px rgba(67, 46, 23, 0.18);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav_item:hover,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav_item:focus-visible,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_option:hover,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_option:focus-within,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_checklist_item:hover,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_checklist_item:focus-within {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_nav_item:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_nav_item:focus-visible,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_option:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_choice_option:focus-within,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_checklist_item:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_checklist_item:focus-within {
   border-color: rgba(156, 118, 71, 0.28);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.42),
     0 0 0 2px rgba(200, 171, 129, 0.12);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_totals,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__metrics {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_totals,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__metrics {
   position: relative;
   border: 1px solid rgba(150, 111, 67, 0.18);
   border-radius: 14px;
@@ -3403,21 +3403,21 @@
     0 3px 10px rgba(78, 52, 27, 0.04);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_total_row {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_total_row {
   min-height: 38px;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_actions,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_actions,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__footer {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_actions,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_actions,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__footer {
   position: relative;
   padding-top: 18px;
   border-top: 0;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_actions::before,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_actions::before,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__footer::before {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_cart_actions::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_actions::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .sheet-window__footer::before {
   content: "";
   position: absolute;
   left: 10px;
@@ -3428,8 +3428,8 @@
   background: linear-gradient(180deg, rgba(173, 136, 85, 0), rgba(173, 136, 85, 0.03) 30%, rgba(173, 136, 85, 0.08) 100%);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_save_btn,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) #shopActionBtn {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_save_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) #shopActionBtn {
   border-color: rgba(124, 82, 48, 0.84);
   background:
     radial-gradient(circle at 50% 0%, rgba(255, 243, 217, 0.26), transparent 58%),
@@ -3441,10 +3441,10 @@
     0 8px 18px rgba(78, 43, 20, 0.12);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_cancel_btn,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_pick_btn,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_step_btn,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_add_btn {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_cancel_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_pick_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_step_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_add_btn {
   background:
     linear-gradient(180deg, rgba(255, 250, 239, 0.94), rgba(234, 220, 191, 0.92));
   border-color: rgba(122, 90, 56, 0.32);
@@ -3453,11 +3453,11 @@
     0 2px 8px rgba(74, 51, 27, 0.06);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row input,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row select,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row textarea,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_multi_select_trigger,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .rune_dropdown_trigger {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_row input,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_row select,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_row textarea,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_multi_select_trigger,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .rune_dropdown_trigger {
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 252, 245, 0.94), rgba(241, 232, 214, 0.8));
   border-color: rgba(121, 88, 52, 0.24);
@@ -3466,24 +3466,24 @@
     0 1px 1px rgba(108, 76, 44, 0.05);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row input:focus,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row select:focus,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row textarea:focus,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_multi_select_trigger:focus-visible,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .rune_dropdown_trigger:focus-visible {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_row input:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_row select:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_form_row textarea:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .shop_item_multi_select_trigger:focus-visible,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .rune_dropdown_trigger:focus-visible {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.76),
     0 0 0 3px rgba(196, 170, 126, 0.14);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__list {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_tabs__list {
   gap: 6px;
   padding: 10px 10px 2px;
   border-bottom: 0;
   background: transparent;
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_tabs__tab {
   min-height: 34px;
   border: 1px solid rgba(145, 109, 67, 0.22);
   border-radius: 999px;
@@ -3500,8 +3500,8 @@
     0 2px 6px rgba(74, 51, 27, 0.04);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab:hover,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab:focus-visible {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_tabs__tab:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_tabs__tab:focus-visible {
   color: rgba(100, 67, 35, 0.98);
   transform: none;
   box-shadow:
@@ -3509,7 +3509,7 @@
     0 0 0 2px rgba(200, 171, 129, 0.12);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab[aria-selected="true"] {
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow) .learn_tabs__tab[aria-selected="true"] {
   background: linear-gradient(180deg, rgba(255, 251, 241, 0.9), rgba(242, 234, 219, 0.68));
   color: rgba(72, 49, 28, 0.98);
   box-shadow:

@@ -970,6 +970,15 @@ class ItemEngine:
             minimum_strength
         )
 
+    def get_shield_parade_bonus(self) -> int:
+        """Return the owned shield's override or its catalog parade bonus."""
+        stats = self._get_shield_stats()
+        if not stats:
+            return 0
+        return int(self._get_override_value(
+            "shield_parade_bonus_override", stats.parade_bonus,
+        ))
+
     def get_shield_bel_raw(self) -> int | None:
         """Return shield encumbrance without extra modifiers."""
         stats = self._get_shield_stats()

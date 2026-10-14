@@ -831,6 +831,9 @@ class CharacterTechniqueChoice(models.Model):
         blank=True,
         related_name="character_technique_choices",
     )
+    selected_specification = models.CharField(
+        max_length=25, blank=True, default="",
+    )
     selected_skill_category = models.ForeignKey(
         SkillCategory,
         on_delete=models.PROTECT,
@@ -868,7 +871,10 @@ class CharacterTechniqueChoice(models.Model):
         ordering = ["character__name", "technique__school__name", "technique__level", "technique__name", "id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["character", "technique", "selected_skill"],
+                fields=[
+                    "character", "technique", "selected_skill",
+                    "selected_specification",
+                ],
                 condition=models.Q(selected_skill__isnull=False),
                 name="uniq_character_technique_selected_skill",
             ),
@@ -918,6 +924,7 @@ class CharacterTechniqueChoice(models.Model):
         if self.technique_id and expected_kind == Technique.ChoiceTargetKind.NONE:
             raise ValidationError({"technique": "This technique does not store persistent character choices."})
         self._validate_target_kind(expected_kind)
+        self._validate_skill_specification()
         if (
             self.definition_id
             and expected_kind == Technique.ChoiceTargetKind.SKILL
@@ -1097,9 +1104,46 @@ class CharacterTechniqueChoice(models.Model):
         if errors:
             raise ValidationError(errors)
 
+    def _validate_skill_specification(self):
+        """Keep specifications attached to a matching skill target."""
+        self.selected_specification = self.selected_specification.strip()
+        if self.selected_specification and (
+            not self.selected_skill_id
+            or not self.selected_skill.requires_specification
+            or self.selected_specification == "*"
+        ):
+            raise ValidationError({
+                "selected_specification": (
+                    "Choose a concrete specification for a specified skill."
+                ),
+            })
+        if self.selected_specification and self.character_id:
+            scope = (
+                {"technique_id": self.technique_id}
+                if isinstance(self, CharacterTechniqueChoice)
+                else {"definition_id": self.definition_id}
+            )
+            if type(self).objects.filter(
+                character_id=self.character_id,
+                selected_skill_id=self.selected_skill_id,
+                selected_specification__iexact=self.selected_specification,
+                **scope,
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError({
+                    "selected_specification": (
+                        "This skill specification has already been chosen."
+                    ),
+                })
+
     def selected_target_display(self) -> str:
         """Return a readable label for the chosen target."""
         if self.selected_skill_id:
+            specification = getattr(self, "selected_specification", "")
+            if specification:
+                name = self.selected_skill.name.replace(
+                    "[Specification]", "",
+                ).rstrip(": ")
+                return f"{name}: {specification}"
             return self.selected_skill.name
         if self.selected_skill_category_id:
             return self.selected_skill_category.name
@@ -1393,6 +1437,9 @@ class CharacterRaceChoice(models.Model):
         blank=True,
         related_name="character_race_choices",
     )
+    selected_specification = models.CharField(
+        max_length=25, blank=True, default="",
+    )
     selected_skill_category = models.ForeignKey(
         SkillCategory,
         on_delete=models.PROTECT,
@@ -1430,7 +1477,10 @@ class CharacterRaceChoice(models.Model):
         ordering = ["character__name", "definition__race__name", "definition__sort_order", "definition__name", "id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["character", "definition", "selected_skill"],
+                fields=[
+                    "character", "definition", "selected_skill",
+                    "selected_specification",
+                ],
                 condition=models.Q(selected_skill__isnull=False),
                 name="uniq_character_race_choice_selected_skill",
             ),
@@ -1485,6 +1535,7 @@ class CharacterRaceChoice(models.Model):
         if expected_kind == Technique.ChoiceTargetKind.NONE:
             raise ValidationError({"definition": "This race choice definition must point at a concrete target kind."})
         self._validate_target_kind(expected_kind)
+        CharacterTechniqueChoice._validate_skill_specification(self)
         if (
             self.definition_id
             and expected_kind == Technique.ChoiceTargetKind.SKILL
@@ -1567,21 +1618,7 @@ class CharacterRaceChoice(models.Model):
 
     def selected_target_display(self) -> str:
         """Return a readable label for the chosen race target."""
-        if self.selected_skill_id:
-            return self.selected_skill.name
-        if self.selected_skill_category_id:
-            return self.selected_skill_category.name
-        if self.selected_item_id:
-            return self.selected_item.name
-        if self.selected_item_category:
-            return self.selected_item_category
-        if self.selected_specialization_id:
-            return self.selected_specialization.name
-        if self.selected_text:
-            return self.selected_text
-        if self.selected_entity is not None:
-            return str(self.selected_entity)
-        return "-"
+        return CharacterTechniqueChoice.selected_target_display(self)
 
     def __str__(self) -> str:
         return f"{self.character.name} -> {self.definition.name}: {self.selected_target_display()}"

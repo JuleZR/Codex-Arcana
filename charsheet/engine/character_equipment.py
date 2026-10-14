@@ -1077,14 +1077,7 @@ def _build_equipped_shield_rows(engine) -> list[dict]:
                     engine, character_item
                 ),
                 "min_st": item_engine.get_shield_min_st(),
-                "parade_bonus": int(
-                    getattr(
-                        getattr(character_item.item, "shieldstats", None),
-                        "parade_bonus",
-                        0,
-                    )
-                    or 0
-                ),
+                "parade_bonus": item_engine.get_shield_parade_bonus(),
             }
         )
     return rows

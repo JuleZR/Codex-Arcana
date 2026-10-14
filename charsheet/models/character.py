@@ -521,6 +521,7 @@ class CharacterItem(models.Model):
     shield_rs_override = models.PositiveIntegerField(null=True, blank=True)
     shield_encumbrance_override = models.PositiveIntegerField(null=True, blank=True)
     shield_min_st_override = models.PositiveIntegerField(null=True, blank=True)
+    shield_parade_bonus_override = models.IntegerField(null=True, blank=True)
 
     class Meta:
         constraints = [

@@ -1,8 +1,8 @@
-<section class="payday-window payday-window--large sheet-window learn_choice_window" id="learnChoiceWindow" aria-hidden="true">
+<section class="payday-window payday-window--large sheet-window learn_choice_window" id="learnChoiceWindow" aria-hidden="true" aria-labelledby="learnChoiceWindowTitle">
   <div class="payday-window__titlebar sheet-window__header" id="learnChoiceWindowHandle">
     <div class="sheet-window__heading">
       <h3 class="payday-window__title sheet-window__title" id="learnChoiceWindowTitle">
-        {% if learn_pending_decisions|length > 1 %}Offene Wahlen{% else %}Offene Wahl{% endif %}
+        Wege der Entscheidung
       </h3>
     </div>
     <div class="sheet-window__actions">
@@ -10,43 +10,55 @@
     </div>
   </div>
   <div class="payday-window__body sheet-window__body shop-window__body learn_choice_window_body">
+    <header class="learn_choice_banner">
+      <span class="learn_choice_emblem" aria-hidden="true">&#x2756;</span>
+      <div>
+        <span class="learn_choice_eyebrow">Chronik der Legenden</span>
+        <h2>Wege der Entscheidung</h2>
+        <p>Wähle, welche Fähigkeiten deinen Weg prägen.</p>
+      </div>
+      <div class="learn_choice_progress">
+        <span class="learn_choice_eyebrow">Fortschritt</span>
+        <strong data-choice-progress-label></strong>
+        <progress data-choice-progress aria-label="Gespeicherte Entscheidungen" max="1" value="0"></progress>
+      </div>
+    </header>
     <form id="learnChoiceForm" class="learn_choice_form" novalidate>
       <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_choice_layout">
 
         <section class="sheet-window__section shop_panel learn_choice_sidebar">
           <div class="sheet-window__section-head shop_panel_header">
-            <h2 class="sheet-window__section-title">Offene Entscheidungen</h2>
-            <span class="learn_choice_nav_count">{{ learn_pending_decisions|length }}</span>
+            <h2 class="sheet-window__section-title">Entscheidungen</h2>
           </div>
-          <div class="sheet-window__surface learn_choice_nav" id="learnChoiceDecisionList">
+          <nav class="sheet-window__surface learn_choice_nav" id="learnChoiceDecisionList" aria-label="Entscheidungen">
             {% for decision in learn_pending_decisions %}
               <button
                 type="button"
                 class="learn_choice_nav_item{% if not decision.supported %} is-unsupported{% endif %}"
                 data-choice-nav-id="{{ decision.decision_id }}"
+                aria-controls="learnChoicePanel-{{ decision.decision_id }}"
               >
                 <span class="learn_choice_nav_text">
                   <span class="learn_choice_nav_title">{{ decision.title|default:"Offene Wahl" }}</span>
                   <span class="learn_choice_nav_summary" data-choice-nav-summary>{{ decision.summary|default:decision.prompt|default:"Auswahl treffen" }}</span>
                 </span>
                 <span class="learn_choice_nav_state" data-choice-nav-state>
-                  {% if decision.supported %}Offen{% else %}Info{% endif %}
+                  ! Offen
                 </span>
               </button>
             {% empty %}
-              <p class="learn_choice_nav_empty">Keine offenen Choices.</p>
+              <p class="learn_choice_nav_empty">Keine offenen Entscheidungen.</p>
             {% endfor %}
-          </div>
+          </nav>
+          <p class="learn_choice_legend">! Offen · ! Vorgemerkt<br>Optionen derselben Gruppe bleiben einander vorbehalten.</p>
         </section>
 
         <section class="sheet-window__section shop_panel learn_choice_detail_wrap">
-          <div class="sheet-window__section-head shop_panel_header">
-            <h2 class="sheet-window__section-title">Auswahl treffen</h2>
-          </div>
           <div class="sheet-window__surface sheet-window__surface--scroll learn_choice_panel_list" id="learnChoicePanelList">
             {% for decision in learn_pending_decisions %}
               <section
                 class="learn_choice_panel{% if not decision.supported %} is-unsupported{% endif %}"
+                id="learnChoicePanel-{{ decision.decision_id }}"
                 data-choice-decision-id="{{ decision.decision_id }}"
                 data-choice-kind="{{ decision.kind }}"
                 data-choice-title="{{ decision.title }}"
@@ -58,7 +70,7 @@
                 <header class="learn_choice_panel_header">
                   <div class="learn_choice_panel_heading">
                     <span class="learn_choice_panel_title">{{ decision.title|default:"Offene Wahl" }}</span>
-                    <span class="learn_choice_panel_summary" data-choice-panel-summary>{{ decision.summary|default:decision.prompt|default:"Auswahl treffen" }}</span>
+                    <span class="learn_choice_panel_summary">{{ decision.prompt|default:"Auswahl treffen" }}</span>
                   </div>
                   <span class="learn_choice_panel_state" data-choice-panel-state>
                     {% if decision.supported %}Offen{% else %}Info{% endif %}
@@ -67,7 +79,7 @@
 
                 <div class="learn_choice_panel_body">
                   {% if decision.description and decision.kind != "base_spell" and decision.kind != "arcane_free_spell" and decision.kind != "bonus_spell" %}
-                    <p class="learn_choice_decision_description">{{ decision.description }}</p>
+                    <details class="learn_choice_decision_details"><summary>Hintergrund</summary><p class="learn_choice_decision_description">{{ decision.description }}</p></details>
                   {% endif %}
                   {% if decision.side_options %}
                     <fieldset class="learn_choice_side_options">
@@ -91,9 +103,6 @@
                       {% endfor %}
                     </fieldset>
                   {% endif %}
-                  {% if decision.kind != "base_spell" and decision.kind != "arcane_free_spell" and decision.kind != "bonus_spell" %}
-                    <p class="learn_choice_decision_prompt">{{ decision.prompt|default:"Auswahl treffen" }}</p>
-                  {% endif %}
 
                   {% if decision.input_type == "unsupported" %}
                     <p class="learn_choice_decision_note">
@@ -113,7 +122,7 @@
                       >
                     </div>
                   {% else %}
-                    {% if decision.options|length > 5 %}
+                    {% if decision.options|length > 1 %}
                       <div class="learn_choice_filter_bar">
                         <input
                           type="search"
@@ -150,6 +159,15 @@
                           >
                           <span class="learn_choice_option_text">
                             <span class="learn_choice_option_title">{{ option.label }}</span>
+                            {% if option.specification_submit_name %}
+                              <span class="learn_choice_text_wrap" data-choice-specification-wrap hidden>
+                                <span class="learn_choice_text_label">Bezeichnung</span>
+                                <input type="text" class="learn_inline_text learn_choice_text_input" maxlength="25" autocomplete="off" aria-label="Bezeichnung der Spezifikation" placeholder="Spezifikation eingeben" data-choice-specification-input data-choice-submit-name="{{ option.specification_submit_name }}">
+                              </span>
+                            {% endif %}
+                            {% if option.description or option.facts or option.meta or option.badge %}
+                              <details class="learn_choice_option_details">
+                                <summary class="learn_choice_option_details_toggle" aria-label="Details zu {{ option.label }}">Details</summary>
                             {% if option.meta or option.badge %}
                               <span class="learn_choice_option_meta_row">
                                 {% if option.meta %}
@@ -160,9 +178,6 @@
                                 {% endif %}
                               </span>
                             {% endif %}
-                            {% if option.description or option.facts %}
-                              <details class="learn_choice_option_details">
-                                <summary class="learn_choice_option_details_toggle">Beschreibung</summary>
                                 {% if option.facts %}
                                   <div class="learn_choice_option_fact_table">
                                     {% for fact in option.facts %}
@@ -183,6 +198,7 @@
                     <p class="learn_choice_search_empty" data-choice-empty-state hidden>Keine verf&uuml;gbare Option gefunden.</p>
                   {% endif %}
                 </div>
+                <div class="learn_choice_selection"><span>Deine Wahl</span><strong data-choice-panel-summary>Noch keine Auswahl</strong></div>
               </section>
             {% empty %}
               <section class="learn_choice_panel is-empty">
@@ -195,6 +211,7 @@
           <div class="learn_choice_footer">
             <p class="form_error learn_choice_hint" id="learnChoiceHint" hidden></p>
             <div class="learn_choice_actions">
+              <button type="button" data-choice-previous class="shop_item_cancel_btn">&#x2039; Zurück</button>
               <button
                 type="submit"
                 id="learnChoiceConfirmBtn"

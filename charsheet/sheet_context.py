@@ -6575,6 +6575,9 @@ def _build_inventory_rows(
                         "shield_rs": item_engine.get_effective_shield_rs(),
                         "shield_encumbrance": item_engine.get_shield_bel_raw(),
                         "shield_min_st": item_engine.get_shield_min_st(),
+                        "shield_parade_bonus": (
+                            item_engine.get_shield_parade_bonus()
+                        ),
                     }
                 ),
             }
