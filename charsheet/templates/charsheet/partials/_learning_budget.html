@@ -5,6 +5,7 @@
   data-is-npc="{% if character.is_npc %}1{% else %}0{% endif %}"
   data-used-experience="{{ character.used_experience }}"
   data-learn-spell-slot-budget="{{ learn_magic_slot_summary.total|default:0 }}"
+  data-free-language-budget="{{ learn_free_language_remaining|default:0 }}"
 >
   <div class="learn_budget_grid">
     <div class="shop_cart_total_row">

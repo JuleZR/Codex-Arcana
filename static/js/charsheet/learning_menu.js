@@ -1,6 +1,6 @@
 import { createChoiceModalController } from "./choice_modal.js?v=20260922b";
 import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
-import { initLearningChronicle } from "./learning_chronicle.js?v=20261014t";
+import { initLearningChronicle } from "./learning_chronicle.js?v=20261014u";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
 const renderOpenSpellSlotMarkup = (remaining) => {
@@ -219,9 +219,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       valueInput.max = String(maxAdd);
     } else if (kind === "lang") {
       const base = readInt(row.getAttribute("data-base"), 0);
-      const minAdd = -base;
+      const freeInput = row.querySelector("[data-learn-lang-free]");
+      const free = freeInput instanceof HTMLInputElement && freeInput.checked;
+      const minAdd = (free ? 3 : readInt(row.getAttribute("data-min"), 0)) - base;
       const max = readInt(row.getAttribute("data-max"), 0);
-      const maxAdd = Math.max(0, max - base);
+      const maxAdd = Math.max(0, (free ? 3 : max) - base);
       const hidden = row.querySelector("[data-learn-hidden]");
       const writeHidden = row.querySelector("[data-learn-lang-write-hidden]");
       const writeInput = row.querySelector("[data-learn-lang-write]");
@@ -244,6 +246,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       invalidWrite = targetWrite && targetLevel < LANGUAGE_LITERACY_MIN_LEVEL;
       cost = calcLanguageCost(targetLevel, targetWrite, mother) - calcLanguageCost(base, baseWrite, mother);
+      if (free) cost -= 3 - base;
+      const freeHidden = row.querySelector("[data-learn-lang-free-hidden]");
+      if (freeHidden) freeHidden.value = free ? "1" : "0";
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -496,6 +501,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const brewSlotRemainingEl = document.querySelector("[data-learn-brew-slot-remaining]");
     const brewSlotBudget = readInt(brewBudgetPanel?.getAttribute("data-brew-slot-remaining") || "0", 0);
     const brewSlotRemaining = brewSlotBudget - spentBrewSlots;
+    const freeLanguageBudget = readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-free-language-budget"), 0);
+    const freeLanguageRemaining = freeLanguageBudget - getRows().filter((row) => row.querySelector("[data-learn-lang-free]")?.checked).length;
     if (liveBudgetEl) {
       liveBudgetEl.textContent = `${npc ? getUsedExperience() : budget} EP`;
     }
@@ -559,6 +566,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (invalidWrite) {
         messages.push("Lesen und Schreiben benoetigt Sprachlevel 3.");
       }
+      if (freeLanguageRemaining < 0) {
+        messages.push("Zu viele kostenlose Sprachen für den natürlichen INT-Mod ausgewählt.");
+      }
       liveValidationHint.hidden = messages.length === 0;
       liveValidationHint.textContent = messages.join(" ");
     }
@@ -566,6 +576,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       (getRows().length === 0 && !form.querySelector("#learnPendingChoiceInputs input"))
       || (!npc && remaining < 0)
       || invalidWrite
+      || freeLanguageRemaining < 0
       || spellSlotRemaining < 0
       || brewSlotRemaining < 0
       || Array.from(spentSpellSlotsBySource.entries()).some(([sourceKey, selected]) => {
@@ -574,7 +585,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       })
     );
     form.dispatchEvent(new CustomEvent("learn:plan-updated", {
-      detail: { spent, remaining, spellSlotRemaining, brewSlotRemaining },
+      detail: { spent, remaining, spellSlotRemaining, brewSlotRemaining, freeLanguageRemaining },
     }));
   };
 
@@ -582,6 +593,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const valueInput = row.querySelector("[data-learn-value]");
     const removeBtn = row.querySelector("[data-learn-remove]");
     const writeInput = row.querySelector("[data-learn-lang-write]");
+    const freeLanguageInput = row.querySelector("[data-learn-lang-free]");
+    if (freeLanguageInput instanceof HTMLInputElement) {
+      freeLanguageInput.addEventListener("change", refreshTotals);
+    }
     const decBtn = row.querySelector("[data-learn-step-dec]");
     const incBtn = row.querySelector("[data-learn-step-inc]");
     const vampirePowerWeaknessChoice = row.querySelector("[data-vampire-power-weakness-choice]");
@@ -852,16 +867,19 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (kind === "lang") {
       const slug = source.getAttribute("data-slug") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
-      const minAdd = -base;
+      const freeAvailable = source.getAttribute("data-free-language") === "1";
+      const min = readInt(source.getAttribute("data-min"), 0);
+      const minAdd = min - base;
       const max = readInt(source.getAttribute("data-max"), 0);
       const maxAdd = Math.max(0, max - base);
       const baseWrite = source.getAttribute("data-write") === "1";
       const mother = source.getAttribute("data-mother") === "1";
-      if (maxAdd < 1 && minAdd === 0 && !baseWrite) {
+      if (maxAdd < 1 && minAdd === 0 && max < LANGUAGE_LITERACY_MIN_LEVEL && !baseWrite) {
         return null;
       }
-      const startAdd = maxAdd > 0 ? 1 : 0;
+      const startAdd = freeAvailable ? 3 - base : maxAdd > 0 ? 1 : 0;
       row.setAttribute("data-base", String(base));
+      row.setAttribute("data-min", String(min));
       row.setAttribute("data-max", String(max));
       row.setAttribute("data-write", baseWrite ? "1" : "0");
       row.setAttribute("data-mother", mother ? "1" : "0");
@@ -871,9 +889,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
             <span>${safeName}</span>
             <span data-learn-level-info>(${base + startAdd})</span>
             <label class="learn_lang_write"><input type="checkbox" data-learn-lang-write ${baseWrite ? "checked" : ""}> Schreiben</label>
+            ${freeAvailable ? '<label class="learn_lang_write"><input type="checkbox" data-learn-lang-free checked> Kostenlos auf Fließend</label>' : ""}
           </div>
           <input type="hidden" name="learn_lang_add_${slug}" value="${startAdd}" data-learn-hidden>
           <input type="hidden" name="learn_lang_write_${slug}" value="0" data-learn-lang-write-hidden>
+          ${freeAvailable ? `<input type="hidden" name="learn_lang_free_${slug}" value="1" data-learn-lang-free-hidden>` : ""}
         </td>
         <td>
           <div class="learn_lang_value_wrap">

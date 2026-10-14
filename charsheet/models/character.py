@@ -97,6 +97,9 @@ class Character(models.Model):
         help_text="GM confirmation that a rule-compliant blood baptism permits the 15 EP acquisition.",
     )
     carry_load_enabled = models.BooleanField(default=False)
+    int_bonus_languages = models.ManyToManyField(
+        Language, blank=True, related_name="int_bonus_characters",
+    )
     spent_spell_learning_slots = models.PositiveIntegerField(default=0)
     is_archived = models.BooleanField(default=False)
     last_opened_at = models.DateTimeField(null=True, blank=True)
@@ -1130,7 +1133,9 @@ class CharacterTraitChoice(models.Model):
                 raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill category."})
             if (
                 self.definition.allowed_skill_family
-                and self.selected_skill.family != self.definition.allowed_skill_family
+                and not self.selected_skill.belongs_to_family(
+                    self.definition.allowed_skill_family
+                )
             ):
                 raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill family."})
         if (
@@ -1292,7 +1297,7 @@ class CharacterLanguage(models.Model):
 
     language = models.ForeignKey(Language, on_delete=models.PROTECT)
     owner = models.ForeignKey(Character, on_delete=models.PROTECT)
-    levels = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    levels = models.PositiveIntegerField(default=1, validators=[MinValueValidator(0)])
     can_write = models.BooleanField(default=False)
     is_mother_tongue = models.BooleanField(default=False)
 
@@ -1306,7 +1311,19 @@ class CharacterLanguage(models.Model):
         super().clean()
         if self.levels > self.language.max_level:
             raise ValidationError({"levels": "levels can't be greater dan max_level"})
-        if self.can_write and self.levels < LANGUAGE_LITERACY_MIN_LEVEL:
+        if self.levels == 0 and not self.can_write:
+            raise ValidationError({
+                "levels": "A language entry requires proficiency or literacy.",
+            })
+        spoken_level = self.levels
+        if self.owner_id and self.language_id:
+            spoken_level = max(
+                spoken_level,
+                self.owner.get_engine(refresh=True).free_language_level(
+                    self.language.slug,
+                ),
+            )
+        if self.can_write and spoken_level < LANGUAGE_LITERACY_MIN_LEVEL:
             raise ValidationError({"can_write": "Reading and writing requires language level 3."})
         if self.is_mother_tongue and self.levels != self.language.max_level:
             raise ValidationError({"levels": "Levels of mother tongue must be max_ level"})

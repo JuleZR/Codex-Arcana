@@ -17,6 +17,7 @@ function enforceReadOnlyControls() {
       !control.closest("[data-card-hand]")
       && !control.matches("[data-school-group-toggle]")
       && !control.matches("[data-temporary-attribute-control]")
+      && !control.matches("[data-attribute-flavor-control]")
     ) {
       control.disabled = true;
     }
@@ -27,6 +28,7 @@ function enforceReadOnlyControls() {
       && control.getAttribute("role") !== "tab"
       && !control.matches("[data-school-group-toggle]")
       && !control.matches("[data-temporary-attribute-control]")
+      && !control.matches("[data-attribute-flavor-control]")
     ) {
       control.disabled = true;
       control.setAttribute("aria-disabled", "true");

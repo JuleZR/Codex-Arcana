@@ -99,5 +99,12 @@
       </div>
     {% endif %}
     <label class="shop_item_form_row shop_item_form_row--description sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="1000"></textarea></label>
+    <div class="shop_item_form_conditional shop_item_form_fieldset" data-substance-fields hidden>
+      <div class="shop_item_form_fieldset_title">Substanzdaten</div>
+      {% substance_stats_form as substance_form %}
+      {% for field in substance_form %}
+        <label class="shop_item_form_row"><span>{{ field.label }}</span>{{ field }}</label>
+      {% endfor %}
+    </div>
   </div>
 </section>

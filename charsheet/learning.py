@@ -1098,10 +1098,21 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         total_cost += step_cost
         new_spec_plan.append({"skill": skill, "spec": spec, "level": level})
 
+    free_language_choices = set(
+        character.int_bonus_languages.values_list("slug", flat=True),
+    )
+    free_language_remaining = max(
+        0, engine.free_language_slots() - len(free_language_choices),
+    )
     for slug, language in language_defs.items():
         add_key = f"learn_lang_add_{slug}"
         write_key = f"learn_lang_write_{slug}"
-        if add_key not in post_data and write_key not in post_data:
+        free_key = f"learn_lang_free_{slug}"
+        grant_free = str(post_data.get(free_key, "0")) == "1"
+        if (
+            add_key not in post_data and write_key not in post_data
+            and not grant_free
+        ):
             continue
         add = _read_int(post_data, add_key, 0)
         raw_write_change = str(post_data.get(write_key, "0")).strip().lower()
@@ -1111,11 +1122,27 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             else 0
         )
         base_row = language_rows.get(slug)
-        base_level = int(base_row.levels if base_row else 0)
+        free_level = engine.free_language_level(slug)
+        base_level = max(int(base_row.levels if base_row else 0), free_level)
         base_write = bool(base_row.can_write if base_row else False)
         base_mother = bool(base_row.is_mother_tongue if base_row else False)
         target_level = base_level + add
         target_write = True if write_change > 0 else False if write_change < 0 else base_write
+        if grant_free:
+            if (
+                free_language_remaining < 1 or slug in free_language_choices
+                or base_mother or base_level >= 3 or target_level != 3
+            ):
+                return "error", (
+                    "Keine kostenlose Sprache durch den natürlichen "
+                    "INT-Mod verfügbar."
+                )
+            free_language_remaining -= 1
+        if target_level < free_level:
+            return "error", (
+                f"{language.name}: Kostenlose Sprachstufen "
+                "können nicht verlernt werden."
+            )
         if base_mother and target_level != int(language.max_level):
             return "error", f"{language.name}: Muttersprache kann nicht unter Maximallevel reduziert werden."
         if target_level < 0:
@@ -1129,7 +1156,13 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         step_cost = calc_language_total_cost(
             target_level, target_write, base_mother) - calc_language_total_cost(base_level, base_write, base_mother)
         total_cost += step_cost
-        language_plan[slug] = {"add": add, "target_write": target_write}
+        if grant_free:
+            total_cost -= 3 - base_level
+        language_plan[slug] = {
+            "add": 0 if grant_free else add,
+            "target_write": target_write,
+            "grant_free": grant_free,
+        }
 
     for school_id, school in school_defs.items():
         key = f"learn_school_add_{school_id}"
@@ -1537,9 +1570,11 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             for slug, payload in language_plan.items():
                 add = int(payload["add"])
                 target_write = bool(payload["target_write"])
+                if payload["grant_free"]:
+                    character.int_bonus_languages.add(language_defs[slug])
                 language_row = language_rows.get(slug)
                 if language_row is None:
-                    if add < 1:
+                    if add < 1 and not target_write:
                         continue
                     language_row = CharacterLanguage.objects.create(
                         owner=character,

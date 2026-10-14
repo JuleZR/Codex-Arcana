@@ -327,6 +327,7 @@ class ItemType(models.Model):
     supports_armor_stats = models.BooleanField(default=False)
     supports_shield_stats = models.BooleanField(default=False)
     supports_alchemical_stats = models.BooleanField(default=False)
+    supports_substance_stats = models.BooleanField(default=False)
     is_consumable = models.BooleanField(default=False)
     is_ammunition = models.BooleanField(default=False)
     is_creature = models.BooleanField(default=False)
@@ -523,6 +524,52 @@ class Item(models.Model):
     @classmethod
     def consumable_item_type_values(cls):
         return cls.type_values("is_consumable")
+
+
+class SubstanceStats(models.Model):
+    """Sourcebook substance definitions, without executable effects or timers."""
+
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    delivery_method = models.TextField("Aufnahmeart", blank=True)
+    physical_state = models.TextField("Aggregatzustand", blank=True)
+    onset = models.TextField("Wirkungszeit", blank=True)
+    duration = models.TextField("Wirkungsdauer", blank=True)
+    frequency = models.TextField("Häufigkeit", blank=True)
+    potency = models.PositiveSmallIntegerField(
+        "Stärke", null=True, blank=True,
+    )
+    detection_mw = models.PositiveSmallIntegerField(
+        "Entdecken/Identifizieren MW", null=True, blank=True,
+    )
+    craft_mw = models.PositiveSmallIntegerField(
+        "Herstellung MW", null=True, blank=True,
+    )
+    power = models.PositiveSmallIntegerField("Macht", null=True, blank=True)
+    effect_description = models.TextField("Wirkung", blank=True)
+    dosage_notes = models.TextField("Dosierung", blank=True)
+    addiction_notes = models.TextField("Abhängigkeit", blank=True)
+    special_rules = models.TextField("Sonderregeln", blank=True)
+    source_reference = models.TextField("Quelle", blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.item_id and not self.item.item_type.supports_substance_stats:
+            raise ValidationError({
+                "item": "This item type does not support substance stats.",
+            })
+
+    @property
+    def display_fields(self):
+        """Expose stored values, including numeric zero, for display."""
+        return [
+            (field.verbose_name, getattr(self, field.name))
+            for field in self._meta.fields
+            if field.name not in {"id", "item"}
+            and getattr(self, field.name) not in (None, "")
+        ]
+
+    def __str__(self):
+        return str(self.item)
 
 
 class ConsumableEffectStats(models.Model):

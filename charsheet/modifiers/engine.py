@@ -833,14 +833,16 @@ class ModifierEngine:
         context: dict[str, Any] | None = None,
         *,
         specification: str | None = None,
+        learned_rank: int = 0,
     ) -> int:
-        """Resolve bonus ranks that count as skill ranks instead of misc modifiers."""
+        """Resolve granted ranks and the gap to a configured minimum rank."""
         return int(
             self._migrated_numeric_total(
                 TargetDomain.SKILL_RANK,
                 skill_slug,
                 context=context,
                 specification=specification,
+                minimum_base=learned_rank,
             )
         )
 
@@ -1374,17 +1376,29 @@ class ModifierEngine:
         context: dict[str, Any] | None = None,
         *,
         specification: str | None = None,
+        minimum_base: int = 0,
     ) -> int:
         """Resolve one numeric target from migrated typed modifiers."""
+        skill = (
+            self.character_engine._skill_definitions_by_slug.get(target_key)
+            if target_domain == TargetDomain.SKILL_RANK
+            and self.character_engine is not None else None
+        )
         relevant_modifiers = [
             modifier
             for modifier in self.collect_active_modifiers(context=context)
             if modifier.target_domain == target_domain
-            and self._modifier_matches_target_key(
-                modifier,
-                target_domain=target_domain,
-                target_key=target_key,
-                context=context,
+            and (
+                self._modifier_matches_target_key(
+                    modifier,
+                    target_domain=target_domain,
+                    target_key=target_key,
+                    context=context,
+                )
+                or (
+                    skill is not None
+                    and modifier.target_key == skill.category.slug
+                )
             )
             and self._modifier_matches_skill_specification(
                 modifier,
@@ -1397,6 +1411,7 @@ class ModifierEngine:
         ]
 
         resolved_total = 0
+        rank_minimum = None
         seen_unique_sources: set[tuple[str, str, str, str]] = set()
         for modifier in sorted(
             self._career_max_modifiers(relevant_modifiers),
@@ -1433,13 +1448,20 @@ class ModifierEngine:
                 resolved_total = int(resolved_total // resolved_value)
                 continue
             if modifier.operator == ModifierOperator.MIN_VALUE:
-                resolved_total = max(resolved_total, int(resolved_value))
+                if target_domain == TargetDomain.SKILL_RANK:
+                    rank_minimum = max(
+                        rank_minimum or 0, int(resolved_value),
+                    )
+                else:
+                    resolved_total = max(resolved_total, int(resolved_value))
                 continue
             if modifier.operator == ModifierOperator.MAX_VALUE:
                 resolved_total = min(resolved_total, int(resolved_value))
                 continue
 
             resolved_total += int(resolved_value)
+        if rank_minimum is not None:
+            resolved_total = max(resolved_total, rank_minimum - minimum_base)
         return int(resolved_total)
 
     @classmethod

@@ -39,6 +39,7 @@ DISCLOSURE_FIELD_KEYS = (
     "weapon_reload",
     "weapon_ammo",
     "weapon_flags",
+    "substance_stats",
 )
 
 
@@ -173,6 +174,14 @@ def resolve_character_item_display(
         }.items()
         if visible
     }
+    _, substance_visible = _field_value(
+        field_key="substance_stats",
+        actual_value="",
+        disclosures=disclosures,
+        privileged=privileged,
+    )
+    if substance_visible and description_visible and item_type_visible:
+        visible_field_keys.add("substance_stats")
     hidden_field_keys = set(DISCLOSURE_FIELD_KEYS) - visible_field_keys
     identified_item_effect_ids, identified_character_item_effect_ids = identified_effect_id_sets(character_item)
     return ResolvedCharacterItemDisplay(

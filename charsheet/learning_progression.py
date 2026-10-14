@@ -1384,7 +1384,10 @@ def _build_choice_row(
                 skill for skill in filtered_skills if skill.category_id == allowed_skill_category_id
             ]
         if allowed_skill_family:
-            filtered_skills = [skill for skill in filtered_skills if skill.family == allowed_skill_family]
+            filtered_skills = [
+                skill for skill in filtered_skills
+                if skill.belongs_to_family(allowed_skill_family)
+            ]
         options = [
             {
                 "value": skill.id,
@@ -1502,7 +1505,10 @@ def _build_race_choice_row(
                 skill for skill in filtered_skills if skill.category_id == allowed_skill_category_id
             ]
         if allowed_skill_family:
-            filtered_skills = [skill for skill in filtered_skills if skill.family == allowed_skill_family]
+            filtered_skills = [
+                skill for skill in filtered_skills
+                if skill.belongs_to_family(allowed_skill_family)
+            ]
         options = [
             {
                 "value": skill.id,

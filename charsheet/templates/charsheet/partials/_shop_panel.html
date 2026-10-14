@@ -99,7 +99,7 @@
                             data-shop-mode="buy"
                             class="tooltip_target"
                             data-tooltip-title="{{ item.name|escape }}"
-                            data-tooltip="{{ item.description|default:'Keine Beschreibung'|escape }}"
+                            data-tooltip="{{ item.description|default:'Keine Beschreibung'|escape }}{% for label, value in item.substance_fields %}&#10;{{ label|escape }}: {{ value|escape }}{% endfor %}"
                             data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}"
                             data-shop-id="{{ item.id }}"
                             data-shop-name="{{ item.name|escape }}"

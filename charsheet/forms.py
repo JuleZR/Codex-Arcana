@@ -45,6 +45,7 @@ class UserSettingsForm(forms.ModelForm):
             "print_include_notes",
             "print_compact",
             "dice_enabled",
+            "int_bonus_languages_enabled",
             "show_character_date",
             "dddice_enabled",
             "critical_success_text",

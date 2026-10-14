@@ -98,6 +98,13 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const syncTypeSections = (form, type) => {
+    form.querySelectorAll("[data-substance-fields]").forEach((section) => {
+      const active = hasCapability(type, "supports_substance_stats");
+      section.hidden = !active;
+      section.querySelectorAll("input, textarea").forEach((field) => {
+        field.disabled = !active;
+      });
+    });
     const capabilities = {
       weapon: "supports_weapon_stats",
       armor: "supports_armor_stats",

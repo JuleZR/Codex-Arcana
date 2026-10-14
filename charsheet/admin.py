@@ -20,6 +20,7 @@ from django.db.models.functions import Coalesce
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
+from .substances import SubstanceStatsForm
 
 from .constants import (
     ALCHEMICAL_BREW_LEARNING_SLOT,
@@ -84,6 +85,7 @@ from .models import (
     AccountSecurityEvent,
     AlchemicalBrewStats,
     ConsumableEffectStats,
+    SubstanceStats,
     AlchemicalBrewRequirement,
     ArmorStats,
     Aspect,
@@ -2454,6 +2456,14 @@ class AlchemicalBrewStatsInlineFormSet(BaseInlineFormSet):
         return instance
 
 
+class SubstanceStatsInline(admin.StackedInline):
+    model = SubstanceStats
+    form = SubstanceStatsForm
+    verbose_name_plural = "Substanzdaten"
+    extra = 0
+    max_num = 1
+
+
 class ConsumableEffectStatsInline(admin.StackedInline):
     model = ConsumableEffectStats
     verbose_name_plural = "Consumable Effect Stats"
@@ -3643,6 +3653,7 @@ class RuleSemanticEffectAdminForm(
         ("floor_divide", "// teilen abrunden"),
         ("override", "auf Wert setzen"),
         ("min_value", "mindestens"),
+        ("skill_rank_minimum", "Fertigkeitsrang mindestens"),
         ("max_value", "hoechstens"),
         ("set_flag", "Flag setzen"),
         ("unset_flag", "Flag entfernen"),
@@ -3844,6 +3855,16 @@ class RuleSemanticEffectAdminForm(
             "rule_flag": "rule_flag",
             "learning_slot": "learning_slot",
         }.get(target_domain)
+        if (
+            target_domain == "skill_rank"
+            and self.instance.operator == "min_value"
+        ):
+            area = (
+                "skill_category"
+                if SkillCategory.objects.filter(slug=target_key).exists()
+                else "skill"
+            )
+            self.initial.setdefault("simple_operator", "skill_rank_minimum")
         if positional_wound_stage:
             self.initial.setdefault("effect_area", "wound_stage")
             self.initial.setdefault("simple_target", f"wound_stage:{wound_stage_position}")
@@ -3992,6 +4013,17 @@ class RuleSemanticEffectAdminForm(
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
         operator = cleaned_data.get("simple_operator") or "flat_add"
+        if operator == "skill_rank_minimum":
+            if area not in {"skill", "multi_skill", "skill_category"}:
+                self.add_error(
+                    "simple_operator",
+                    "Ein Mindestrang gilt nur für Fertigkeiten "
+                    "oder Fertigkeitskategorien.",
+                )
+            else:
+                target_domain = "skill_rank"
+                cleaned_data["target_domain"] = target_domain
+            operator = "min_value"
         if area == "wound_stage":
             operator = "flat_add"
         if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
@@ -5176,7 +5208,9 @@ class TraitSemanticEffectInline(admin.StackedInline):
     )
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+        )
 
 
 class TechniqueSemanticEffectInline(admin.StackedInline):
@@ -5192,7 +5226,9 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
     fieldsets = TraitSemanticEffectInline.fieldsets
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+        )
 
 
 class RaceSemanticEffectInline(admin.StackedInline):
@@ -5245,7 +5281,9 @@ class RaceSemanticEffectInline(admin.StackedInline):
     )
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+        )
 
 
 RULE_SEMANTIC_EFFECT_FIELDSETS = (
@@ -5299,7 +5337,9 @@ class SchoolSemanticEffectInline(admin.StackedInline):
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+        )
 
 
 class RuneSemanticEffectInline(admin.StackedInline):
@@ -5314,7 +5354,9 @@ class RuneSemanticEffectInline(admin.StackedInline):
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+        )
 
 
 class RaceAttributeLimitByAttributeInline(admin.TabularInline):
@@ -5393,10 +5435,34 @@ class SkillCategoryAdmin(admin.ModelAdmin):
     inlines = (SkillInline,)
 
 
+class SkillAdminForm(forms.ModelForm):
+    """Select existing related skills while rejecting self-selection."""
+
+    related_skills = forms.ModelMultipleChoiceField(
+        queryset=Skill.objects.all(), required=False,
+        label="Verwandte Fertigkeiten",
+        widget=admin.widgets.AutocompleteSelectMultiple(
+            Skill._meta.get_field("related_skills"), admin.site,
+        ),
+    )
+
+    class Meta:
+        model = Skill
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["related_skills"].queryset = Skill.objects.exclude(
+                pk=self.instance.pk,
+            )
+
+
 @admin.register(Skill)
 class SkillAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for skills."""
 
+    form = SkillAdminForm
     list_display = (
         "name",
         "slug",
@@ -6152,6 +6218,7 @@ class ItemAdmin(admin.ModelAdmin):
         RangedWeaponStatsInline,
         AlchemicalBrewStatsInline,
         ConsumableEffectStatsInline,
+        SubstanceStatsInline,
         ItemSemanticEffectInline,
         ItemRaceStartingInline,
         CreatureCardItemBindingInline,
@@ -6180,6 +6247,14 @@ class ItemAdmin(admin.ModelAdmin):
     def get_inline_instances(self, request, obj=None):
         """Keep optional ranged stats from requiring management form data on legacy posts."""
         inline_instances = super().get_inline_instances(request, obj)
+        if (
+            request.method == "POST"
+            and "substancestats-TOTAL_FORMS" not in request.POST
+        ):
+            inline_instances = [
+                inline for inline in inline_instances
+                if not isinstance(inline, SubstanceStatsInline)
+            ]
         if (
             request.method == "POST"
             and "consumableeffectstats-TOTAL_FORMS" not in request.POST
@@ -6903,7 +6978,9 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
     )
 
     class Media:
-        js = ("charsheet/js/rule_semantic_effect_admin_v2.js?v=20261001",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+        )
 
 
 class SpecializationChoiceDefinitionInline(

@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import include, path
 from charsheet import group_views, views
 from charsheet.calendar_views import character_date
+from charsheet.attribute_flavor import attribute_flavor_card
 from django.views.static import serve
 from django.conf import settings
 from charsheet.quickslots import (
@@ -27,6 +28,8 @@ from charsheet.quickslots import (
 )
 
 urlpatterns = [
+    path("character/<int:character_id>/attribute-flavor/",
+         attribute_flavor_card, name="attribute_flavor_card"),
     path("character/<int:character_id>/date/", character_date,
          name="character_date"),
     path("character/<int:character_id>/quickslots/layout/",

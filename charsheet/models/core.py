@@ -2,9 +2,12 @@
 
 from dataclasses import replace
 import json
+import re
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import (
+    MaxValueValidator, MinValueValidator, validate_slug,
+)
 from django.db import models
 
 from ..constants import (
@@ -40,22 +43,87 @@ class SkillCategory(models.Model):
         return self.name
 
 
+def validate_skill_families(value):
+    """Validate each comma-separated family as an individual slug."""
+    for family in value.split(","):
+        family = family.strip()
+        validate_slug(family)
+        if len(family) > 50:
+            raise ValidationError(
+                "Eine Skill Family darf höchstens 50 Zeichen haben."
+            )
+
+
+class SkillQuerySet(models.QuerySet):
+    def in_family(self, family):
+        """Match complete names, including legacy single-family values."""
+        return self.filter(
+            family__regex=rf"(^|,)\s*{re.escape(family)}\s*(,|$)",
+        )
+
+
 class Skill(models.Model):
     """A learnable skill linked to one category and one governing attribute."""
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     category = models.ForeignKey(SkillCategory, on_delete=models.PROTECT)
-    family = models.SlugField(max_length=50, blank=True)
+    family = models.CharField(
+        max_length=255, blank=True, validators=[validate_skill_families],
+        help_text=(
+            "Mehrere Skill Families mit Komma trennen, "
+            "z. B. combat, knowledge."
+        ),
+    )
     attribute = models.ForeignKey(Attribute, on_delete=models.PROTECT)
     description = models.TextField(blank=True)
     requires_specification = models.BooleanField(default=False)
+    related_skills = models.ManyToManyField(
+        "self", through="SkillRelation", symmetrical=False,
+        related_name="related_to_skills", blank=True,
+        verbose_name="Verwandte Fertigkeiten",
+    )
+
+    objects = SkillQuerySet.as_manager()
+
+    @property
+    def families(self):
+        return tuple(
+            family.strip() for family in self.family.split(",")
+            if family.strip()
+        )
+
+    def belongs_to_family(self, family):
+        return family in self.families
 
     class Meta:
         ordering = ["category", "name"]
 
     def __str__(self):
         return self.name
+
+
+class SkillRelation(models.Model):
+    """A directed related-skill link with database integrity guarantees."""
+
+    skill = models.ForeignKey(
+        Skill, on_delete=models.CASCADE, related_name="related_skill_links",
+    )
+    related_skill = models.ForeignKey(
+        Skill, on_delete=models.CASCADE, related_name="incoming_skill_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["skill", "related_skill"],
+                name="unique_skill_relation",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(skill=models.F("related_skill")),
+                name="skill_relation_not_self",
+            ),
+        ]
 
 
 class Race(models.Model):

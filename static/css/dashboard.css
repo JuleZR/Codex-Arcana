@@ -2,9 +2,9 @@
    Keep thematic rules in ./dashboard/*.css modules instead of growing this file again. */
 @import url("./responsive-foundation.css?v=20261001i");
 @import url("./dashboard/base.css?v=20261001e");
-@import url("./dashboard/forms.css?v=20260929b");
+@import url("./dashboard/forms.css?v=20261014-account-shop-size");
 @import url("./dashboard/creation.css?v=20261006-template-delete-dialog");
-@import url("./dashboard/responsive.css?v=20261001g");
+@import url("./dashboard/responsive.css?v=20261014-account-shop-size");
 @import url("./dashboard/game-groups.css?v=20260806a");
 @import url("./item-transfer-window.css");
 .dashboard_group_inventory {

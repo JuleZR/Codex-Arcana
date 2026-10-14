@@ -464,6 +464,14 @@ export function initItemForm() {
     const isArmor = hasCapability(value, "supports_armor_stats");
     const isWeapon = hasCapability(value, "supports_weapon_stats");
     const isShield = hasCapability(value, "supports_shield_stats");
+    const substanceFields = form?.querySelector("[data-substance-fields]");
+    if (substanceFields) {
+      const supportsSubstances = hasCapability(value, "supports_substance_stats");
+      substanceFields.hidden = !supportsSubstances;
+      substanceFields.querySelectorAll("input, textarea").forEach((input) => {
+        input.disabled = !supportsSubstances;
+      });
+    }
     const isMagicType = hasCapability(value, "is_magic_equipment");
     const isForcedMagicType = hasCapability(value, "forces_magic");
     if (magicInput instanceof HTMLInputElement) {

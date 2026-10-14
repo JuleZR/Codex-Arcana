@@ -358,13 +358,10 @@
     overflow: hidden;
   }
 
-  /* Account settings window: full-screen */
+  /* Account settings window: compact header */
   .dashboard_account_window {
     position: fixed !important;
-    inset: 0 !important;
     display: grid;
-    width: 100vw !important;
-    height: 100dvh;
     max-height: none;
     grid-template-rows: 48px minmax(0, 1fr);
     border-radius: 0;
@@ -642,14 +639,6 @@
     overflow-y: auto;
   }
 
-  .dashboard_account_window {
-    left: 0 !important;
-    top: 0 !important;
-    width: 100vw !important;
-    height: 100dvh;
-    max-height: none;
-  }
-
   .dashboard_account_window .dashboard_account_body {
     max-height: none;
   }
@@ -736,9 +725,6 @@
   }
 
   .dashboard_account_window {
-    left: 0 !important;
-    top: 0 !important;
-    width: 100vw !important;
     border-radius: 0;
     max-height: none;
   }
@@ -765,7 +751,6 @@
   }
 
   .dashboard_account_window {
-    top: 0 !important;
     max-height: none;
   }
 }

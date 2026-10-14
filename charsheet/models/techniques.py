@@ -933,7 +933,9 @@ class CharacterTechniqueChoice(models.Model):
 
             if (
                 self.definition.allowed_skill_family
-                and self.selected_skill.family != self.definition.allowed_skill_family
+                and not self.selected_skill.belongs_to_family(
+                    self.definition.allowed_skill_family
+                )
             ):
                 raise ValidationError({
                     "selected_skill": "The selected skill does not belong to the allowed skill family."
@@ -1302,8 +1304,9 @@ class CharacterSpecializationChoice(models.Model):
                 )
             if (
                 self.definition.allowed_skill_family
-                and self.selected_skill.family
-                != self.definition.allowed_skill_family
+                and not self.selected_skill.belongs_to_family(
+                    self.definition.allowed_skill_family
+                )
             ):
                 raise ValidationError(
                     {"selected_skill": "Skill is outside the allowed family."}
@@ -1496,7 +1499,9 @@ class CharacterRaceChoice(models.Model):
                 })
             if (
                 self.definition.allowed_skill_family
-                and self.selected_skill.family != self.definition.allowed_skill_family
+                and not self.selected_skill.belongs_to_family(
+                    self.definition.allowed_skill_family
+                )
             ):
                 raise ValidationError({
                     "selected_skill": "The selected skill does not belong to the allowed skill family."

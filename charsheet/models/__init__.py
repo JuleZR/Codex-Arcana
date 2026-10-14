@@ -1,5 +1,9 @@
 """Domain models grouped by concern for the charsheet app."""
 
+from .attribute_flavor import (
+    AttributeRating, GeneralAttributeMeaning, RaceAttributeFlavor,
+)
+
 from .announcement import DashboardAnnouncement
 from .calendar import (
     CalendarDefinition, CalendarMonth, CalendarLeapRule, CalendarLeapException,
@@ -124,6 +128,7 @@ from .items import (
     WeaponStats,
     AlchemicalBrewStats,
     ConsumableEffectStats,
+    SubstanceStats,
     AlchemicalBrewRequirement,
 )
 from .lessons import (
@@ -199,6 +204,9 @@ from .techniques import (
 )
 
 __all__ = [
+    "AttributeRating",
+    "GeneralAttributeMeaning",
+    "RaceAttributeFlavor",
     "CalendarDefinition", "CalendarMonth", "CalendarSeason",
     "CalendarLeapRule",
     "CalendarLeapException", "CalendarSystem", "CharacterDate",
@@ -372,6 +380,7 @@ __all__ = [
     "Material",
     "AlchemicalBrewStats",
     "ConsumableEffectStats",
+    "SubstanceStats",
     "AlchemicalBrewRequirement",
     "SpecializationSemanticEffect",
 ]

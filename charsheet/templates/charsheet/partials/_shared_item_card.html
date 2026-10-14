@@ -83,7 +83,7 @@
                   <td>{{ row.label }}</td>
                   <td>
                     <span class="sl-card-disclosure-slot sl-card-disclosure-slot--value">
-                    <span data-sl-disclosure-target="{{ row.field_key }}" data-actual="{{ row.value }}" data-hidden="Verborgen">{{ row.value }}</span>
+                    <span data-sl-disclosure-target="{{ row.field_key }}" data-actual="{{ row.value }}" data-hidden="Verborgen">{% if row.field_key == "substance_stats" %}{{ row.value|linebreaksbr }}{% else %}{{ row.value }}{% endif %}</span>
                     {% if item_card.controls and row.disclosure %}
                       <span class="sl-card-lock-control sl-card-lock-control--value">
                         <input type="hidden" name="disclosure_present_{{ row.field_key }}" value="1" form="{{ disclosure_form_id }}">

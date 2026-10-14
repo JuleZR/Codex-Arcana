@@ -140,6 +140,9 @@
       : area.value === "wound_stage"
         ? ["", "flat_add"]
         : ["", "flat_add", "flat_sub", "multiply", "floor_divide", "override", "min_value", "max_value"];
+    if (["skill", "multi_skill", "skill_category"].indexOf(area.value) !== -1) {
+      allowed.push("skill_rank_minimum");
+    }
     rebuildOptions(
       operator,
       readAllOptions(operator).filter(function (option) {

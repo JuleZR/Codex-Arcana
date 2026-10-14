@@ -1,0 +1,816 @@
+[
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "Schwächling",
+    "official_description": "Sie heben 5 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} muss selbst für geringe Lasten alle Kraft aufbringen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "Kind",
+    "official_description": "Sie heben 10 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} ringt mit Lasten, die andere beiläufig tragen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "Dürftig",
+    "official_description": "Sie heben 20 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} vertraut eher auf Geschick als auf rohe Kraft."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "Untrainiert",
+    "official_description": "Sie heben 40 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} geht schweren Lasten lieber aus dem Weg."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "Durchschnitt",
+    "official_description": "Sie heben 70 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} besitzt die Kraft für die Mühen des Alltags."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "Guter Durchschnitt",
+    "official_description": "Sie heben 100 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} packt kräftig zu, wenn es darauf ankommt."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "Stark",
+    "official_description": "Sie heben 150 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} bewegt schwere Lasten mit sicherem Griff."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "Sehr stark",
+    "official_description": "Sie heben 200 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} verfügt über eine außergewöhnliche Körperkraft."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "Muskelpaket",
+    "official_description": "Sie heben 250 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "Wo andere versagen, setzt {character_name} gewaltige Muskelkraft ein."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "ST",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "Bärenkräfte",
+    "official_description": "Sie heben 300 Kg.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} stemmt Lasten, vor denen selbst kräftige Gefährten zurückschrecken."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "Erbärmlich",
+    "official_description": "Sie neigen zu chronischen Erkrankungen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name}s Körper ist zerbrechlich und anfällig."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "Leichtgewicht",
+    "official_description": "Sie ermüden schnell und gehen beim ersten Treffer zu Boden.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} erschöpft sich rasch und hält wenig aus."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "Schwächlich",
+    "official_description": "Sie haben eine niedrige Schmerztoleranz.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "Schmerz und Entbehrung setzen {character_name} schnell zu."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "Untrainiert",
+    "official_description": "Sie halten kaum größere Belastungen aus.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} erreicht bei großer Anstrengung rasch die eigenen Grenzen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "Halbwegs in Form",
+    "official_description": "Sie können einen Tag lang wandern.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} hält einen langen Wandertag durch."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "Ausdauernd",
+    "official_description": "Sie sind ein guter Läufer.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} bewahrt auch auf langen Wegen Ausdauer."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "Athletisch",
+    "official_description": "Sie sind gut trainiert und körperlich belastbar.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} begegnet körperlichen Mühen mit trainierter Ausdauer."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "Zäh",
+    "official_description": "Sie halten Schmerzen leichter aus als andere.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} erträgt Schmerzen, die andere längst niederwerfen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "Hart",
+    "official_description": "Sie können schwere körperliche Arbeiten verrichten, ohne besonders zu ermüden.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} arbeitet unermüdlich, während andere bereits ruhen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "KON",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "Perfekte Kondition",
+    "official_description": "Sie haben eine gute Chance, den meisten Krankheiten und Giften zu widerstehen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name}s Körper trotzt selbst Krankheit und Gift mit bemerkenswerter Widerstandskraft."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "Trampel",
+    "official_description": "Sie stolpern ständig über die eigenen Füße.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} stolpert oft über die eigenen Füße."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "Grobmotoriker",
+    "official_description": "Bei Ihnen geht öfter was kaputt.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "Unter {character_name}s Händen geht leicht etwas zu Bruch."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "Ungeschickt",
+    "official_description": "Auf einer 20 cm dicken Mauer entlangzugehen ist für Sie ein Drahtseilakt.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "Unsichere Bewegungen machen {character_name} selbst einfache Kunststücke schwer."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "Schwerfällig",
+    "official_description": "Manchmal geht beim Biereinschenken was daneben.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} bewegt sich schwerfällig; feine Handgriffe verlangen Geduld."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "Normal",
+    "official_description": "Sie können zwei Bälle jonglieren.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} bewegt sich sicher durch den Alltag."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "Präzise",
+    "official_description": "Sie haben eine sichere Hand.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} führt auch feine Handgriffe mit ruhiger Hand aus."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "Fingerfertig",
+    "official_description": "Sie könnten Goldschmied werden, wenn Sie wollten.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name}s geschickte Finger meistern selbst filigrane Arbeiten."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "Gewandt",
+    "official_description": "Sie haben das Zeug zu einem beeindruckenden Tänzer.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} bewegt sich mit der Anmut eines geübten Tanzes."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "Graziös",
+    "official_description": "Sie könnten leicht ein Akrobat werden, wenn Sie es wollten.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} verbindet Leichtigkeit mit der Sicherheit eines Akrobaten."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "GE",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "Katzenhaft",
+    "official_description": "Sie können blind mit fünf Messern jonglieren.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} bewegt sich katzenhaft und beherrscht selbst waghalsige Kunststücke."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "",
+    "official_description": "„Hallo? – Wer spricht denn da?“",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} nimmt die Welt oft erst wahr, wenn andere längst reagieren."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "",
+    "official_description": "Sie schauen oft in die Luft oder sind unkonzentriert.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s Aufmerksamkeit schweift leicht ab."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "",
+    "official_description": "Sie übersehen schon mal was, und Sie reagieren langsam.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} übersieht manches und reagiert zögerlich."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "",
+    "official_description": "Sie sind gelegentlich geistesabwesend.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} verliert sich gelegentlich in Gedanken."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "",
+    "official_description": "Sie bemerken offensichtliche Dinge sofort.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} bemerkt sofort, was offen vor Augen liegt."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "",
+    "official_description": "Sie sind sich Ihrer Umwelt bewusst.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} behält die Umgebung aufmerksam im Blick."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "",
+    "official_description": "Sie erkennen subtile Hinweise.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} entdeckt Hinweise, an denen andere achtlos vorübergehen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "",
+    "official_description": "Sie werden selten überrascht.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} lässt sich nur selten überraschen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "",
+    "official_description": "Ihnen entgeht kein Detail, und Sie reagieren blitzschnell.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} entgeht kaum ein Detail; jede Bewegung findet eine rasche Antwort."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WA",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "",
+    "official_description": "Sie können Gefahr fast schon spüren.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} ahnt Gefahr, bevor andere sie überhaupt bemerken."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "Tierhaft",
+    "official_description": "Sie kapieren immer als letzter.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} begreift nur mühsam, was andere selbstverständlich finden."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "Dorftrottel",
+    "official_description": "Sie verstehen so gut wie nie, worüber die anderen lachen... und lachen einfach mal mit.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} verliert leicht den Faden und versteht die Absichten anderer selten."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "Langsam",
+    "official_description": "Sie haben manchmal Probleme, sich klar zu artikulieren.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} braucht Zeit, um Gedanken zu ordnen und in Worte zu fassen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "Vergesslich",
+    "official_description": "Sie vergessen häufiger etwas.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s Erinnerungen lassen oft entscheidende Einzelheiten vermissen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "Durchschnitt",
+    "official_description": "IQ 100",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} versteht die Welt mit gesundem Alltagsverstand."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "Ausgezeichnet",
+    "official_description": "Sie sind ziemlich kreativ.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} findet mit Einfallsreichtum neue Wege."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "Geistesscharf",
+    "official_description": "Sie haben einen scharfen Verstand.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} durchdringt Fragen mit scharfem Verstand."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "Hochintelligent",
+    "official_description": "Sie kommen oft auf gute Ideen und lernen schnell.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} lernt rasch und entdeckt ungewöhnliche Lösungen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "Brillant",
+    "official_description": "„ Die Kraft der zwei Gehirne.“",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s brillante Gedanken reichen weit über das Offensichtliche hinaus."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "INT",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "Genie",
+    "official_description": "Sie verstehen selbst die komplexesten Zusammenhänge.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} erkennt selbst in verwickelten Zusammenhängen ein klares Muster."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "Ängstlich",
+    "official_description": "Sie trauen sich nicht aus dem Haus. Ein Ziegelstein könnte auf Ihren Kopf fallen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} begegnet der Welt mit lähmender Furcht."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "Schwach",
+    "official_description": "Sie glauben fast alles und leben in einer Traumwelt.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} lässt sich leicht beeinflussen und flüchtet in Wunschbilder."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "Unsicher",
+    "official_description": "Wenig Selbstbewusstsein.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} zweifelt oft an der eigenen Stärke."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "Schüchtern",
+    "official_description": "Sie sagen selten „nein“.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} scheut Widerspruch und gibt leicht nach."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "Ausgeglichen",
+    "official_description": "Sie wissen immerhin, wo Ihr Platz ist.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} kennt den eigenen Platz und bewahrt ein inneres Gleichgewicht."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "Diszipliniert",
+    "official_description": "Sie können sich zusammenreißen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} hält die eigenen Regungen im Zaum."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "Entschlossen",
+    "official_description": "Sie lassen sich nicht leicht einschüchtern.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} verfolgt Ziele entschlossen und weicht Drohungen selten."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "Tapfer",
+    "official_description": "Sie fliehen selten aus einem Kampf und können der Realität ins Auge sehen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} blickt Gefahr und Wirklichkeit mit festem Mut entgegen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "Eisern",
+    "official_description": "Andere machen Platz für Sie.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s eiserne Entschlossenheit lässt andere zurückweichen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "WILL",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "Legendär",
+    "official_description": "Ihr Wille ist unerschütterlich.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s Wille bleibt selbst unter schwerstem Druck unerschütterlich."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 1,
+    "max_value": 1,
+    "official_designation": "Abstoßend",
+    "official_description": "Sie neigen dazu, sich schnell Feinde zu machen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} erregt leicht Misstrauen und Feindschaft."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 2,
+    "max_value": 2,
+    "official_designation": "Nervtötend",
+    "official_description": "Wenn sich einer danebenbenimmt, dann sind Sie es.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s Auftreten strapaziert rasch die Geduld anderer."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 3,
+    "max_value": 3,
+    "official_designation": "Apathisch",
+    "official_description": "Andere bemerken Sie kaum. Reden ist nicht Ihre Stärke.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} bleibt meist unbeachtet und findet schwer Zugang zu anderen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 4,
+    "max_value": 4,
+    "official_designation": "Launisch",
+    "official_description": "Manchmal gehen Sie selbst Ihren Freunden auf die Nerven.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name}s wechselhafte Art fordert selbst vertraute Gefährten."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 5,
+    "max_value": 5,
+    "official_designation": "Durchschnitt",
+    "official_description": "Sie kommen mit anderen zurecht.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} findet ohne große Mühe Anschluss."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 6,
+    "max_value": 6,
+    "official_designation": "Glaubwürdig",
+    "official_description": "Sie kommen an den Stadtwachen schon irgendwie vorbei ...",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} spricht überzeugend und gewinnt Vertrauen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 7,
+    "max_value": 7,
+    "official_designation": "Auffallend",
+    "official_description": "Andere fühlen sich in Ihrer Gegenwart wohl. Sie gewinnen leicht Freunde.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "In {character_name}s Nähe fühlen sich andere wohl; Freundschaften entstehen leicht."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 8,
+    "max_value": 8,
+    "official_designation": "Vertrauenerweckend",
+    "official_description": "Leute erzählen Ihnen oft ihre Sorgen und Nöte.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} gewinnt das Vertrauen selbst verschlossener Menschen."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 9,
+    "max_value": 9,
+    "official_designation": "Anmutig",
+    "official_description": "Wenn Sie reden, hören andere zu.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "Wenn {character_name} spricht, lauscht die Runde aufmerksam."
+  },
+  {
+    "model": "AttributeRating",
+    "attribute": "CHA",
+    "min_value": 10,
+    "max_value": 10,
+    "official_designation": "Inspirierend",
+    "official_description": "Sie sind ein brillanter Manipulator, andere können Ihnen nur schwer widerstehen.",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 223",
+    "narrative_template": "{character_name} zieht Menschen in den Bann und lenkt ihre Herzen mit großer Sicherheit."
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 1,
+    "max_value": 1,
+    "official_meaning": "Lächerlich",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 2,
+    "max_value": 2,
+    "official_meaning": "Erbärmlich",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 3,
+    "max_value": 3,
+    "official_meaning": "Nicht besonders",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 4,
+    "max_value": 4,
+    "official_meaning": "Unterdurchschnittlich",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 5,
+    "max_value": 5,
+    "official_meaning": "Durchschnitt für Menschen",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 6,
+    "max_value": 6,
+    "official_meaning": "Ganz gut",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 7,
+    "max_value": 7,
+    "official_meaning": "Ziemlich gut",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 8,
+    "max_value": 8,
+    "official_meaning": "Exzellent",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 9,
+    "max_value": 9,
+    "official_meaning": "Überragend",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 10,
+    "max_value": 10,
+    "official_meaning": "Menschliches Maximum",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222"
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 11,
+    "max_value": 11,
+    "official_meaning": "Übermenschlich",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name}s Begabung reicht über menschliche Grenzen hinaus."
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 12,
+    "max_value": 12,
+    "official_meaning": "Maximum wählbarer Rassen",
+    "source_reference": "Arcane Codex GRW, 3. Edition, Kapitel 11, S. 222",
+    "narrative_template": "{character_name} besitzt eine Begabung, die selbst unter den mächtigsten Völkern nur selten zu finden ist."
+  },
+  {
+    "model": "GeneralAttributeMeaning",
+    "min_value": 13,
+    "max_value": null,
+    "priority": 0,
+    "narrative_template": "{character_name} besitzt Fähigkeiten, die weit über vertraute Maßstäbe hinausreichen."
+  },
+  {
+    "model": "RaceAttributeFlavor",
+    "min_value": 0,
+    "max_value": 0,
+    "narrative_template": "{character_name} gehört zu den Außergewöhnlichen ^seines^~~ihres~~ Volkes.",
+    "neutral_template": "{character_name} gehört zu den Außergewöhnlichen des eigenen Volkes."
+  },
+  {
+    "model": "RaceAttributeFlavor",
+    "min_value": 1,
+    "max_value": 2,
+    "narrative_template": "{character_name} überschreitet die Grenzen, die ^seinem^~~ihrem~~ Volk gewöhnlich gesetzt sind.",
+    "neutral_template": "{character_name} überschreitet die gewöhnlichen Grenzen des eigenen Volkes."
+  },
+  {
+    "model": "RaceAttributeFlavor",
+    "min_value": 3,
+    "max_value": null,
+    "narrative_template": "Selbst unter ^seinesgleichen^~~ihresgleichen~~ scheint {character_name}s Begabung beinahe unvorstellbar.",
+    "neutral_template": "Selbst innerhalb des eigenen Volkes scheint {character_name}s Begabung beinahe unvorstellbar."
+  }
+]

@@ -14,6 +14,7 @@ from .item_engine import ItemEngine
 from . import character_carry
 from charsheet.constants import (
     ARTIFACT_RANK,
+    ATTR_INT,
     ATTR_SPEC,
     CHARACTER_SIZE_CLASS,
     GK_AVERAGE,
@@ -229,7 +230,42 @@ class CharacterEngine:
     def _languages_map(self) -> dict[str, CharacterLanguage]:
         """Cache learned languages keyed by language slug."""
         qs = self.character.characterlanguage_set.select_related("language")
-        return {entry.language.slug: entry for entry in qs}
+        entries = {entry.language.slug: entry for entry in qs}
+        for slug, language in self._free_languages.items():
+            entries.setdefault(
+                slug,
+                CharacterLanguage(
+                    owner=self.character, language=language, levels=0,
+                ),
+            )
+        return entries
+
+    def natural_intelligence_bonus(self) -> int:
+        """Use only purchased INT, excluding all modifier sources."""
+        return max(0, int(self._attributes_map.get(ATTR_INT, 0)) - 5)
+
+    def free_language_slots(self) -> int:
+        """Return the optional GRW 1 allowance from purchased INT."""
+        settings = getattr(self.character.owner, "settings", None)
+        if not getattr(settings, "int_bonus_languages_enabled", False):
+            return 0
+        return self.natural_intelligence_bonus()
+
+    @cached_property
+    def _free_languages(self) -> dict:
+        """Resolve chosen languages within the current GRW 1 allowance."""
+        slots = self.free_language_slots()
+        if not slots:
+            return {}
+        return {
+            language.slug: language
+            for language in self.character.int_bonus_languages.order_by("pk")[:slots]
+        }
+
+    def free_language_level(self, language_slug: str) -> int:
+        """Return free fluent proficiency without granting literacy."""
+        language = self._free_languages.get(language_slug)
+        return min(3, int(language.max_level)) if language is not None else 0
 
     @cached_property
     def _school_entries(self) -> dict[int, CharacterSchool]:
@@ -944,9 +980,18 @@ class CharacterEngine:
         """Return the learnable maximum rank for one skill row."""
         return self.modifier_engine.resolve_skill_rank_cap(skill_slug, specification=specification)
 
-    def skill_rank_bonus(self, skill_slug: str, *, specification: str | None = None) -> int:
-        """Return granted ranks that count as skill ranks instead of misc modifiers."""
-        return self.modifier_engine.resolve_skill_rank_bonus(skill_slug, specification=specification)
+    def skill_rank_bonus(
+        self, skill_slug: str, *, specification: str | None = None,
+        learned_rank: int | None = None,
+    ) -> int:
+        """Return granted ranks, including the gap to a configured minimum."""
+        if learned_rank is None:
+            learned_rank = int(
+                self._skills_map.get(skill_slug, {}).get("level", 0),
+            )
+        return self.modifier_engine.resolve_skill_rank_bonus(
+            skill_slug, specification=specification, learned_rank=learned_rank,
+        )
 
     def skill_rank_cap_metadata(self, skill_slug: str, *, specification: str | None = None) -> dict:
         """Return metadata for matching skill-rank-cap effects."""
@@ -1012,7 +1057,9 @@ class CharacterEngine:
         entry = self._languages_map.get(language_slug)
         if entry is None:
             return 0
-        base_level = int(entry.levels)
+        base_level = max(
+            int(entry.levels), self.free_language_level(language_slug),
+        )
         modifier_parts = [self.modifier_total_for_language(language_slug)]
         if not bool(entry.is_mother_tongue):
             modifier_parts.append(self.modifier_total_for_language("foreign_languages"))
@@ -1023,7 +1070,10 @@ class CharacterEngine:
         entry = self._languages_map.get(language_slug)
         if entry is None:
             return False
-        return bool(entry.can_write)
+        return bool(entry.can_write) and (
+            int(entry.levels) >= 3
+            or self.free_language_level(language_slug) >= 3
+        )
 
     def resolve_derived_stat(self, stat_key: str, context: dict | None = None) -> int:
         """Resolve one derived stat through the central modifier engine."""
@@ -1188,6 +1238,7 @@ class CharacterEngine:
             else skill_definition.attribute.short_name
         )
         level = int(learned_info["level"]) if learned_info is not None else 0
+        level += self.skill_rank_bonus(skill_slug, learned_rank=level)
         attr_val = int(self.attributes().get(attr_short, 0))
         attr_mod = int(self.attribute_modifier(attr_short))
 
@@ -1211,12 +1262,18 @@ class CharacterEngine:
         skills = self.skills()
         if skill_slug in skills:
             info = skills[skill_slug]
-            return int(info["level"]) + int(self.attribute_modifier(info["attribute"]))
+            return (
+                int(info["level"]) + self.skill_rank_bonus(skill_slug)
+                + int(self.attribute_modifier(info["attribute"]))
+            )
 
         skill_definition = self._skill_definitions_by_slug.get(skill_slug)
         if skill_definition is None:
             return 0
-        return int(self.attribute_modifier(skill_definition.attribute.short_name))
+        return (
+            self.skill_rank_bonus(skill_slug)
+            + int(self.attribute_modifier(skill_definition.attribute.short_name))
+        )
 
     def _build_technique_state(
         self,

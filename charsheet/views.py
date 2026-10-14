@@ -6690,7 +6690,10 @@ def _skill_allowed_for_creature_choice_definition(skill: Skill, definition: Crea
         return False
     if definition.allowed_skill_category_id and skill.category_id != definition.allowed_skill_category_id:
         return False
-    if definition.allowed_skill_family and skill.family != definition.allowed_skill_family:
+    if (
+        definition.allowed_skill_family
+        and not skill.belongs_to_family(definition.allowed_skill_family)
+    ):
         return False
     return True
 

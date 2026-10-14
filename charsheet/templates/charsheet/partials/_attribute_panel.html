@@ -1,8 +1,11 @@
+{% load attribute_flavor %}
 <div
   class="attribute_wrapper"
   id="sheetAttributePanel"
   data-temporary-attribute-panel
   data-update-url="{{ temporary_attribute_update_url }}"
+  data-flavor-url="{% url 'attribute_flavor_card' character.id %}"
+  data-flavor-group="{{ request.resolver_match.kwargs.group_id|default:'' }}"
 >
   <table class="attribute_table" aria-label="Eigenschaften">
     <thead>
@@ -20,6 +23,8 @@
           {% if row.runtime_adjustment > 0 %}class="is-temporary-positive"{% elif row.runtime_adjustment < 0 %}class="is-temporary-negative"{% endif %}
         >
           <td class="attribute">
+            {% attribute_flavor_data character row.short_name row.value as flavor %}
+            {% with flavor_id="attribute-flavor-"|add:row.short_name %}{{ flavor|json_script:flavor_id }}{% endwith %}
             <div class="attribute_name_controls">
               <button
                 type="button"
@@ -47,7 +52,7 @@
               >+</button>
             </div>
           </td>
-          <td class="value" data-attribute-value aria-live="polite">{{ row.value }}</td>
+          <td class="value" data-attribute-value data-attribute-flavor role="button" tabindex="0" aria-label="{{ row.label }}: Beschreibung anzeigen" aria-haspopup="dialog" aria-live="polite">{{ row.value }}</td>
           <td class="mod"><span class="mod-badge">{{ row.modifier }}</span></td>
         </tr>
       {% endfor %}

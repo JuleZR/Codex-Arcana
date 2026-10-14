@@ -52,7 +52,7 @@
 #learnWindow .learn_chronicle_eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #dfbf8e; }
 #learnWindow .learn_chronicle_header h2 { margin: 3px 0 0; color: #f7e9ce; font: 700 clamp(25px, 2.5vw, 35px)/1 "Cormorant Garamond", Georgia, serif; }
 #learnWindow .learn_chronicle_header p { margin: 5px 0 0; color: #e6cfad; font: italic 16px "Cormorant Garamond", Georgia, serif; }
-#learnWindow .learn_chronicle_resources { display: flex; gap: 8px; }
+#learnWindow .learn_chronicle_resources { display: flex; flex-wrap: wrap; gap: 8px; }
 #learnWindow .learn_chronicle_heading { min-width: 0; flex: 1; }
 #learnWindow .learn_chronicle_sigil { display: grid; place-items: center; width: 50px; height: 50px; flex: 0 0 50px; border: 1px solid #c8a777; transform: rotate(7deg); color: #f2d8a7; background: #271d1966; box-shadow: inset 0 0 17px #e9c78925; font: 36px "Cormorant Garamond", Georgia, serif; }
 #learnWindow .learn_chronicle_resources > div { min-width: 105px; padding: 8px 12px; border: 1px solid #b5946380; background: linear-gradient(150deg, #31231db3, #4c3528b3); box-shadow: inset 0 1px 0 #b5955c55; }
@@ -141,6 +141,7 @@
 #learnWindow .learn_rank.owned { background: #b0926b; border-color: #c3a276; }
 #learnWindow .learn_rank.next { background: #b85e47; border-color: #da8768; }
 #learnWindow .learn_rank.removed { background: repeating-linear-gradient(45deg, #a16964 0 3px, #392c2c 3px 6px); }
+#learnWindow .learn_rank.free { background: #789cb4; border-color: #a5c4d6; }
 #learnWindow .learn_rank--literacy { background: #344747; border-color: #617b79; }
 #learnWindow .learn_rank--literacy.owned { background: #7faaa1; border-color: #a1c4bb; }
 #learnWindow .learn_rank--literacy.next { background: #4f9989; border-color: #7cc4b2; }

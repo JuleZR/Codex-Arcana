@@ -114,7 +114,6 @@ from charsheet.models import (
     DivineEntity,
     DruidCult,
     ItemRune,
-    CharacterLanguage,
     CharacterLesson,
     CharacterSpell,
     CharacterCreatureTraitChoice,
@@ -727,7 +726,7 @@ def build_creature_card_training_context(card):
         if definition.allowed_skill_category_id:
             skills = skills.filter(category_id=definition.allowed_skill_category_id)
         if definition.allowed_skill_family:
-            skills = skills.filter(family=definition.allowed_skill_family)
+            skills = skills.in_family(definition.allowed_skill_family)
         return [{"value": skill.pk, "label": skill.name, "meta": skill.category.name} for skill in skills]
 
     def trait_choice_rows(trait):
@@ -1069,7 +1068,7 @@ def _creature_trait_skill_choice_options(definition: CreatureTraitChoiceDefiniti
     if definition.allowed_skill_category_id:
         skills = skills.filter(category_id=definition.allowed_skill_category_id)
     if definition.allowed_skill_family:
-        skills = skills.filter(family=definition.allowed_skill_family)
+        skills = skills.in_family(definition.allowed_skill_family)
     options = [{"value": f"skill:{skill.pk}", "label": skill.name, "meta": skill.category.name} for skill in skills]
     special_skills = (
         CreatureSpecialSkill.objects.order_by("name")
@@ -3590,12 +3589,16 @@ def build_character_item_card_context(
         "Kaufpreis": "price",
         "Gewicht": "weight",
         "GK": "size_class",
+        "Substanzdaten": "substance_stats",
     }
     safe_detail_rows = []
     for label, value in detail_rows:
         label_text = str(label).replace("**", "")
         field_key = detail_field_keys.get(str(label), "")
-        value_text = str(value).replace("**", "")
+        value_text = (
+            str(value) if field_key == "substance_stats"
+            else str(value).replace("**", "")
+        )
         safe_detail_rows.append(
             {
                 "label": label_text,
@@ -3861,6 +3864,16 @@ def _build_item_tooltip_rows(
             if description:
                 rows.append(("Magie", description))
 
+    substance = (
+        getattr(item, "substancestats", None)
+        if item.item_type.supports_substance_stats else None
+    )
+    if substance is not None:
+        text = "\n".join(
+            f"{label}: {value}" for label, value in substance.display_fields
+        )
+        if text:
+            rows.append(("Substanzdaten", text))
     return rows
 
 
@@ -3876,6 +3889,7 @@ def _filter_item_tooltip_rows_for_display(
         "Kaufpreis": "price",
         "Gewicht": "weight",
         "GK": "size_class",
+        "Substanzdaten": "substance_stats",
     }
     visible_rows = []
     for label, value in rows:
@@ -5131,6 +5145,17 @@ def _build_skill_modifier_rows(
     return rows
 
 
+def _skill_card_description(skill: Skill) -> str:
+    """Show configured related skills below the skill's description."""
+    related_names = ", ".join(
+        related.name for related in skill.related_skills.all()
+    )
+    if related_names:
+        description = skill.description or "Keine Beschreibung"
+        return f"{description}\n\nVerwandte Fertigkeiten: {related_names}"
+    return skill.description
+
+
 def _build_skill_rows(
     character: Character,
     engine,
@@ -5301,7 +5326,9 @@ def _build_skill_rows(
         raw_modifiers = int(engine._skill_modifiers(skill.slug, specification=specification))
         skill_carry_penalty = engine.skill_carry_penalty(skill.slug)
         base_rank = int(character_skill.level) if character_skill is not None else 0
-        rank_bonus = int(engine.skill_rank_bonus(skill.slug, specification=specification))
+        rank_bonus = int(engine.skill_rank_bonus(
+            skill.slug, specification=specification, learned_rank=base_rank,
+        ))
         rank = base_rank + rank_bonus
         size_modifier = _skill_size_modifier(skill)
         total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
@@ -5324,7 +5351,7 @@ def _build_skill_rows(
             "skill_id": skill.id,
             "name": skill.name,
             "display_name": _build_display_name(skill, specification),
-            "description": skill.description,
+            "description": _skill_card_description(skill),
             "category_name": skill.category.name,
             "category_slug": skill.category.slug,
             "family": skill.family,
@@ -5395,7 +5422,7 @@ def _build_skill_rows(
             "skill_id": skill.id,
             "name": skill.name,
             "display_name": skill.name.rstrip(": ").strip(),
-            "description": skill.description,
+            "description": _skill_card_description(skill),
             "category_name": skill.category.name,
             "category_slug": skill.category.slug,
             "family": skill.family,
@@ -5748,7 +5775,8 @@ def _build_skill_rows(
     )
     skills_by_id = {
         skill.id: skill
-        for skill in Skill.objects.select_related("category", "attribute").order_by("name", "id")
+        for skill in Skill.objects.select_related("category", "attribute")
+        .prefetch_related("related_skills").order_by("name", "id")
     }
     character_skills_by_skill_id: dict[int, list[object]] = {}
     for character_skill in character_skills:
@@ -7715,15 +7743,15 @@ def _build_weapon_mastery_arcana_panel(engine) -> dict | None:
 def _build_language_rows(character: Character) -> tuple[list[dict], object]:
     """Build the compact language display rows and keep the queryset for learning data."""
     engine = character.engine
-    language_entries = (
-        CharacterLanguage.objects
-        .filter(owner=character)
-        .select_related("language")
-        .order_by("-is_mother_tongue", "language__name")
+    language_entries = sorted(
+        engine._languages_map.values(),
+        key=lambda entry: (not entry.is_mother_tongue, entry.language.name),
     )
     language_rows: list[dict] = []
     for entry in language_entries:
         level_count = max(0, min(3, engine.resolve_language_level(entry.language.slug)))
+        if not level_count:
+            continue
         language_rows.append(
             {
                 "name": entry.language.name,
@@ -7752,6 +7780,7 @@ def _build_shop_item_groups() -> list[dict]:
             "armorstats",
             "shieldstats",
             "magicitemstats",
+            "substancestats",
         )
         .prefetch_related(
             "runes",
@@ -7858,6 +7887,11 @@ def _build_shop_item_groups() -> list[dict]:
                 "id": item.id,
                 "name": item.name,
                 "description": item.description or "",
+                "substance_fields": (
+                    getattr(item, "substancestats", None).display_fields
+                    if getattr(item, "substancestats", None) is not None
+                    and item.item_type.supports_substance_stats else []
+                ),
                 "item_type": item.item_type_id,
                 "stackable": bool(item.stackable),
                 "base_price": int(item.price),
@@ -8237,14 +8271,27 @@ def _build_learning_rows(
             )
 
     learn_language_rows: list[dict] = []
+    free_language_remaining = max(
+        0, engine.free_language_slots() - character.int_bonus_languages.count(),
+    )
     for language in Language.objects.order_by("name"):
         base_state = language_lookup.get(language.id, {"level": 0, "write": False, "mother": False})
+        free_level = engine.free_language_level(language.slug)
         learn_language_rows.append(
             {
                 "slug": language.slug,
                 "name": language.name,
                 "language_type": language.language_type,
-                "base_level": int(base_state["level"]),
+                "base_level": max(int(base_state["level"]), free_level),
+                "paid_level": int(base_state["level"]),
+                "min_level": free_level,
+                "free_available": (
+                    free_language_remaining > 0
+                    and int(base_state["level"]) < 3
+                    and not base_state["mother"]
+                    and int(language.max_level) >= 3
+                    and not free_level
+                ),
                 "max_level": int(language.max_level),
                 "base_write": bool(base_state["write"]),
                 "base_mother": bool(base_state["mother"]),
@@ -8610,6 +8657,7 @@ def _build_learning_rows(
             for category_name, rows in skill_groups.items()
         ],
         "learn_language_rows": learn_language_rows,
+        "learn_free_language_remaining": free_language_remaining,
         "learn_language_groups": [
             {"key": key, "name": name, "rows": rows}
             for key, name in [

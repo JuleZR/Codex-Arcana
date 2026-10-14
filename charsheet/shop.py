@@ -61,6 +61,7 @@ from charsheet.models import (
 )
 from charsheet.item_transfers import has_item_permission, item_is_pending, record_item_destruction
 from charsheet.models import ItemPermissionGrant
+from charsheet.substances import save_substance_stats
 
 
 TARGET_KIND_ATTRIBUTE = "attribute"
@@ -1334,6 +1335,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
             )
             item.full_clean()
             item.save()
+            save_substance_stats(item, post_data)
             if selected_runes:
                 item.runes.set(selected_runes)
 

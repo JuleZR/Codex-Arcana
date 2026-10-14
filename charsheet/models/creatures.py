@@ -2119,7 +2119,12 @@ class CreatureTraitChoiceSelection(models.Model):
                     and self.selected_skill.category_id != self.definition.allowed_skill_category_id
                 ):
                     raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill category."})
-                if self.definition.allowed_skill_family and self.selected_skill.family != self.definition.allowed_skill_family:
+                if (
+                    self.definition.allowed_skill_family
+                    and not self.selected_skill.belongs_to_family(
+                        self.definition.allowed_skill_family
+                    )
+                ):
                     raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill family."})
         if (
             self.definition_id

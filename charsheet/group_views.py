@@ -58,6 +58,7 @@ from charsheet.item_disclosure import (
     set_effect_identifications,
     set_item_disclosures,
 )
+from charsheet.substances import save_substance_stats
 from charsheet.engine import ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine
 from charsheet.models import (
@@ -3190,6 +3191,12 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
             item.image = request.FILES["image"]
         item.full_clean()
         item.save()
+        try:
+            save_substance_stats(item, request.POST)
+        except ValidationError as exc:
+            raise GroupError(
+                "invalid_substance", " ".join(exc.messages),
+            ) from exc
         if request.POST.get("rune_ids_present"):
             item.runes.set(Rune.objects.filter(pk__in=request.POST.getlist("rune_ids")))
         if request.POST.get("remove_catalog_group"):

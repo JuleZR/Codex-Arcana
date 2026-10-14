@@ -3,8 +3,16 @@
 from django import template
 
 from charsheet.models import ItemType
+from charsheet.substances import SubstanceStatsForm
 
 register = template.Library()
+
+
+@register.simple_tag
+def substance_stats_form(item=None):
+    return SubstanceStatsForm(
+        instance=getattr(item, "substancestats", None), prefix="substance",
+    )
 
 
 @register.simple_tag

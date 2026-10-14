@@ -1,0 +1,90 @@
+[data-attribute-flavor] { cursor: pointer; }
+[data-attribute-flavor]:focus-visible { outline: 2px solid #b59861; outline-offset: -2px; }
+.attribute-flavor-card {
+  --flavor-paper: #efe7d5;
+  --flavor-border: rgba(74, 55, 38, .45);
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  z-index: 10000;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 3rem);
+  box-sizing: border-box;
+  overflow: visible;
+  padding: 1rem 1.75rem 1rem 1.1rem;
+  border: 1px solid var(--flavor-border);
+  border-radius: .35rem;
+  background:
+    linear-gradient(rgba(247, 243, 232, .82), rgba(236, 230, 216, .78)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  color: var(--ink, #3f2d1f);
+  box-shadow: 0 .3rem 1rem rgba(63, 45, 31, .22);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.125rem;
+  font-weight: 400;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
+  line-height: 1.5;
+}
+.attribute-flavor-card::before {
+  content: "";
+  position: absolute;
+  width: .75rem;
+  height: .75rem;
+  background: var(--flavor-paper);
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
+}
+.attribute-flavor-card[data-anchor-side="left"]::before {
+  left: 0;
+  top: var(--flavor-anchor-y);
+  border-left: 1px solid var(--flavor-border);
+  border-bottom: 1px solid var(--flavor-border);
+}
+.attribute-flavor-card[data-anchor-side="right"]::before {
+  left: 100%;
+  top: var(--flavor-anchor-y);
+  border-right: 1px solid var(--flavor-border);
+  border-top: 1px solid var(--flavor-border);
+}
+.attribute-flavor-card[data-anchor-side="top"]::before {
+  left: var(--flavor-anchor-x);
+  top: 0;
+  border-left: 1px solid var(--flavor-border);
+  border-top: 1px solid var(--flavor-border);
+}
+.attribute-flavor-card[data-anchor-side="bottom"]::before {
+  left: var(--flavor-anchor-x);
+  top: 100%;
+  border-right: 1px solid var(--flavor-border);
+  border-bottom: 1px solid var(--flavor-border);
+}
+.attribute-flavor-card [data-flavor-body] {
+  max-height: calc(100dvh - 10rem);
+  overflow: auto;
+}
+.attribute-flavor-card form { position: absolute; top: .3rem; right: .3rem; }
+.attribute-flavor-card button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: .15rem .35rem;
+}
+.attribute-flavor-card [data-flavor-body],
+.attribute-flavor-card p {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
+}
+.attribute-flavor-card p { margin: 0 0 .65rem; }
+.attribute-flavor-card p:last-child { margin-bottom: 0; }
+.attribute-flavor-absolute { font-weight: 400; }
+.attribute-flavor-relative { margin-top: .65rem; }
+.attribute-flavor-card details { margin-top: .85rem; font-size: 1rem; }
+.attribute-flavor-card summary { cursor: pointer; }
+.attribute-flavor-source { color: var(--ink-soft); font-size: .9rem; }
+.attribute-flavor-card a { color: var(--bronze-dark, #614326); }

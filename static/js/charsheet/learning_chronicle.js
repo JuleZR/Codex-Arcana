@@ -114,12 +114,18 @@ export function initLearningChronicle(form, cartBody, controller) {
       }
       const delta = readInt(row?.querySelector("[data-learn-value]")?.value, 0);
       const target = base + delta;
+      const freeLanguage = source.dataset.kind === "lang" && (
+        row?.querySelector("[data-learn-lang-free]")?.checked
+        || readInt(source.dataset.min, 0) > 0
+      );
+      const paidLevel = readInt(source.dataset.paidBase, base);
       track.setAttribute("aria-label", `Aktuell ${base}, geplant ${target}, Maximum ${max}`);
       track.innerHTML = Array.from({ length: max }, (_, index) => {
         const level = index + 1;
         const state = level <= Math.min(base, target) ? "owned"
           : level <= target ? "next" : level <= base ? "removed" : "";
-        return `<span class="learn_rank ${state}" aria-hidden="true"></span>`;
+        const free = freeLanguage && level > paidLevel && level <= Math.min(3, target);
+        return `<span class="learn_rank ${state}${free ? " free" : ""}"${free ? ' title="Kostenlose Sprachstufe (INT-Mod)"' : ""} aria-hidden="true"></span>`;
       }).join("");
       if (source.dataset.kind === "lang") {
         const owned = source.dataset.write === "1";
@@ -288,6 +294,12 @@ export function initLearningChronicle(form, cartBody, controller) {
     for (const [selector, value] of [["[data-learn-top-slots]", totals.spellSlotRemaining], ["[data-learn-top-brews]", totals.brewSlotRemaining]]) {
       const field = form.querySelector(selector);
       if (field) { field.textContent = `${value || 0} frei`; field.classList.toggle("is-negative", value < 0); }
+    }
+    const languageResource = form.querySelector("[data-learn-top-languages-resource]");
+    if (languageResource) {
+      const remaining = totals.freeLanguageRemaining ?? readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-free-language-budget"), 0);
+      languageResource.hidden = remaining <= 0;
+      languageResource.querySelector("[data-learn-top-languages]").textContent = `${Math.max(0, remaining)} frei`;
     }
     renderRanks();
     renderInspector();

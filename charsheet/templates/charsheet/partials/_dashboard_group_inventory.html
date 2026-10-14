@@ -1,3 +1,4 @@
+{% load item_types %}
 <section class="sl-inventory" id="sl-inventar" aria-label="SL-Inventar"
   data-sl-transfer-state-url="{% url 'group_inventory_transfer_state' group.id %}">
   {% for group_row in sl_inventory_groups %}
@@ -253,6 +254,12 @@
                     <label><span>CP-Schritte</span><input name="invested_cp_steps" type="text" maxlength="200" value="{{ item.invested_cp_steps }}" placeholder="z. B. 2/4/6/8/10"></label>
                     <label class="sl-editor-grid__wide"><span>Bild</span><input name="image" type="file" accept="image/*"></label>
                     <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="5">{{ item.description }}</textarea></label>
+                    {% if item.item_type.supports_substance_stats %}
+                      {% substance_stats_form item as substance_form %}
+                      {% for field in substance_form %}
+                        <label class="sl-editor-grid__wide"><span>{{ field.label }}</span>{{ field }}</label>
+                      {% endfor %}
+                    {% endif %}
                   </div>
                   <div class="sl-editor-checks">
                     <label><input name="stackable" type="checkbox"{% if item.stackable %} checked{% endif %}> Stapelbar</label>

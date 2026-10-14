@@ -39,10 +39,12 @@
     {% endif %}
     <link
       rel="stylesheet"
-      href="{% static 'css/charsheet.css' %}?v=20261014-plan-indicator"
+      href="{% static 'css/charsheet.css' %}?v=20261014-free-language-cards"
     />
     <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261004c">
     <link rel="stylesheet" href="{% static 'css/charsheet/consumables.css' %}?v=20261005">
+    <link rel="stylesheet" href="{% static 'css/charsheet/attribute-flavor.css' %}?v=20261014-parchment">
+    <script type="module" src="{% static 'js/charsheet/attribute_flavor.js' %}?v=20261014-valid-text"></script>
   </head>
   <body class="charsheet-page{% if read_only %} is-read-only{% endif %}{% if is_vampire %} is-vampire-sheet{% endif %}{% if cultist_corruption_level %} has-cultist-corruption cultist-corruption--level-{{ cultist_corruption_level }}{% endif %}" data-read-only="{% if read_only %}1{% else %}0{% endif %}" data-cultist-corruption-level="{{ cultist_corruption_level|default:0 }}"{% if not read_only %} data-external-refresh-url="{% url 'character_sheet_external_refresh' character.id %}" data-external-refresh-signature="{{ sheet_external_refresh_signature }}" data-open-item-transfer-count="{{ open_item_transfer_count|default:0 }}" data-item-transfer-notification-sound="{% static 'charsheet/mp3/notification.mp3' %}"{% endif %}>
     <div class="charsheet-app" id="charsheetApp">
@@ -180,7 +182,7 @@
     {% endif %}
 
     <script defer src="{% static 'js/charsheet/condition_picker.js' %}?v=20261004c"></script>
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261014-learning-attribute-controls"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261014-free-language-cards"></script>
     <script type="module" src="{% static 'js/charsheet_diary.js' %}?v=20261009-journal-page-targets"></script>
     {% if read_only %}
     <script>
@@ -201,6 +203,7 @@
           control.getAttribute("role") !== "tab" &&
           !control.matches("[data-school-group-toggle]") &&
           !control.matches("[data-temporary-attribute-control]") &&
+          !control.matches("[data-attribute-flavor-control]") &&
           !control.matches("[data-carry-load-toggle]") &&
           !control.matches("[data-item-effect-identification]")
         ) {

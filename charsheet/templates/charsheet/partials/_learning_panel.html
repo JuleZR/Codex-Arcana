@@ -21,6 +21,7 @@
           <div><span>{% if character.is_npc %}Verwendete Erfahrung{% else %}Verfügbare Erfahrung{% endif %}</span><strong data-learn-top-ep>{% if character.is_npc %}{{ character.used_experience }}{% else %}{{ character.current_experience }}{% endif %} EP</strong></div>
           {% if learn_magic_tab_visible %}<div><span>Zauberslots</span><strong data-learn-top-slots>{{ learn_magic_slot_summary.remaining|default:0 }} frei</strong></div>{% endif %}
           {% if learn_brew_tab_visible %}<div><span>Almanachplätze</span><strong data-learn-top-brews>{{ learn_brew_slot_remaining }} frei</strong></div>{% endif %}
+          {% if learn_free_language_remaining %}<div data-learn-top-languages-resource><span>Kostenlose Sprachen</span><strong data-learn-top-languages>{{ learn_free_language_remaining }} frei</strong></div>{% endif %}
         </div>
       </header>
       <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
@@ -400,7 +401,7 @@
                   <table class="shop_table">
                     <tbody>
                       {% for row in group.rows %}
-                        <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                        <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-paid-base="{{ row.paid_level }}" data-min="{{ row.min_level }}" data-free-language="{% if row.free_available %}1{% else %}0{% endif %}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
                           <td class="shop_item_name">{{ row.name }}</td>
                           <td class="shop_item_price shop_item_price--meta">
                             <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}, Maximum {{ row.max_level }}{% if row.base_write %}, Schrift vorhanden{% endif %}">

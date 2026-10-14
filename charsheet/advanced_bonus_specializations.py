@@ -190,7 +190,9 @@ def configured_options(character):
                     )
                     and (
                         not definition.allowed_skill_family
-                        or definition.allowed_skill_family == skill.family
+                        or skill.belongs_to_family(
+                            definition.allowed_skill_family
+                        )
                     )
                     for definition in definitions
                 ):
