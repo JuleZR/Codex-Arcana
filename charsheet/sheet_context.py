@@ -7962,6 +7962,7 @@ def _build_lesson_context(
     for lesson in lessons:
         entry = entries.get(int(lesson.id))
         lesson_symbols = []
+        lesson_school_names = set()
         seen_lesson_symbols = set()
         for requirement in lesson.requirements.all():
             symbol_source = (
@@ -7978,6 +7979,7 @@ def _build_lesson_context(
                 symbol_image_url = _aspect_image_url(symbol_source)
             else:
                 symbol_key = f"school:{symbol_source.id}"
+                lesson_school_names.add(str(symbol_source.name))
                 symbol = str(
                     getattr(symbol_source, "panel_symbol", "") or "?"
                 ).strip()
@@ -8024,7 +8026,10 @@ def _build_lesson_context(
             "symbols": lesson_symbols,
         }
         if entry is not None or requirements_ok:
-            learning_groups.setdefault("Lektionen", []).append(learning_row)
+            group_name = " / ".join(sorted(
+                lesson_school_names, key=str.casefold,
+            )) or "Allgemeine Lektionen"
+            learning_groups.setdefault(group_name, []).append(learning_row)
         if entry is None:
             continue
         group = panel_groups.setdefault(
@@ -8092,7 +8097,9 @@ def _build_lesson_context(
         "learn_lesson_tab_visible": bool(learning_groups),
         "learn_lesson_groups": [
             {"name": name, "rows": rows}
-            for name, rows in learning_groups.items()
+            for name, rows in sorted(
+                learning_groups.items(), key=lambda item: item[0].casefold(),
+            )
         ],
         "lesson_panel_enabled": bool(panel_group_list),
         "lesson_panel_groups": panel_group_list,
@@ -8236,6 +8243,7 @@ def _build_learning_rows(
             {
                 "slug": language.slug,
                 "name": language.name,
+                "language_type": language.language_type,
                 "base_level": int(base_state["level"]),
                 "max_level": int(language.max_level),
                 "base_write": bool(base_state["write"]),
@@ -8602,6 +8610,17 @@ def _build_learning_rows(
             for category_name, rows in skill_groups.items()
         ],
         "learn_language_rows": learn_language_rows,
+        "learn_language_groups": [
+            {"key": key, "name": name, "rows": rows}
+            for key, name in [
+                (Language.LanguageType.LANGUAGE, "Sprachen"),
+                (Language.LanguageType.SECRET, "Geheimsprachen"),
+            ]
+            if (rows := [
+                row for row in learn_language_rows
+                if row["language_type"] == key
+            ])
+        ],
         "learn_divine_entity_choices": learn_divine_entity_choices,
         "learn_selected_divine_entity_id": (
             selected_religion_entity.pk if selected_religion_entity else ""

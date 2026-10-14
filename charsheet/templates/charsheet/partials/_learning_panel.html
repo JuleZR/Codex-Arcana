@@ -394,11 +394,12 @@
                 data-tab-panel
                 hidden
               >
-                <section class="shop_group" data-learn-group data-collapse-key="languages">
-                  <header class="learn_group_heading"><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></header>
+                {% for group in learn_language_groups %}
+                <section class="shop_group" data-learn-group data-collapse-key="languages:{{ group.key }}">
+                  <header class="learn_group_heading"><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></header>
                   <table class="shop_table">
                     <tbody>
-                      {% for row in learn_language_rows %}
+                      {% for row in group.rows %}
                         <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
                           <td class="shop_item_name">{{ row.name }}</td>
                           <td class="shop_item_price shop_item_price--meta">
@@ -419,6 +420,7 @@
                     </tbody>
                   </table>
                 </section>
+                {% endfor %}
               </section>
 
               <section
@@ -933,7 +935,7 @@
         </div>
       </div>
       <details class="learn_plan_drawer" id="learnPlanDrawer">
-        <summary><span>Entwicklungsplan</span><span id="learnPlanSummary">Noch keine Lernschritte vorgemerkt</span></summary>
+        <summary><span>Entwicklungsplan <span id="learnPlanCount" class="learn_plan_count" hidden></span></span><span id="learnPlanSummary">Noch keine Lernschritte vorgemerkt</span></summary>
         <div class="learn_plan_body">
           <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper">
             <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll learn_cart_scroll">
@@ -958,7 +960,6 @@
           <section class="learn_plan_account" aria-label="Abrechnung">
             <h3>Abrechnung</h3>
             {% include "charsheet/partials/_learning_budget.html" %}
-            <div id="learnPlanSlots" class="learn_plan_slots" aria-label="Verbleibende Slots nach Quelle"></div>
             <div class="learn_plan_actions">
               <button type="button" id="learnDiscardBtn">Verwerfen</button>
               <button type="submit" id="learnApplyBtn">Entwicklung abschließen</button>

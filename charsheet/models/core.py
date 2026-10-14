@@ -677,8 +677,18 @@ class TraitSemanticEffect(models.Model):
 class Language(models.Model):
     """Language definition with a configurable maximum mastery level."""
 
+    class LanguageType(models.TextChoices):
+        LANGUAGE = "language", "Sprache"
+        SECRET = "secret", "Geheimsprache"
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=50, unique=True)
+    language_type = models.CharField(
+        "Sprachtyp",
+        max_length=10,
+        choices=LanguageType.choices,
+        default=LanguageType.LANGUAGE,
+    )
     max_level = models.PositiveIntegerField(default=3)
 
     def __str__(self):

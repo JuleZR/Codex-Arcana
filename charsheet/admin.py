@@ -8217,7 +8217,8 @@ class CharacterTraitAdmin(admin.ModelAdmin):
 @admin.register(Language)
 class LanguageAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for language definitions."""
-    list_display = ("name", "slug", "max_level")
+    list_display = ("name", "slug", "language_type", "max_level")
+    list_filter = ("language_type",)
     search_fields = ("name", "slug")
     ordering = ("name",)
     inlines = (LanguageCharacterInline,)

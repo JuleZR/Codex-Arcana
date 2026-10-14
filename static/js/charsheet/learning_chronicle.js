@@ -21,6 +21,11 @@ export function initLearningChronicle(form, cartBody, controller) {
     || (source.dataset.key && row.dataset.key === source.dataset.key));
 
   sources.forEach((source) => {
+    if (source.dataset.kind === "attr") {
+      source.dataset.name = source.dataset.name.replace(/\s+\([^()]*\)$/, "");
+      source.cells[0].textContent = source.dataset.name;
+      source.setAttribute("aria-label", `${source.dataset.name} steigern`);
+    }
     source.classList.remove("tooltip_target");
     source.querySelectorAll(".tooltip_target").forEach((target) => target.classList.remove("tooltip_target"));
     source.querySelectorAll("[data-shop-tooltip-info]").forEach((button) => button.remove());
@@ -50,6 +55,14 @@ export function initLearningChronicle(form, cartBody, controller) {
     const name = document.createElement("span");
     name.className = "learn_offer_name";
     while (nameCell.firstChild) name.append(nameCell.firstChild);
+    if (source.dataset.kind === "school") {
+      let level = readInt(source.dataset.base, 0);
+      let roman = "";
+      for (const [value, numeral] of [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]) {
+        while (level >= value) { roman += numeral; level -= value; }
+      }
+      if (roman) name.append(` ${roman}`);
+    }
     const heading = document.createElement("div");
     heading.className = "learn_offer_heading";
     const cost = document.createElement("strong");
@@ -58,11 +71,6 @@ export function initLearningChronicle(form, cartBody, controller) {
     cost.dataset.offerCost = cost.textContent;
     heading.append(name, cost);
     nameCell.append(heading);
-    const context = document.createElement("small");
-    context.className = "learn_offer_context";
-    context.textContent = [source.hasAttribute("data-base") ? `Aktuell ${source.dataset.base}` : "", source.dataset.groupName, source.dataset.write === "1" ? "Lesen & Schreiben" : ""].filter(Boolean).join(" · ");
-    context.title = context.textContent;
-    nameCell.append(context);
     metaCell.querySelectorAll(".learn_meta_inline__item").forEach((item) => {
       if (["Lvl", "EP"].includes(item.querySelector(".learn_meta_label")?.textContent.trim())) item.hidden = true;
     });
@@ -113,6 +121,14 @@ export function initLearningChronicle(form, cartBody, controller) {
           : level <= target ? "next" : level <= base ? "removed" : "";
         return `<span class="learn_rank ${state}" aria-hidden="true"></span>`;
       }).join("");
+      if (source.dataset.kind === "lang") {
+        const owned = source.dataset.write === "1";
+        const planned = row?.querySelector("[data-learn-lang-write]")?.checked ?? owned;
+        const state = owned && planned ? "owned" : planned ? "next" : owned ? "removed" : "";
+        const label = `Lesen & Schreiben: ${planned ? "vorhanden" : "nicht vorhanden"}`;
+        track.setAttribute("aria-label", `${track.getAttribute("aria-label")}, ${label}`);
+        track.insertAdjacentHTML("beforeend", `<span class="learn_rank learn_rank--literacy ${state}" title="${label}" aria-hidden="true"></span>`);
+      }
     });
   };
 
@@ -127,8 +143,12 @@ export function initLearningChronicle(form, cartBody, controller) {
     const caret = active instanceof HTMLInputElement && active.type === "text" ? active.selectionStart : null;
     const scroll = inspector.scrollTop;
     const name = selected.dataset.name || "Lernoption";
-    const description = (selected.dataset.tooltipEffect || selected.dataset.tooltip || "")
+    let description = (selected.dataset.tooltipEffect || selected.dataset.tooltip || "")
       .replace(/\[\[SOURCESYMBOL:[\s\S]*?\]\]/g, "").trim();
+    const attributeChart = description.match(/\[\[SPELLATTR:[^\]\r\n]*\]\]/)?.[0] || "";
+    if (attributeChart) {
+      description = description.replace(attributeChart, "").replace("**Prägende Eigenschaften**", "").trim();
+    }
     const row = selectedRow;
     const categoryTab = document.getElementById(selected.closest("[data-tab-panel]")?.getAttribute("aria-labelledby"));
     const optionSymbol = selected.querySelector(".learn_option_symbol, .learn_spell_symbol");
@@ -136,13 +156,9 @@ export function initLearningChronicle(form, cartBody, controller) {
     const categoryIcon = hasOptionSymbol ? optionSymbol.innerHTML : categoryTab?.querySelector(".learn_tabs__icon")?.innerHTML || "✧";
     const selectedGroup = selected.dataset.groupName || "";
     const blocked = selected.getAttribute("aria-disabled") === "true" || selected.dataset.careerAvailable === "0";
+    const addButton = `<button type="button" data-chronicle-add ${blocked ? "disabled" : ""}>${blocked ? escapeHtml(selected.dataset.lockedReason || "Bereits erlernt") : "Im Plan vormerken"}</button>`;
+    const removeButton = '<button type="button" data-chronicle-remove>Aus Plan entfernen</button>';
     const facts = [];
-    if (selected.hasAttribute("data-base")) facts.push(["Aktuelle Stufe", selected.dataset.base]);
-    if (row && selected.hasAttribute("data-base") && rankKinds.has(selected.dataset.kind)) {
-      facts.push(["Geplante Stufe", String(readInt(selected.dataset.base, 0) + readInt(row.querySelector("[data-learn-value]")?.value, 0))]);
-    }
-    if (selected.dataset.max) facts.push(["Maximum", selected.dataset.max]);
-    if (selected.dataset.min) facts.push(["Minimum", selected.dataset.min]);
     if (selected.dataset.ownerName) facts.push(["Quelle", selected.dataset.ownerName]);
     if (selected.dataset.gradeLabel) facts.push(["Zaubergrad", selected.dataset.gradeLabel]);
     if (selected.dataset.mother === "1") facts.push(["Sprache", "Muttersprache"]);
@@ -153,20 +169,30 @@ export function initLearningChronicle(form, cartBody, controller) {
         : "Zusatzzauber · EP"]);
     }
     inspector.innerHTML = `<div class="learn_inspector_seal" aria-hidden="true">${categoryIcon}</div><h3>${escapeHtml(name)}</h3>
-      ${selectedGroup ? `<p class="learn_inspector_group">${escapeHtml(selectedGroup)}</p>` : ""}
+      <div class="learn_inspector_group">${row ? removeButton : addButton}</div>
+      <div class="learn_inspector_controls learn_inspector_controls--attribute"></div>
+      ${!row && selected.dataset.kind === "skill-new-spec" ? '<label class="learn_spec_name">Neue Spezialisierung<input type="text" id="learnNewSpecification" maxlength="255" placeholder="Bezeichnung eingeben"></label>' : ""}
+      ${attributeChart ? `<div class="learn_inspector_attributes">${renderTooltipMarkup(`**Prägende Eigenschaften**\n${attributeChart}`)}</div>` : ""}
+      ${selectedGroup && selected.dataset.kind !== "attr" ? `<p class="learn_inspector_group">${escapeHtml(selectedGroup)}</p>` : ""}
       ${description ? `<div class="learn_inspector_description">${renderTooltipMarkup(description)}</div>` : ""}
       <dl class="learn_inspector_facts">${facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
-      ${selected.dataset.requirementsMet === "0" ? '<p class="learn_inspector_note">Voraussetzungen aktuell nicht erfüllt. Der Lernabschluss prüft auch die Änderungen im Entwicklungsplan.</p>' : ""}
-      <div class="learn_inspector_controls"></div>
-      ${!row && selected.dataset.kind === "skill-new-spec" ? '<label class="learn_spec_name">Neue Spezialisierung<input type="text" id="learnNewSpecification" maxlength="255" placeholder="Bezeichnung eingeben"></label>' : ""}
-      ${row ? `<p class="learn_inspector_cost">Lernaufwand <strong>${escapeHtml(row.querySelector("[data-learn-cost]")?.textContent || "")}</strong></p><button type="button" data-chronicle-remove>Aus Plan entfernen</button>`
-        : `<button type="button" data-chronicle-add ${blocked ? "disabled" : ""}>${blocked ? escapeHtml(selected.dataset.lockedReason || "Bereits erlernt") : "Im Plan vormerken"}</button>`}`;
+      ${selected.dataset.requirementsMet === "0" ? '<p class="learn_inspector_note">Voraussetzungen aktuell nicht erfüllt. Der Lernabschluss prüft auch die Änderungen im Entwicklungsplan.</p>' : ""}`;
     proxies = [];
     if (row) {
       const controls = inspector.querySelector(".learn_inspector_controls");
-      Array.from(row.cells).slice(0, 2).forEach((cell) => {
+      Array.from(row.cells).slice(0, 2).reverse().forEach((cell) => {
         const copy = document.createElement("div");
         copy.innerHTML = cell.innerHTML;
+        copy.querySelectorAll(".learn_trait_spec_label").forEach((label) => label.remove());
+        const language = copy.querySelector(".learn_lang_name_wrap");
+        if (language) {
+          language.querySelectorAll(":scope > span").forEach((label) => label.remove());
+          const writing = language.querySelector(".learn_lang_write");
+          if (writing) {
+            Array.from(writing.childNodes).filter((node) => node.nodeType === 3).forEach((node) => node.remove());
+            writing.append(" Lesen & Schreiben");
+          }
+        }
         const originals = Array.from(cell.querySelectorAll("input, select, textarea, button"));
         Array.from(copy.querySelectorAll("input, select, textarea, button")).forEach((proxy, index) => {
           const original = originals[index];
@@ -206,6 +232,7 @@ export function initLearningChronicle(form, cartBody, controller) {
       activeCategory = category;
       const filter = form.querySelector("#learnGroupFilter");
       if (filter) {
+        filter.hidden = ["learn-panel-attributes", "learn-panel-magic"].includes(category);
         filter.innerHTML = '<option value="">Alle Gruppen</option>' + Array.from(panel?.querySelectorAll("[data-learn-group]") || [])
           .map((group) => `<option value="${escapeHtml(group.dataset.collapseKey || "")}">${escapeHtml(groupName(group) || "Gruppe")}</option>`).join("");
       }
@@ -249,6 +276,11 @@ export function initLearningChronicle(form, cartBody, controller) {
   const renderPlan = (totals = lastTotals) => {
     lastTotals = totals;
     const count = rows().length;
+    drawer.classList.toggle("has-plan", count > 0);
+    const badge = form.querySelector("#learnPlanCount");
+    badge.hidden = count === 0;
+    badge.textContent = String(count);
+    badge.setAttribute("aria-label", `${count} Lernschritte vorgemerkt`);
     form.querySelector("#learnPlanSummary").textContent = count
       ? `${count} Lernschritte · ${totals.spent || 0} EP` : "Noch keine Lernschritte vorgemerkt";
     const ep = form.querySelector("[data-learn-top-ep]");
@@ -257,17 +289,6 @@ export function initLearningChronicle(form, cartBody, controller) {
       const field = form.querySelector(selector);
       if (field) { field.textContent = `${value || 0} frei`; field.classList.toggle("is-negative", value < 0); }
     }
-    const ledger = new Map();
-    form.querySelectorAll("[data-learn-slot-source-chip], [data-learn-school-slot-card], [data-learn-slot-cell]").forEach((source) => {
-      const key = source.dataset.slotSourceKey;
-      if (!key) return;
-      const spent = rows().filter((row) => row.dataset.slotSourceKey === key)
-        .reduce((total, row) => total + readInt(row.querySelector("[data-learn-value]")?.value, 0) * readInt(row.dataset.slotSourceCost, 1), 0);
-      const label = source.dataset.slotSourceName || "Zauberslots";
-      ledger.set(key, { label, remaining: readInt(source.dataset.slotSourceRemaining, 0) - spent });
-    });
-    form.querySelector("#learnPlanSlots").innerHTML = Array.from(ledger.values())
-      .map((source) => `<div><span>${escapeHtml(source.label)}</span><strong>${source.remaining} frei</strong></div>`).join("");
     renderRanks();
     renderInspector();
     renderSection();
@@ -297,7 +318,6 @@ export function initLearningChronicle(form, cartBody, controller) {
       }
       selectedRow = controller.addFromSource(selected, spec?.value.trim() || "") || null;
       renderInspector();
-      if (selectedRow) drawer.open = true;
     }
     if (event.target.closest("[data-chronicle-remove]")) selectedRow?.querySelector("[data-learn-remove]")?.click();
   });
@@ -321,6 +341,8 @@ export function initLearningChronicle(form, cartBody, controller) {
   cartBody.addEventListener("input", () => controller.refreshTotals());
   cartBody.addEventListener("change", () => controller.refreshTotals());
   form.querySelector("#learnDiscardBtn").addEventListener("click", () => { controller.clearCart(); drawer.open = false; });
-  form.addEventListener("invalid", () => { drawer.open = true; }, true);
+  form.addEventListener("invalid", (event) => {
+    if (cartBody.contains(event.target)) drawer.open = true;
+  }, true);
   controller.refreshTotals();
 }
