@@ -6,269 +6,166 @@
   {% include "charsheet/partials/_viewport.html" %}
   <title>{{ group.name }} | Spielgruppe</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
-  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
-  <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
-  <script>
-    if (new URLSearchParams(window.location.search).get("dashboard_refresh") === "quiet" && window.parent !== window) {
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete("dashboard_refresh");
-      window.history.replaceState({}, "", cleanUrl);
-      window.parent.postMessage({ type: "codex:group-dashboard-table-refresh" }, window.location.origin);
-    }
-  </script>
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261015-groups-refit">
+  <link rel="stylesheet" href="{% static 'css/dashboard/game-groups.css' %}?v=20261015-refit">
+  <script defer src="{% static 'js/game_groups.js' %}?v=20261015-refit"></script>
 </head>
 <body class="game-group-body">
-<main class="game-group-page">
+<main class="game-group-page" data-game-group data-dashboard-refresh-message="codex:group-dashboard-table-refresh">
   <header class="game-group-hero">
-    <div>
-      <span class="game-group-eyebrow">Spielgruppenverwaltung</span>
-      <div class="game-group-title-row">
-        <h1 id="game-group-title">{{ group.name }}</h1>
-        {% if is_leader and not group.is_archived %}
-          <button type="button" class="game-group-edit-name" id="gameGroupNameEdit" aria-label="Gruppenname bearbeiten" title="Gruppenname bearbeiten">
-            <span aria-hidden="true">✎</span>
-          </button>
-        {% endif %}
-      </div>
-      {% if is_leader and not group.is_archived %}
-        <form class="game-group-name-form" id="gameGroupNameForm" method="post" action="{% url 'rename_game_group' group.id %}" hidden>
-          {% csrf_token %}
-          <label class="sr-only" for="gameGroupNameInput">Gruppenname</label>
-          <input class="dashboard_input" id="gameGroupNameInput" name="name" value="{{ group.name }}" required maxlength="150">
-          <button class="dashboard_button dashboard_button--small dashboard_button--primary">Speichern</button>
-          <button type="button" class="dashboard_button dashboard_button--small" id="gameGroupNameCancel">Abbrechen</button>
-        </form>
-      {% endif %}
-      <p>
-        {% if group.is_archived %}
-          <span class="game-group-status game-group-status--archived">Archiviert · schreibgeschützt</span>
-        {% else %}
-          <span class="game-group-status">Aktive Spielgruppe</span>
-        {% endif %}
-      </p>
+    <span class="game-group-emblem" aria-hidden="true">✥</span>
+    <div class="game-group-heading">
+      <span class="game-group-eyebrow">Codex Arcana · Spielgruppen</span>
+      <h1 id="game-group-title">{{ group.name }}</h1>
+      <p>{% if group.is_archived %}Archiviert · schreibgeschützt{% else %}Aktive Spielgruppe{% endif %} · {% if role %}{{ role.get_role_display }}{% else %}Gruppenmitglied{% endif %}</p>
     </div>
-    <div class="game-group-hero__metrics" aria-label="Gruppenübersicht">
-      <div><strong>{{ memberships|length }}</strong><span>Mitglieder</span></div>
-      <div><strong>{{ roles|length }}</strong><span>SL-Rollen</span></div>
-      <div><strong>{{ invitations|length }}</strong><span>Einladungen</span></div>
-    </div>
+    <dl class="game-group-hero__metrics">
+      <div><dt>Charaktere</dt><dd>{{ memberships|length }}</dd></div>
+      <div><dt>SL-Rollen</dt><dd>{{ roles|length }}</dd></div>
+      {% if is_gm %}<div><dt>Einladungen</dt><dd>{{ invitations|length }}</dd></div>{% endif %}
+    </dl>
   </header>
-
   {% if messages %}
     <section class="game-group-messages" aria-label="Hinweise" aria-live="polite" aria-atomic="true">
       {% for message in messages %}<p data-game-group-message hidden>{{ message }}</p>{% endfor %}
     </section>
   {% endif %}
-
   <div class="game-group-layout">
-    <section class="game-group-column game-group-column--main">
-      <article class="game-group-card">
-        <header class="game-group-card__header">
-          <div>
-            <span class="game-group-card__kicker">Roster</span>
-            <h2>Mitglieder</h2>
-          </div>
-          <div class="game-group-card__tools">
-            <span class="game-group-count">{{ memberships|length }}</span>
-            {% if is_gm and not group.is_archived %}
-              <button type="button" class="game-group-add-member" id="gameGroupInviteToggle" aria-label="Charakter einladen" title="Charakter einladen" aria-expanded="false" aria-controls="gameGroupInvitePanel">+</button>
-            {% endif %}
-          </div>
+    <nav class="game-group-nav" aria-label="Gruppenverwaltung">
+      <div role="tablist" aria-label="Bereiche" aria-orientation="vertical">
+        <button type="button" id="group-tab-members" role="tab" aria-selected="true" aria-controls="group-panel-members" data-group-tab="members"><span aria-hidden="true">♟</span>Mitglieder</button>
+        <button type="button" id="group-tab-invites" role="tab" aria-selected="false" aria-controls="group-panel-invites" tabindex="-1" data-group-tab="invites"><span aria-hidden="true">✉</span>Einladungen</button>
+        <button type="button" id="group-tab-roles" role="tab" aria-selected="false" aria-controls="group-panel-roles" tabindex="-1" data-group-tab="roles"><span aria-hidden="true">♜</span>Spielleitung</button>
+        <button type="button" id="group-tab-admin" role="tab" aria-selected="false" aria-controls="group-panel-admin" tabindex="-1" data-group-tab="admin"><span aria-hidden="true">⚙</span>Verwaltung</button>
+      </div>
+      <span class="game-group-nav-seal" aria-hidden="true">✦<br>AC</span>
+    </nav>
+    <div class="game-group-stage">
+      <section id="group-panel-members" role="tabpanel" aria-labelledby="group-tab-members" tabindex="0" data-group-panel="members">
+        <header class="game-group-section-head">
+          <div><span class="game-group-kicker">Die Gefährten</span><h2>Mitglieder</h2><p>Die Charaktere deiner Spielrunde.</p></div>
+          {% if is_gm and not group.is_archived %}<button type="button" class="dashboard_button dashboard_button--primary" data-group-open-invite>Charakter einladen</button>{% endif %}
         </header>
-        <div class="game-group-member-list">
+        <label class="game-group-search" for="gameGroupMemberSearch">Mitglieder durchsuchen
+          <input class="dashboard_input" type="search" id="gameGroupMemberSearch" placeholder="Name, Rasse oder Besitzer …" autocomplete="off">
+        </label>
+        <div class="game-group-roster">
+          <div class="game-group-member-list">
+            {% for membership in memberships %}
+              <button type="button" class="game-group-member" data-group-member="{{ membership.id }}" aria-pressed="false" aria-controls="group-member-{{ membership.id }}">
+                {% if membership.character.char_picture %}<img src="{{ membership.character.char_picture.url }}" alt="">{% else %}<span class="game-group-avatar" aria-hidden="true">{{ membership.character.name|first }}</span>{% endif %}
+                <span class="game-group-identity"><strong>{{ membership.character.name }}</strong><small>{{ membership.character.race.name }} · {{ membership.character.owner.get_username }}{% if membership.character.owner == request.user %} · Eigener Charakter{% endif %}{% if membership.character.is_archived %} · archiviert{% endif %}</small></span>
+                <span aria-hidden="true">›</span>
+              </button>
+            {% empty %}<div class="game-group-empty"><strong>Noch keine Mitglieder</strong><p>Dieser Spielgruppe gehören noch keine aktiven Charaktere an.</p></div>{% endfor %}
+            <p class="game-group-empty" id="gameGroupNoMatches" role="status" hidden>Keine Charaktere gefunden. Versuche einen anderen Suchbegriff.</p>
+          </div>
           {% for membership in memberships %}
-            <div class="game-group-member">
-              <div class="game-group-member__identity">
-                {% if membership.character.char_picture %}
-                  <img src="{{ membership.character.char_picture.url }}" alt="">
-                {% else %}
-                  <span class="game-group-member__avatar" aria-hidden="true">{{ membership.character.name|first }}</span>
-                {% endif %}
-                <div>
-                  <strong>{{ membership.character.name }}</strong>
-                  <span>
-                    {{ membership.character.race.name }}
-                    {% if membership.character.is_archived %} · archiviert{% endif %}
-                    {% if membership.character.owner == request.user %} · eigener Charakter{% else %} · Fremdcharakter{% endif %}
-                  </span>
-                </div>
-              </div>
-              <div class="game-group-actions">
-                {% if is_gm and not membership.character.is_archived %}
-                  <a class="dashboard_button dashboard_button--small" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' group.id membership.character.id %}">Bogen lesen</a>
+            <aside class="game-group-inspector" id="group-member-{{ membership.id }}" data-group-detail="{{ membership.id }}" aria-labelledby="group-member-title-{{ membership.id }}" tabindex="-1" hidden>
+              <div class="game-group-section-head"><span class="game-group-kicker">Charakterakte</span><button type="button" class="game-group-close" data-group-close-detail aria-label="Charakterdetails schließen">×</button></div>
+              <h3 id="group-member-title-{{ membership.id }}">{{ membership.character.name }}</h3>
+              <p>{{ membership.character.race.name }}{% if membership.character.is_archived %} · archiviert{% endif %}</p>
+              <dl><dt>Charakterbesitzer</dt><dd>{{ membership.character.owner.get_username }}{% if membership.character.owner == request.user %} (du){% endif %}</dd><dt>Mitgliedschaft</dt><dd>Aktiv</dd></dl>
+              <div class="game-group-detail-actions">
+                {% if not membership.character.is_archived %}
+                  {% if membership.character.owner == request.user %}<a class="dashboard_button dashboard_button--primary" target="_blank" rel="noopener" href="{% url 'character_sheet' membership.character.id %}">Charakterbogen öffnen</a>
+                  {% elif is_gm %}<a class="dashboard_button dashboard_button--primary" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' group.id membership.character.id %}">Bogen lesen</a>{% endif %}
                 {% endif %}
                 {% if not group.is_archived %}
                   {% if membership.character.owner == request.user %}
-                    <form method="post" action="{% url 'leave_game_group' group.id membership.id %}">
-                      {% csrf_token %}<button class="dashboard_button dashboard_button--small">Verlassen</button>
-                    </form>
+                    <form method="post" action="{% url 'leave_game_group' group.id membership.id %}" data-group-confirm="{{ membership.character.name }} aus der Gruppe zurückziehen? Offene Gruppenangebote an diesen Charakter werden zurückgerufen." data-confirm-title="Gruppe verlassen?">{% csrf_token %}<button class="dashboard_button">Gruppe verlassen</button></form>
                   {% elif is_gm %}
-                    <form method="post" action="{% url 'remove_group_member' group.id membership.id %}">
-                      {% csrf_token %}<button class="dashboard_button dashboard_button--small dashboard_button--danger">Entfernen</button>
-                    </form>
+                    <form method="post" action="{% url 'remove_group_member' group.id membership.id %}" data-group-confirm="{{ membership.character.name }} aus der Gruppe entfernen? Offene Gruppenangebote an diesen Charakter werden zurückgerufen." data-confirm-title="Charakter entfernen?">{% csrf_token %}<button class="dashboard_button">Charakter entfernen</button></form>
                   {% endif %}
                 {% endif %}
               </div>
-            </div>
-          {% empty %}
-            <p class="game-group-empty">Noch keine aktiven Mitglieder.</p>
+            </aside>
           {% endfor %}
         </div>
+      </section>
+      <section id="group-panel-invites" role="tabpanel" aria-labelledby="group-tab-invites" tabindex="0" data-group-panel="invites" hidden>
+        <header class="game-group-section-head"><div><span class="game-group-kicker">Neue Gefährten</span><h2>Einladungen</h2><p>Offene Einladungen deiner Spielrunde.</p></div>
+          {% if is_gm and not group.is_archived %}<button type="button" class="dashboard_button dashboard_button--primary" id="gameGroupInviteToggle" aria-expanded="false" aria-controls="gameGroupInvitePanel">Neue Einladung</button>{% endif %}
+        </header>
         {% if is_gm and not group.is_archived %}
-          <div class="game-group-invite-panel" id="gameGroupInvitePanel" hidden>
-            <form class="game-group-form game-group-invite-form" method="post" action="{% url 'invite_group_character' group.id %}">
+          <div class="game-group-editor" id="gameGroupInvitePanel" hidden>
+            <form class="game-group-form" method="post" action="{% url 'invite_group_character' group.id %}">
               {% csrf_token %}
-              <div
-                class="game-group-character-picker"
-                data-group-character-picker
-                data-search-url="{% url 'group_character_search' group.id %}"
-                data-search-mode="invite"
-              >
+              <div class="game-group-character-picker" data-group-character-picker data-search-url="{% url 'group_character_search' group.id %}" data-search-mode="invite">
                 <input type="hidden" name="character_id" data-group-character-id>
-                <label for="group-character-query">Charaktername</label>
-                <input class="dashboard_input" id="group-character-query" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Nach einem Charakter suchen">
-                <div class="game-group-search-results" data-group-character-results role="listbox"></div>
+                <label for="group-character-query">Charakter suchen</label>
+                <input class="dashboard_input" id="group-character-query" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Mindestens zwei Zeichen …" aria-describedby="group-character-hint" aria-controls="group-character-results" aria-expanded="false">
+                <small id="group-character-hint">Suche nach dem Anfang des Charakternamens und wähle einen Treffer.</small>
+                <div class="game-group-search-results" id="group-character-results" data-group-character-results role="group" aria-label="Suchtreffer"></div>
+                <p class="game-group-picker-status" data-group-character-status role="status"></p>
               </div>
-              <label>
-                <span>Nachricht <small>optional</small></span>
-                <input class="dashboard_input" name="message" maxlength="1000" placeholder="Kurze Nachricht an den Spieler">
-              </label>
-              <button class="dashboard_button dashboard_button--primary">Einladung senden</button>
+              <label for="group-invite-message">Nachricht (optional)</label><textarea class="dashboard_input" id="group-invite-message" name="message" maxlength="1000" rows="3"></textarea>
+              <div class="game-group-actions"><button type="button" class="dashboard_button" data-group-close-invite>Abbrechen</button><button class="dashboard_button dashboard_button--primary">Einladung senden</button></div>
             </form>
           </div>
         {% endif %}
-      </article>
-
-      {% if invitations %}
-        <article class="game-group-card">
-          <header class="game-group-card__header">
-            <div>
-              <span class="game-group-card__kicker">Ausstehend</span>
-              <h2>Offene Einladungen</h2>
-            </div>
-            <span class="game-group-count">{{ invitations|length }}</span>
-          </header>
+        {% if is_gm %}
           <div class="game-group-invitation-list">
             {% for invitation in invitations %}
-              <div class="game-group-invitation">
-                <div><strong>{{ invitation.character.name }}</strong><span>{{ invitation.character.race.name }}</span></div>
-                {% if not group.is_archived %}
-                  <form method="post" action="{% url 'withdraw_group_invitation' group.id invitation.id %}">
-                    {% csrf_token %}<button class="dashboard_button dashboard_button--small">Zurückziehen</button>
-                  </form>
-                {% endif %}
+              <div class="game-group-invitation"><div><strong>{{ invitation.character.name }}</strong><p>{{ invitation.character.race.name }} · Ausstehend</p>{% if invitation.message %}<p>{{ invitation.message }}</p>{% endif %}</div>
+                {% if not group.is_archived %}<form method="post" action="{% url 'withdraw_group_invitation' group.id invitation.id %}" data-group-confirm="Einladung für {{ invitation.character.name }} zurückziehen?" data-confirm-title="Einladung zurückziehen?">{% csrf_token %}<button class="dashboard_button">Zurückziehen</button></form>{% endif %}
               </div>
-            {% endfor %}
+            {% empty %}<div class="game-group-empty"><span aria-hidden="true">✉</span><strong>Keine offenen Einladungen</strong><p>Momentan warten keine Charaktere auf eine Zusage.</p></div>{% endfor %}
           </div>
-        </article>
-      {% endif %}
-    </section>
-
-    <aside class="game-group-column game-group-column--side">
-      <article class="game-group-card">
-        <header class="game-group-card__header">
-          <div>
-            <span class="game-group-card__kicker">Berechtigungen</span>
-            <h2>Spielleitung</h2>
-          </div>
-        </header>
+        {% else %}<p class="game-group-empty">Einladungen werden von der Spielleitung verwaltet.</p>{% endif %}
+      </section>
+      <section id="group-panel-roles" role="tabpanel" aria-labelledby="group-tab-roles" tabindex="0" data-group-panel="roles" hidden>
+        <header class="game-group-section-head"><div><span class="game-group-kicker">Rollen &amp; Rechte</span><h2>Spielleitung</h2><p>Spielleiter betreuen die Runde. Die Gruppenleitung verwaltet zusätzlich Rollen und Gruppenstatus.</p></div></header>
         <div class="game-group-role-list">
           {% for assignment in roles %}
-            <div class="game-group-role">
-              <div>
-                <strong>{{ assignment.user.get_username }}</strong>
-                <span>{{ assignment.get_role_display }}</span>
+            <details class="game-group-role">
+              <summary><strong>{{ assignment.user.get_username }}</strong><span>{{ assignment.get_role_display }}</span></summary>
+              <div class="game-group-role-detail">
+                {% if assignment.role == "leader" %}<p>Verwaltet die Gruppe und ihre Spielleiter.</p>{% else %}<p>Verwaltet Mitglieder und Einladungen und kann Charakterbögen lesen.</p>{% endif %}
+                {% if is_leader and assignment.user != request.user and not group.is_archived and assignment.role == "gm" %}
+                  <div class="game-group-actions">
+                    <form method="post" action="{% url 'transfer_group_leader' group.id assignment.user.id %}" data-group-confirm="{{ assignment.user.get_username }} übernimmt die Gruppenleitung. Du wirst zum gewöhnlichen Spielleiter und verlierst die Rechte zur Rollen- und Gruppenverwaltung." data-confirm-title="Gruppenleitung übertragen?">{% csrf_token %}<button class="dashboard_button">Leitung übertragen</button></form>
+                    <form method="post" action="{% url 'revoke_group_gm' group.id assignment.user.id %}" data-group-confirm="{{ assignment.user.get_username }} verliert die Spielleiterrechte dieser Gruppe." data-confirm-title="Spielleiterrechte entziehen?">{% csrf_token %}<button class="dashboard_button">SL entziehen</button></form>
+                  </div>
+                {% endif %}
               </div>
-              {% if is_leader and assignment.user != request.user and not group.is_archived and assignment.role == "gm" %}
-                <div class="game-group-actions">
-                  <form method="post" action="{% url 'transfer_group_leader' group.id assignment.user.id %}">
-                    {% csrf_token %}<button class="dashboard_button dashboard_button--small">Leitung übertragen</button>
-                  </form>
-                  <form method="post" action="{% url 'revoke_group_gm' group.id assignment.user.id %}">
-                    {% csrf_token %}<button class="dashboard_button dashboard_button--small dashboard_button--danger">SL entziehen</button>
-                  </form>
-                </div>
-              {% endif %}
-            </div>
+            </details>
           {% endfor %}
         </div>
         {% if is_leader and not group.is_archived %}
-          <form class="game-group-form game-group-inline-form" method="post" action="{% url 'add_group_gm' group.id %}">
-            {% csrf_token %}
-            <label>
-              <span>Weiteren SL ernennen</span>
-              <input class="dashboard_input" name="username" required placeholder="Benutzername">
-            </label>
-            <button class="dashboard_button">Ernennen</button>
-          </form>
+          <details class="game-group-disclosure"><summary>Weiteren Spielleiter ernennen</summary>
+            <form class="game-group-form game-group-editor" method="post" action="{% url 'add_group_gm' group.id %}">{% csrf_token %}<label for="group-gm-username">Benutzername</label><input class="dashboard_input" id="group-gm-username" name="username" required autocomplete="off"><button class="dashboard_button dashboard_button--primary">Ernennen</button></form>
+          </details>
         {% endif %}
-      </article>
-
-      {% if is_leader %}
-        <article class="game-group-card game-group-card--danger">
-          <header class="game-group-card__header">
-            <div>
-              <span class="game-group-card__kicker">Verwaltung</span>
-              <h2>Kampagnenstatus</h2>
+      </section>
+      <section id="group-panel-admin" role="tabpanel" aria-labelledby="group-tab-admin" tabindex="0" data-group-panel="admin" hidden>
+        <header class="game-group-section-head"><div><span class="game-group-kicker">Gruppenverwaltung</span><h2>Verwaltung</h2><p>{% if group.is_archived %}Die Gruppe ist archiviert und schreibgeschützt.{% else %}Name und Status deiner Spielrunde.{% endif %}</p></div></header>
+        {% if is_leader %}
+          {% if not group.is_archived %}
+            <details class="game-group-disclosure"><summary id="gameGroupNameEdit">Gruppe umbenennen</summary>
+              <form class="game-group-form game-group-editor" id="gameGroupNameForm" method="post" action="{% url 'rename_game_group' group.id %}">{% csrf_token %}<label for="gameGroupNameInput">Gruppenname</label><input class="dashboard_input" id="gameGroupNameInput" name="name" value="{{ group.name }}" required maxlength="150"><button class="dashboard_button dashboard_button--primary">Speichern</button></form>
+            </details>
+            <div class="game-group-admin-action"><h3>Gruppe archivieren</h3><p>Die Gruppe wird schreibgeschützt. Offene Einladungen werden zurückgezogen, offene Gruppenangebote zurückgerufen.</p>
+              <form method="post" action="{% url 'archive_game_group' group.id %}" data-group-confirm="Die Gruppe wird schreibgeschützt. Offene Einladungen werden zurückgezogen und offene Gruppenangebote zurückgerufen. Du kannst die Gruppe später reaktivieren." data-confirm-title="Gruppe archivieren?">{% csrf_token %}<button class="dashboard_button">Gruppe archivieren</button></form>
             </div>
-          </header>
-          <p>Archivieren sperrt Änderungen. Löschen entfernt die Gruppe endgültig.</p>
-          <div class="game-group-danger-actions">
-            {% if not group.is_archived %}
-              <form method="post" action="{% url 'archive_game_group' group.id %}">
-                {% csrf_token %}<button class="dashboard_button">Gruppe archivieren</button>
-              </form>
-            {% else %}
-              <form method="post" action="{% url 'reactivate_game_group' group.id %}">
-                {% csrf_token %}<button class="dashboard_button dashboard_button--primary">Gruppe reaktivieren</button>
-              </form>
-            {% endif %}
-            <form method="post" action="{% url 'delete_game_group' group.id %}" onsubmit="return confirm('Gruppe einschließlich Gruppeninventar und Gruppenhistorie endgültig löschen?');">
-              {% csrf_token %}<button class="dashboard_button dashboard_button--danger">Gruppe löschen</button>
-            </form>
-          </div>
-        </article>
-      {% endif %}
-    </aside>
+          {% else %}
+            <div class="game-group-admin-action"><h3>Gruppe reaktivieren</h3><p>Gibt die Gruppe wieder für Änderungen frei. Zurückgezogene Einladungen werden nicht erneut versendet.</p>
+              <form method="post" action="{% url 'reactivate_game_group' group.id %}" data-group-confirm="Die Spielgruppe wieder für Änderungen freigeben?" data-confirm-title="Gruppe reaktivieren?">{% csrf_token %}<button class="dashboard_button dashboard_button--primary">Gruppe reaktivieren</button></form>
+            </div>
+          {% endif %}
+          <details class="game-group-disclosure game-group-danger"><summary>Gruppe endgültig löschen</summary>
+            <div class="game-group-editor"><p>Unwiderruflich: Entfernt Mitgliedschaften, Einladungen, Rollen, Gruppentabellen, Notizen, Kreaturen, Gruppenkatalog, Transfers und Gruppenhistorie. Löscht auch Gegenstände im Gruppenbesitz oder mit dieser Gruppe als ursprünglichem Besitzer, gegebenenfalls in Charakterinventaren. Charaktere bleiben bestehen. Extern verwendete Gruppenbasisitems können die Löschung verhindern.</p>
+              <form method="post" action="{% url 'delete_game_group' group.id %}" data-group-confirm="Die Gruppe samt Mitgliedschaften, Einladungen, Rollen, Tabellen, Notizen, Kreaturen, Katalog, Transfers und Gruppenhistorie endgültig löschen? Auch Gegenstände im Gruppenbesitz oder mit dieser Gruppe als ursprünglichem Besitzer werden gelöscht, gegebenenfalls aus Charakterinventaren. Charaktere selbst bleiben bestehen. Diese Aktion lässt sich nicht rückgängig machen." data-confirm-title="Gruppe endgültig löschen?">{% csrf_token %}<button class="dashboard_button dashboard_button--danger">Gruppe löschen</button></form>
+            </div>
+          </details>
+        {% else %}<p class="game-group-empty">Nur die Gruppenleitung kann den Namen oder Status ändern und die Gruppe löschen.</p>{% endif %}
+      </section>
+    </div>
   </div>
+  <dialog class="game-group-confirm" id="gameGroupConfirm" aria-labelledby="group-confirm-title" aria-describedby="group-confirm-message">
+    <h2 id="group-confirm-title">Aktion bestätigen</h2><p id="group-confirm-message"></p>
+    <div class="game-group-actions"><button type="button" class="dashboard_button" data-group-confirm-cancel autofocus>Abbrechen</button><button type="button" class="dashboard_button dashboard_button--primary" data-group-confirm-accept>Bestätigen</button></div>
+  </dialog>
 </main>
-<script>
-  (function () {
-    const edit = document.getElementById("gameGroupNameEdit");
-    const form = document.getElementById("gameGroupNameForm");
-    const input = document.getElementById("gameGroupNameInput");
-    const cancel = document.getElementById("gameGroupNameCancel");
-    if (!edit || !form || !input || !cancel) return;
-    const close = function () {
-      form.hidden = true;
-      edit.hidden = false;
-    };
-    edit.addEventListener("click", function () {
-      edit.hidden = true;
-      form.hidden = false;
-      input.focus();
-      input.select();
-    });
-    cancel.addEventListener("click", close);
-    form.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") close();
-    });
-  })();
-  (function () {
-    const toggle = document.getElementById("gameGroupInviteToggle");
-    const panel = document.getElementById("gameGroupInvitePanel");
-    if (!toggle || !panel) return;
-    toggle.addEventListener("click", function () {
-      const willOpen = panel.hidden;
-      panel.hidden = !willOpen;
-      toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
-      toggle.classList.toggle("is-open", willOpen);
-      if (willOpen) {
-        const search = panel.querySelector("[data-group-character-query]");
-        if (search) search.focus();
-      }
-    });
-  })();
-</script>
 </body>
 </html>
