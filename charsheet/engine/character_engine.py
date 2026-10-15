@@ -866,6 +866,10 @@ class CharacterEngine:
     equipped_magic_item_rows = character_equipment.equipped_magic_item_rows
     equipped_shield_rows = character_equipment.equipped_shield_rows
     armor_zone_protection = character_equipment.armor_zone_protection
+    physical_armor_zones = character_equipment.physical_armor_zones
+    has_magical_armor_protection = (
+        character_equipment.has_magical_armor_protection
+    )
     shield_protection = character_equipment.shield_protection
     get_grs = character_equipment.get_grs
     get_bel = character_equipment.get_bel

@@ -2021,12 +2021,14 @@ def _effects_affect_body_armor(effects) -> bool:
     return False
 
 
-def _body_armor_payload(character: Character) -> dict[str, int]:
+def _body_armor_payload(character: Character) -> dict[str, object]:
     """Return current body-zone armor values for lightweight client updates."""
     engine = character.engine
     return {
         "shield": engine.shield_protection(),
         **engine.armor_zone_protection(),
+        "physical_zones": engine.physical_armor_zones(),
+        "magical_protection": engine.has_magical_armor_protection(),
     }
 
 

@@ -26,268 +26,744 @@
         <div id="lowerPanelBody" data-tab-panel class="p2_lower_panel__body_tab">
           <div class="body_callout_map">
             <svg class="body_callout_svg" viewBox="0 0 560 318" role="img" aria-label="R&uuml;stungszonen und Trefferzonen">
-              <defs>
-                <filter id="bodyMapSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#2b1c10" flood-opacity="0.22"/>
-                </filter>
-                <linearGradient id="armorMetal" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#5a5c57"/>
-                  <stop offset="0.25" stop-color="#9b9d95"/>
-                  <stop offset="0.43" stop-color="#dedace"/>
-                  <stop offset="0.58" stop-color="#9a9b92"/>
-                  <stop offset="0.8" stop-color="#777970"/>
-                  <stop offset="1" stop-color="#50524e"/>
-                </linearGradient>
-                <linearGradient id="armorProtectedMetal" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#4b4e49"/>
-                  <stop offset="0.22" stop-color="#868982"/>
-                  <stop offset="0.42" stop-color="#d8d5ca"/>
-                  <stop offset="0.57" stop-color="#979991"/>
-                  <stop offset="0.78" stop-color="#73766f"/>
-                  <stop offset="1" stop-color="#42443f"/>
-                </linearGradient>
-                <linearGradient id="armorWarmProtected" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#504738"/>
-                  <stop offset="0.24" stop-color="#83745a"/>
-                  <stop offset="0.45" stop-color="#c9b58c"/>
-                  <stop offset="0.62" stop-color="#9b8766"/>
-                  <stop offset="0.82" stop-color="#6b5a42"/>
-                  <stop offset="1" stop-color="#44392d"/>
-                </linearGradient>
-              </defs>
-
-              <g class="armor_callout_lines" aria-hidden="true">
-                {% if body_armor.shield %}<path data-body-zone="shield" d="M206 30 H220 L220 94"/>{% endif %}
-                {% if body_armor.arm_right %}<path data-body-zone="arm_right" d="M206 62 H218 L225 109"/>{% endif %}
-                {% if body_armor.hand_right %}<path data-body-zone="hand_right" d="M206 85 H218 L225 146"/>{% endif %}
-                {% if body_armor.torso %}<path data-body-zone="torso" d="M206 116 H220 L232 122"/>{% endif %}
-                {% if body_armor.organs %}<path data-body-zone="organs" d="M206 139 H220 L246 129"/>{% endif %}
-                {% if body_armor.soft_tissue %}<path data-body-zone="soft_tissue" d="M206 162 H220 L248 160"/>{% endif %}
-                {% if body_armor.leg_right %}<path data-body-zone="leg_right" d="M206 197 H222 L253 199"/>{% endif %}
-                {% if body_armor.foot_right %}<path data-body-zone="foot_right" d="M206 220 H222 L249 252"/>{% endif %}
-
-                {% if body_armor.head %}<path data-body-zone="head" d="M354 30 H342 L294 39"/>{% endif %}
-                {% if body_armor.eyes %}<path data-body-zone="eyes" d="M354 53 H342 L294 45"/>{% endif %}
-                {% if body_armor.face %}<path data-body-zone="face" d="M354 76 H342 L292 57"/>{% endif %}
-                {% if body_armor.neck %}<path data-body-zone="neck" d="M354 99 H342 L293 76"/>{% endif %}
-                {% if body_armor.arm_left %}<path data-body-zone="arm_left" d="M354 130 H340 L333 112"/>{% endif %}
-                {% if body_armor.hand_left %}<path data-body-zone="hand_left" d="M354 153 H340 L333 146"/>{% endif %}
-                {% if body_armor.leg_left %}<path data-body-zone="leg_left" d="M354 188 H338 L303 199"/>{% endif %}
-                {% if body_armor.foot_left %}<path data-body-zone="foot_left" d="M354 211 H338 L306 252"/>{% endif %}
-              </g>
-
-              <g class="body_figure" filter="url(#bodyMapSoftShadow)" transform="translate(76 12) scale(0.72 0.78)">
-                <g class="armor_map_inkscape armor_map_inkscape_head" data-body-zone="head" transform="matrix(2.45 0 0 2.45 53.7 -189.55)">
-                  <g transform="translate(-12.083538,29.099099)">
-                    <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="m 84.429948,91.508193 16.303822,0.03181 -1.177056,12.963527 h -13.82246 z" transform="translate(12.083538,-29.099099)"/>
-                    <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="m 104.69697,49.910649 c -1.0211,3.041418 -7.463628,2.869502 -9.198406,8.425842 -0.674449,4.574642 0.492981,8.214635 0.864546,12.179101 l 0.699699,4.504118 c 0.245088,0.132399 0.495099,0.260162 0.749309,0.383439 -0.0093,-0.01901 -0.01792,-0.03825 -0.02635,-0.05736 L 96.536743,62.44115 c 2.64505,0.356895 5.412007,0.514315 8.158677,0.635103 v 0.0072 c 2.75273,-0.120894 5.5263,-0.278442 8.17728,-0.636137 l -1.24902,12.904639 c -0.008,0.01911 -0.0174,0.03835 -0.0264,0.05736 0.25421,-0.123277 0.50422,-0.251041 0.74931,-0.38344 l 0.6997,-4.504117 c 0.37157,-3.964466 1.539,-7.60446 0.86455,-12.179102 -1.73478,-5.55634 -8.19682,-5.39418 -9.21792,-8.435598 l 0.0118,5.991303 z m 0.0367,28.06392 c -0.009,0.0041 -0.0182,0.0079 -0.0274,0.01188 -0.005,3.43e-4 -0.0101,7.09e-4 -0.015,0.001 -0.005,-0.0022 -0.0103,-0.0044 -0.0155,-0.0067 v 0.0279 c 0.0125,-0.0044 0.0248,-0.0085 0.0372,-0.01292 0.007,0.0025 0.0138,0.0048 0.0207,0.0072 z m -0.0346,0.01602 c 0.002,6.55e-4 0.003,0.0014 0.005,0.0021 -3.7e-4,-2.6e-5 -6.6e-4,2.8e-5 -0.001,0 -10e-4,-6.33e-4 -0.003,-0.0014 -0.004,-0.0021 z"/>
-                    <path class="armor_map_detail_line" d="m 104.69701,49.909845 -0.01,13.169967"/>
-                  </g>
-                </g>
-                <path class="armor_map_zone{% if body_armor.eyes %} is-protected{% endif %}" data-body-zone="eyes" d="M264 38 C272 34 292 34 300 39 L297 47 C288 45 275 45 266 47 Z"/>
-                <path class="armor_map_zone{% if body_armor.neck %} is-protected{% endif %}" data-body-zone="neck" d="M257 63 C268 70 292 71 303 64 C308 71 311 80 309 88 C298 96 262 96 251 88 C249 80 252 71 257 63 Z"/>
-
-                <path class="armor_map_zone{% if body_armor.torso %} is-protected{% endif %}" data-body-zone="torso" d="M242 84 L258 78 H302 L318 84 C324 106 323 136 316 166 C309 186 294 201 280 209 C266 201 251 186 244 166 C237 136 236 106 242 84 Z"/>
-                <path class="armor_map_zone{% if body_armor.organs %} is-protected{% endif %}" data-body-zone="organs" d="M251 97 C263 91 297 91 309 97 C308 116 304 136 299 149 C292 157 286 162 280 165 C274 162 268 157 261 149 C256 136 252 116 251 97 Z"/>
-                <path class="armor_map_zone{% if body_armor.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue" d="M248 153 C258 164 270 173 280 177 C290 173 302 164 312 153 C311 176 306 197 299 210 C292 216 285 220 280 222 C275 220 268 216 261 210 C254 197 249 176 248 153 Z"/>
-
-                <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M223 119 C230 115 240 114 247 117 C248 129 245 140 240 149 C235 153 227 154 222 150 C218 145 216 140 216 134 C218 127 220 122 223 119 Z"/>
-                <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M221 150 C227 148 237 147 242 149 C241 161 238 172 233 179 C228 183 222 183 217 179 C214 174 213 168 214 163 C216 157 218 153 221 150 Z"/>
-                <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M217 177 C224 174 233 175 238 180 C237 188 234 196 229 203 C224 209 217 211 212 207 C209 202 209 195 211 188 C213 183 215 180 217 177 Z"/>
-                <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M313 117 C320 114 330 115 337 119 C340 122 342 127 344 134 C344 140 342 145 338 150 C333 154 325 153 320 149 C315 140 312 129 313 117 Z"/>
-                <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M318 149 C323 147 333 148 339 150 C342 153 344 157 346 163 C347 168 346 174 343 179 C338 183 332 183 327 179 C322 172 319 161 318 149 Z"/>
-                <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M322 180 C327 175 336 174 343 177 C345 180 347 183 349 188 C351 195 351 202 348 207 C343 211 336 209 331 203 C326 196 323 188 322 180 Z"/>
-
-                <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M252 207 C260 204 271 205 278 209 C278 225 276 240 272 251 C267 256 257 257 251 254 C247 247 244 235 244 226 C246 217 249 211 252 207 Z"/>
-                <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M251 254 C259 252 268 252 274 254 C276 270 275 286 271 298 C266 303 256 304 249 301 C246 291 244 279 245 269 C246 262 248 257 251 254 Z"/>
-                <path class="armor_map_zone{% if body_armor.foot_right %} is-protected{% endif %}" data-body-zone="foot_right" d="M250 297 C257 300 267 299 273 296 C276 302 276 309 272 315 C263 319 247 320 235 316 C237 310 242 303 250 297 Z"/>
-                <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M282 209 C289 205 300 204 308 207 C311 211 314 217 316 226 C316 235 313 247 309 254 C303 257 293 256 288 251 C284 240 282 225 282 209 Z"/>
-                <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M286 254 C292 252 301 252 309 254 C312 257 314 262 315 269 C316 279 314 291 311 301 C304 304 294 303 289 298 C285 286 284 270 286 254 Z"/>
-                <path class="armor_map_zone{% if body_armor.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" d="M287 296 C293 299 303 300 311 297 C319 303 324 310 325 316 C313 320 297 319 288 315 C284 309 284 302 287 296 Z"/>
-
-                <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M242 82 C228 84 216 94 212 108 C216 117 226 124 236 123 C247 118 255 109 258 99 C256 91 250 84 242 82 Z"/>
-                <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M312 84 C310 87 305 91 302 99 C305 109 313 118 324 123 C334 124 344 117 348 108 C344 94 332 84 318 82 C316 82 314 83 312 84 Z"/>
-
-                <g class="armor_map_joint_shadow" aria-hidden="true">
-                  {% if body_armor.neck %}<path d="M257 75 C266 81 294 81 303 75 L300 83 C291 87 269 87 260 83 Z"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M239 95 C229 105 225 124 225 143 C219 135 215 120 216 108 C220 97 229 88 239 95 Z"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M321 95 C331 105 335 124 335 143 C341 135 345 120 344 108 C340 97 331 88 321 95 Z"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<path d="M249 170 C258 183 269 191 280 196 C291 191 302 183 311 170 C309 184 304 199 298 209 C287 216 273 216 262 209 C256 199 251 184 249 170 Z"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M244 223 C251 230 271 231 278 222 C276 236 274 249 270 255 C264 259 255 259 250 255 C246 247 244 234 244 223 Z"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M282 222 C289 231 309 230 316 223 C316 234 314 247 310 255 C305 259 296 259 290 255 C286 249 284 236 282 222 Z"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M245 267 C252 274 268 274 275 267 C276 282 274 295 269 302 C262 306 254 305 249 301 C246 292 244 279 245 267 Z"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M285 267 C292 274 308 274 315 267 C316 279 314 292 311 301 C306 305 298 306 291 302 C286 295 284 282 285 267 Z"/>{% endif %}
-                </g>
-
-                <g class="armor_map_plate_edges" aria-hidden="true">
-                  <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="M277 8 C280 2 287 2 291 9 C286 7 282 7 277 8 Z"/>
-                  <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="M261 32 C269 27 292 27 301 33 C301 37 300 40 298 42 C289 38 274 38 265 42 C263 40 261 36 261 32 Z"/>
-                  <path class="armor_map_zone{% if body_armor.eyes %} is-protected{% endif %}" data-body-zone="eyes" d="M265 39 C274 36 290 36 299 40 L297 45 C288 43 276 43 267 45 Z"/>
-                  <path class="armor_map_zone{% if body_armor.neck %} is-protected{% endif %}" data-body-zone="neck" d="M256 70 C267 77 294 78 305 71 C307 76 307 82 303 87 C292 92 268 92 257 87 C253 82 253 76 256 70 Z"/>
-                  <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M218 111 C224 115 233 117 242 114 C238 119 231 123 224 122 C221 120 219 116 218 111 Z"/>
-                  <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M217 135 C224 139 235 139 243 135 C242 141 238 147 232 150 C225 149 220 144 217 135 Z"/>
-                  <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M318 114 C327 117 336 115 342 111 C341 116 339 120 336 122 C329 123 322 119 318 114 Z"/>
-                  <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M317 135 C325 139 336 139 343 135 C340 144 335 149 328 150 C322 147 318 141 317 135 Z"/>
-                  <path class="armor_map_zone{% if body_armor.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue" d="M252 172 C262 180 272 184 280 186 C288 184 298 180 308 172 C306 185 301 198 294 205 C286 209 274 209 266 205 C259 198 254 185 252 172 Z"/>
-                  <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M249 229 C256 233 267 233 275 228 C275 237 273 246 270 251 C265 254 257 254 252 251 C249 245 248 237 249 229 Z"/>
-                  <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M285 228 C293 233 304 233 311 229 C312 237 311 245 308 251 C303 254 295 254 290 251 C287 246 285 237 285 228 Z"/>
-                  <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M249 273 C256 277 266 276 273 271 C274 281 273 291 270 297 C264 300 257 300 252 297 C249 290 248 281 249 273 Z"/>
-                  <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M287 271 C294 276 304 277 311 273 C312 281 311 290 308 297 C303 300 296 300 290 297 C287 291 286 281 287 271 Z"/>
-                  <path class="armor_map_zone{% if body_armor.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue" d="M252 194 C261 202 272 207 280 209 C288 207 299 202 308 194 C305 207 298 218 289 224 C283 226 277 226 271 224 C262 218 255 207 252 194 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M216 177 C223 173 233 174 239 179 C237 184 235 187 231 189 C225 186 218 186 211 189 C212 184 214 180 216 177 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M212 189 C208 194 207 201 210 206 C214 203 217 197 218 191 C216 190 214 189 212 189 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M218 199 C222 201 226 202 230 201 C228 207 224 211 218 212 C215 210 214 206 215 203 C216 201 217 200 218 199 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M224 196 C228 198 232 198 235 196 C234 201 232 205 229 208 C225 207 222 204 222 201 C222 199 223 197 224 196 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M321 179 C327 174 337 173 344 177 C346 180 348 184 349 189 C342 186 335 186 329 189 C325 187 323 184 321 179 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M342 191 C343 197 346 203 350 206 C353 201 352 194 348 189 C346 189 344 190 342 191 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M330 201 C334 202 338 201 342 199 C343 200 344 201 345 203 C346 206 345 210 342 212 C336 211 332 207 330 201 Z"/>
-                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M325 196 C328 198 332 198 336 196 C337 197 338 199 338 201 C338 204 335 207 331 208 C328 205 326 201 325 196 Z"/>
-                  <path class="armor_map_zone{% if body_armor.foot_right %} is-protected{% endif %}" data-body-zone="foot_right" d="M247 302 C255 306 268 305 275 300 C277 305 277 310 273 314 C264 317 249 317 238 314 C240 309 243 305 247 302 Z"/>
-                  <path class="armor_map_zone{% if body_armor.foot_right %} is-protected{% endif %}" data-body-zone="foot_right" d="M235 314 C246 318 263 318 273 313 L276 318 C268 323 246 324 235 319 Z"/>
-                  <path class="armor_map_zone{% if body_armor.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" d="M285 300 C292 305 305 306 313 302 C317 305 320 309 322 314 C311 317 296 317 287 314 C283 310 283 305 285 300 Z"/>
-                  <path class="armor_map_zone{% if body_armor.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" d="M287 313 C297 318 314 318 325 314 L325 319 C314 324 292 323 284 318 Z"/>
-                </g>
-
-                <g class="armor_map_detail" aria-hidden="true">
-                  {% if body_armor.head %}<path d="M266 31 C273 26 289 26 297 31"/>{% endif %}
-                  {% if body_armor.head %}<path d="M263 35 C269 31 293 31 299 36"/>{% endif %}
-                  {% if body_armor.eyes %}<path d="M266 41 C274 39 289 39 297 41"/>{% endif %}
-                  {% if body_armor.neck %}<path d="M260 78 H302"/>{% endif %}
-                  {% if body_armor.torso %}<path d="M249 82 C259 89 301 89 311 82"/>{% endif %}
-                  {% if body_armor.organs %}<path d="M251 96 C262 101 298 101 309 96"/>{% endif %}
-                  {% if body_armor.torso %}<path d="M247 111 C258 117 302 117 313 111"/>{% endif %}
-                  {% if body_armor.torso %}<path d="M253 148 C262 154 298 154 307 148"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<path d="M262 207 C270 212 290 212 298 207"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<path d="M250 154 C259 163 270 170 280 174 C290 170 301 163 310 154"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M224 119 C229 125 240 126 245 116"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M218 108 C225 112 234 113 243 109"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M222 151 C227 157 237 156 241 147"/>{% endif %}
-                  {% if body_armor.hand_right %}<path d="M213 188 C220 191 230 191 236 187"/>{% endif %}
-                  {% if body_armor.hand_right %}<path d="M216 203 C221 206 227 205 232 199"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M315 116 C320 126 331 125 336 119"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M317 109 C326 113 335 112 342 108"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M319 147 C323 156 333 157 338 151"/>{% endif %}
-                  {% if body_armor.hand_left %}<path d="M324 187 C330 191 340 191 347 188"/>{% endif %}
-                  {% if body_armor.hand_left %}<path d="M328 199 C333 205 339 206 344 203"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M252 255 L273 250"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M287 250 L308 255"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M248 226 C254 230 268 230 276 224"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M284 224 C292 230 306 230 312 226"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M247 270 C254 274 267 273 274 266"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M286 266 C293 273 306 274 313 270"/>{% endif %}
-                  {% if body_armor.foot_right %}<path d="M241 308 C251 312 266 312 274 305"/>{% endif %}
-                  {% if body_armor.foot_right %}<path d="M236 317 C248 320 264 320 275 315"/>{% endif %}
-                  {% if body_armor.foot_left %}<path d="M286 305 C294 312 309 312 319 308"/>{% endif %}
-                  {% if body_armor.foot_left %}<path d="M285 315 C296 320 312 320 324 317"/>{% endif %}
-                  {% if body_armor.organs %}<circle cx="253" cy="101" r="1.2"/>{% endif %}
-                  {% if body_armor.organs %}<circle cx="307" cy="101" r="1.2"/>{% endif %}
-                  {% if body_armor.torso %}<circle cx="246" cy="129" r="1"/>{% endif %}
-                  {% if body_armor.torso %}<circle cx="314" cy="129" r="1"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<circle cx="258" cy="184" r="1"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<circle cx="302" cy="184" r="1"/>{% endif %}
-                  {% if body_armor.arm_right %}<circle cx="229" cy="121" r="1"/>{% endif %}
-                  {% if body_armor.arm_left %}<circle cx="331" cy="121" r="1"/>{% endif %}
-                  {% if body_armor.arm_right %}<circle cx="222" cy="154" r="1"/>{% endif %}
-                  {% if body_armor.arm_left %}<circle cx="338" cy="154" r="1"/>{% endif %}
-                  {% if body_armor.leg_right %}<circle cx="252" cy="235" r="1"/>{% endif %}
-                  {% if body_armor.leg_left %}<circle cx="308" cy="235" r="1"/>{% endif %}
-                  {% if body_armor.leg_right %}<circle cx="251" cy="268" r="1"/>{% endif %}
-                  {% if body_armor.leg_left %}<circle cx="309" cy="268" r="1"/>{% endif %}
-                </g>
-
-                <g class="armor_map_ornament" aria-hidden="true">
-                  {% if body_armor.head %}<path d="M281 10 C279 18 279 27 280 35"/>{% endif %}
-                  {% if body_armor.head %}<path d="M266 32 C273 29 290 29 297 33"/>{% endif %}
-                  {% if body_armor.head %}<path d="M264 36 C272 33 291 33 300 37"/>{% endif %}
-                  {% if body_armor.head %}<circle cx="268" cy="34" r="0.75"/>{% endif %}
-                  {% if body_armor.head %}<circle cx="292" cy="34" r="0.75"/>{% endif %}
-                  {% if body_armor.eyes %}<path d="M268 42 C276 40 288 40 296 42"/>{% endif %}
-                  {% if body_armor.eyes %}<path d="M270 45 C278 44 286 44 294 45"/>{% endif %}
-                </g>
-
-                <g class="armor_map_ridge" aria-hidden="true">
-                  {% if body_armor.torso %}<path d="M280 83 C278 106 278 184 280 206"/>{% endif %}
-                  {% if body_armor.organs %}<path d="M255 97 C263 112 270 133 280 162 C290 133 297 112 305 97"/>{% endif %}
-                  {% if body_armor.torso %}<path d="M248 82 C260 94 300 94 312 82"/>{% endif %}
-                  {% if body_armor.torso %}<path d="M243 148 C256 159 304 159 317 148"/>{% endif %}
-                  {% if body_armor.neck %}<path d="M264 64 C272 70 288 70 296 64"/>{% endif %}
-                  {% if body_armor.eyes %}<path d="M266 38 C274 35 288 35 297 38"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M220 108 C226 105 237 104 249 108"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M311 108 C323 104 334 105 340 108"/>{% endif %}
-                  {% if body_armor.hand_right %}<path d="M217 190 C222 194 227 194 231 190"/>{% endif %}
-                  {% if body_armor.hand_left %}<path d="M329 190 C333 194 338 194 343 190"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M253 207 C260 215 270 215 277 208"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M283 208 C290 215 300 215 307 207"/>{% endif %}
-                  {% if body_armor.foot_right %}<path d="M249 299 C256 304 268 303 273 296"/>{% endif %}
-                  {% if body_armor.foot_left %}<path d="M287 296 C292 303 304 304 311 299"/>{% endif %}
-                </g>
-
-                <g aria-hidden="true">
-                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="252" cy="92" r="1"/>{% endif %}
-                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="308" cy="92" r="1"/>{% endif %}
-                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="247" cy="140" r="0.9"/>{% endif %}
-                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="313" cy="140" r="0.9"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<circle class="armor_map_rivet" cx="260" cy="201" r="0.9"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<circle class="armor_map_rivet" cx="300" cy="201" r="0.9"/>{% endif %}
-                  {% if body_armor.arm_right %}<circle class="armor_map_rivet" cx="224" cy="113" r="0.9"/>{% endif %}
-                  {% if body_armor.arm_right %}<circle class="armor_map_rivet" cx="238" cy="114" r="0.9"/>{% endif %}
-                  {% if body_armor.arm_left %}<circle class="armor_map_rivet" cx="322" cy="114" r="0.9"/>{% endif %}
-                  {% if body_armor.arm_left %}<circle class="armor_map_rivet" cx="336" cy="113" r="0.9"/>{% endif %}
-                  {% if body_armor.hand_right %}<circle class="armor_map_rivet" cx="224" cy="171" r="0.8"/>{% endif %}
-                  {% if body_armor.hand_left %}<circle class="armor_map_rivet" cx="336" cy="171" r="0.8"/>{% endif %}
-                  {% if body_armor.leg_right %}<circle class="armor_map_rivet" cx="252" cy="248" r="0.8"/>{% endif %}
-                  {% if body_armor.leg_right %}<circle class="armor_map_rivet" cx="273" cy="246" r="0.8"/>{% endif %}
-                  {% if body_armor.leg_left %}<circle class="armor_map_rivet" cx="287" cy="246" r="0.8"/>{% endif %}
-                  {% if body_armor.leg_left %}<circle class="armor_map_rivet" cx="308" cy="248" r="0.8"/>{% endif %}
-                </g>
-
-                <g class="armor_map_highlight" aria-hidden="true">
-                  {% if body_armor.head %}<path d="M270 15 C265 28 265 48 270 60"/>{% endif %}
-                  {% if body_armor.torso %}<path d="M256 86 C250 113 251 169 267 193"/>{% endif %}
-                  {% if body_armor.organs %}<path d="M265 98 C260 116 262 140 269 151"/>{% endif %}
-                  {% if body_armor.soft_tissue %}<path d="M258 160 C264 170 272 177 280 181"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M229 122 C226 132 225 141 226 149"/>{% endif %}
-                  {% if body_armor.arm_right %}<path d="M223 155 C221 162 220 170 221 176"/>{% endif %}
-                  {% if body_armor.hand_right %}<path d="M216 181 C214 189 214 199 217 207"/>{% endif %}
-                  {% if body_armor.hand_right %}<path d="M223 197 C221 202 220 207 221 211"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M331 122 C334 132 335 141 334 149"/>{% endif %}
-                  {% if body_armor.arm_left %}<path d="M337 155 C339 162 340 170 339 176"/>{% endif %}
-                  {% if body_armor.hand_left %}<path d="M344 181 C346 189 346 199 343 207"/>{% endif %}
-                  {% if body_armor.hand_left %}<path d="M337 197 C339 202 340 207 339 211"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M254 209 C251 221 251 241 255 252"/>{% endif %}
-                  {% if body_armor.leg_right %}<path d="M253 258 C250 271 251 289 255 299"/>{% endif %}
-                  {% if body_armor.foot_right %}<path d="M243 304 C250 309 265 309 273 302"/>{% endif %}
-                  {% if body_armor.foot_right %}<path d="M239 316 C250 319 264 319 274 314"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M306 209 C309 221 309 241 305 252"/>{% endif %}
-                  {% if body_armor.leg_left %}<path d="M307 258 C310 271 309 289 305 299"/>{% endif %}
-                  {% if body_armor.foot_left %}<path d="M287 302 C295 309 310 309 317 304"/>{% endif %}
-                  {% if body_armor.foot_left %}<path d="M286 314 C296 319 310 319 321 316"/>{% endif %}
-                </g>
-
-                {% if not body_armor.eyes and body_armor.head %}
-                <path class="armor_map_opening" data-body-zone="eyes" d="M266 40 C274 37 290 37 298 40 L295 46 C287 45 277 45 268 46 Z"/>
-                {% endif %}
-
-                <g class="armor_map_inkscape armor_map_inkscape_face" data-body-zone="face" transform="matrix(1.55 0 0 1.55 93 -75.7)">
-                  <g transform="translate(16.34481,15.043684)">
-                    <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="m 113.80081,58.289982 c -0.21968,0.817076 -0.24277,1.654818 -0.32505,2.575037 l -7.506,-1.183907 -1.28984,-1.251087 v -0.0083 l -0.004,0.0041 -0.007,-0.0062 v 0.0124 l -1.28984,1.251087 -7.506002,1.183907 c -0.08225,-0.920457 -0.105216,-1.758277 -0.325045,-2.575554 -0.174634,0.740304 -0.247439,1.58216 -0.611332,2.133204 -0.243779,-0.267751 -1.148625,-0.892826 -0.832508,2.536796 l 1.743047,7.961271 -1.352889,2.159558 c 2.279392,2.504981 6.466599,3.492178 10.174059,4.861202 v 0.0021 c 8.2e-4,-3.05e-4 0.002,-7.29e-4 0.003,-10e-4 0.003,0.0011 0.006,0.002 0.009,0.0031 v -0.0067 c 3.70745,-1.369024 7.89466,-2.355704 10.17405,-4.860685 l -1.35289,-2.159558 1.74305,-7.961271 c 0.31611,-3.429622 -0.58873,-2.804548 -0.83251,-2.536797 -0.36379,-0.550887 -0.43629,-1.392535 -0.61081,-2.132686 z m -1.56012,4.919596 -0.0827,0.03721 0.009,1.011825 c -2.65245,0.724041 -5.25741,1.251334 -7.49825,1.369425 v 0.0016 c -2.23831,-0.119259 -4.838871,-0.646078 -7.486885,-1.368909 l 0.0093,-1.011824 -0.08268,-0.03721 c 2.56254,0.39975 5.104455,0.620091 7.571635,0.78083 v -0.0031 c 2.46376,-0.160678 5.00201,-0.380637 7.56077,-0.779798 z m -0.60461,2.559017 c 0.1039,0.0025 0.1819,0.08961 0.1819,0.28112 l -0.40463,1.351856 c 0,0.347553 -0.39532,0.400601 -0.39532,0.147277 l 0.20205,-1.416451 c 0.10629,-0.2308 0.28244,-0.367002 0.416,-0.363802 z m -13.923698,0.0021 c 0.133562,-0.0032 0.309708,0.133003 0.415995,0.363803 l 0.202055,1.416451 c 0,0.253324 -0.395325,0.200275 -0.395325,-0.147278 l -0.404626,-1.351856 c 1e-6,-0.19151 0.07802,-0.278616 0.181901,-0.28112 z m 12.201838,0.682646 c 0.15637,-0.0032 0.31264,0.165629 0.31264,0.44235 l -0.24856,2.06034 c -0.15181,0.217525 -0.32036,0.334293 -0.49661,0.405143 l 0.11937,-2.318205 c 0,-0.411042 0.15679,-0.586428 0.31316,-0.589628 z m -10.479979,0.0021 c 0.156373,0.0032 0.313159,0.178586 0.313159,0.589628 l 0.119372,2.318205 c -0.17625,-0.07085 -0.344806,-0.187618 -0.49661,-0.405143 l -0.248564,-2.06034 c 0,-0.276721 0.156269,-0.445563 0.312643,-0.44235 z m 8.960179,0.518832 c 0.0152,-4e-4 0.0301,3.3e-5 0.045,0.001 0.18519,0.01245 0.33863,0.131152 0.28783,0.362252 l -0.34003,3.145544 -0.5519,0.57981 0.10128,-3.624585 c -0.0237,-0.300008 0.2299,-0.458654 0.45786,-0.464054 z m -7.44038,0.0021 c 0.22796,0.0054 0.48159,0.164046 0.45786,0.464054 l 0.10128,3.624585 -0.5519,-0.57981 -0.34003,-3.145544 c -0.0508,-0.2311 0.10265,-0.3498 0.28784,-0.362252 0.0149,-0.001 0.0297,-0.0014 0.045,-0.001 z m 5.52473,0.527616 c 0.0138,-7.09e-4 0.0277,-5.13e-4 0.0413,0 0.1699,0.0063 0.32143,0.107841 0.32143,0.320911 l -0.28474,4.525822 -0.5705,0.248046 0.0734,-4.681884 c -0.006,-0.254923 0.21182,-0.402267 0.41909,-0.412895 z m -3.65042,0.0021 c 0.21844,-0.0082 0.46702,0.140978 0.46044,0.412895 l 0.0734,4.681884 -0.57051,-0.248046 -0.28474,-4.525822 c 0,-0.21307 0.15153,-0.314561 0.32143,-0.320911 z"/>
-                    <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="m 94.344814,60.294824 c -0.245886,1.254614 0.270799,1.81879 1.307365,1.912265 0.403668,2.46342 1.062592,5.218561 -0.520346,5.411573 -0.569162,-2.554133 -1.628345,-5.288505 -0.787019,-7.323838 z"/>
-                    <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="m 112.73162,62.519698 c -2.62496,0.37751 -5.32628,0.487249 -8.0486,0.523999 v 0.0026 c -2.71946,-0.03686 -5.418098,-0.147397 -8.04034,-0.524516 l 0.05529,2.216919 c 2.366178,0.723392 4.58647,1.480611 7.96593,1.968355 l 0.009,-1.094506 C 101.36376,65.36435 99.728479,64.807724 97.286568,64.22347 l -0.101286,-0.983919 c 2.47679,0.475634 4.989718,0.681511 7.515308,0.791166 v -0.0036 c 2.51669,-0.109943 5.02027,-0.316157 7.48843,-0.790133 l -0.10077,0.984436 c -2.44191,0.584254 -4.07771,1.140879 -7.38663,1.389062 l 0.009,1.094507 c 3.37946,-0.487744 5.59923,-1.244963 7.96541,-1.968355 z"/>
-                    <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="m 115.0168,60.292502 c 0.24588,1.254614 -0.2708,1.81879 -1.30737,1.912265 -0.40367,2.46342 -1.06259,5.218561 0.52035,5.411573 0.56916,-2.554133 1.62834,-5.288505 0.78702,-7.323838 z"/>
-                    <path class="armor_map_detail_line" data-body-zone="face" d="m 95.863568,70.922845 0.504084,-0.390258 c 2.54692,1.873366 5.151028,3.654349 8.325498,4.513982"/>
-                    <path class="armor_map_detail_line" data-body-zone="face" d="m 113.49258,70.950574 -0.50408,-0.390258 c -2.54692,1.873366 -5.15103,3.654349 -8.3255,4.513982"/>
-                    <path class="armor_map_detail_line" data-body-zone="face" d="M 104.73371,77.929384 V 66.70726"/>
-                  </g>
-                </g>
-
-                {% if body_armor.shield %}
-                <g data-body-zone="shield">
-                  <path class="armor_map_zone is-protected" data-body-zone="shield" d="M206 82 C189 96 184 133 196 173 C215 166 225 137 224 103 C222 94 215 86 206 82 Z"/>
-                  <path class="armor_map_shield_detail" d="M207 88 C197 102 194 132 201 163"/>
-                  <path class="armor_map_shield_detail" d="M209 87 C218 98 220 135 211 164"/>
-                </g>
-                {% endif %}
-              </g>
+<g class="armor_callout_lines" aria-hidden="true">
+<path data-body-zone="shield"{% if not body_armor.physical_zones.shield %} hidden="hidden"{% endif %} d="M206 30 H212 L247 121"/>
+<path data-body-zone="arm_right"{% if not body_armor.physical_zones.arm_right %} hidden="hidden"{% endif %} d="M206 62 H212 L259 88"/>
+<path data-body-zone="hand_right"{% if not body_armor.physical_zones.hand_right %} hidden="hidden"{% endif %} d="M206 85 H212 L253 147"/>
+<path data-body-zone="torso"{% if not body_armor.physical_zones.torso %} hidden="hidden"{% endif %} d="M206 116 H212 L277 78"/>
+<path data-body-zone="organs"{% if not body_armor.physical_zones.organs %} hidden="hidden"{% endif %} d="M206 139 H212 L296 95"/>
+<path data-body-zone="soft_tissue"{% if not body_armor.physical_zones.soft_tissue %} hidden="hidden"{% endif %} d="M206 162 H212 L296 136"/>
+<path data-body-zone="leg_right"{% if not body_armor.physical_zones.leg_right %} hidden="hidden"{% endif %} d="M206 197 H212 L276 201"/>
+<path data-body-zone="foot_right"{% if not body_armor.physical_zones.foot_right %} hidden="hidden"{% endif %} d="M206 220 H212 L271 261"/>
+<path data-body-zone="head"{% if not body_armor.physical_zones.head %} hidden="hidden"{% endif %} d="M354 30 H350 L296 31"/>
+<path data-body-zone="eyes"{% if not body_armor.physical_zones.eyes %} hidden="hidden"{% endif %} d="M354 53 H350 L296 39"/>
+<path data-body-zone="face"{% if not body_armor.physical_zones.face %} hidden="hidden"{% endif %} d="M354 76 H350 L296 50"/>
+<path data-body-zone="neck"{% if not body_armor.physical_zones.neck %} hidden="hidden"{% endif %} d="M354 99 H350 L296 65"/>
+<path data-body-zone="arm_left"{% if not body_armor.physical_zones.arm_left %} hidden="hidden"{% endif %} d="M354 130 H350 L335 105"/>
+<path data-body-zone="hand_left"{% if not body_armor.physical_zones.hand_left %} hidden="hidden"{% endif %} d="M354 153 H350 L341 147"/>
+<path data-body-zone="leg_left"{% if not body_armor.physical_zones.leg_left %} hidden="hidden"{% endif %} d="M354 188 H350 L316 201"/>
+<path data-body-zone="foot_left"{% if not body_armor.physical_zones.foot_left %} hidden="hidden"{% endif %} d="M354 211 H350 L322 261"/>
+</g>
+<g class="body_figure armor_study" transform="translate(209 20) scale(0.17)" style="--armor-zone-outline: url(#bodyArmor-{{ character.pk }}-zone-outline)">
+<defs>
+<linearGradient id="bodyArmor-{{ character.pk }}-wood">
+<stop stop-color="#514638"/>
+<stop offset=".3" stop-color="#a49679"/>
+<stop offset=".55" stop-color="#c6b99c"/>
+<stop offset=".8" stop-color="#8b7d65"/>
+<stop offset="1" stop-color="#453c31"/>
+</linearGradient>
+<linearGradient id="bodyArmor-{{ character.pk }}-cloth">
+<stop stop-color="#181b1a"/>
+<stop offset=".24" stop-color="#4d5147"/>
+<stop offset=".45" stop-color="#777869"/>
+<stop offset=".62" stop-color="#44483e"/>
+<stop offset="1" stop-color="#161b19"/>
+</linearGradient>
+<linearGradient id="bodyArmor-{{ character.pk }}-clothshade">
+<stop stop-color="#252a25"/>
+<stop offset=".35" stop-color="#686958"/>
+<stop offset=".6" stop-color="#4c5146"/>
+<stop offset="1" stop-color="#1b211e"/>
+</linearGradient>
+<linearGradient id="bodyArmor-{{ character.pk }}-steel" x1="0" y1="0" x2="1" y2=".15">
+<stop stop-color="#141c20"/>
+<stop offset=".12" stop-color="#5b6567"/>
+<stop offset=".26" stop-color="#e3e5df"/>
+<stop offset=".33" stop-color="#80898a"/>
+<stop offset=".49" stop-color="#293337"/>
+<stop offset=".64" stop-color="#9da4a2"/>
+<stop offset=".76" stop-color="#e5e6df"/>
+<stop offset=".87" stop-color="#535e61"/>
+<stop offset="1" stop-color="#141d21"/>
+</linearGradient>
+<linearGradient id="bodyArmor-{{ character.pk }}-steel-light" x1="0" y1="0" x2=".8" y2="1">
+<stop stop-color="#161f23"/>
+<stop offset=".22" stop-color="#b8bebb"/>
+<stop offset=".38" stop-color="#eff0e8"/>
+<stop offset=".49" stop-color="#727d7f"/>
+<stop offset=".72" stop-color="#333f42"/>
+<stop offset=".86" stop-color="#9ea7a5"/>
+<stop offset="1" stop-color="#172125"/>
+</linearGradient>
+<linearGradient id="bodyArmor-{{ character.pk }}-gold">
+<stop stop-color="#554024"/>
+<stop offset=".3" stop-color="#d4b66e"/>
+<stop offset=".48" stop-color="#f5df9d"/>
+<stop offset=".7" stop-color="#9e7e3d"/>
+<stop offset="1" stop-color="#44321c"/>
+</linearGradient>
+<linearGradient id="bodyArmor-{{ character.pk }}-leather" x2=".3" y2="1">
+<stop stop-color="#171513"/>
+<stop offset=".4" stop-color="#59402a"/>
+<stop offset=".6" stop-color="#745135"/>
+<stop offset="1" stop-color="#251c16"/>
+</linearGradient>
+<pattern id="bodyArmor-{{ character.pk }}-quilt" width="34" height="48" patternUnits="userSpaceOnUse" >
+<path d="M17 0 L34 24 L17 48 L0 24Z" fill="none" stroke="#181e19" stroke-width="2" />
+<path d="M18 2 L32 24 L18 46" fill="none" stroke="#b2a78d" stroke-opacity=".18" />
+</pattern>
+<pattern id="bodyArmor-{{ character.pk }}-mail" width="13" height="12" patternUnits="userSpaceOnUse" >
+<rect width="13" height="12" fill="#191f20"/>
+<path d="M0 6a4 5 0 1 0 8 0a4 5 0 1 0-8 0 M6 0a4 5 0 1 0 8 0a4 5 0 1 0-8 0" fill="none" stroke="#80857d" stroke-width="1.2" />
+<path d="M1 5a3 4 0 0 1 6 0" fill="none" stroke="#ced0bb" stroke-width=".6" />
+</pattern>
+<pattern id="bodyArmor-{{ character.pk }}-brush" width="37" height="53" patternUnits="userSpaceOnUse" >
+<path d="M4 0l-3 40m10-19l-2 30M19 4l-3 34 M28 0l-3 48M35 13l-2 40" stroke="#f8f8ec" stroke-width=".7" opacity=".12" />
+<path d="M7 10l-2 31M23 12l-2 35" stroke="#071419" stroke-width="1" opacity=".16" />
+</pattern>
+<filter id="bodyArmor-{{ character.pk }}-plate-shadow" x="-15%" y="-15%" width="130%" height="140%" >
+<feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+<feOffset dy="3"/>
+<feComponentTransfer>
+<feFuncA type="linear" slope=".45"/>
+</feComponentTransfer>
+<feMerge>
+<feMergeNode/>
+<feMergeNode in="SourceGraphic"/>
+</feMerge>
+</filter>
+<filter id="bodyArmor-{{ character.pk }}-zone-outline" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+<feMorphology in="SourceAlpha" operator="dilate" radius="6" result="expanded"/>
+<feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline"/>
+<feFlood flood-color="#225844"/>
+<feComposite in2="outline" operator="in"/>
+<feMerge>
+<feMergeNode/>
+<feMergeNode in="SourceGraphic"/>
+</feMerge>
+</filter>
+<filter id="bodyArmor-{{ character.pk }}-magic-aura" x="-30%" y="-15%" width="160%" height="130%" color-interpolation-filters="sRGB">
+<feMorphology in="SourceAlpha" operator="dilate" radius="12" result="expanded"/>
+<feComposite in="expanded" in2="SourceAlpha" operator="out" result="rim"/>
+<feGaussianBlur in="rim" stdDeviation="14" result="soft-rim"/>
+<feFlood flood-color="#83b9dc" flood-opacity="0.85"/>
+<feComposite in2="soft-rim" operator="in" result="glow"/>
+<feFlood flood-color="#e1eff6" flood-opacity="0.8"/>
+<feComposite in2="rim" operator="in" result="silver-rim"/>
+<feMerge>
+<feMergeNode in="glow"/>
+<feMergeNode in="silver-rim"/>
+</feMerge>
+</filter>
+<!-- Disjoint armor clips never affect the independent body. -->
+<clipPath id="bodyArmor-{{ character.pk }}-head-clip">
+<rect x="400" y="0" width="220" height="128"/>
+</clipPath>
+<clipPath id="bodyArmor-{{ character.pk }}-face-clip">
+<rect x="400" y="128" width="220" height="110"/>
+</clipPath>
+<clipPath id="bodyArmor-{{ character.pk }}-organs-clip">
+<path d="M455 350 H569 L590 470 L512 507 L434 470Z"/>
+</clipPath>
+<clipPath id="bodyArmor-{{ character.pk }}-torso-clip">
+<path clip-rule="evenodd" d="M300 270 H724 V550 H300Z M455 350 H569 L590 470 L512 507 L434 470Z"/>
+</clipPath>
+<g id="bodyArmor-{{ character.pk }}-helmet">
+<path d="M433 93 Q431 40 483 24 L510 5 L522 23 Q576 40 583 91 L578 153 L589 185 L557 209 L510 224 L466 210 L431 184 L443 153Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M433 93 Q431 40 483 24 L510 5 L522 23 Q576 40 583 91 L578 153 L589 185 L557 209 L510 224 L466 210 L431 184 L443 153Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M510 9 L510 97 M465 36 Q476 62 478 86 M554 36 Q543 62 543 86" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M432 94 Q510 117 586 94 L581 118 Q510 140 437 118Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M432 94 Q510 117 586 94 L581 118 Q510 140 437 118Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M445 111 Q510 127 573 111 L571 122 Q510 137 447 121Z" fill="#090d0f" stroke="#bebfb0" stroke-width="2" />
+<path d="M437 128 L507 145 L580 126 L571 176 L583 184 L553 203 L511 216 L467 202 L439 182 L450 173Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M437 128 L507 145 L580 126 L571 176 L583 184 L553 203 L511 216 L467 202 L439 182 L450 173Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M511 146 L511 211" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M457 143l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M458 143l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M470 145l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M471 145l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M484 147l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M485 147l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M497 149l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M498 149l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M526 149l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M527 149l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M539 147l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M540 147l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M552 145l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M553 145l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M565 143l1 26" stroke="#d8d9c9" stroke-width="6" stroke-linecap="round"/>
+<path d="M566 143l1 25" stroke="#111b1e" stroke-width="4" stroke-linecap="round"/>
+<path d="M432 85 L441 96 L446 145 L437 137Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M432 85 L441 96 L446 145 L437 137Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M584 85 L578 99 L576 145 L585 133Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M584 85 L578 99 L576 145 L585 133Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+</g>
+<g id="bodyArmor-{{ character.pk }}-chest">
+<path d="M366 299 L426 279 L409 435 L357 457 L315 380Z M658 299 L598 279 L615 435 L667 457 L709 380Z" fill="url(#bodyArmor-{{ character.pk }}-mail)" />
+<path d="M428 279 L449 299 L512 324 L574 299 L596 279 Q608 341 646 412 L655 449 L632 521 Q513 549 390 521 L368 449 L379 412 Q416 341 428 279Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M428 279 L449 299 L512 324 L574 299 L596 279 Q608 341 646 412 L655 449 L632 521 Q513 549 390 521 L368 449 L379 412 Q416 341 428 279Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M512 326 L512 521" fill="none" stroke="#e0e2d8" stroke-width="3" opacity="0.65" />
+<path d="M427 307 Q423 387 384 428 M597 307 Q602 387 640 428" fill="none" stroke="#172226" stroke-width="6" opacity="0.65" />
+<path d="M431 307 Q427 392 389 431 M593 307 Q597 392 635 431" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M488 347 Q470 389 457 418 L396 462 M536 347 Q553 389 567 418 L629 462" fill="none" stroke="#edf0e0" stroke-width="2" opacity="0.45" />
+<circle cx="401" cy="505" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="400" cy="504" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="425" cy="518" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="424" cy="517" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="458" cy="526" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="457" cy="525" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="568" cy="526" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="567" cy="525" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="602" cy="518" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="601" cy="517" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="625" cy="505" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="624" cy="504" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="400" cy="415" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="399" cy="414" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="413" cy="385" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="412" cy="384" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="625" cy="415" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="624" cy="414" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="613" cy="385" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="612" cy="384" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+</defs>
+<g class="armor_magic_aura{% if body_armor.magical_protection %} is-active{% endif %}" aria-hidden="true">
+<use href="#bodyArmor-{{ character.pk }}-underbody" filter="url(#bodyArmor-{{ character.pk }}-magic-aura)"/>
+</g>
+<g id="bodyArmor-{{ character.pk }}-underbody" stroke="#242323" stroke-width="4" stroke-linejoin="round" >
+<path fill="url(#bodyArmor-{{ character.pk }}-cloth)" d=" M455 145 Q512 118 569 145 L567 222 Q598 237 645 241 Q697 251 719 309 L746 418 L777 484 L793 569 L794 657 L810 715 Q827 753 798 787 Q784 802 764 790 L744 758 L739 701 L723 648 L708 571 L681 503 L650 420 L634 350 L624 504 L650 615 L671 744 L663 874 L669 998 L678 1116 L657 1289 L681 1398 L726 1487 Q683 1514 624 1486 L595 1442 L590 1340 L568 1196 L556 1080 L550 947 L533 844 L512 787 L491 844 L474 947 L468 1080 L456 1196 L434 1340 L429 1442 L400 1486 Q341 1514 298 1487 L343 1398 L367 1289 L346 1116 L355 998 L361 874 L353 744 L374 615 L400 504 L390 350 L374 420 L343 503 L316 571 L301 648 L285 701 L280 758 L260 790 Q240 802 226 787 Q197 753 214 715 L230 657 L231 569 L247 484 L278 418 L305 309 Q327 251 379 241 Q426 237 457 222Z "/>
+<path fill="url(#bodyArmor-{{ character.pk }}-wood)" d=" M455 190 Q440 171 442 119 L447 76 Q457 34 512 28 Q567 34 577 76 L582 119 Q584 171 569 190 L550 212 L474 212Z "/>
+<path fill="none" stroke="#a39578" opacity=".48" d="M512 43 L512 204 M467 99 Q512 81 557 99 M470 161 Q512 181 554 161" />
+<path fill="url(#bodyArmor-{{ character.pk }}-clothshade)" d=" M457 216 Q512 239 567 216 L580 258 L557 297 L512 318 L467 297 L444 258Z "/>
+<path fill="url(#bodyArmor-{{ character.pk }}-clothshade)" d=" M389 299 Q439 275 480 294 L512 319 L544 294 Q585 275 635 299 L615 506 Q512 538 409 506Z "/>
+<path fill="url(#bodyArmor-{{ character.pk }}-quilt)" opacity=".7" d=" M389 299 Q512 263 635 299 L615 506 Q512 538 409 506Z "/>
+<path fill="none" stroke="#8a8069" opacity=".55" d="M512 319 L512 607 M414 510 Q512 533 610 510 M387 743 Q421 782 467 777 M557 777 Q603 782 637 743 M368 984 Q415 1013 468 984 M556 984 Q609 1013 656 984" />
+<path fill="none" stroke="#9c8d70" opacity=".4" stroke-width="2" d="M318 321 L256 555 L250 687 M706 321 L768 555 L774 687 M399 845 L389 1002 L404 1278 M625 845 L635 1002 L620 1278" />
+<path fill="url(#bodyArmor-{{ character.pk }}-clothshade)" d=" M395 541 Q512 564 629 541 L651 745 L551 787 L512 754 L473 787 L373 745Z "/>
+<path fill="url(#bodyArmor-{{ character.pk }}-quilt)" opacity=".7" d=" M395 541 Q512 564 629 541 L651 745 L551 787 L512 754 L473 787 L373 745Z "/>
+<path stroke="#151615" fill="none" stroke-width="4" d="M231 732 L250 762 M242 721 L262 752 M253 713 L272 738 M793 732 L774 762 M782 721 L762 752 M771 713 L752 738" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.foot_right %} is-protected{% endif %}" data-body-zone="foot_right">
+<path d="M350 1324 L391 1310 L437 1340 L443 1419 L423 1452 L369 1479 L295 1517 L277 1491 L289 1453 L331 1404Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M350 1324 L391 1310 L437 1340 L443 1419 L423 1452 L369 1479 L295 1517 L277 1491 L289 1453 L331 1404Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M348 1337 L391 1327 L438 1355 L438 1379 L389 1350 L334 1363Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M348 1337 L391 1327 L438 1355 L438 1379 L389 1350 L334 1363Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M340 1362 L391 1352 L438 1380 L438 1404 L389 1375 L326 1388Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M340 1362 L391 1352 L438 1380 L438 1404 L389 1375 L326 1388Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M332 1387 L391 1377 L438 1405 L438 1429 L389 1400 L318 1413Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M332 1387 L391 1377 L438 1405 L438 1429 L389 1400 L318 1413Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M324 1412 L391 1402 L438 1430 L438 1454 L389 1425 L310 1438Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M324 1412 L391 1402 L438 1430 L438 1454 L389 1425 L310 1438Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M316 1437 L391 1427 L438 1455 L438 1479 L389 1450 L302 1463Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M316 1437 L391 1427 L438 1455 L438 1479 L389 1450 L302 1463Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M299 1454 Q337 1436 379 1459 L391 1481 L294 1514 L279 1491Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M299 1454 Q337 1436 379 1459 L391 1481 L294 1514 L279 1491Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M320 1455 L294 1504" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="307" cy="1491" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="306" cy="1490" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="365" cy="1478" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="364" cy="1477" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M350 1324 L391 1310 L437 1340 L443 1419 L423 1452 L369 1479 L295 1517 L277 1491 L289 1453 L331 1404Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M350 1324 L391 1310 L437 1340 L443 1419 L423 1452 L369 1479 L295 1517 L277 1491 L289 1453 L331 1404Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M348 1337 L391 1327 L438 1355 L438 1379 L389 1350 L334 1363Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M348 1337 L391 1327 L438 1355 L438 1379 L389 1350 L334 1363Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M340 1362 L391 1352 L438 1380 L438 1404 L389 1375 L326 1388Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M340 1362 L391 1352 L438 1380 L438 1404 L389 1375 L326 1388Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M332 1387 L391 1377 L438 1405 L438 1429 L389 1400 L318 1413Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M332 1387 L391 1377 L438 1405 L438 1429 L389 1400 L318 1413Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M324 1412 L391 1402 L438 1430 L438 1454 L389 1425 L310 1438Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M324 1412 L391 1402 L438 1430 L438 1454 L389 1425 L310 1438Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M316 1437 L391 1427 L438 1455 L438 1479 L389 1450 L302 1463Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M316 1437 L391 1427 L438 1455 L438 1479 L389 1450 L302 1463Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M299 1454 Q337 1436 379 1459 L391 1481 L294 1514 L279 1491Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M299 1454 Q337 1436 379 1459 L391 1481 L294 1514 L279 1491Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M320 1455 L294 1504" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="307" cy="1491" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="306" cy="1490" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="365" cy="1478" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="364" cy="1477" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.leg_right %} is-protected{% endif %}" data-body-zone="leg_right">
+<path d="M345 1060 L389 1094 L453 1060 L472 1112 L454 1193 L438 1288 L446 1329 L393 1353 L334 1329 L351 1283 L346 1189 L330 1122Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M345 1060 L389 1094 L453 1060 L472 1112 L454 1193 L438 1288 L446 1329 L393 1353 L334 1329 L351 1283 L346 1189 L330 1122Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M388 1105 L393 1297" fill="none" stroke="#e5e8da" stroke-width="4" opacity="0.65" />
+<path d="M356 1110 Q378 1202 367 1288 M442 1109 Q411 1208 416 1289" fill="none" stroke="#b6c1bc" stroke-width="2" opacity="0.65" />
+<path d="M344 1290 L390 1278 L437 1304 L449 1339 L393 1313 L332 1337Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M344 1290 L390 1278 L437 1304 L449 1339 L393 1313 L332 1337Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="350" cy="1296" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="349" cy="1295" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="429" cy="1307" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="428" cy="1306" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M345 1060 L389 1094 L453 1060 L472 1112 L454 1193 L438 1288 L446 1329 L393 1353 L334 1329 L351 1283 L346 1189 L330 1122Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M345 1060 L389 1094 L453 1060 L472 1112 L454 1193 L438 1288 L446 1329 L393 1353 L334 1329 L351 1283 L346 1189 L330 1122Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M388 1105 L393 1297" fill="none" stroke="#e5e8da" stroke-width="4" opacity="0.65" />
+<path d="M356 1110 Q378 1202 367 1288 M442 1109 Q411 1208 416 1289" fill="none" stroke="#b6c1bc" stroke-width="2" opacity="0.65" />
+<path d="M344 1290 L390 1278 L437 1304 L449 1339 L393 1313 L332 1337Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M344 1290 L390 1278 L437 1304 L449 1339 L393 1313 L332 1337Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="350" cy="1296" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="349" cy="1295" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="429" cy="1307" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="428" cy="1306" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.leg_right %} is-protected{% endif %}" data-body-zone="leg_right">
+<path d="M343 802 Q390 826 457 804 L474 867 L459 940 L396 976 L337 931 L331 857Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M343 802 Q390 826 457 804 L474 867 L459 940 L396 976 L337 931 L331 857Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M382 837 L393 941 M451 830 L433 922" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M445 836 L463 841 L457 927 L443 939Z" fill="url(#bodyArmor-{{ character.pk }}-leather)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M445 836 L463 841 L457 927 L443 939Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="453" cy="852" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="452" cy="851" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="452" cy="876" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="451" cy="875" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="448" cy="899" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="447" cy="898" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="444" cy="923" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="443" cy="922" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M343 802 Q390 826 457 804 L474 867 L459 940 L396 976 L337 931 L331 857Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M343 802 Q390 826 457 804 L474 867 L459 940 L396 976 L337 931 L331 857Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M382 837 L393 941 M451 830 L433 922" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M445 836 L463 841 L457 927 L443 939Z" fill="url(#bodyArmor-{{ character.pk }}-leather)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M445 836 L463 841 L457 927 L443 939Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="453" cy="852" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="452" cy="851" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="452" cy="876" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="451" cy="875" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="448" cy="899" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="447" cy="898" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="444" cy="923" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="443" cy="922" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.leg_right %} is-protected{% endif %}" data-body-zone="leg_right">
+<path d="M331 919 L346 955 L390 968 L453 943 L472 926 L478 987 L467 1039 L480 1059 L447 1068 L388 1101 L338 1063 L314 1056 L328 1018 L320 964Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M331 919 L346 955 L390 968 L453 943 L472 926 L478 987 L467 1039 L480 1059 L447 1068 L388 1101 L338 1063 L314 1056 L328 1018 L320 964Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M336 951 L391 914 L457 953 L461 1011 L389 1054 L331 1017Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M336 951 L391 914 L457 953 L461 1011 L389 1054 L331 1017Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M340 958 L391 928 L447 959" fill="none" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="8" opacity="0.65" />
+<path d="M391 934 L379 989 L390 1040" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="348" cy="958" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="347" cy="957" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="369" cy="943" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="368" cy="942" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="412" cy="944" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="411" cy="943" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="435" cy="958" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="434" cy="957" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="344" cy="1031" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="343" cy="1030" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="365" cy="1046" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="364" cy="1045" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="415" cy="1048" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="414" cy="1047" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="439" cy="1034" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="438" cy="1033" r="1.0360000000000003" fill="#fff1bb" />
+<ellipse cx="460" cy="989" rx="14" ry="23" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#d4d1bd" stroke-width="2"/>
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M331 919 L346 955 L390 968 L453 943 L472 926 L478 987 L467 1039 L480 1059 L447 1068 L388 1101 L338 1063 L314 1056 L328 1018 L320 964Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M331 919 L346 955 L390 968 L453 943 L472 926 L478 987 L467 1039 L480 1059 L447 1068 L388 1101 L338 1063 L314 1056 L328 1018 L320 964Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M336 951 L391 914 L457 953 L461 1011 L389 1054 L331 1017Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M336 951 L391 914 L457 953 L461 1011 L389 1054 L331 1017Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M340 958 L391 928 L447 959" fill="none" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="8" opacity="0.65" />
+<path d="M391 934 L379 989 L390 1040" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="348" cy="958" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="347" cy="957" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="369" cy="943" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="368" cy="942" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="412" cy="944" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="411" cy="943" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="435" cy="958" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="434" cy="957" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="344" cy="1031" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="343" cy="1030" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="365" cy="1046" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="364" cy="1045" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="415" cy="1048" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="414" cy="1047" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="439" cy="1034" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="438" cy="1033" r="1.0360000000000003" fill="#fff1bb" />
+<ellipse cx="460" cy="989" rx="14" ry="23" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#d4d1bd" stroke-width="2"/>
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.hand_right %} is-protected{% endif %}" data-body-zone="hand_right">
+<path d="M213 674 Q248 660 275 684 L288 722 L272 746 L224 740 L207 716Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M213 674 Q248 660 275 684 L288 722 L272 746 L224 740 L207 716Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M211 728 L223 724 L234 741 L220 747Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M211 728 L223 724 L234 741 L220 747Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M220 745 L232 741 L243 758 L229 764Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M220 745 L232 741 L243 758 L229 764Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M229 762 L241 758 L252 775 L238 781Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M229 762 L241 758 L252 775 L238 781Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M225 724 L237 720 L248 737 L234 743Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M225 724 L237 720 L248 737 L234 743Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M234 741 L246 737 L257 754 L243 760Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M234 741 L246 737 L257 754 L243 760Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M243 758 L255 754 L266 771 L252 777Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M243 758 L255 754 L266 771 L252 777Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M239 728 L251 724 L262 741 L248 747Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M239 728 L251 724 L262 741 L248 747Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M248 745 L260 741 L271 758 L257 764Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M248 745 L260 741 L271 758 L257 764Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M257 762 L269 758 L280 775 L266 781Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M257 762 L269 758 L280 775 L266 781Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M253 732 L265 728 L276 745 L262 751Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M253 732 L265 728 L276 745 L262 751Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M262 749 L274 745 L285 762 L271 768Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M262 749 L274 745 L285 762 L271 768Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M271 766 L283 762 L294 779 L280 785Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M271 766 L283 762 L294 779 L280 785Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M275 701 L294 714 L306 748 L296 762 L283 737 L269 723Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M275 701 L294 714 L306 748 L296 762 L283 737 L269 723Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M221 690 L235 714 L262 712" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M213 674 Q248 660 275 684 L288 722 L272 746 L224 740 L207 716Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M213 674 Q248 660 275 684 L288 722 L272 746 L224 740 L207 716Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M211 728 L223 724 L234 741 L220 747Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M211 728 L223 724 L234 741 L220 747Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M220 745 L232 741 L243 758 L229 764Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M220 745 L232 741 L243 758 L229 764Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M229 762 L241 758 L252 775 L238 781Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M229 762 L241 758 L252 775 L238 781Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M225 724 L237 720 L248 737 L234 743Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M225 724 L237 720 L248 737 L234 743Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M234 741 L246 737 L257 754 L243 760Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M234 741 L246 737 L257 754 L243 760Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M243 758 L255 754 L266 771 L252 777Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M243 758 L255 754 L266 771 L252 777Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M239 728 L251 724 L262 741 L248 747Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M239 728 L251 724 L262 741 L248 747Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M248 745 L260 741 L271 758 L257 764Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M248 745 L260 741 L271 758 L257 764Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M257 762 L269 758 L280 775 L266 781Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M257 762 L269 758 L280 775 L266 781Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M253 732 L265 728 L276 745 L262 751Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M253 732 L265 728 L276 745 L262 751Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M262 749 L274 745 L285 762 L271 768Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M262 749 L274 745 L285 762 L271 768Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M271 766 L283 762 L294 779 L280 785Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M271 766 L283 762 L294 779 L280 785Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M275 701 L294 714 L306 748 L296 762 L283 737 L269 723Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M275 701 L294 714 L306 748 L296 762 L283 737 L269 723Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M221 690 L235 714 L262 712" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.hand_right %} is-protected{% endif %}" data-body-zone="hand_right">
+<path d="M210 557 Q248 548 300 573 L286 611 L271 662 L280 681 L204 684 L215 656 L202 606Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M210 557 Q248 548 300 573 L286 611 L271 662 L280 681 L204 684 L215 656 L202 606Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M208 570 Q252 562 298 588 L291 607 Q245 581 204 591Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M208 570 Q252 562 298 588 L291 607 Q245 581 204 591Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M218 600 Q244 625 235 664 M277 605 L253 666" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="216" cy="580" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="215" cy="579" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="234" cy="580" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="233" cy="579" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="279" cy="592" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="278" cy="591" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M210 557 Q248 548 300 573 L286 611 L271 662 L280 681 L204 684 L215 656 L202 606Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M210 557 Q248 548 300 573 L286 611 L271 662 L280 681 L204 684 L215 656 L202 606Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M208 570 Q252 562 298 588 L291 607 Q245 581 204 591Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M208 570 Q252 562 298 588 L291 607 Q245 581 204 591Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M218 600 Q244 625 235 664 M277 605 L253 666" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="216" cy="580" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="215" cy="579" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="234" cy="580" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="233" cy="579" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="279" cy="592" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="278" cy="591" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.arm_right %} is-protected{% endif %}" data-body-zone="arm_right">
+<path d="M261 307 Q302 302 339 336 L329 363 Q294 338 251 338Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 307 Q302 302 339 336 L329 363 Q294 338 251 338Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="345" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="344" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M261 331 Q302 326 339 360 L329 387 Q294 362 251 362Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 331 Q302 326 339 360 L329 387 Q294 362 251 362Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="369" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="368" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M261 355 Q302 350 339 384 L329 411 Q294 386 251 386Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 355 Q302 350 339 384 L329 411 Q294 386 251 386Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="393" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="392" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M261 379 Q302 374 339 408 L329 435 Q294 410 251 410Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 379 Q302 374 339 408 L329 435 Q294 410 251 410Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="417" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="416" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M250 404 L328 431 L316 470 L234 441Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M250 404 L328 431 L316 470 L234 441Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M307 413 L337 424 L331 441 L302 431Z" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M307 413 L337 424 L331 441 L302 431Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M261 307 Q302 302 339 336 L329 363 Q294 338 251 338Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 307 Q302 302 339 336 L329 363 Q294 338 251 338Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="345" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="344" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M261 331 Q302 326 339 360 L329 387 Q294 362 251 362Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 331 Q302 326 339 360 L329 387 Q294 362 251 362Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="369" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="368" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M261 355 Q302 350 339 384 L329 411 Q294 386 251 386Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 355 Q302 350 339 384 L329 411 Q294 386 251 386Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="393" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="392" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M261 379 Q302 374 339 408 L329 435 Q294 410 251 410Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M261 379 Q302 374 339 408 L329 435 Q294 410 251 410Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="317" cy="417" r="2.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="316" cy="416" r="0.7560000000000001" fill="#fff1bb" />
+<path d="M250 404 L328 431 L316 470 L234 441Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M250 404 L328 431 L316 470 L234 441Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M307 413 L337 424 L331 441 L302 431Z" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M307 413 L337 424 L331 441 L302 431Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.arm_right %} is-protected{% endif %}" data-body-zone="arm_right">
+<path d="M216 425 L256 452 L324 477 L338 498 L312 531 L318 559 L270 550 L195 563 L203 527 L184 491 L215 460Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M216 425 L256 452 L324 477 L338 498 L312 531 L318 559 L270 550 L195 563 L203 527 L184 491 L215 460Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M189 488 L258 467 L306 496 L280 523 L204 533Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M189 488 L258 467 L306 496 L280 523 L204 533Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M205 490 L256 479 L288 497" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="225" cy="449" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="224" cy="448" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="244" cy="466" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="243" cy="465" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="280" cy="481" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="279" cy="480" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="296" cy="509" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="295" cy="508" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="215" cy="538" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="214" cy="537" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M216 425 L256 452 L324 477 L338 498 L312 531 L318 559 L270 550 L195 563 L203 527 L184 491 L215 460Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M216 425 L256 452 L324 477 L338 498 L312 531 L318 559 L270 550 L195 563 L203 527 L184 491 L215 460Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M189 488 L258 467 L306 496 L280 523 L204 533Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M189 488 L258 467 L306 496 L280 523 L204 533Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M205 490 L256 479 L288 497" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="225" cy="449" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="224" cy="448" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="244" cy="466" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="243" cy="465" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="280" cy="481" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="279" cy="480" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="296" cy="509" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="295" cy="508" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="215" cy="538" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="214" cy="537" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.arm_right %} is-protected{% endif %}" data-body-zone="arm_right">
+<path d="M364 187 Q391 191 423 240 L426 280 L379 288 L358 235Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M364 187 Q391 191 423 240 L426 280 L379 288 L358 235Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M273 280 Q301 227 358 220 Q393 225 426 272 Q431 316 385 365 Q355 379 321 346 L260 304Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M273 280 Q301 227 358 220 Q393 225 426 272 Q431 316 385 365 Q355 379 321 346 L260 304Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M282 268 Q335 245 408 288" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M266 302 Q319 286 385 354" fill="none" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="6" opacity="0.65" />
+<circle cx="284" cy="291" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="283" cy="290" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="313" cy="315" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="312" cy="314" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="342" cy="338" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="341" cy="337" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="370" cy="351" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="369" cy="350" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="408" cy="283" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="407" cy="282" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="401" cy="309" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="400" cy="308" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" transform="translate(1024 0) scale(-1 1)">
+<path d="M364 187 Q391 191 423 240 L426 280 L379 288 L358 235Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M364 187 Q391 191 423 240 L426 280 L379 288 L358 235Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M273 280 Q301 227 358 220 Q393 225 426 272 Q431 316 385 365 Q355 379 321 346 L260 304Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M273 280 Q301 227 358 220 Q393 225 426 272 Q431 316 385 365 Q355 379 321 346 L260 304Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M282 268 Q335 245 408 288" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<path d="M266 302 Q319 286 385 354" fill="none" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="6" opacity="0.65" />
+<circle cx="284" cy="291" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="283" cy="290" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="313" cy="315" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="312" cy="314" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="342" cy="338" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="341" cy="337" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="370" cy="351" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="369" cy="350" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="408" cy="283" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="407" cy="282" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="401" cy="309" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="400" cy="308" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.torso %} is-protected{% endif %}" data-body-zone="torso">
+<g clip-path="url(#bodyArmor-{{ character.pk }}-torso-clip)">
+<use href="#bodyArmor-{{ character.pk }}-chest"/>
+</g>
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.organs %} is-protected{% endif %}" data-body-zone="organs">
+<g clip-path="url(#bodyArmor-{{ character.pk }}-organs-clip)">
+<use href="#bodyArmor-{{ character.pk }}-chest"/>
+</g>
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.neck %} is-protected{% endif %}" data-body-zone="neck">
+<path d="M446 207 Q510 242 575 207 L596 263 L571 292 L512 316 L453 292 L428 263Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M446 207 Q510 242 575 207 L596 263 L571 292 L512 316 L453 292 L428 263Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M440 225 Q510 267 583 225 L590 247 Q511 291 434 247Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M440 225 Q510 267 583 225 L590 247 Q511 291 434 247Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<path d="M512 282 L512 307" fill="none" stroke="#d6dbce" stroke-width="2" opacity="0.65" />
+<circle cx="452" cy="246" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="451" cy="245" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="468" cy="255" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="467" cy="254" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="488" cy="262" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="487" cy="261" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="512" cy="266" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="511" cy="265" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="536" cy="262" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="535" cy="261" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="556" cy="255" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="555" cy="254" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="573" cy="246" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="572" cy="245" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="450" cy="275" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="449" cy="274" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="474" cy="288" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="473" cy="287" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="551" cy="288" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="550" cy="287" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="574" cy="275" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="573" cy="274" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue">
+<path d="M356 593 L666 593 L699 826 L575 840 L547 764 L477 764 L449 840 L325 826Z" fill="url(#bodyArmor-{{ character.pk }}-mail)" stroke="#222" stroke-width="4" />
+<path d="M565 564 Q578 576 648 556 L665 603 L580 613 L561 589Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M565 564 Q578 576 648 556 L665 603 L580 613 L561 589Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="580" cy="586" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="579" cy="585" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="646" cy="580" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="645" cy="579" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M552 603 Q578 615 661 595 L678 642 L567 652 L548 628Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M552 603 Q578 615 661 595 L678 642 L567 652 L548 628Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="567" cy="625" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="566" cy="624" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="659" cy="619" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="658" cy="618" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M539 642 Q578 654 674 634 L691 681 L554 691 L535 667Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M539 642 Q578 654 674 634 L691 681 L554 691 L535 667Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="554" cy="664" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="553" cy="663" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="672" cy="658" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="671" cy="657" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M526 681 Q578 693 687 673 L704 720 L541 730 L522 706Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M526 681 Q578 693 687 673 L704 720 L541 730 L522 706Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="541" cy="703" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="540" cy="702" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="685" cy="697" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="684" cy="696" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M513 720 Q578 732 700 712 L717 759 L528 769 L509 745Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M513 720 Q578 732 700 712 L717 759 L528 769 L509 745Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="528" cy="742" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="527" cy="741" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="698" cy="736" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="697" cy="735" r="1.0360000000000003" fill="#fff1bb" />
+<g transform="translate(1024 0) scale(-1 1)">
+<path d="M565 564 Q578 576 648 556 L665 603 L580 613 L561 589Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M565 564 Q578 576 648 556 L665 603 L580 613 L561 589Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="580" cy="586" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="579" cy="585" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="646" cy="580" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="645" cy="579" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M552 603 Q578 615 661 595 L678 642 L567 652 L548 628Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M552 603 Q578 615 661 595 L678 642 L567 652 L548 628Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="567" cy="625" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="566" cy="624" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="659" cy="619" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="658" cy="618" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M539 642 Q578 654 674 634 L691 681 L554 691 L535 667Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M539 642 Q578 654 674 634 L691 681 L554 691 L535 667Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="554" cy="664" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="553" cy="663" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="672" cy="658" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="671" cy="657" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M526 681 Q578 693 687 673 L704 720 L541 730 L522 706Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M526 681 Q578 693 687 673 L704 720 L541 730 L522 706Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="541" cy="703" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="540" cy="702" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="685" cy="697" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="684" cy="696" r="1.0360000000000003" fill="#fff1bb" />
+<path d="M513 720 Q578 732 700 712 L717 759 L528 769 L509 745Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M513 720 Q578 732 700 712 L717 759 L528 769 L509 745Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="528" cy="742" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="527" cy="741" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="698" cy="736" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="697" cy="735" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<path d="M387 519 Q511 548 641 519 L650 550 Q512 580 379 550Z" fill="url(#bodyArmor-{{ character.pk }}-leather)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M387 519 Q511 548 641 519 L650 550 Q512 580 379 550Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="407" cy="541" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="406" cy="540" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="443" cy="547" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="442" cy="546" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="477" cy="552" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="476" cy="551" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="550" cy="552" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="549" cy="551" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="590" cy="547" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="589" cy="546" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="624" cy="541" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="623" cy="540" r="1.0360000000000003" fill="#fff1bb" />
+<rect x="496" y="533" width="43" height="37" rx="9" fill="#2c2119" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="7"/>
+<path d="M500 551 L529 551" fill="none" stroke="#e9ce84" stroke-width="4" opacity="0.65" />
+<path d="M548 550 L626 598 L611 621 L534 562Z" fill="url(#bodyArmor-{{ character.pk }}-leather)" stroke="#172024" stroke-width="4" stroke-linejoin="round" />
+<path d="M548 550 L626 598 L611 621 L534 562Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#ced0bf" stroke-width="1.3" stroke-linejoin="round" />
+<circle cx="559" cy="566" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="558" cy="565" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="580" cy="583" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="579" cy="582" r="1.0360000000000003" fill="#fff1bb" />
+<circle cx="601" cy="600" r="3.7" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="600" cy="599" r="1.0360000000000003" fill="#fff1bb" />
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.head %} is-protected{% endif %}" data-body-zone="head">
+<g clip-path="url(#bodyArmor-{{ character.pk }}-head-clip)">
+<use href="#bodyArmor-{{ character.pk }}-helmet"/>
+</g>
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.face %} is-protected{% endif %}" data-body-zone="face">
+<g clip-path="url(#bodyArmor-{{ character.pk }}-face-clip)">
+<use href="#bodyArmor-{{ character.pk }}-helmet"/>
+</g>
+</g>
+<g filter="url(#bodyArmor-{{ character.pk }}-plate-shadow)" class="armor_map_zone{% if body_armor.physical_zones.shield %} is-protected{% endif %}" data-body-zone="shield">
+<path d="M129 450 Q200 417 286 450 L310 543 Q325 690 221 865 Q116 783 106 633 Q96 528 129 450Z" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="#182226" stroke-width="6" />
+<path d="M139 464 Q205 435 276 465 L295 547 Q308 681 220 840 Q130 759 121 631 Q112 538 139 464Z" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="9" />
+<path d="M139 464 Q205 435 276 465 L295 547 Q308 681 220 840 Q130 759 121 631 Q112 538 139 464Z" fill="url(#bodyArmor-{{ character.pk }}-brush)" stroke="#e4d5a4" stroke-width="1.5" />
+<path d="M216 447 Q188 624 220 839" fill="none" stroke="#d9ded1" stroke-width="3" opacity=".7" />
+<path d="M148 505 Q122 647 184 769 M275 507 Q300 644 247 764" fill="none" stroke="#f2f1de" stroke-width="2" opacity=".5" />
+<ellipse cx="212" cy="594" rx="39" ry="48" fill="url(#bodyArmor-{{ character.pk }}-steel)" stroke="url(#bodyArmor-{{ character.pk }}-gold)" stroke-width="6" />
+<ellipse cx="208" cy="588" rx="24" ry="33" fill="url(#bodyArmor-{{ character.pk }}-steel-light)" stroke="#c7cec5" stroke-width="1.5" />
+<circle cx="144" cy="475" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="143" cy="474" r="1.12" fill="#fff1bb" />
+<circle cx="179" cy="463" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="178" cy="462" r="1.12" fill="#fff1bb" />
+<circle cx="221" cy="460" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="220" cy="459" r="1.12" fill="#fff1bb" />
+<circle cx="265" cy="475" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="264" cy="474" r="1.12" fill="#fff1bb" />
+<circle cx="284" cy="543" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="283" cy="542" r="1.12" fill="#fff1bb" />
+<circle cx="291" cy="606" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="290" cy="605" r="1.12" fill="#fff1bb" />
+<circle cx="282" cy="677" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="281" cy="676" r="1.12" fill="#fff1bb" />
+<circle cx="262" cy="740" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="261" cy="739" r="1.12" fill="#fff1bb" />
+<circle cx="223" cy="817" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="222" cy="816" r="1.12" fill="#fff1bb" />
+<circle cx="184" cy="776" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="183" cy="775" r="1.12" fill="#fff1bb" />
+<circle cx="151" cy="716" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="150" cy="715" r="1.12" fill="#fff1bb" />
+<circle cx="133" cy="653" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="132" cy="652" r="1.12" fill="#fff1bb" />
+<circle cx="129" cy="591" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="128" cy="590" r="1.12" fill="#fff1bb" />
+<circle cx="133" cy="529" r="4" fill="url(#bodyArmor-{{ character.pk }}-gold)" stroke="#3a321f" stroke-width="1.3" />
+<circle cx="132" cy="528" r="1.12" fill="#fff1bb" />
+</g>
+</g>
 
               <g class="armor_callout_values armor_callout_values--left">
                 <g class="armor_callout_row" data-body-zone="shield">

@@ -3208,166 +3208,37 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   overflow: visible;
 }
 
-.armor_map_zone {
-  fill: rgba(74, 55, 38, 0.035);
-  stroke: rgba(58, 42, 28, 0.3);
-  stroke-width: 0.7;
-  stroke-dasharray: 2.4 2.2;
-  opacity: 0.78;
-  mix-blend-mode: normal;
-  vector-effect: non-scaling-stroke;
-  transition:
-    fill 150ms ease,
-    stroke 150ms ease,
-    filter 150ms ease,
-    opacity 150ms ease;
+/* The Armatura study owns its native SVG fills, edges and proportions. */
+.armor_magic_aura {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
 }
 
-.armor_map_zone.is-protected {
-  fill: url("#armorProtectedMetal");
-  stroke: rgba(37, 38, 35, 0.96);
-  stroke-width: 1.05;
-  stroke-dasharray: none;
-  opacity: 1;
-  mix-blend-mode: normal;
-  filter: drop-shadow(0 0.5px 0 rgba(255, 250, 232, 0.18)) drop-shadow(0 1.2px 0.9px rgba(31, 22, 15, 0.22));
+.armor_magic_aura.is-active {
+  opacity: 0.65;
 }
 
-.armor_map_zone[data-body-zone="organs"].is-protected,
-.armor_map_zone[data-body-zone="soft_tissue"].is-protected,
-.armor_map_zone[data-body-zone="face"].is-protected,
-.armor_map_zone[data-body-zone="neck"].is-protected {
-  fill: url("#armorWarmProtected");
-  stroke: rgba(49, 43, 35, 0.96);
+.body_callout_map:has(.is-zone-active) .armor_magic_aura.is-active {
+  opacity: 0.9;
 }
 
-.armor_map_zone[data-body-zone="shield"].is-protected {
-  fill: url("#armorMetal");
-  stroke: rgba(55, 49, 42, 0.94);
-}
-
-.armor_map_inkscape .armor_map_zone {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.armor_map_inkscape_face .armor_map_zone[data-body-zone="face"],
-.armor_map_inkscape_face .armor_map_zone[data-body-zone="face"].is-protected {
-  fill: url("#armorMetal");
-  stroke: rgba(37, 38, 35, 0.96);
-  stroke-dasharray: none;
-  opacity: 1;
-}
-
-.armor_map_detail_line {
+.armor_study .armor_map_zone {
   fill: none;
-  stroke: rgba(25, 24, 22, 0.72);
-  stroke-width: 0.78;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
+  stroke: none;
+  stroke-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
 }
 
-.armor_map_plate_edges .armor_map_zone {
-  stroke-width: 0.65;
+.armor_study .armor_map_zone.is-protected {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.armor_map_plate_edges .armor_map_zone:not(.is-protected) {
+.armor_callout_lines [hidden] {
   display: none;
-}
-
-.armor_map_plate_edges .armor_map_zone.is-protected {
-  filter: drop-shadow(0 0.8px 0.55px rgba(28, 20, 14, 0.2));
-}
-
-.armor_map_joint_shadow path {
-  fill: rgba(21, 18, 15, 0.14);
-  stroke: rgba(21, 18, 15, 0.12);
-  stroke-width: 0.35;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_underlay {
-  fill: rgba(63, 45, 31, 0.1);
-  stroke: rgba(63, 45, 31, 0.2);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_detail path {
-  fill: none;
-  stroke: rgba(36, 31, 25, 0.42);
-  stroke-width: 0.68;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_detail circle {
-  fill: rgba(41, 36, 30, 0.48);
-  stroke: rgba(230, 221, 197, 0.34);
-  stroke-width: 0.25;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_highlight path {
-  fill: none;
-  stroke: rgba(255, 250, 232, 0.34);
-  stroke-width: 0.55;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_ridge path {
-  fill: none;
-  stroke: rgba(21, 20, 18, 0.42);
-  stroke-width: 0.95;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_rivet {
-  fill: rgba(20, 18, 15, 0.52);
-  stroke: rgba(245, 238, 218, 0.36);
-  stroke-width: 0.28;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_ornament path {
-  fill: none;
-  stroke: rgba(222, 210, 176, 0.5);
-  stroke-width: 0.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_ornament circle {
-  fill: rgba(188, 171, 122, 0.72);
-  stroke: rgba(45, 39, 30, 0.5);
-  stroke-width: 0.22;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_opening {
-  fill: rgba(28, 22, 16, 0.58);
-  stroke: rgba(238, 229, 204, 0.34);
-  stroke-width: 0.45;
-  stroke-dasharray: none;
-  opacity: 1;
-  mix-blend-mode: multiply;
-  vector-effect: non-scaling-stroke;
-}
-
-.armor_map_shield_detail {
-  fill: none;
-  stroke: rgba(28, 24, 20, 0.42);
-  stroke-width: 0.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
 }
 
 .armor_callout_lines path {
@@ -3434,11 +3305,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   font-weight: 700;
 }
 
-.body_callout_svg .is-zone-active.armor_map_zone,
-.body_callout_svg .is-zone-active .armor_map_zone {
-  stroke: rgba(34, 88, 68, 1);
-  stroke-width: 2.3;
-  filter: drop-shadow(0 0 4px rgba(76, 125, 92, 0.45));
+.body_callout_svg .armor_study .armor_map_zone.is-zone-active {
+  filter: var(--armor-zone-outline);
 }
 
 .body_callout_svg .is-zone-active.armor_callout_row text,

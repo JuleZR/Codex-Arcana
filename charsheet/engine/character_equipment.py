@@ -31,7 +31,7 @@ from charsheet.modifiers.definitions import (
     TargetDomain,
 )
 from charsheet.modifiers.targets import TargetResolver
-from charsheet.models import CharacterItem
+from charsheet.models import ArmorStats, CharacterItem
 
 from .item_engine import ItemEngine
 
@@ -1081,6 +1081,55 @@ def _build_equipped_shield_rows(engine) -> list[dict]:
             }
         )
     return rows
+
+
+def physical_armor_zones(engine) -> dict[str, bool]:
+    """Return mannequin coverage from physical item RS, without rune bonuses.
+
+    Shield coverage belongs only to the shield graphic, even though its combat
+    protection contributes to every hit zone.
+    """
+    def build():
+        zones = dict.fromkeys(ArmorStats.ZONE_FIELDS, False)
+        for character_item in engine.equipped_armor_items():
+            item_engine = ItemEngine(character_item)
+            raw_rs = int(item_engine.get_armor_rs_raw() or 0)
+            modifiers = _character_item_specific_armor_semantic_modifiers(
+                engine, character_item, DEFENSE_RS
+            )
+            physical_rs = max(0, _resolve_item_bound_numeric_modifiers(
+                engine, raw_rs, modifiers
+            ))
+            # Retraction disables the complete physical shell, including any
+            # zone overrides. Rune modifiers must not reactivate that shell.
+            if modifiers and physical_rs == 0:
+                continue
+            values = item_engine.get_armor_zone_rs() or {}
+            for zone, value in values.items():
+                zones[zone] = zones[zone] or value + physical_rs - raw_rs > 0
+        zones["shield"] = any(
+            (ItemEngine(item).get_effective_shield_rs() or 0) > 0
+            for item in engine.equipped_shield_items()
+        )
+        return zones
+
+    return _cached_equipment_value(engine, "physical_armor_zones", build)
+
+
+def has_magical_armor_protection(engine) -> bool:
+    """Return whether active magic adds RS beyond the physical armor shell."""
+    if _non_local_rs_modifier(engine) > 0:
+        return True
+    for item in engine.equipped_armor_items():
+        physical_rs = max(0, _resolve_item_bound_numeric_modifiers(
+            engine, int(ItemEngine(item).get_armor_rs_raw() or 0),
+            _character_item_specific_armor_semantic_modifiers(
+                engine, item, DEFENSE_RS
+            ),
+        ))
+        if _effective_armor_rs(engine, item) > physical_rs:
+            return True
+    return False
 
 
 def armor_zone_protection(engine) -> dict[str, int]:

@@ -9154,6 +9154,10 @@ def build_item_semantic_effect_partial_context(
                 "body_armor": {
                     "shield": engine.shield_protection(),
                     **armor_zone_protection,
+                    "physical_zones": engine.physical_armor_zones(),
+                    "magical_protection": (
+                        engine.has_magical_armor_protection()
+                    ),
                 },
             }
         )
@@ -9386,6 +9390,8 @@ def build_character_sheet_context(
     body_armor = {
         "shield": engine.shield_protection(),
         **armor_zone_protection,
+        "physical_zones": engine.physical_armor_zones(),
+        "magical_protection": engine.has_magical_armor_protection(),
     }
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     cultist_corruption_level = _cultist_corruption_level(engine)

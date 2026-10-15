@@ -28,9 +28,14 @@ function applyBodyArmorUpdate(payload) {
     return [];
   }
 
+  bodyPanel.querySelectorAll(".armor_magic_aura").forEach((aura) => {
+    aura.classList.toggle("is-active", Boolean(bodyArmor.magical_protection));
+  });
+
   BODY_ARMOR_ZONES.forEach((zone) => {
     const value = Number(bodyArmor[zone] || 0);
     const protectedZone = value > 0;
+    const physicalZone = Boolean(bodyArmor.physical_zones?.[zone]);
 
     bodyPanel.querySelectorAll(`.armor_callout_row[data-body-zone="${zone}"]`).forEach((row) => {
       row.querySelectorAll(".armor_callout_value").forEach((entry) => {
@@ -42,11 +47,11 @@ function applyBodyArmorUpdate(payload) {
     });
 
     bodyPanel.querySelectorAll(`.armor_map_zone[data-body-zone="${zone}"]`).forEach((entry) => {
-      entry.classList.toggle("is-protected", protectedZone);
+      entry.classList.toggle("is-protected", physicalZone);
     });
 
     bodyPanel.querySelectorAll(`.armor_callout_lines [data-body-zone="${zone}"]`).forEach((entry) => {
-      entry.toggleAttribute("hidden", !protectedZone);
+      entry.toggleAttribute("hidden", !physicalZone);
     });
   });
 
