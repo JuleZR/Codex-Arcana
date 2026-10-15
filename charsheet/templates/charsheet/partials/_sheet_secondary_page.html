@@ -28,11 +28,11 @@
             <svg class="body_callout_svg" viewBox="0 0 560 318" role="img" aria-label="R&uuml;stungszonen und Trefferzonen">
 <g class="armor_callout_lines" aria-hidden="true">
 <path data-body-zone="shield"{% if not body_armor.physical_zones.shield %} hidden="hidden"{% endif %} d="M206 30 H212 L247 121"/>
-<path data-body-zone="arm_right"{% if not body_armor.physical_zones.arm_right %} hidden="hidden"{% endif %} d="M206 62 H212 L259 88"/>
-<path data-body-zone="hand_right"{% if not body_armor.physical_zones.hand_right %} hidden="hidden"{% endif %} d="M206 85 H212 L253 147"/>
-<path data-body-zone="torso"{% if not body_armor.physical_zones.torso %} hidden="hidden"{% endif %} d="M206 116 H212 L277 78"/>
-<path data-body-zone="organs"{% if not body_armor.physical_zones.organs %} hidden="hidden"{% endif %} d="M206 139 H212 L296 95"/>
-<path data-body-zone="soft_tissue"{% if not body_armor.physical_zones.soft_tissue %} hidden="hidden"{% endif %} d="M206 162 H212 L296 136"/>
+<path data-body-zone="torso"{% if not body_armor.physical_zones.torso %} hidden="hidden"{% endif %} d="M206 62 H212 L277 78"/>
+<path data-body-zone="organs"{% if not body_armor.physical_zones.organs %} hidden="hidden"{% endif %} d="M206 85 H212 L296 95"/>
+<path data-body-zone="soft_tissue"{% if not body_armor.physical_zones.soft_tissue %} hidden="hidden"{% endif %} d="M206 108 H212 L296 136"/>
+<path data-body-zone="arm_right"{% if not body_armor.physical_zones.arm_right %} hidden="hidden"{% endif %} d="M206 139 H212 L259 88"/>
+<path data-body-zone="hand_right"{% if not body_armor.physical_zones.hand_right %} hidden="hidden"{% endif %} d="M206 162 H212 L253 147"/>
 <path data-body-zone="leg_right"{% if not body_armor.physical_zones.leg_right %} hidden="hidden"{% endif %} d="M206 197 H212 L276 201"/>
 <path data-body-zone="foot_right"{% if not body_armor.physical_zones.foot_right %} hidden="hidden"{% endif %} d="M206 220 H212 L271 261"/>
 <path data-body-zone="head"{% if not body_armor.physical_zones.head %} hidden="hidden"{% endif %} d="M354 30 H350 L296 31"/>
@@ -771,30 +771,30 @@
                   <rect class="armor_callout_pill{% if not body_armor.shield %} is-empty{% endif %}" x="168" y="19" width="38" height="22" rx="11"/>
                   <text class="armor_callout_value" x="187" y="30">{% if body_armor.shield %}{{ body_armor.shield }}{% endif %}</text>
                 </g>
-                <g class="armor_callout_row" data-body-zone="arm_right">
-                  <text x="12" y="64">Rechter Arm (-4)</text>
-                  <rect class="armor_callout_pill{% if not body_armor.arm_right %} is-empty{% endif %}" x="168" y="51" width="38" height="22" rx="11"/>
-                  <text class="armor_callout_value" x="187" y="62">{% if body_armor.arm_right %}{{ body_armor.arm_right }}{% endif %}</text>
-                </g>
-                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="hand_right">
-                  <text x="28" y="87">Rechte Hand (-8)</text>
-                  <rect class="armor_callout_pill{% if not body_armor.hand_right %} is-empty{% endif %}" x="168" y="74" width="38" height="22" rx="11"/>
-                  <text class="armor_callout_value" x="187" y="85">{% if body_armor.hand_right %}{{ body_armor.hand_right }}{% endif %}</text>
-                </g>
                 <g class="armor_callout_row" data-body-zone="torso">
-                  <text x="12" y="118">Torso (-2)</text>
-                  <rect class="armor_callout_pill{% if not body_armor.torso %} is-empty{% endif %}" x="168" y="105" width="38" height="22" rx="11"/>
-                  <text class="armor_callout_value" x="187" y="116">{% if body_armor.torso %}{{ body_armor.torso }}{% endif %}</text>
+                  <text x="12" y="64">Torso (-2)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.torso %} is-empty{% endif %}" x="168" y="51" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="62">{% if body_armor.torso %}{{ body_armor.torso }}{% endif %}</text>
                 </g>
                 <g class="armor_callout_row armor_callout_row--sub" data-body-zone="organs">
-                  <text x="28" y="141">Organe (-10)</text>
-                  <rect class="armor_callout_pill{% if not body_armor.organs %} is-empty{% endif %}" x="168" y="128" width="38" height="22" rx="11"/>
-                  <text class="armor_callout_value" x="187" y="139">{% if body_armor.organs %}{{ body_armor.organs }}{% endif %}</text>
+                  <text x="28" y="87">Organe (-10)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.organs %} is-empty{% endif %}" x="168" y="74" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="85">{% if body_armor.organs %}{{ body_armor.organs }}{% endif %}</text>
                 </g>
                 <g class="armor_callout_row armor_callout_row--sub" data-body-zone="soft_tissue">
-                  <text x="28" y="164">Weichteile (-8)</text>
-                  <rect class="armor_callout_pill{% if not body_armor.soft_tissue %} is-empty{% endif %}" x="168" y="151" width="38" height="22" rx="11"/>
-                  <text class="armor_callout_value" x="187" y="162">{% if body_armor.soft_tissue %}{{ body_armor.soft_tissue }}{% endif %}</text>
+                  <text x="28" y="110">Weichteile (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.soft_tissue %} is-empty{% endif %}" x="168" y="97" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="108">{% if body_armor.soft_tissue %}{{ body_armor.soft_tissue }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row" data-body-zone="arm_right">
+                  <text x="12" y="141">Rechter Arm (-4)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.arm_right %} is-empty{% endif %}" x="168" y="128" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="139">{% if body_armor.arm_right %}{{ body_armor.arm_right }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="hand_right">
+                  <text x="28" y="164">Rechte Hand (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.hand_right %} is-empty{% endif %}" x="168" y="151" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="162">{% if body_armor.hand_right %}{{ body_armor.hand_right }}{% endif %}</text>
                 </g>
                 <g class="armor_callout_row" data-body-zone="leg_right">
                   <text x="12" y="199">Rechtes Bein (-3)</text>
