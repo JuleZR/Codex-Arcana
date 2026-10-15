@@ -121,19 +121,6 @@ class AttributeRating(FlavorRange):
         verbose_name = "Eigenschaftsbeschreibung"
         verbose_name_plural = "Eigenschaftsbeschreibungen"
 
-    def clean(self):
-        super().clean()
-        if (
-            self.official_designation or self.official_description
-        ) and not self.source_reference:
-            raise ValidationError(
-                {
-                    "source_reference": (
-                        "Die offizielle Referenz benötigt eine Quelle."
-                    )
-                }
-            )
-
 
 class GeneralAttributeMeaning(FlavorRange):
     official_meaning = models.CharField(
@@ -147,17 +134,6 @@ class GeneralAttributeMeaning(FlavorRange):
         ordering = ["-min_value", "-priority", "pk"]
         verbose_name = "Allgemeine Eigenschaftsbedeutung"
         verbose_name_plural = "Allgemeine Eigenschaftsbedeutungen"
-
-    def clean(self):
-        super().clean()
-        if self.official_meaning and not self.source_reference:
-            raise ValidationError(
-                {
-                    "source_reference": (
-                        "Die offizielle Bedeutung benötigt eine Quelle."
-                    )
-                }
-            )
 
 
 class RaceAttributeFlavor(FlavorRange):

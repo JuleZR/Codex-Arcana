@@ -1,5 +1,6 @@
 const card = document.createElement("dialog");
 card.className = "attribute-flavor-card";
+card.lang = "de";
 card.setAttribute("aria-label", "Eigenschaftsbeschreibung");
 card.setAttribute("aria-modal", "false");
 card.innerHTML = '<form method="dialog"><button data-attribute-flavor-control aria-label="Schließen">×</button></form>'
@@ -49,13 +50,6 @@ function positionCard() {
   card.style.setProperty("--flavor-anchor-y", `${Math.max(18, Math.min(bounds.height - 18, anchor.top + anchor.height / 2 - top))}px`);
 }
 
-function paragraph(parent, text, className = "") {
-  const element = document.createElement("p");
-  element.className = className;
-  element.textContent = text;
-  parent.append(element);
-}
-
 async function openCard(cell) {
   const panel = cell.closest("[data-flavor-url]");
   const row = cell.closest("[data-attribute-short-name]");
@@ -91,6 +85,7 @@ async function openCard(cell) {
     card.setAttribute("aria-label", `${result.attribute} — ${result.value}`);
     body.replaceChildren();
     for (const [html, className] of [
+      [result.designation_html || (!result.absolute_html ? result.meaning_html : ""), "attribute-flavor-designation"],
       [result.absolute_html, "attribute-flavor-absolute"],
       [result.relative_html, "attribute-flavor-relative"],
     ]) {
@@ -101,20 +96,6 @@ async function openCard(cell) {
       section.innerHTML = html;
       if (!section.textContent.trim()) continue;
       body.append(section);
-    }
-    if ([result.official_designation, result.official_description, result.general_meaning]
-      .some((text) => typeof text === "string" && text.trim())) {
-      const reference = document.createElement("details");
-      reference.open = !result.absolute_html;
-      const summary = document.createElement("summary");
-      summary.textContent = "Regelwerk-Referenz";
-      reference.append(summary);
-      if (result.official_designation) paragraph(reference, result.official_designation);
-      if (result.official_description) paragraph(reference, result.official_description);
-      if (result.rating_source) paragraph(reference, result.rating_source, "attribute-flavor-source");
-      if (result.general_meaning) paragraph(reference, result.general_meaning);
-      if (result.meaning_source) paragraph(reference, result.meaning_source, "attribute-flavor-source");
-      body.append(reference);
     }
     if (!body.childNodes.length) {
       if (card.open) card.close();

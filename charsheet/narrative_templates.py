@@ -9,6 +9,8 @@ PLACEHOLDERS = frozenset(
     {
         "character_name",
         "race",
+        "race_accusative",
+        "race_plural",
         "attribute",
         "value",
         "meaning",
@@ -52,6 +54,21 @@ def _segments(text):
     return parts
 
 
+def _scale_parameters(spec):
+    match = re.fullmatch(
+        r"\s*([+-]?[0-9]+)\s*,\s*([+-]?[0-9]+)"
+        r"\s*(?:,\s*([+-]?[0-9]+)\s*)?",
+        spec,
+    )
+    if match is None:
+        raise ValidationError(
+            "Berechnete Zahl: {scale:Startwert,Zuschlag,Grundmenge}. "
+            "Nur ganze Zahlen; die Grundmenge ist optional."
+        )
+    start, step, base = match.groups()
+    return int(start), int(step), int(base or 0)
+
+
 def validate_narrative(text, *, neutral=False):
     parts = _segments(str(text or ""))
     if neutral and any(marker for marker, _ in parts):
@@ -60,6 +77,9 @@ def validate_narrative(text, *, neutral=False):
         )
     try:
         for _, field, spec, conversion in Formatter().parse(str(text or "")):
+            if field == "scale" and conversion is None:
+                _scale_parameters(spec)
+                continue
             if field is not None and (
                 field not in PLACEHOLDERS or spec or conversion
             ):
@@ -95,10 +115,25 @@ def render_narrative(
         }
         if markdown:
             replacements = {
-                key: re.sub(r"([\\`*_{}\[\]()#+.!<>~^|\-])", r"\\\1", value)
+                key: value if key in {"rating", "meaning"} else re.sub(
+                    r"([\\`*_{}\[\]()#+.!<>~^|\-])", r"\\\1", value
+                )
                 for key, value in replacements.items()
             }
-        resolved = resolved.format_map(replacements)
+        rendered = []
+        for literal, field, spec, _ in Formatter().parse(resolved):
+            rendered.append(literal)
+            if field == "scale":
+                start, step, base = _scale_parameters(spec)
+                value = values.get("value")
+                rendered.append(
+                    "" if value in (None, "") else str(
+                        base + max(0, int(value) - start + 1) * step
+                    )
+                )
+            elif field is not None:
+                rendered.append(replacements[field])
+        resolved = "".join(rendered)
         resolved = re.sub(r"\s+", " ", resolved).strip()
         return re.sub(r"\s+([,.;:!?])", r"\1", resolved)
     except (ValidationError, ValueError, KeyError):

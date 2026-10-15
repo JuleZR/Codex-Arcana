@@ -130,6 +130,20 @@ class Race(models.Model):
     """Species template with movement and creation defaults."""
 
     name = models.CharField(max_length=100, unique=True)
+    name_accusative = models.CharField(
+        "Name im Akkusativ", max_length=100, blank=True,
+        help_text=(
+            "Ohne Artikel, z. B. Menschen oder Sidhe. "
+            "Für {race_accusative}; leer verwendet den Namen."
+        ),
+    )
+    name_plural = models.CharField(
+        "Name im Plural", max_length=100, blank=True,
+        help_text=(
+            "Ohne Artikel, z. B. Menschen oder Sidhe. "
+            "Für {race_plural}; leer verwendet den Namen."
+        ),
+    )
     description = models.TextField(blank=True)
 
     combat_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])

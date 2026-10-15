@@ -19,11 +19,12 @@
     url("/static/img/pergamentbg.jpg") center / cover no-repeat;
   color: var(--ink, #3f2d1f);
   box-shadow: 0 .3rem 1rem rgba(63, 45, 31, .22);
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.125rem;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 1rem;
   font-weight: 400;
   font-variant: normal;
   font-variant-caps: normal;
+  font-variant-numeric: lining-nums proportional-nums;
   text-transform: none;
   line-height: 1.5;
 }
@@ -63,6 +64,10 @@
 .attribute-flavor-card [data-flavor-body] {
   max-height: calc(100dvh - 10rem);
   overflow: auto;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .attribute-flavor-card form { position: absolute; top: .3rem; right: .3rem; }
 .attribute-flavor-card button {
@@ -75,9 +80,10 @@
 }
 .attribute-flavor-card [data-flavor-body],
 .attribute-flavor-card p {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Segoe UI", Arial, sans-serif;
   font-variant: normal;
   font-variant-caps: normal;
+  font-variant-numeric: lining-nums proportional-nums;
   text-transform: none;
 }
 .attribute-flavor-card p { margin: 0 0 .65rem; }

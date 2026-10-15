@@ -21,6 +21,10 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from .substances import SubstanceStatsForm
+from .attribute_flavor_admin import (
+    AttributeRatingInline,
+    RaceAttributeFlavorInline,
+)
 
 from .constants import (
     ALCHEMICAL_BREW_LEARNING_SLOT,
@@ -5422,7 +5426,12 @@ class AttributeAdmin(admin.ModelAdmin):
     list_display = ("name", "short_name")
     search_fields = ("name", "short_name")
     ordering = ("name",)
-    inlines = (RaceAttributeLimitByAttributeInline, AttributeCharacterInline)
+    inlines = (
+        AttributeRatingInline,
+        RaceAttributeFlavorInline,
+        RaceAttributeLimitByAttributeInline,
+        AttributeCharacterInline,
+    )
 
 
 @admin.register(SkillCategory)
@@ -5524,6 +5533,7 @@ class RaceAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "name",
+                    ("name_accusative", "name_plural"),
                     "description",
                     "size_class",
                     "combat_speed",

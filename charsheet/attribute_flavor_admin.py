@@ -7,7 +7,11 @@ from django.http import JsonResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
-from .attribute_flavor import narrative_html
+from .attribute_flavor import (
+    description_template,
+    narrative_html,
+    race_narrative_values,
+)
 from .models import (
     Attribute,
     AttributeRating,
@@ -19,15 +23,21 @@ from .models import (
 from .narrative_templates import validate_narrative
 
 NARRATIVE_SECTION = (
-    "Eigene Erzähltexte",
+    "Beschreibung",
     {
-        "description": (
-            "Diese Texte sind eigene Ergänzungen und keine "
-            "offiziellen GRW-Zitate. "
-            "Die neutrale Vorlage ersetzt geschlechtsabhängige Texte bei "
-            "nicht angegebenem oder anderem Geschlecht."
+        "fields": ("narrative_template",),
+    },
+)
+OPTIONS_SECTION = (
+    "Weitere Optionen und Platzhalter",
+    {
+        "fields": (
+            ("active", "priority"),
+            "neutral_template",
+            "source_reference",
+            "template_help",
         ),
-        "fields": ("narrative_template", "neutral_template", "template_help"),
+        "classes": ("collapse",),
     },
 )
 PREVIEW_SECTION = (
@@ -85,6 +95,16 @@ class PreviewInputs(forms.Form):
 class FlavorAdminForm(forms.ModelForm, PreviewInputs):
     class Meta:
         fields = "__all__"
+        labels = {
+            "official_designation": "Bezeichnung",
+            "official_meaning": "Bedeutung",
+            "narrative_template": "Beschreibung",
+            "neutral_template": "Neutrale Variante (optional)",
+        }
+        widgets = {
+            "narrative_template": forms.Textarea(attrs={"rows": 3}),
+            "neutral_template": forms.Textarea(attrs={"rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -112,8 +132,7 @@ class FlavorAdminForm(forms.ModelForm, PreviewInputs):
                 "Eine höhere Untergrenze hat immer Vorrang."
             ),
             "official_designation": (
-                "Originalbezeichnung aus dem GRW. Leer lassen, wenn das "
-                "Regelwerk für diesen Wert keine eigene Bezeichnung nennt."
+                "Kurze Bezeichnung für diesen Wertebereich, optional."
             ),
             "official_description": (
                 "Wörtlicher Beschreibungstext des Regelwerks, ohne "
@@ -121,19 +140,15 @@ class FlavorAdminForm(forms.ModelForm, PreviewInputs):
                 "Regelwerk-Referenz angezeigt. Leer ist erlaubt."
             ),
             "official_meaning": (
-                "Originaleintrag der allgemeinen GRW-Bedeutungstabelle. "
-                "Bei einem rein eigenen Ersatztext leer lassen."
+                "Kurze Bedeutung für diesen Wertebereich, optional."
             ),
             "source_reference": (
-                "Name und Edition des Regelwerks sowie Kapitel und Seite. "
-                "Pflicht bei offiziellen Angaben; bei eigenen Texten "
-                "optional. Dies ist keine Vorlage und wird nicht ersetzt."
+                "Optionale Notiz zur Herkunft des Textes."
             ),
             "narrative_template": (
-                "Eigene kurze Sätze für die Karte. Platzhalter setzen "
-                "Charakterdaten ein; ^Text^ erscheint männlich, ~~Text~~ "
-                "weiblich. Markdown ist möglich, HTML wird nicht ausgeführt. "
-                "Leer: stattdessen die allgemeine Ersatzbeschreibung suchen."
+                "Text für die Karte; Markdown und Platzhalter sind möglich. "
+                "{scale:11,50,200}: ab Wert 11 je Stufe 50 zusätzlich zu 200. "
+                "Leer: allgemeine Ersatzbeschreibung verwenden."
             ),
             "neutral_template": (
                 "Vollständiger Ersatz für einen Erzähltext mit "
@@ -177,7 +192,7 @@ class FlavorAdminForm(forms.ModelForm, PreviewInputs):
                 "eingeben; leer lässt den Platzhalter leer."
             ),
             "preview_rating": (
-                "Testwert für {rating}. Hier eine offizielle Bezeichnung "
+                "Testwert für {rating}. Hier eine Bezeichnung "
                 "eingeben; leer lässt den Platzhalter leer."
             ),
         }
@@ -188,13 +203,12 @@ class FlavorAdminForm(forms.ModelForm, PreviewInputs):
             )
         if isinstance(self.instance, GeneralAttributeMeaning):
             help_texts["narrative_template"] = (
-                "Eigene allgemeine Ersatzbeschreibung, wenn kein passender "
-                "Eigenschaftstext gerendert werden kann. Platzhalter und "
-                "Geschlechtsmarker sind erlaubt. Leer: keine eigene "
-                "Erzählung; die offizielle Bedeutung bleibt als Referenz."
+                "Ersatzbeschreibung, wenn kein passender Attributtext "
+                "vorliegt."
             )
         if isinstance(self.instance, RaceAttributeFlavor):
-            self.fields["attribute"].empty_label = "Alle Eigenschaften"
+            if "attribute" in self.fields:
+                self.fields["attribute"].empty_label = "Alle Eigenschaften"
             help_texts.update(
                 {
                     "attribute": (
@@ -203,17 +217,11 @@ class FlavorAdminForm(forms.ModelForm, PreviewInputs):
                         "hat Vorrang vor allgemeinen Vergleichsregeln."
                     ),
                     "min_value": (
-                        "Kleinster erlaubter Abstand zum Rassenmaximum, "
-                        "einschließlich der Grenze. Abstand = aktueller Wert "
-                        "minus vorhandenes Rassenmaximum. 0 heißt am Maximum, "
-                        "negative Zahlen darunter, positive darüber. "
-                        "Leer: keine untere Grenze."
+                        "Ab diesem Abstand, einschließlich. Leer: unbegrenzt."
                     ),
                     "max_value": (
-                        "Größter erlaubter Abstand zum Rassenmaximum, "
-                        "einschließlich der Grenze. Leer: keine obere Grenze. "
-                        "Gleiche Unter- und Obergrenze bedeutet genau "
-                        "diesen Abstand."
+                        "Bis zu diesem Abstand, einschließlich. "
+                        "Leer: unbegrenzt."
                     ),
                     "priority": (
                         "Höhere Zahlen gewinnen unter mehreren passenden "
@@ -221,17 +229,33 @@ class FlavorAdminForm(forms.ModelForm, PreviewInputs):
                         "hat unabhängig davon Vorrang vor einer allgemeinen."
                     ),
                     "narrative_template": (
-                        "Zusätzlicher Satz zum Vergleich "
-                        "mit dem Rassenmaximum. "
-                        "Platzhalter und Geschlechtsmarker sind erlaubt. "
-                        "Pflichtfeld; ohne passende Regel erscheint kein "
-                        "zusätzlicher Vergleichstext."
+                        "Text, der bei diesem Abstand auf der Karte "
+                        "erscheint. {scale:11,50,200} berechnet eine Zahl "
+                        "aus dem aktuellen Attributwert."
                     ),
                 }
             )
         for name, field in self.fields.items():
             if name in help_texts:
                 field.help_text = help_texts[name]
+        if isinstance(self.instance, RaceAttributeFlavor):
+            self.fields["min_value"].label = "Abstand ab"
+            self.fields["max_value"].label = "Abstand bis"
+        if "official_description" not in self.fields:
+            self.initial["narrative_template"] = description_template(
+                self.instance
+            )
+            self.initial["neutral_template"] = description_template(
+                self.instance, neutral=True
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        if "official_description" not in self.fields and isinstance(
+            self.instance, AttributeRating
+        ):
+            self.instance.official_description = ""
+        return cleaned
 
 
 class FlavorAdmin(admin.ModelAdmin):
@@ -262,19 +286,36 @@ class FlavorAdmin(admin.ModelAdmin):
         placeholders = (
             ("{character_name}", "Name des Charakters."),
             ("{race}", "Gespeicherter Anzeigename der Rasse."),
+            (
+                "{race_accusative}",
+                "Akkusativ ohne Artikel: für einen Menschen / Sidhe. "
+                "Im Rassen-Admin pflegen; leer verwendet den Namen.",
+            ),
+            (
+                "{race_plural}",
+                "Plural ohne Artikel, im Rassen-Admin gepflegt. "
+                "Leer verwendet den Namen.",
+            ),
             ("{attribute}", "Name der angeklickten Eigenschaft."),
             ("{value}", "Aktuell angezeigter Eigenschaftswert."),
             (
                 "{meaning}",
-                "Passende offizielle Bezeichnung, sonst allgemeine Bedeutung.",
+                "Passende Bezeichnung, sonst allgemeine Bedeutung.",
             ),
             (
                 "{rating}",
-                "Passende offizielle Bezeichnung; ohne Bezeichnung leer.",
+                "Passende Bezeichnung; ohne Bezeichnung leer.",
             ),
         )
         return format_html(
-            "<dl>{}</dl><p>^Text^: nur männlich; ~~Text~~: nur weiblich. "
+            "<dl>{}</dl><p>Berechnete Zahl: "
+            "<code>{{scale:11,50,200}}</code> = ab Attributwert 11 "
+            "pro Stufe 50 zusätzlich zur Grundmenge 200. "
+            "Wert 10 → 200, Wert 11 → 250, Wert 12 → 300. "
+            "Ohne Grundmenge: <code>{{scale:11,50}}</code> "
+            "ergibt 0, 50, 100. Nur ganze Zahlen; mehrere berechnete "
+            "Zahlen im selben Text sind möglich.</p>"
+            "<p>^Text^: nur männlich; ~~Text~~: nur weiblich. "
             "Normaler Text erscheint immer. Für literale Marker einen "
             "Backslash voranstellen: <code>\\^</code>, <code>\\~</code>. "
             "Literale Klammern doppeln: <code>{{{{</code> und "
@@ -321,7 +362,7 @@ class FlavorAdmin(admin.ModelAdmin):
         values = {
             "character_name": data["preview_name"]
             or (character.name if character else ""),
-            "race": race.name if race else "",
+            **race_narrative_values(race),
             "attribute": attribute.name if attribute else "",
             "value": (
                 data["preview_value"]
@@ -354,7 +395,7 @@ class AttributeRatingAdmin(FlavorAdmin):
     list_filter = ("attribute", "active")
     list_display = (
         "attribute",
-        "official_designation",
+        "designation",
         *FlavorAdmin.list_display,
     )
     search_fields = (
@@ -363,6 +404,11 @@ class AttributeRatingAdmin(FlavorAdmin):
         "official_description",
     )
     ordering = ("attribute__name", "min_value", "-priority")
+
+    @admin.display(description="Bezeichnung", ordering="official_designation")
+    def designation(self, obj):
+        return obj.official_designation
+
     fieldsets = (
         (
             "Eigenschaft und Geltungsbereich",
@@ -374,35 +420,25 @@ class AttributeRatingAdmin(FlavorAdmin):
                 "fields": (
                     "attribute",
                     ("min_value", "max_value"),
-                    ("active", "priority"),
-                ),
-            },
-        ),
-        (
-            "Offizielle Regelwerk-Referenz (optional)",
-            {
-                "description": (
-                    "Nur belegte Originalangaben eintragen, "
-                    "mit Quellenangabe. "
-                    "Die dokumentierten Werte mit einer Obergrenze begrenzen. "
-                    "Eigene Formulierungen gehören in die Erzähltexte."
-                ),
-                "fields": (
                     "official_designation",
-                    "official_description",
-                    "source_reference",
                 ),
             },
         ),
         NARRATIVE_SECTION,
+        OPTIONS_SECTION,
         PREVIEW_SECTION,
     )
 
 
 @admin.register(GeneralAttributeMeaning)
 class GeneralAttributeMeaningAdmin(FlavorAdmin):
-    list_display = ("official_meaning", *FlavorAdmin.list_display)
+    list_display = ("meaning", *FlavorAdmin.list_display)
     ordering = ("min_value", "-priority")
+
+    @admin.display(description="Bedeutung", ordering="official_meaning")
+    def meaning(self, obj):
+        return obj.official_meaning
+
     fieldsets = (
         (
             "Geltungsbereich und Ersatzbeschreibung",
@@ -412,21 +448,11 @@ class GeneralAttributeMeaningAdmin(FlavorAdmin):
                     "vorhanden ist. Offene Bereiche können auch Werte über "
                     "den dokumentierten GRW-Tabellen abdecken."
                 ),
-                "fields": (("min_value", "max_value"), ("active", "priority")),
-            },
-        ),
-        (
-            "Offizielle allgemeine Bedeutung (optional)",
-            {
-                "description": (
-                    "Originalbedeutung und Quelle getrennt von eigenen Texten "
-                    "pflegen. Keine eigenen Einstufungen "
-                    "als GRW-Angaben ausgeben."
-                ),
-                "fields": ("official_meaning", "source_reference"),
+                "fields": (("min_value", "max_value"), "official_meaning"),
             },
         ),
         NARRATIVE_SECTION,
+        OPTIONS_SECTION,
         PREVIEW_SECTION,
     )
 
@@ -441,25 +467,69 @@ class RaceAttributeFlavorAdmin(FlavorAdmin):
             "Vergleich mit dem Rassenmaximum",
             {
                 "description": (
-                    "Abstand = aktueller Wert minus "
-                    "vorhandenes Rassenmaximum. "
-                    "0 bedeutet genau am Maximum, negative Werte darunter, "
-                    "positive Werte darüber. Leere Grenzen sind offen. "
-                    "Ohne Eigenschaft gilt die Regel allgemein; eine passende "
-                    "eigenschaftsspezifische Regel hat Vorrang."
+                    "Wann erscheint der Text? Der Abstand zählt vom "
+                    "Rassenmaximum: −2 = zwei Punkte darunter, "
+                    "0 = genau am Maximum, +1 = ein Punkt darüber. "
+                    "Beispiel: ab −2 bis 0 gilt für die letzten zwei "
+                    "Punkte unter dem Maximum und das Maximum selbst. "
+                    "Leere Grenzen sind unbegrenzt."
                 ),
                 "fields": (
                     "attribute",
                     ("min_value", "max_value"),
-                    ("active", "priority"),
-                    "source_reference",
                 ),
             },
         ),
         NARRATIVE_SECTION,
+        OPTIONS_SECTION,
         PREVIEW_SECTION,
     )
 
     @admin.display(description="Gilt für", ordering="attribute__name")
     def comparison_scope(self, obj):
         return obj.attribute.name if obj.attribute_id else "Alle Eigenschaften"
+
+
+class AttributeRatingInline(admin.StackedInline):
+    model = AttributeRating
+    form = FlavorAdminForm
+    extra = 0
+    show_change_link = True
+    ordering = ("min_value", "-priority")
+    readonly_fields = ("template_help",)
+    template_help = FlavorAdmin.template_help
+    fieldsets = (
+        (
+            AttributeRatingAdmin.fieldsets[0][0],
+            {
+                **AttributeRatingAdmin.fieldsets[0][1],
+                "fields": (
+                    ("min_value", "max_value"), "official_designation",
+                ),
+            },
+        ),
+        *AttributeRatingAdmin.fieldsets[1:-1],
+    )
+
+
+class RaceAttributeFlavorInline(admin.StackedInline):
+    model = RaceAttributeFlavor
+    form = FlavorAdminForm
+    extra = 0
+    show_change_link = True
+    ordering = ("min_value", "-priority")
+    readonly_fields = ("template_help",)
+    template_help = FlavorAdmin.template_help
+    fieldsets = (
+        (
+            RaceAttributeFlavorAdmin.fieldsets[0][0],
+            {
+                **RaceAttributeFlavorAdmin.fieldsets[0][1],
+                "fields": (
+                    ("min_value", "max_value"),
+                ),
+            },
+        ),
+        NARRATIVE_SECTION,
+        OPTIONS_SECTION,
+    )

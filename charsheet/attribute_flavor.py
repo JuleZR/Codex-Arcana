@@ -73,12 +73,34 @@ def matching_rules(model, value, catalog=None, **scope):
     )
 
 
+def description_template(rule, *, neutral=False):
+    """Present legacy reference prose and templates as one description."""
+    legacy = getattr(rule, "official_description", "")
+    for original, replacement in (
+        ("\\", "\\\\"), ("^", "\\^"), ("~", "\\~"),
+        ("{", "{{"), ("}", "}}"),
+    ):
+        legacy = legacy.replace(original, replacement)
+    template = rule.neutral_template if neutral else rule.narrative_template
+    return "\n\n".join(text for text in (legacy, template) if text)
+
+
+def race_narrative_values(race):
+    if race is None:
+        return {"race": "", "race_accusative": "", "race_plural": ""}
+    return {
+        "race": race.name,
+        "race_accusative": race.name_accusative or race.name,
+        "race_plural": race.name_plural or race.name,
+    }
+
+
 def narrative_html(rule, values, gender):
     text = render_narrative(
-        rule.narrative_template,
+        description_template(rule),
         values,
         gender,
-        rule.neutral_template,
+        description_template(rule, neutral=True),
         markdown=True,
     )
     return str(standard_markdown(text))
@@ -107,7 +129,7 @@ def resolve_attribute_flavor(character, attribute, value, catalog=None):
     meaning = meanings[0] if meanings else None
     values = {
         "character_name": character.name,
-        "race": character.race.name,
+        **race_narrative_values(character.race),
         "attribute": attribute.name,
         "value": value,
         "rating": reference.official_designation if reference else "",
@@ -151,6 +173,12 @@ def resolve_attribute_flavor(character, attribute, value, catalog=None):
         "value": value,
         "absolute_html": absolute,
         "relative_html": relative,
+        "designation_html": str(standard_markdown(
+            reference.official_designation if reference else ""
+        )),
+        "meaning_html": str(standard_markdown(
+            meaning.official_meaning if meaning else ""
+        )),
         "official_designation": (
             reference.official_designation if reference else ""
         ),
