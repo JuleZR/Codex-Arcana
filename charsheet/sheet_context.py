@@ -1675,17 +1675,21 @@ def _serialize_item_semantic_effect_payload(
     invested_cp: int | None = None,
     character_race_id: int | None = None,
     character_school_ids: set[int] | None = None,
+    condition_races: list[Race] | None = None,
+    condition_schools: list[School] | None = None,
 ) -> dict[str, object]:
     """Return one frontend-friendly payload for an item semantic effect."""
     metadata = dict(effect.metadata or {})
-    condition_races = list(effect.condition_races.all())
+    if condition_races is None:
+        condition_races = list(effect.condition_races.all())
     condition_race_ids = [int(race.id) for race in condition_races]
     condition_race_labels = [str(race.name) for race in condition_races if str(race.name).strip()]
     race_condition_matches = (
         not condition_race_ids
         or (character_race_id is not None and int(character_race_id) in condition_race_ids)
     )
-    condition_schools = list(effect.condition_schools.all())
+    if condition_schools is None:
+        condition_schools = list(effect.condition_schools.all())
     condition_school_ids = [int(school.id) for school in condition_schools]
     condition_school_labels = [
         str(school.name)
@@ -3629,20 +3633,9 @@ def build_character_item_card_context(
             ),
             condition_notes=_item_card_condition_notes(magic_modifier_payloads),
         ),
-        "rune_rows": [
-            {
-                "label": "" if str(label) in {"Rune", "Runen", "[[EMPTY]]"} else str(label).replace("**", ""),
-                "value": str(value).replace("[[EMPTY]]", "").strip(),
-            }
-            for label, value in _build_character_item_rune_tooltip_rows(
-                item=item,
-                character_item=character_item,
-            )
-            if not (
-                str(label) in {"Rune", "Runen", "[[EMPTY]]"}
-                and str(value).strip() in {"", "[[EMPTY]]"}
-            )
-        ],
+        "rune_rows": _collect_rune_rows(
+            item=item, character_item=character_item,
+        ),
         "description": card_description,
         "controls": include_controls,
         "disclosure_rows": [],
@@ -10359,6 +10352,8 @@ def build_character_sheet_context(
                 "has_specialization": rune.has_specialization,
                 "specialization_label": rune.specialization_label or "Bezeichnung",
                 "allow_multiple": rune.allow_multiple,
+                "allowed_item_types": rune.allowed_item_types,
+                "is_level_scaled": rune.is_level_scaled,
             }
             for rune in Rune.objects.order_by("name")
         ],

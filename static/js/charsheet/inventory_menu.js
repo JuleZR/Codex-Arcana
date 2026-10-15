@@ -1,5 +1,6 @@
 import { applySheetPartials } from "./partial_updates.js";
 import { createFloatingWindowController } from "./window_manager.js";
+import { createItemEffectPreview } from "./item_effect_preview.js?v=20261015-fit-item-card";
 
 function parseIdList(rawValue) {
   return String(rawValue || "")
@@ -222,15 +223,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runeCloseButton = document.getElementById("runeRetrofitWindowClose");
   const runeCancelButton = document.getElementById("runeRetrofitCancelBtn");
   const runeForm = document.getElementById("runeRetrofitForm");
+  const workshopStatus = document.getElementById("workshopStatus");
   const runeOptions = document.getElementById("runeRetrofitOptions");
   const runeItemName = document.getElementById("runeRetrofitItemName");
-  const runeBaseInfo = document.getElementById("runeRetrofitBaseInfo");
   const runeSearchInput = document.getElementById("runeRetrofitSearch");
-  const runeDropdown = document.getElementById("runeRetrofitDropdown");
-  const runeDropdownTrigger = document.getElementById("runeRetrofitDropdownTrigger");
-  const runeDropdownPanel = document.getElementById("runeRetrofitDropdownPanel");
   const runeSelectionCount = document.getElementById("runeRetrofitSelectionCount");
-  const runeTriggerLabel = document.getElementById("runeRetrofitTriggerLabel");
   const runeQualitySelect = document.getElementById("runeRetrofitQuality");
   const runeExperienceCostInput = document.querySelector("#runeRetrofitForm input[name='experience_cost']");
   const runeMoneyCostInput = document.querySelector("#runeRetrofitForm input[name='money_cost']");
@@ -251,6 +248,24 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const magicEffectTemplate = document.getElementById("runeRetrofitMagicEffectTemplate");
   const magicAddEffectButton = document.getElementById("runeRetrofitAddEffectBtn");
   const magicPayloadInput = document.getElementById("runeRetrofitMagicModifierPayloads");
+  const updateEffectPreviews = createItemEffectPreview({
+    form: runeForm,
+    payloadInput: magicPayloadInput,
+    cardTarget: document.getElementById("workshopItemCardPreview"),
+    cardStatus: document.getElementById("workshopItemCardStatus"),
+    getCardFields: () => ({
+      name: runeNameInput?.value || "",
+      price: runePriceInput?.value || "0",
+      weight: runeWeightInput?.value || "0",
+      size_class: runeSizeClassSelect?.value || "",
+      quality: runeQualitySelect?.value || "",
+      description: runeDescriptionInput?.value || "",
+      remove_image: runeRemoveImageInput?.checked ? "1" : "",
+      rune_payloads: document.getElementById("runeRetrofitRunePayloads")?.value || "[]",
+    }),
+    getInvestedCp: () => runeInvestedCpSelect?.disabled === false
+      ? runeInvestedCpSelect.value : runeInvestedCpInput?.value,
+  });
   const runePayloadInput = document.getElementById("runeRetrofitRunePayloads");
   const runeArmorFields = document.getElementById("runeRetrofitArmorFields");
   const runeWeaponFields = document.getElementById("runeRetrofitWeaponFields");
@@ -264,7 +279,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const MAX_RUNES_PER_ITEM = 5;
   const DEFAULT_RUNE_CRAFTER_LEVEL = 1;
   const MAX_RUNE_CRAFTER_LEVEL = 10;
-  let maxAdditionalRuneSlots = MAX_RUNES_PER_ITEM;
+  let runeInstances = [];
+  let selectedRune = null;
+  let selectedEffect = null;
 
   const syncInvestedCpStepControl = (currentValue) => {
     if (!(runeInvestedCpInput instanceof HTMLInputElement) || !(runeInvestedCpSelect instanceof HTMLSelectElement)) {
@@ -337,200 +354,245 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     startRightInset: 214,
   });
 
-  // ── Rune payload serialization ─────────────────────────────────────────────
+  const workshopTabs = Array.from(runeWindow?.querySelectorAll("[data-workshop-tab]") || []);
+  const showWorkshopPanel = (key, focus = false) => {
+    runeWindow?.classList.toggle("workshop--compact-sockets", key === "magic" || key === "advanced");
+    workshopTabs.forEach((tab) => {
+      const active = tab.dataset.workshopTab === key;
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+      if (active && focus) tab.focus();
+    });
+    runeWindow?.querySelectorAll("[data-workshop-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.workshopPanel !== key;
+    });
+    if (key === "base") updateEffectPreviews();
+  };
+  workshopTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => showWorkshopPanel(tab.dataset.workshopTab));
+    tab.addEventListener("keydown", (event) => {
+      if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      let next = index + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1);
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = workshopTabs.length - 1;
+      showWorkshopPanel(workshopTabs[(next + workshopTabs.length) % workshopTabs.length].dataset.workshopTab, true);
+    });
+  });
+
+  const normalizeCrafterLevel = (value) => {
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isInteger(parsed)
+      ? Math.min(MAX_RUNE_CRAFTER_LEVEL, Math.max(DEFAULT_RUNE_CRAFTER_LEVEL, parsed))
+      : DEFAULT_RUNE_CRAFTER_LEVEL;
+  };
+
+  const runeArtwork = (rune, framed = true) => {
+    const ring = document.createElement("span");
+    ring.className = framed ? "workshop_socket_ring" : "workshop_rune_image";
+    ring.classList.toggle("is-occupied", Boolean(rune));
+    if (rune?.image) {
+      const image = document.createElement("img");
+      image.src = rune.image;
+      image.alt = "";
+      image.addEventListener("error", () => {
+        image.remove();
+        ring.textContent = "◇";
+      }, { once: true });
+      ring.append(image);
+    } else if (rune) {
+      ring.textContent = "◇";
+    }
+    ring.setAttribute("aria-hidden", "true");
+    return ring;
+  };
 
   const serializeRunePayloads = () => {
-    if (!(runePayloadInput instanceof HTMLInputElement) || !(runeOptions instanceof HTMLElement)) {
-      return;
-    }
-    const payloads = [];
-    runeOptions.querySelectorAll(".rune_option").forEach((option) => {
-      if (!(option instanceof HTMLElement)) {
-        return;
-      }
-      const runeId = Number.parseInt(option.dataset.runeId || "0", 10);
-      if (!runeId) {
-        return;
-      }
-      const allowMultiple = option.dataset.allowMultiple === "1";
-      if (allowMultiple) {
-        option.querySelectorAll("[data-rune-slot]").forEach((slotRow, idx) => {
-          const specInput = slotRow.querySelector(".rune_option_spec");
-          const crafterLevelInput = slotRow.querySelector(".rune_option_crafter_level");
-          payloads.push({
-            rune_id: runeId,
-            specification: String(specInput instanceof HTMLInputElement ? specInput.value : "").trim(),
-            slot: idx + 1,
-            crafter_level: normalizeCrafterLevel(crafterLevelInput instanceof HTMLInputElement ? crafterLevelInput.value : ""),
-          });
-        });
-      } else {
-        const checkbox = option.querySelector("input[type='checkbox']");
-        if (checkbox instanceof HTMLInputElement && checkbox.checked) {
-          const slotRow = option.querySelector("[data-rune-slot]");
-          const specInput = slotRow?.querySelector(".rune_option_spec");
-          const crafterLevelInput = slotRow?.querySelector(".rune_option_crafter_level");
-          payloads.push({
-            rune_id: runeId,
-            specification: String(specInput instanceof HTMLInputElement ? specInput.value : "").trim(),
-            slot: 1,
-            crafter_level: normalizeCrafterLevel(crafterLevelInput instanceof HTMLInputElement ? crafterLevelInput.value : ""),
-          });
+    if (!(runePayloadInput instanceof HTMLInputElement)) return;
+    const slots = new Map();
+    runePayloadInput.value = JSON.stringify(runeInstances.map((instance) => {
+      const slot = (slots.get(instance.rune.id) || 0) + 1;
+      slots.set(instance.rune.id, slot);
+      return {
+        rune_id: Number(instance.rune.id),
+        slot,
+        crafter_level: instance.crafter_level,
+        specification: instance.specification,
+      };
+    }));
+  };
+
+  const renderRuneSockets = () => {
+    const sockets = document.getElementById("workshopSockets");
+    if (!sockets) return;
+    sockets.replaceChildren();
+    for (let index = 0; index < MAX_RUNES_PER_ITEM; index += 1) {
+      const instance = runeInstances[index];
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "workshop_socket";
+      button.classList.toggle("is-selected", Boolean(instance && instance === selectedRune));
+      button.setAttribute("aria-label", instance
+        ? `${instance.rune.name}, Runenplatz ${index + 1}, Waffenmeisterstufe ${instance.crafter_level} bearbeiten`
+        : `Leerer Runenplatz ${index + 1}, Runenverzeichnis öffnen`);
+      button.setAttribute("aria-pressed", String(Boolean(instance && instance === selectedRune)));
+      const name = document.createElement("strong");
+      name.textContent = instance ? `${instance.rune.name} (${instance.crafter_level})` : "Freier Platz";
+      button.append(runeArtwork(instance?.rune), name);
+      button.addEventListener("click", () => {
+        showWorkshopPanel("runes");
+        if (instance) {
+          selectedRune = instance;
+          renderRuneInspector();
+          renderRuneSockets();
+          document.querySelector("#workshopRuneInspector input")?.focus();
+        } else {
+          runeSearchInput?.focus();
         }
-      }
-    });
-    runePayloadInput.value = JSON.stringify(payloads);
-  };
-
-  const normalizeCrafterLevel = (rawValue) => {
-    const parsed = Number.parseInt(String(rawValue || DEFAULT_RUNE_CRAFTER_LEVEL), 10);
-    if (!Number.isInteger(parsed)) {
-      return DEFAULT_RUNE_CRAFTER_LEVEL;
+      });
+      sockets.append(button);
     }
-    return Math.min(MAX_RUNE_CRAFTER_LEVEL, Math.max(DEFAULT_RUNE_CRAFTER_LEVEL, parsed));
   };
-
-  const getSelectedRuneCount = () => {
-    if (!(runeOptions instanceof HTMLElement)) {
-      return 0;
-    }
-    let selectedCount = 0;
-    runeOptions.querySelectorAll(".rune_option").forEach((option) => {
-      if (!(option instanceof HTMLElement)) {
-        return;
-      }
-      const allowMultiple = option.dataset.allowMultiple === "1";
-      if (allowMultiple) {
-        const countEl = option.querySelector(".rune_option_count");
-        selectedCount += Number.parseInt(countEl?.textContent || "0", 10) || 0;
-        return;
-      }
-      const checkbox = option.querySelector("input[type='checkbox']");
-      if (checkbox instanceof HTMLInputElement && checkbox.checked) {
-        selectedCount += 1;
-      }
-    });
-    return selectedCount;
-  };
-
-  const syncRuneOptionAvailability = () => {
-    if (!(runeOptions instanceof HTMLElement)) {
-      return;
-    }
-    const selectedCount = getSelectedRuneCount();
-    const canAddMore = selectedCount < maxAdditionalRuneSlots;
-    runeOptions.querySelectorAll(".rune_option").forEach((option) => {
-      if (!(option instanceof HTMLElement)) {
-        return;
-      }
-      const allowMultiple = option.dataset.allowMultiple === "1";
-      if (allowMultiple) {
-        const countEl = option.querySelector(".rune_option_count");
-        const count = Number.parseInt(countEl?.textContent || "0", 10) || 0;
-        const incrementBtn = option.querySelector(".rune_option_increment");
-        const decrementBtn = option.querySelector(".rune_option_decrement");
-        if (incrementBtn instanceof HTMLButtonElement) {
-          incrementBtn.disabled = !canAddMore;
-          incrementBtn.title = canAddMore ? "" : `Maximal ${MAX_RUNES_PER_ITEM} Runen insgesamt`;
-        }
-        if (decrementBtn instanceof HTMLButtonElement) {
-          decrementBtn.disabled = count <= 0;
-        }
-        return;
-      }
-      const checkbox = option.querySelector("input[type='checkbox']");
-      if (checkbox instanceof HTMLInputElement && !checkbox.checked) {
-        checkbox.disabled = !canAddMore;
-        checkbox.title = canAddMore ? "" : `Maximal ${MAX_RUNES_PER_ITEM} Runen insgesamt`;
-      }
-    });
-  };
-
-  // ── Selection count / label ────────────────────────────────────────────────
 
   const syncRuneSelectionCount = () => {
-    if (!(runeSelectionCount instanceof HTMLElement) || !(runeOptions instanceof HTMLElement)) {
-      return;
-    }
-    let selectedCount = 0;
-    const selectedNames = [];
-
-    runeOptions.querySelectorAll(".rune_option").forEach((option) => {
-      if (!(option instanceof HTMLElement)) {
-        return;
-      }
-      const allowMultiple = option.dataset.allowMultiple === "1";
-      if (allowMultiple) {
-        const countEl = option.querySelector(".rune_option_count");
-        const count = Number.parseInt(countEl?.textContent || "0", 10) || 0;
-        if (count > 0) {
-          selectedCount += count;
-          const name = option.querySelector(".rune_option_name")?.textContent?.trim() || "";
-          selectedNames.push(count > 1 ? `${name} ×${count}` : name);
-        }
-      } else {
-        const checkbox = option.querySelector("input[type='checkbox']");
-        if (checkbox instanceof HTMLInputElement && checkbox.checked) {
-          selectedCount += 1;
-          const name = option.querySelector(".rune_option_name")?.textContent?.trim() || "";
-          selectedNames.push(name);
-        }
-      }
+    if (runeSelectionCount) runeSelectionCount.textContent = `${runeInstances.length} / ${MAX_RUNES_PER_ITEM}`;
+    runeOptions?.querySelectorAll("[data-add-rune]").forEach((button) => {
+      const rune = runeChoices.find((choice) => String(choice.id) === button.dataset.addRune);
+      const duplicate = !rune?.allow_multiple && runeInstances.some((instance) => instance.rune.id === rune?.id);
+      const allowed = !rune?.allowed_item_types?.length || rune.allowed_item_types.includes(retrofitItemType);
+      button.disabled = runeInstances.length >= MAX_RUNES_PER_ITEM || duplicate || !allowed;
+      button.textContent = duplicate ? "Eingesetzt" : "Hinzufügen";
+      button.title = !allowed ? "Für diesen Gegenstandstyp nicht verfügbar"
+        : duplicate ? "Diese Rune kann nur einmal eingesetzt werden"
+          : runeInstances.length >= MAX_RUNES_PER_ITEM ? "Alle fünf Runenplätze sind belegt" : "";
     });
-
-    runeSelectionCount.textContent = String(selectedCount);
-    syncRuneOptionAvailability();
-    if (!(runeTriggerLabel instanceof HTMLElement)) {
-      return;
-    }
-    if (!selectedCount) {
-      runeTriggerLabel.textContent = "Keine Runen ausgewählt";
-      return;
-    }
-    runeTriggerLabel.textContent =
-      selectedCount <= 2 ? selectedNames.join(", ") : `${selectedCount} Runen ausgewählt`;
+    serializeRunePayloads();
+    renderRuneSockets();
+    filterRuneEntries();
+    updateEffectPreviews();
   };
 
-  // ── Dropdown open/close ────────────────────────────────────────────────────
-
-  const toggleRuneDropdown = (forceOpen = null) => {
-    if (!(runeDropdownPanel instanceof HTMLElement) || !(runeDropdownTrigger instanceof HTMLButtonElement)) {
+  const renderRuneInspector = () => {
+    const inspector = document.getElementById("workshopRuneInspector");
+    if (!inspector) return;
+    inspector.replaceChildren();
+    if (!selectedRune || !runeInstances.includes(selectedRune)) {
+      selectedRune = null;
+      const hint = document.createElement("p");
+      hint.textContent = "Wähle eine eingesetzte Rune in der Runenfassung.";
+      inspector.append(hint);
       return;
     }
-    const shouldOpen = forceOpen === null ? runeDropdownPanel.hidden : Boolean(forceOpen);
-    runeDropdownPanel.hidden = !shouldOpen;
-    runeDropdownTrigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-    runeDropdown?.classList.toggle("is-open", shouldOpen);
-    if (shouldOpen) {
-      runeSearchInput?.focus();
+    const instance = selectedRune;
+    const title = document.createElement("h3");
+    title.textContent = instance.rune.name;
+    const description = document.createElement("p");
+    description.textContent = instance.rune.description || "Keine Beschreibung vorhanden.";
+    const label = document.createElement("div");
+    label.className = "shop_item_form_row";
+    const caption = document.createElement("span");
+    caption.textContent = "Waffenmeisterstufe";
+    label.append(caption);
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "1";
+    input.max = "10";
+    input.step = "1";
+    input.value = String(instance.crafter_level);
+    input.setAttribute("aria-label", `${instance.rune.name}: Waffenmeisterstufe`);
+    const update = () => {
+      instance.crafter_level = normalizeCrafterLevel(input.value);
+      syncRuneSelectionCount();
+    };
+    input.addEventListener("input", update);
+    input.addEventListener("change", () => {
+      update();
+      input.value = String(instance.crafter_level);
+    });
+    const stepper = document.createElement("span");
+    stepper.className = "workshop_stepper";
+    const stepButton = (delta) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = delta < 0 ? "−" : "+";
+      button.setAttribute("aria-label", delta < 0 ? "Waffenmeisterstufe senken" : "Waffenmeisterstufe erhöhen");
+      button.addEventListener("click", () => {
+        input.value = String(normalizeCrafterLevel(instance.crafter_level + delta));
+        update();
+      });
+      return button;
+    };
+    stepper.append(stepButton(-1), input, stepButton(1));
+    label.append(stepper);
+    inspector.append(runeArtwork(instance.rune), title, description, label);
+    if (instance.rune.has_specialization) {
+      const specLabel = document.createElement("label");
+      specLabel.className = "shop_item_form_row";
+      specLabel.textContent = instance.rune.specialization_label || "Spezifikation";
+      const spec = document.createElement("input");
+      spec.type = "text";
+      spec.maxLength = 100;
+      spec.value = instance.specification;
+      spec.addEventListener("input", () => {
+        instance.specification = spec.value;
+        serializeRunePayloads();
+      });
+      specLabel.append(spec);
+      inspector.append(specLabel);
     }
+    if (instance.rune.is_level_scaled) {
+      const scaling = document.createElement("p");
+      scaling.textContent = "Die Wirkung skaliert mit der Waffenmeisterstufe.";
+      inspector.append(scaling);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Diese Runeninstanz entfernen";
+    remove.addEventListener("click", () => {
+      runeInstances = runeInstances.filter((entry) => entry !== instance);
+      selectedRune = null;
+      renderRuneInspector();
+      syncRuneSelectionCount();
+      runeSearchInput?.focus();
+    });
+    inspector.append(remove);
   };
 
   const openRuneWindow = () => {
     runeForm?.querySelector(".rune_window_save_error")?.remove();
+    if (workshopStatus) workshopStatus.textContent = "";
+    showWorkshopPanel("base");
+    selectedRune = null;
+    renderRuneInspector();
+    syncRuneSelectionCount();
+    syncWorkshopPrice();
     floatingController?.open?.();
-    runeSearchInput?.focus();
+    runeNameInput?.focus();
   };
 
   const closeRuneWindow = () => {
     floatingController?.close?.();
+    updateEffectPreviews.cancel?.();
     pendingRuneSubmit = false;
-    if (runeSearchInput instanceof HTMLInputElement) {
-      runeSearchInput.value = "";
-    }
-    toggleRuneDropdown(false);
+    if (runeSearchInput) runeSearchInput.value = "";
   };
 
   const filterRuneEntries = () => {
     const query = normalizeSearchValue(runeSearchInput?.value);
+    const usedSingleRunes = new Set(runeInstances
+      .filter((instance) => !instance.rune.allow_multiple)
+      .map((instance) => String(instance.rune.id)));
     runeOptions?.querySelectorAll(".rune_option").forEach((entry) => {
-      if (!(entry instanceof HTMLElement)) {
-        return;
-      }
-      const haystack = normalizeSearchValue(entry.dataset.runeSearch || "");
-      entry.hidden = query ? !haystack.includes(query) : false;
+      entry.hidden = usedSingleRunes.has(entry.dataset.runeId)
+        || Boolean(query && !normalizeSearchValue(entry.dataset.runeSearch || "").includes(query));
     });
   };
+
+  const syncWorkshopPrice = () => {
+    const price = document.getElementById("workshopPrice");
+    if (price) price.textContent = `${new Intl.NumberFormat("de-DE").format(Number(runePriceInput?.value) || 0)} KS`;
+  };
+  runePriceInput?.addEventListener("input", syncWorkshopPrice);
 
   const setFormValue = (fieldName, value) => {
     const field = runeForm?.elements?.namedItem?.(fieldName);
@@ -723,6 +785,85 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     magicPayloadInput.value = JSON.stringify(payloads);
   };
 
+  const syncWorkshopEffects = () => {
+    const catalog = document.getElementById("workshopEffectCatalog");
+    if (!catalog || !magicEffectsList) return;
+    const rows = Array.from(magicEffectsList.querySelectorAll("[data-magic-effect-row]"));
+    if (!rows.includes(selectedEffect)) selectedEffect = rows[0] || null;
+    const previewTargets = [];
+    const displayGroups = new Map();
+    catalog.replaceChildren();
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "Noch keine magischen Effekte. Füge eine Wirkung hinzu.";
+      catalog.append(empty);
+    }
+    rows.forEach((row, index) => {
+      row.hidden = row !== selectedEffect;
+      const kind = row.querySelector("[data-magic-target-kind]");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "workshop_effect_entry";
+      button.setAttribute("aria-pressed", String(row === selectedEffect));
+      const title = document.createElement("strong");
+      title.textContent = `${index + 1}. ${kind?.selectedOptions[0]?.textContent || "Effekt"}`;
+      const summary = document.createElement("small");
+      summary.className = "workshop_effect_preview";
+      const rawGroup = row.querySelector("[data-magic-display-group]")?.value || row.dataset.displayGroup;
+      const parsedGroup = Number.parseInt(rawGroup, 10);
+      const group = Number.isInteger(parsedGroup) ? String(parsedGroup) : "";
+      summary.dataset.previewLabel = group ? `Itemkarte · Gruppe ${group}` : "Itemkarte";
+      summary.setAttribute("aria-label", "Vorschau auf der Itemkarte");
+      summary.textContent = "Wähle eine Wirkung und den zugehörigen Zielwert.";
+      if (kind?.value) previewTargets.push(summary);
+      button.append(title, summary);
+      button.addEventListener("click", () => {
+        selectedEffect = row;
+        syncWorkshopEffects();
+        row.querySelector("[data-magic-target-kind]")?.focus();
+      });
+      const entry = document.createElement("div");
+      entry.className = "workshop_effect_catalog_row";
+      entry.dataset.effectIndex = String(index);
+      entry.append(button);
+      [-1, 1].forEach((direction) => {
+        const move = document.createElement("button");
+        move.type = "button";
+        move.textContent = direction < 0 ? "↑" : "↓";
+        move.setAttribute("aria-label", `Effekt ${index + 1} nach ${direction < 0 ? "oben" : "unten"} verschieben`);
+        move.disabled = !rows[index + direction];
+        move.addEventListener("click", () => {
+          const sibling = rows[index + direction];
+          if (!sibling) return;
+          magicEffectsList.insertBefore(direction < 0 ? row : sibling, direction < 0 ? sibling : row);
+          syncMagicEffectRemoveButtons();
+          serializeMagicEffects();
+          syncWorkshopEffects();
+          Array.from(catalog.querySelectorAll(".workshop_effect_catalog_row"))
+            .find((candidate) => Number(candidate.dataset.effectIndex) === index + direction)
+            ?.querySelector("button")?.focus();
+        });
+        entry.append(move);
+      });
+      if (group) {
+        if (!displayGroups.has(group)) {
+          const groupEl = document.createElement("div");
+          groupEl.className = "workshop_effect_group";
+          groupEl.dataset.effectGroup = group;
+          groupEl.setAttribute("role", "group");
+          groupEl.setAttribute("aria-label", `Anzeigegruppe ${group}`);
+          displayGroups.set(group, groupEl);
+          catalog.append(groupEl);
+        }
+        displayGroups.get(group).append(entry);
+      } else {
+        catalog.append(entry);
+      }
+    });
+    serializeMagicEffects();
+    updateEffectPreviews(previewTargets);
+  };
+
   const syncMagicEffectRemoveButtons = () => {
     if (!(magicEffectsList instanceof HTMLElement)) {
       return;
@@ -743,82 +884,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
   };
 
-  const clearMagicEffectDropMarkers = () => {
-    if (!(magicEffectsList instanceof HTMLElement)) {
-      return;
-    }
-    magicEffectsList.querySelectorAll(".is-drop-before, .is-drop-after").forEach((row) => {
-      if (row instanceof HTMLElement) {
-        row.classList.remove("is-drop-before", "is-drop-after");
-      }
-    });
-  };
-
-  let draggedMagicEffectRow = null;
-
-  const bindMagicEffectDragAndDrop = (row) => {
-    if (!(row instanceof HTMLElement)) {
-      return;
-    }
-    row.draggable = false;
-    const dragHandle = row.querySelector("[data-drag-magic-effect]");
-    if (dragHandle instanceof HTMLElement) {
-      dragHandle.draggable = true;
-      dragHandle.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      });
-      dragHandle.addEventListener("pointerdown", (event) => {
-        event.stopPropagation();
-      });
-    }
-    dragHandle?.addEventListener("dragstart", (event) => {
-      if (!(dragHandle instanceof HTMLElement)) {
-        event.preventDefault();
-        return;
-      }
-      event.stopPropagation();
-      draggedMagicEffectRow = row;
-      row.classList.add("is-dragging");
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", row.querySelector(".shop_magic_effect_title")?.textContent || "Effekt");
-      }
-    });
-    dragHandle?.addEventListener("dragend", () => {
-      draggedMagicEffectRow = null;
-      row.classList.remove("is-dragging");
-      clearMagicEffectDropMarkers();
-      syncMagicEffectRemoveButtons();
-      serializeMagicEffects();
-    });
-    row.addEventListener("dragover", (event) => {
-      if (!(magicEffectsList instanceof HTMLElement) || !(draggedMagicEffectRow instanceof HTMLElement) || draggedMagicEffectRow === row) {
-        return;
-      }
-      event.preventDefault();
-      clearMagicEffectDropMarkers();
-      const bounds = row.getBoundingClientRect();
-      const insertBefore = event.clientY < bounds.top + (bounds.height / 2);
-      row.classList.add(insertBefore ? "is-drop-before" : "is-drop-after");
-      if (insertBefore) {
-        if (draggedMagicEffectRow !== row.previousElementSibling) {
-          magicEffectsList.insertBefore(draggedMagicEffectRow, row);
-        }
-      } else if (draggedMagicEffectRow !== row.nextElementSibling) {
-        magicEffectsList.insertBefore(draggedMagicEffectRow, row.nextElementSibling);
-      }
-      syncMagicEffectRemoveButtons();
-      serializeMagicEffects();
-    });
-    row.addEventListener("drop", (event) => {
-      event.preventDefault();
-      clearMagicEffectDropMarkers();
-      syncMagicEffectRemoveButtons();
-      serializeMagicEffects();
-    });
-  };
-
   const addMagicEffectRow = (initialPayload = null) => {
     if (!(magicEffectsList instanceof HTMLElement) || !(magicEffectTemplate instanceof HTMLTemplateElement)) {
       return null;
@@ -829,7 +894,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       return null;
     }
     magicEffectsList.append(row);
+    selectedEffect = row;
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
+    const valueRow = row.querySelector("[data-magic-value-row]");
+    if (valueRow) targetKindSelect?.closest("label")?.after(valueRow);
     if (targetKindSelect instanceof HTMLSelectElement) {
       WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
         const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
@@ -950,11 +1018,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       row.remove();
       syncMagicEffectRemoveButtons();
       serializeMagicEffects();
+      syncWorkshopEffects();
+      selectedEffect?.querySelector("[data-magic-target-kind]")?.focus();
     });
-    bindMagicEffectDragAndDrop(row);
     syncMagicEffectRow(row);
     syncMagicEffectRemoveButtons();
     serializeMagicEffects();
+    syncWorkshopEffects();
     return row;
   };
 
@@ -963,223 +1033,49 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       return;
     }
     magicEffectsList.innerHTML = "";
+    selectedEffect = null;
     payloads.forEach((payload) => {
       addMagicEffectRow(payload);
     });
     if (!payloads.length) {
       serializeMagicEffects();
     }
+    selectedEffect = magicEffectsList.querySelector("[data-magic-effect-row]");
+    syncWorkshopEffects();
   };
 
-  // ── Build one rune option element ─────────────────────────────────────────
-
   const buildRuneOption = (rune, existingSlots) => {
-    const runeId = Number(rune.id);
-    const allowMultiple = Boolean(rune.allow_multiple);
-    const hasSpec = Boolean(rune.has_specialization);
-    const specLabel = String(rune.specialization_label || "Bezeichnung");
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "shop_item_form_checklist_item rune_option";
-    if (allowMultiple) {
-      wrapper.className += " rune_option--multiple";
-    }
-    wrapper.dataset.runeId = String(runeId);
-    wrapper.dataset.allowMultiple = allowMultiple ? "1" : "0";
+    existingSlots.slice().sort((a, b) => a.slot - b.slot).forEach((slot) => {
+      runeInstances.push({
+        rune,
+        crafter_level: normalizeCrafterLevel(slot.crafter_level),
+        specification: String(slot.specification || ""),
+      });
+    });
+    const wrapper = document.createElement("article");
+    wrapper.className = "rune_option workshop_catalog_entry";
+    wrapper.dataset.runeId = String(rune.id);
     wrapper.dataset.runeSearch = `${rune.name || ""} ${rune.description || ""}`;
-
-    const buildSlotFields = (slot = {}) => {
-      const slotRow = document.createElement("div");
-      slotRow.className = "rune_option_slot";
-      slotRow.dataset.runeSlot = "1";
-
-      const fieldGroup = document.createElement("div");
-      fieldGroup.className = "rune_option_slot_fields";
-
-      const crafterWrap = document.createElement("div");
-      crafterWrap.className = "rune_option_crafter";
-      const crafterInput = document.createElement("input");
-      crafterInput.type = "number";
-      crafterInput.className = "rune_option_crafter_level sheet-window__field";
-      crafterInput.min = String(DEFAULT_RUNE_CRAFTER_LEVEL);
-      crafterInput.max = String(MAX_RUNE_CRAFTER_LEVEL);
-      crafterInput.step = "1";
-      crafterInput.setAttribute("aria-label", `${rune.name || "Rune"} Schmiedestufe`);
-      crafterInput.value = String(normalizeCrafterLevel(slot.crafter_level));
-      crafterInput.addEventListener("input", () => {
-        crafterInput.value = String(normalizeCrafterLevel(crafterInput.value));
-        serializeRunePayloads();
-      });
-      crafterWrap.append(crafterInput);
-      fieldGroup.append(crafterWrap);
-
-      if (hasSpec) {
-        const specInput = document.createElement("input");
-        specInput.type = "text";
-        specInput.className = "rune_option_spec sheet-window__field";
-        specInput.placeholder = specLabel;
-        specInput.maxLength = 100;
-        specInput.value = String(slot.specification || "");
-        specInput.addEventListener("input", serializeRunePayloads);
-        fieldGroup.append(specInput);
-      }
-
-      slotRow.append(fieldGroup);
-      return slotRow;
-    };
-
-    const buildRuneCopy = () => {
-      const copy = document.createElement("span");
-      copy.className = "rune_option_copy";
-
-      const image = document.createElement(rune.image ? "img" : "span");
-      image.className = rune.image ? "rune_option_image" : "rune_option_image rune_option_image--placeholder";
-      if (rune.image) {
-        image.src = rune.image;
-        image.alt = "";
-        image.loading = "lazy";
-      } else {
-        image.setAttribute("aria-hidden", "true");
-      }
-
-      const textWrap = document.createElement("span");
-      textWrap.className = "rune_option_text";
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "rune_option_name";
-      nameSpan.textContent = rune.name || "Unbenannte Rune";
-      const bodySpan = document.createElement("span");
-      bodySpan.className = "rune_option_body";
-      bodySpan.textContent = rune.description || "Keine Beschreibung vorhanden.";
-      textWrap.append(nameSpan, bodySpan);
-      copy.append(image, textWrap);
-      return copy;
-    };
-
-    if (allowMultiple) {
-      // ── Counter UI ─────────────────────────────────────────────────────────
-      const header = document.createElement("div");
-      header.className = "rune_option_header";
-
-      const stepper = document.createElement("div");
-      stepper.className = "rune_option_stepper";
-
-      const decrementBtn = document.createElement("button");
-      decrementBtn.type = "button";
-      decrementBtn.className = "rune_option_decrement shop_step_btn";
-      decrementBtn.textContent = "−";
-      decrementBtn.setAttribute("aria-label", "Slot entfernen");
-
-      const countDisplay = document.createElement("span");
-      countDisplay.className = "rune_option_count";
-      countDisplay.textContent = String(existingSlots.length);
-
-      const incrementBtn = document.createElement("button");
-      incrementBtn.type = "button";
-      incrementBtn.className = "rune_option_increment shop_step_btn";
-      incrementBtn.textContent = "+";
-      incrementBtn.setAttribute("aria-label", "Slot hinzufügen");
-
-      const copy = buildRuneCopy();
-
-      stepper.append(incrementBtn, countDisplay, decrementBtn);
-      header.append(stepper, copy);
-
-      const specsContainer = document.createElement("div");
-      specsContainer.className = "rune_option_specs";
-
-      const addSlotFields = (slot = {}) => {
-        specsContainer.append(buildSlotFields(slot));
-      };
-
-      // Pre-populate existing slots
-      existingSlots.forEach((slot) => {
-        addSlotFields(slot);
-      });
-
-      decrementBtn.addEventListener("click", () => {
-        const current = Number.parseInt(countDisplay.textContent || "0", 10) || 0;
-        if (current <= 0) {
-          return;
-        }
-        countDisplay.textContent = String(current - 1);
-        const slotRows = specsContainer.querySelectorAll("[data-rune-slot]");
-        slotRows[slotRows.length - 1]?.remove();
-        syncRuneSelectionCount();
-        serializeRunePayloads();
-      });
-
-      incrementBtn.addEventListener("click", () => {
-        const current = Number.parseInt(countDisplay.textContent || "0", 10) || 0;
-        countDisplay.textContent = String(current + 1);
-        addSlotFields();
-        syncRuneSelectionCount();
-        serializeRunePayloads();
-      });
-
-      wrapper.append(header, specsContainer);
-    } else {
-      // ── Checkbox UI ────────────────────────────────────────────────────────
-      const checkRow = document.createElement("div");
-      checkRow.className = "rune_option_single";
-
-      const toggleLabel = document.createElement("label");
-      toggleLabel.className = "rune_option_single_toggle";
-
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.value = String(runeId);
-      input.checked = existingSlots.length > 0;
-
-      const content = document.createElement("div");
-      content.className = "rune_option_single_content";
-      const image = document.createElement(rune.image ? "img" : "span");
-      image.className = rune.image ? "rune_option_image" : "rune_option_image rune_option_image--placeholder";
-      if (rune.image) {
-        image.src = rune.image;
-        image.alt = "";
-        image.loading = "lazy";
-      } else {
-        image.setAttribute("aria-hidden", "true");
-      }
-
-      const textWrap = document.createElement("span");
-      textWrap.className = "rune_option_text";
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "rune_option_name";
-      nameSpan.textContent = rune.name || "Unbenannte Rune";
-      const bodySpan = document.createElement("span");
-      bodySpan.className = "rune_option_body";
-      bodySpan.textContent = rune.description || "Keine Beschreibung vorhanden.";
-      textWrap.append(nameSpan, bodySpan);
-
-      const slotRow = buildSlotFields(existingSlots[0] || {});
-      slotRow.classList.add("rune_option_slot--single");
-      slotRow.hidden = !input.checked;
-
-      toggleLabel.append(input);
-      content.append(image, textWrap, slotRow);
-      checkRow.append(toggleLabel, content);
-      wrapper.append(checkRow);
-
-      input.addEventListener("change", () => {
-        slotRow.hidden = !input.checked;
-        if (!input.checked) {
-          slotRow.querySelectorAll("input").forEach((slotInput) => {
-            if (!(slotInput instanceof HTMLInputElement)) {
-              return;
-            }
-            if (slotInput.classList.contains("rune_option_crafter_level")) {
-              slotInput.value = String(DEFAULT_RUNE_CRAFTER_LEVEL);
-            } else {
-              slotInput.value = "";
-            }
-          });
-        }
-        syncRuneSelectionCount();
-        serializeRunePayloads();
-      });
-    }
-
+    const copy = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = rune.name;
+    const description = document.createElement("p");
+    description.textContent = rune.description || "Keine Beschreibung vorhanden.";
+    copy.append(name, description);
+    const add = document.createElement("button");
+    add.type = "button";
+    add.dataset.addRune = String(rune.id);
+    add.textContent = "Hinzufügen";
+    add.setAttribute("aria-label", `${rune.name} hinzufügen`);
+    add.addEventListener("click", () => {
+      if (add.disabled || runeInstances.length >= MAX_RUNES_PER_ITEM) return;
+      selectedRune = { rune, crafter_level: DEFAULT_RUNE_CRAFTER_LEVEL, specification: "" };
+      runeInstances.push(selectedRune);
+      renderRuneInspector();
+      syncRuneSelectionCount();
+      document.querySelector("#workshopRuneInspector input")?.focus();
+    });
+    wrapper.append(runeArtwork(rune, false), copy, add);
     return wrapper;
   };
 
@@ -1248,14 +1144,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       return;
     }
 
-    if (
-      runeDropdown instanceof HTMLElement &&
-      !target?.closest("#runeRetrofitDropdown") &&
-      !target?.closest(".rune_window_search_row") &&
-      runeWindow?.classList.contains("is-open")
-    ) {
-      toggleRuneDropdown(false);
-    }
 
     document.querySelectorAll(".inv_menu").forEach((entry) => closeMenu(entry));
   }, true);
@@ -1433,11 +1321,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (runeItemName instanceof HTMLElement) {
       runeItemName.textContent = itemName;
     }
-    if (runeBaseInfo instanceof HTMLElement) {
-      runeBaseInfo.textContent = `Maximal ${MAX_RUNES_PER_ITEM} Runen insgesamt.`;
-    }
 
-    maxAdditionalRuneSlots = MAX_RUNES_PER_ITEM;
+    runeInstances = [];
+    selectedRune = null;
     let availableCount = 0;
     runeChoices.forEach((rune) => {
       availableCount += 1;
@@ -1658,18 +1544,38 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   window.addEventListener("blur", () => {
     cleanupInventoryDragState();
   });
-  runeDropdownTrigger?.addEventListener("click", () => {
-    toggleRuneDropdown();
-  });
   runeWeaponWieldMode?.addEventListener("change", syncRetrofitDetailSections);
   runeCloseButton?.addEventListener("click", closeRuneWindow);
   runeCancelButton?.addEventListener("click", closeRuneWindow);
+  runeForm?.addEventListener("input", () => updateEffectPreviews());
+  runeForm?.addEventListener("change", () => updateEffectPreviews());
+  magicEffectsList?.addEventListener("input", syncWorkshopEffects);
+  magicEffectsList?.addEventListener("change", syncWorkshopEffects);
+  runeInvestedCpInput?.addEventListener("input", syncWorkshopEffects);
+  runeInvestedCpSelect?.addEventListener("change", syncWorkshopEffects);
+  runeForm?.addEventListener("invalid", (event) => {
+    const field = event.target;
+    const panel = field.closest("[data-workshop-panel]");
+    if (panel) showWorkshopPanel(panel.dataset.workshopPanel);
+    const effect = field.closest("[data-magic-effect-row]");
+    if (effect) {
+      selectedEffect = effect;
+      syncWorkshopEffects();
+    }
+    let parent = field.parentElement;
+    while (parent && parent !== runeForm) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+      parent = parent.parentElement;
+    }
+  }, true);
   magicAddEffectButton?.addEventListener("click", () => {
-    addMagicEffectRow();
+    const row = addMagicEffectRow();
+    row?.querySelector("[data-magic-target-kind]")?.focus();
   });
 
   runeForm?.addEventListener("submit", () => {
     pendingRuneSubmit = true;
+    if (workshopStatus) workshopStatus.textContent = "Wird gespeichert …";
     serializeMagicEffects();
     serializeRunePayloads();
     runeForm?.querySelector(".rune_window_save_error")?.remove();
@@ -1677,13 +1583,15 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   runeForm?.addEventListener("sheet:action-failed", (event) => {
     pendingRuneSubmit = false;
-    const saveBtn = runeForm?.querySelector(".rune_window_save_seal");
+    if (workshopStatus) workshopStatus.textContent = "";
+    const saveBtn = runeForm?.querySelector(".workshop_submit");
     if (saveBtn instanceof HTMLButtonElement) {
       saveBtn.disabled = false;
     }
     const existingError = runeForm?.querySelector(".rune_window_save_error");
     if (!existingError) {
       const msg = document.createElement("p");
+      msg.setAttribute("role", "alert");
       msg.className = "rune_window_save_error shop_item_form_hint shop_item_form_hint--error";
       msg.textContent = event.detail?.error || "Speichern fehlgeschlagen. Bitte Eingaben prüfen.";
       saveBtn?.before(msg);

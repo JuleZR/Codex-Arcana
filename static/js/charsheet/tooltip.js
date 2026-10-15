@@ -262,7 +262,7 @@ function normalizeUnicodeFraction(value) {
   return whole ? `${whole}${unicodeFraction}` : unicodeFraction;
 }
 
-function renderInlineMarkdown(text) {
+export function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(
     /\[\[EFFECTTOGGLE:([^;\]]+);([^;\]]+);([0-9,]+);([01])(?:;([01]))?\]\]/g,

@@ -20,6 +20,7 @@ from django.urls import include, path
 from charsheet import group_views, views
 from charsheet.calendar_views import character_date
 from charsheet.attribute_flavor import attribute_flavor_card
+from charsheet.item_workshop import preview_item_effects
 from django.views.static import serve
 from django.conf import settings
 from charsheet.quickslots import (
@@ -482,6 +483,10 @@ urlpatterns = [
         "character-item/<int:pk>/runes/update/",
         views.update_character_item_runes,
         name="update_character_item_runes",
+    ),
+    path(
+        "character-item/<int:pk>/effects/preview/",
+        preview_item_effects, name="preview_item_effects",
     ),
     path("character-item/<int:pk>/consume/",
          views.consume_item, name="consume_item"),

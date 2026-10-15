@@ -149,7 +149,16 @@
           <section class="floating-tooltip-card__section">
             <h4 class="floating-tooltip-card__section_title">Runen</h4>
             <div class="floating-tooltip-card__section_body">
-              <table><tbody>{% for row in item_card.rune_rows %}<tr class="tooltip_rune_comment_row"><td>{% if row.label %}{{ row.label|card_markdown }}{% else %}&nbsp;{% endif %}</td><td>{{ row.value|card_markdown }}</td></tr>{% endfor %}</tbody></table>
+              <table><tbody>
+                {% for row in item_card.rune_rows %}
+                  <tr class="tooltip_rune_comment_row"><td>&nbsp;</td><td>
+                    <span class="tooltip_rune_inline{% if not row.image %} tooltip_rune_inline--no-image{% endif %}">
+                      {% if row.image %}<img class="tooltip_rune_inline_image" src="{{ row.image }}" alt="">{% endif %}
+                      <span class="tooltip_rune_inline_name"><strong>{{ row.name }}</strong>{% if row.inline_description %} · {{ row.inline_description }}{% elif row.description %} · {{ row.description }}{% endif %}</span>
+                    </span>
+                  </td></tr>
+                {% endfor %}
+              </tbody></table>
             </div>
           </section>
         {% endif %}
