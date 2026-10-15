@@ -248,6 +248,9 @@ SHEET_PARTIAL_TEMPLATES = {
     "attribute_panel": ("sheetAttributePanel", "charsheet/partials/_attribute_panel.html"),
     "skills_panel": ("sheetSkillsPanel", "charsheet/partials/_skills_panel.html"),
     "character_header": ("sheetCharacterHeader", "charsheet/partials/_character_header.html"),
+    "size_class_panel": (
+        "sheetSizeClassPanel", "charsheet/partials/_size_class_panel.html",
+    ),
     "character_religion_field": ("id_religion_entity", "charsheet/partials/_character_religion_field.html"),
     "secondary_page": ("sheetSecondaryPage", "charsheet/partials/_sheet_secondary_page.html"),
     "card_hand": ("sheetCardHand", "charsheet/partials/_card_hand_host.html"),
@@ -277,9 +280,9 @@ TEMPORARY_ATTRIBUTE_CODES = {
     "GK",
 }
 TEMPORARY_ATTRIBUTE_PARTIAL_KEYS = (
-    "character_header",
     "attribute_panel",
     "skills_panel",
+    "load_panel",
     "core_stats_panel",
     "damage_panel",
     "weapon_panel",
@@ -1836,7 +1839,7 @@ def _temporary_attribute_response(
     partial_keys = TEMPORARY_ATTRIBUTE_PARTIAL_KEYS
     if short_name == "GK":
         context.update(build_inventory_partial_context(character))
-        partial_keys = (*partial_keys, "inventory_panel")
+        partial_keys = (*partial_keys, "size_class_panel", "inventory_panel")
     context["request"] = request
     context["temporary_attribute_adjustments"] = adjustments
     context["temporary_attribute_update_url"] = (
@@ -1868,6 +1871,7 @@ def _sheet_partials_response(request, character: Character, *partial_keys: str) 
     return JsonResponse(
         {
             "ok": True,
+            "characterId": character.pk,
             "partials": partials,
             "openItemTransferCount": context.get("open_item_transfer_count", 0),
         }
@@ -1939,6 +1943,7 @@ def _accepted_transfer_partials_response(
     return JsonResponse(
         {
             "ok": True,
+            "characterId": character.pk,
             "accepted": [transfer.pk for transfer in transfers],
             "partials": _render_sheet_partials(request, context, partial_keys),
             "openItemTransferCount": context.get("open_item_transfer_count", 0),
@@ -5519,17 +5524,21 @@ def character_recipient_search(request):
 
 @login_required
 @require_POST
-def create_item_transfer(request, pk):
-    item = _owned_character_item_or_404(request, pk)
+def create_item_transfer(request, pk=None):
+    item = (
+        _owned_character_item_or_404(request, pk) if pk is not None else None
+    )
     try:
         sender = _owned_character_or_404(
             request,
-            int(request.POST.get("sender_id") or item.owner_id),
+            int(
+                request.POST.get("sender_id") or (item.owner_id if item else 0)
+            ),
         )
         selected_item_ids = []
         raw_item_ids = request.POST.getlist("item_ids")
         if request.POST.get("multi_transfer") != "1" and not raw_item_ids:
-            raw_item_ids = [item.pk]
+            raw_item_ids = [item.pk] if item else []
         for raw_item_id in raw_item_ids:
             selected_item_id = int(raw_item_id)
             if selected_item_id not in selected_item_ids:
@@ -5604,9 +5613,15 @@ def create_item_transfer(request, pk):
             ).lower() in {"1", "true", "on", "yes"},
         )
     except (TypeError, ValueError):
-        return _transfer_response_error(request, TransferError("invalid_payload", "Ungültige Übergabedaten."), character_id=item.owner_id)
+        return _transfer_response_error(
+            request,
+            TransferError("invalid_payload", "Ungültige Übergabedaten."),
+            character_id=item.owner_id if item else None,
+        )
     except TransferError as error:
-        return _transfer_response_error(request, error, character_id=item.owner_id)
+        return _transfer_response_error(
+            request, error, character_id=item.owner_id if item else None,
+        )
     if _is_partial_request(request):
         return _sheet_partials_response(request, sender, *SHEET_INVENTORY_PARTIAL_KEYS)
     messages.success(request, "Übergabe wurde erstellt.")
@@ -5809,14 +5824,33 @@ def item_transfer_center(request):
         .select_related("item__item", "sender__owner", "recipient")
         .order_by("expires_at")
     )
+    characters = list(
+        Character.objects.filter(owner=request.user, is_archived=False)
+        .select_related("owner").order_by("name", "pk")
+    )
+    sender_id = request.GET.get("sender")
+    sender = selected_character or (characters[0] if characters else None)
+    if sender_id:
+        sender = get_object_or_404(
+            Character, pk=sender_id, owner=request.user, is_archived=False,
+        )
+    outgoing = ItemTransfer.objects.filter(sender__owner=request.user)
+    if selected_character is not None:
+        outgoing = outgoing.filter(sender=selected_character)
+    context = build_inventory_partial_context(sender) if sender else {}
+    context.update({
+        "incoming": incoming,
+        "outgoing": outgoing.select_related("recipient", "recipient_group")
+        .order_by("-created_at", "-pk"),
+        "selected_character": selected_character,
+        "sender_character": sender,
+        "sender_characters": characters,
+        "embedded": request.GET.get("embedded") == "1",
+    })
     return render(
         request,
         "charsheet/item_transfer_center.html",
-        {
-            "incoming": incoming,
-            "selected_character": selected_character,
-            "embedded": request.GET.get("embedded") == "1",
-        },
+        context,
     )
 
 

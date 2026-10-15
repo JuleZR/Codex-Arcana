@@ -494,6 +494,8 @@ urlpatterns = [
          views.remove_item, name="remove_item"),
     path("item-transfers/", views.item_transfer_center,
          name="item_transfer_center"),
+    path("item-transfers/send/", views.create_item_transfer,
+         name="create_item_transfers"),
     path("api/characters/search/", views.character_recipient_search,
          name="character_recipient_search"),
     path("character-item/<int:pk>/transfer/",

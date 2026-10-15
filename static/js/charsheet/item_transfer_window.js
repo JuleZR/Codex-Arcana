@@ -40,6 +40,7 @@ export function initItemTransferWindow() {
     dragPointerId = null;
   };
   const open = (url) => {
+    if (measurementFallback) window.clearTimeout(measurementFallback);
     windowElement.classList.add("is-measuring");
     frame.src = url;
     resetPosition();
@@ -81,9 +82,18 @@ export function initItemTransferWindow() {
     }
     if (event.target.closest("[data-close-item-transfer-window]")) close();
   });
+  document.addEventListener("charsheet:open-transfer-compose", (event) => {
+    const trigger = document.querySelector("[data-open-item-transfer-window][data-transfer-url]");
+    if (!trigger) return;
+    const url = new URL(trigger.dataset.transferUrl, window.location.origin);
+    url.searchParams.set("tab", "compose");
+    if (event.detail?.senderId) url.searchParams.set("sender", event.detail.senderId);
+    if (event.detail?.itemId) url.searchParams.set("item", event.detail.itemId);
+    open(url.href);
+  });
 
   handle.addEventListener("pointerdown", (event) => {
-    if (window.matchMedia("(max-width: 650px)").matches) return;
+    if (window.matchMedia("(max-width: 760px)").matches) return;
     if (event.button !== 0 || event.target.closest("button")) return;
     const rect = windowElement.getBoundingClientRect();
     dragPointerId = event.pointerId;
@@ -107,7 +117,7 @@ export function initItemTransferWindow() {
   handle.addEventListener("pointerup", stopDragging);
   handle.addEventListener("pointercancel", stopDragging);
   window.addEventListener("resize", () => {
-    if (window.matchMedia("(max-width: 650px)").matches) {
+    if (window.matchMedia("(max-width: 760px)").matches) {
       resetPosition();
       return;
     }
@@ -120,6 +130,10 @@ export function initItemTransferWindow() {
   });
   window.addEventListener("message", (event) => {
     if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
+    if (event.data?.type === "codex:item-transfer-close") {
+      close();
+      return;
+    }
     if (event.data?.type === "codex:item-transfer-size") {
       if (measurementFallback) window.clearTimeout(measurementFallback);
       measurementFallback = null;
@@ -132,6 +146,9 @@ export function initItemTransferWindow() {
       return;
     }
     if (event.data?.type !== "codex:item-transfer-accepted") return;
+    const characterId = new URL(frame.src, window.location.origin).searchParams.get("character");
+    if (event.data.payload?.characterId && characterId
+      && String(event.data.payload.characterId) !== characterId) return;
     applySheetPartials(event.data.payload);
     updateTransferBadge(event.data.payload?.openItemTransferCount);
     document.dispatchEvent(new CustomEvent("charsheet:item-transfer-count-updated", {

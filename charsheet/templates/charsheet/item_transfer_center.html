@@ -4,92 +4,109 @@
 <head>
   <meta charset="UTF-8">
   {% include "charsheet/partials/_viewport.html" %}
-  <title>Übergaben | Codex Arcana</title>
-  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
-  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}?v=20261001-mobile-post3">
+  <title>Die Postzentrale | Codex Arcana</title>
+  <link rel="stylesheet" href="{% static 'css/charsheet/shop.css' %}?v=20261015-post1">
+  <link rel="stylesheet" href="{% static 'css/charsheet/post-center.css' %}?v=20261015-post4">
 </head>
 <body class="transfer-center-page{% if embedded %} transfer-center-page--embedded{% endif %}">
 <main class="transfer-center">
-  <header class="transfer-center__header">
-    <div>
-      <h1>Übergaben</h1>
-      {% if selected_character %}<strong class="transfer-center__character">{{ selected_character.name }}</strong>{% endif %}
-      <p>{% if selected_character %}Für diesen Charakter bestimmte Sendungen{% else %}Sendungen für deine Charaktere{% endif %}</p>
-    </div>
-    {% if not embedded %}<a class="transfer-button" href="{% url 'dashboard' %}">Zum Dashboard</a>{% endif %}
+  <header class="transfer-center__header market_header">
+    <span class="market_emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 6h18v14H3zM3 7l9 7 9-7M9 3h6m-3-2v4"/></svg></span>
+    <div class="market_heading"><span class="market_guild">CODEX ARCANA · BOTENDIENST</span><h1 class="market_title">Die Postzentrale</h1><p class="market_subtitle">Sendungen, Übergaben und Korrespondenz{% if selected_character %} · {{ selected_character.name }}{% endif %}</p></div>
+    <div class="market_wallet"><span>Offene Sendungen</span><strong>{{ incoming|length }}</strong></div>
+    {% if embedded %}<button type="button" class="transfer-close" data-transfer-close aria-label="Postzentrale schließen">×</button>{% else %}<a class="transfer-button" href="{% url 'dashboard' %}">Dashboard</a>{% endif %}
   </header>
-
-  {% if messages %}
-    <div class="transfer-toast-stack" aria-live="polite" aria-atomic="true">
-      {% for message in messages %}<p class="transfer-message" data-transfer-toast>{{ message }}</p>{% endfor %}
-    </div>
-  {% endif %}
-
-  <section class="transfer-panel" data-transfer-panel>
-    <div class="transfer-panel__bar">
-      <h2><span>Post</span><small>Eingegangene Sendungen</small><span class="transfer-count">{{ incoming|length }}</span></h2>
-      {% if incoming %}
-        <form id="transfer-bulk-form-{{ selected_character.id|default:'all' }}" class="transfer-bulk-form" method="post" action="{% url 'accept_item_transfers' %}"{% if embedded %} data-transfer-bulk-accept{% endif %}>
-          {% csrf_token %}
-          {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
-          {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
-          <label class="transfer-select-all">
-            <input type="checkbox" data-transfer-select-all>
-            <span>Alle auswählen</span>
-          </label>
-          <button type="button" class="transfer-button transfer-button--secondary" data-transfer-clear-selection>Auswahl aufheben</button>
-          <button type="submit" data-transfer-accept-selected disabled>Auswahl annehmen</button>
-          <button type="submit" data-transfer-accept-all>Alles annehmen</button>
-        </form>
-      {% endif %}
-    </div>
-    {% for transfer in incoming %}
-      <article class="transfer-offer" data-transfer-offer>
-        <label class="transfer-offer__select" aria-label="{{ transfer.item_snapshot.name }} auswaehlen">
-          <input type="checkbox" name="transfer_ids" value="{{ transfer.id }}" form="transfer-bulk-form-{{ selected_character.id|default:'all' }}" data-transfer-checkbox>
-        </label>
-        <div>{% if transfer.item_snapshot.image %}<img src="{{ transfer.item_snapshot.image }}" alt="">{% endif %}</div>
-        <div class="transfer-offer__body">
-          <h3>{{ transfer.item_snapshot.name }}</h3>
-          <small>Antwort bis {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
-          <p>Von {{ transfer.sender_snapshot.name }} · {{ transfer.sender_snapshot.username }}</p>
-        </div>
-        <div class="transfer-offer__meta">
-          {% if transfer.item_snapshot.transfer_original_ownership %}
-            <p class="transfer-offer__ownership"><strong>Geht vollständig in dein Eigentum über</strong><span>Du erhältst damit dauerhaft Rückhol- und Verwaltungsrecht.</span></p>
-          {% elif transfer.item_snapshot.requested_permissions %}
-            <div class="transfer-offer__permissions"><strong>Zusätzliche Freigaben:</strong><ul>{% for permission in transfer.item_snapshot.requested_permissions %}<li>{{ permission.label }}{% if permission.irrevocable %} · dauerhaft und unwiderruflich{% endif %}</li>{% endfor %}</ul></div>
-          {% else %}
-            <span class="transfer-offer__plain">Normale Uebergabe</span>
-          {% endif %}
-        </div>
-        <div class="transfer-offer__details">
-          {% if transfer.message %}<blockquote>{{ transfer.message }}</blockquote>{% endif %}
-          <small>Antwort möglich bis {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
-        </div>
-        <div class="transfer-actions">
-          <form method="post" action="{% url 'accept_item_transfer' transfer.id %}"{% if embedded %} data-transfer-accept{% endif %}>
-            {% csrf_token %}
-            {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
-            {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
-            <button>Entgegennehmen</button>
-          </form>
-          <form method="post" action="{% url 'decline_item_transfer' transfer.id %}"{% if embedded %} data-transfer-decline{% endif %}>
-            {% csrf_token %}
-            {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
-            {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
-            <button class="danger">Zurücksenden</button>
-          </form>
-        </div>
-      </article>
-    {% empty %}
-      <div class="transfer-empty">
-        <span class="transfer-empty__icon" aria-hidden="true">✓</span>
-        <div><strong>Alles erledigt</strong><p>Derzeit wartet keine Sendung auf deine Entscheidung.</p></div>
+  <p class="transfer-feedback" data-transfer-feedback role="status" hidden></p>
+  {% if messages %}<div class="transfer-toast-stack" aria-live="polite">{% for message in messages %}<p class="transfer-message" data-transfer-toast>{{ message }}</p>{% endfor %}</div>{% endif %}
+  <div class="transfer-layout">
+    <nav class="transfer-nav" aria-label="Postbereiche">
+      <span class="market_eyebrow">Verwaltung</span>
+      <div role="tablist" aria-label="Postbereiche" aria-orientation="vertical">
+        <button type="button" id="transfer-tab-inbox" role="tab" aria-selected="true" aria-controls="transfer-inbox" data-transfer-tab="inbox"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M3 15v5h18v-5"/></svg><span>Posteingang</span><b>{{ incoming|length }}</b></button>
+        <button type="button" id="transfer-tab-compose" role="tab" aria-selected="false" aria-controls="transfer-compose" tabindex="-1" data-transfer-tab="compose"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9m-5 5 5-5 5 5M3 9V4h18v5"/></svg><span>Versenden</span></button>
+        <button type="button" id="transfer-tab-outbox" role="tab" aria-selected="false" aria-controls="transfer-outbox" tabindex="-1" data-transfer-tab="outbox"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10m3-3 4 3-4 3"/></svg><span>Versandjournal</span></button>
       </div>
-    {% endfor %}
-  </section>
+      <div class="transfer-nav__edition" aria-hidden="true">✦<small>ARCANE CODEX<br>III. EDITION</small></div>
+    </nav>
+    <div class="transfer-workspace">
+      <section id="transfer-inbox" class="transfer-view" role="tabpanel" aria-labelledby="transfer-tab-inbox" data-transfer-view="inbox">
+        <header class="market_section_head"><div><span class="market_eyebrow">Eingegangene Übergaben</span><h2 class="market_section_title">Posteingang</h2></div><span class="market_count">{{ incoming|length }} Sendungen</span></header>
+        <div class="transfer-panel" data-transfer-panel>
+          <div class="market_toolbar"><label class="transfer-search"><span class="sr-only">Sendung oder Absender suchen</span><input type="search" data-transfer-search placeholder="Sendung oder Absender suchen …"></label>{% if incoming %}<button type="button" class="transfer-button" data-transfer-selection-toggle aria-expanded="false">Auswählen</button>{% endif %}</div>
+          {% if incoming %}
+          <form id="transfer-bulk-form-{{ selected_character.id|default:'all' }}" class="transfer-bulk-form" method="post" action="{% url 'accept_item_transfers' %}" data-transfer-bulk-accept hidden>
+            {% csrf_token %}
+            <label><input type="checkbox" data-transfer-select-all> Alle auswählen</label>
+            <button type="button" class="transfer-button" data-transfer-clear-selection>Auswahl aufheben</button>
+            <button type="submit" class="transfer-button" data-transfer-accept-selected disabled>Auswahl annehmen</button>
+            <button type="submit" class="transfer-button" data-transfer-accept-all>Alles annehmen</button>
+          </form>
+          {% endif %}
+          <div class="market_columns"><span>Gegenstand / Absender</span><span>Empfänger / Frist</span></div>
+          <div class="transfer-list">
+            {% for transfer in incoming %}
+            <article class="transfer-offer" data-transfer-offer>
+              <label class="transfer-offer__select" hidden><input type="checkbox" name="transfer_ids" value="{{ transfer.id }}" form="transfer-bulk-form-{{ selected_character.id|default:'all' }}" data-transfer-checkbox aria-label="{{ transfer.item_snapshot.name }} auswählen"></label>
+              <details>
+                <summary><span class="transfer-offer__body"><strong>{{ transfer.quantity }} × {{ transfer.item_snapshot.name }}</strong><small>Von {{ transfer.sender_snapshot.name }} · {{ transfer.sender_snapshot.username }}</small></span><span class="transfer-offer__recipient">{{ transfer.recipient.name }}<small>Bis {{ transfer.expires_at|date:"d.m.Y H:i" }}</small></span></summary>
+                <div class="transfer-offer__details">
+                  {% if transfer.item_snapshot.image %}<img class="transfer-offer__image" src="{{ transfer.item_snapshot.image }}" alt="">{% endif %}
+                  {% if transfer.item_snapshot.transfer_original_ownership %}<p><strong>Geht vollständig in dein Eigentum über.</strong> Du erhältst dauerhaft Rückholrecht und Rechteverwaltung.</p>{% elif transfer.item_snapshot.requested_permissions %}<strong>Zusätzliche Freigaben</strong><ul>{% for permission in transfer.item_snapshot.requested_permissions %}<li>{{ permission.label }}{% if permission.irrevocable %} · dauerhaft und unwiderruflich{% endif %}</li>{% endfor %}</ul>{% else %}<p>Übergabe ohne Eigentumswechsel.</p>{% endif %}
+                  {% if transfer.message %}<blockquote>{{ transfer.message|linebreaksbr }}</blockquote>{% endif %}
+                  <div class="transfer-actions">
+                    <form method="post" action="{% url 'accept_item_transfer' transfer.id %}" data-transfer-accept>{% csrf_token %}<button class="transfer-button">Entgegennehmen</button></form>
+                    <form method="post" action="{% url 'decline_item_transfer' transfer.id %}" data-transfer-decline>{% csrf_token %}<button class="transfer-button danger">Zurücksenden</button></form>
+                  </div>
+                </div>
+              </details>
+            </article>
+            {% empty %}<div class="transfer-empty"><span aria-hidden="true">✧</span><strong>Alles erledigt</strong><p>Derzeit wartet keine Sendung auf deine Entscheidung.</p><button type="button" class="transfer-button" data-transfer-go="compose">Neue Sendung</button></div>{% endfor %}
+            <p class="transfer-no-results" data-transfer-no-results hidden>Keine passende Sendung gefunden.</p>
+          </div>
+          <footer class="market_disclosures"><span>✧ Nur offene, entscheidungspflichtige Sendungen</span><button type="button" data-transfer-go="compose">Neue Sendung →</button></footer>
+        </div>
+      </section>
+      <section id="transfer-compose" class="transfer-view" role="tabpanel" aria-labelledby="transfer-tab-compose" data-transfer-view="compose" hidden>
+        <header class="market_section_head"><div><span class="market_eyebrow">Gegenstände und Geld</span><h2 class="market_section_title">Versenden</h2></div></header>
+        <div class="transfer-panel transfer-compose-scroll">
+          {% if sender_character %}
+          <form method="get" class="transfer-sender-form">
+            {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
+            {% if selected_character %}<input type="hidden" name="character" value="{{ selected_character.pk }}">{% endif %}
+            <input type="hidden" name="tab" value="compose">
+            <label>Absender<select name="sender" data-transfer-sender>{% for sender in sender_characters %}<option value="{{ sender.pk }}"{% if sender.pk == sender_character.pk %} selected{% endif %}>{{ sender.name }}</option>{% endfor %}</select></label>
+            <button class="transfer-button">Inventar laden</button>
+          </form>
+          {% include "charsheet/partials/_item_transfer_dialog.html" with character=sender_character transfer_center_inline=True %}
+          {% else %}<div class="transfer-empty"><strong>Kein Absender verfügbar</strong><p>Zum Versenden benötigst du einen aktiven Charakter.</p></div>{% endif %}
+        </div>
+      </section>
+      <section id="transfer-outbox" class="transfer-view" role="tabpanel" aria-labelledby="transfer-tab-outbox" data-transfer-view="outbox" hidden>
+        <header class="market_section_head"><div><span class="market_eyebrow">Aufgegebene Gegenstandsübergaben</span><h2 class="market_section_title">Versandjournal</h2></div><span class="market_count">{{ outgoing|length }} Sendungen</span></header>
+        <div class="transfer-panel">
+          <div class="market_toolbar"><label class="transfer-search"><span class="sr-only">Journal durchsuchen</span><input type="search" data-transfer-search placeholder="Gegenstand oder Empfänger suchen …"></label><label class="transfer-filter">Status<select data-transfer-status><option value="all">Alle</option><option value="pending">Offen</option><option value="completed">Abgeschlossen</option></select></label></div>
+          <div class="market_columns"><span>Gegenstand / Empfänger</span><span>Status / Datum</span></div>
+          <div class="transfer-list">
+            {% for transfer in outgoing %}
+            <article class="transfer-offer" data-transfer-offer data-status="{{ transfer.status }}">
+              <details><summary><span class="transfer-offer__body"><strong>{{ transfer.quantity }} × {{ transfer.item_snapshot.name }}</strong><small>An {{ transfer.recipient_snapshot.name }}{% if transfer.transfer_kind == 'gm_edit' %} · SL-Bearbeitung{% endif %}</small></span><span class="transfer-offer__recipient"><b class="transfer-status transfer-status--{{ transfer.status }}">{{ transfer.get_status_display }}</b><small>{{ transfer.created_at|date:"d.m.Y H:i" }}</small></span></summary>
+                <div class="transfer-offer__details"><p>Von {{ transfer.sender_snapshot.name }} · {{ transfer.sender_snapshot.username }}</p><p>Aufgegeben: {{ transfer.created_at|date:"d.m.Y H:i" }}<br>{% if transfer.resolved_at %}Abgeschlossen: {{ transfer.resolved_at|date:"d.m.Y H:i" }}{% else %}Antwort bis: {{ transfer.expires_at|date:"d.m.Y H:i" }}{% endif %}</p>
+                  {% if transfer.message %}<blockquote>{{ transfer.message|linebreaksbr }}</blockquote>{% endif %}
+                  {% if transfer.item_snapshot.transfer_original_ownership %}<p><strong>Endgültige Eigentumsübertragung</strong></p>{% endif %}
+                  {% if transfer.status == 'pending' and transfer.item_id and transfer.transfer_kind != 'gm_edit' %}<form method="post" action="{% url 'recall_item_transfer' transfer.id %}" data-transfer-recall>{% csrf_token %}<input type="hidden" name="return_character_id" value="{{ transfer.sender_id }}"><button class="transfer-button danger">Sendung zurückrufen</button></form>{% endif %}
+                  {% if transfer.status == 'pending' and transfer.transfer_kind == 'gm_edit' %}<p>Die laufende SL-Bearbeitung kann nicht zurückgerufen werden.</p>{% endif %}
+                </div>
+              </details>
+            </article>
+            {% empty %}<div class="transfer-empty"><span aria-hidden="true">✧</span><strong>Noch keine Gegenstände versendet</strong><p>Hier findest du deine aufgegebenen Gegenstandsübergaben und ihren Status.</p></div>{% endfor %}
+            <p class="transfer-no-results" data-transfer-no-results hidden>Keine passende Sendung gefunden.</p>
+          </div>
+          <footer class="market_disclosures"><span>Geld wird unmittelbar übertragen und erscheint nicht als offene Sendung.</span></footer>
+        </div>
+      </section>
+    </div>
+  </div>
 </main>
-<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20261001-mobile-post2"></script>
+<script type="module" src="{% static 'js/charsheet/post_center.js' %}?v=20261015-post3"></script>
 </body>
 </html>

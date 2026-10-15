@@ -1,20 +1,23 @@
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal item-transfer-dialog" id="itemTransferDialog" data-search-url="{% url 'character_recipient_search' %}" aria-hidden="true">
+<section class="{% if transfer_center_inline %}transfer-compose{% else %}payday-window payday-window--item-create sheet-window sheet-window--editor-modal item-transfer-dialog{% endif %}" id="itemTransferDialog" data-search-url="{% url 'character_recipient_search' %}"{% if not transfer_center_inline %} aria-hidden="true"{% endif %}>
+  {% if not transfer_center_inline %}
   <div class="payday-window__titlebar sheet-window__header" id="itemTransferDialogHandle">
     <h3 class="payday-window__title sheet-window__title">Gegenstand versenden</h3>
     <button type="button" class="payday-window__close" id="itemTransferDialogClose" data-close-item-transfer aria-label="Fenster schließen">x</button>
   </div>
+  {% endif %}
   <div class="payday-window__body sheet-window__body"><div class="sheet-window__editor-shell"><div class="sheet-window__editor-pane">
-  <form method="post" id="itemTransferForm" class="sheet-window__editor-form item-transfer-form" data-sheet-action data-ajax-only>
+  <form method="post" action="{% url 'create_item_transfers' %}" id="itemTransferForm" class="sheet-window__editor-form item-transfer-form" data-sheet-action data-ajax-only>
     {% csrf_token %}
     <input type="hidden" name="multi_transfer" value="1">
-    <input type="hidden" name="sender_id" id="itemTransferSenderId">
+    <input type="hidden" name="sender_id" id="itemTransferSenderId" value="{{ character.pk }}">
     <input type="hidden" name="recipient_id" id="itemTransferRecipientId">
     <input type="hidden" name="recipient_type" id="itemTransferRecipientType" value="character">
-    <header class="item-transfer-form__heading"><span>Gegenstände versenden</span><strong id="itemTransferName"></strong></header>
+    <header class="item-transfer-form__heading"><span>Dein Versandauftrag</span><strong id="itemTransferName">Noch keine Gegenstände ausgewählt</strong></header>
     <div class="item-transfer-form__columns">
       <div class="item-transfer-form__details">
         <label class="shop_item_form_row"><span>Empfänger</span><input type="search" id="itemTransferRecipientSearch" autocomplete="off" minlength="2" required placeholder="Charaktername"></label>
         <div class="item-transfer-results" id="itemTransferResults" role="listbox"></div>
+        <p id="itemTransferGmHint" hidden>SL-Bearbeitung: genau ein Gegenstand, vollständig und ohne Geldbeigabe. Rechte und Eigentum bleiben erhalten.</p>
         <label class="shop_item_form_row"><span>Geld mitgeben</span><input type="number" name="money" id="itemTransferMoney" min="0" max="{{ character.money }}" value="0"><small>Verfügbar: {{ character.money }}</small></label>
         <label class="shop_item_form_row"><span>Nachricht</span><textarea name="message" maxlength="1000" rows="4"></textarea></label>
         <p class="item-transfer-form__error" id="itemTransferError" role="alert" hidden></p>
@@ -34,6 +37,7 @@
       </div>
       <fieldset class="item-transfer-selection" id="itemTransferSelection">
         <legend>Inventar</legend>
+        <label class="shop_item_form_row"><span>Inventar durchsuchen</span><input type="search" data-transfer-inventory-search placeholder="Gegenstand suchen …"></label>
         <div class="item-transfer-selection__list">
           {% for row in inventory_rows %}{% if row.can_transfer %}
             <label class="item-transfer-selection__row">
@@ -52,7 +56,7 @@
         </div>
       </fieldset>
     </div>
-    <footer class="shop_item_form_actions item-transfer-form__actions"><button type="submit" class="wax_seal_btn" aria-label="Versenden" title="Versenden"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button></footer>
+    <footer class="shop_item_form_actions item-transfer-form__actions"><p>Gegenstände warten auf Annahme. Geld wird unmittelbar übertragen.</p><button type="submit" class="transfer-button" aria-label="Versenden" title="Versenden">Sendung aufgeben <span aria-hidden="true">→</span></button></footer>
   </form>
   </div></div></div>
 </section>

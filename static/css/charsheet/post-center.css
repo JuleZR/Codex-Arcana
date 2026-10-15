@@ -1,0 +1,183 @@
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("../../fonts/cormorant_garamond/CormorantGaramond-wght.ttf") format("truetype");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  color-scheme: light;
+  --market-ink: #503524;
+  --market-brass: #c5a16a;
+  --market-red: #813d36;
+  color: var(--market-ink);
+  font: 14px "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #281f1a; }
+[hidden] { display: none !important; }
+.transfer-center {
+  display: flex;
+  flex-direction: column;
+  width: min(1260px, calc(100vw - 40px), calc((100dvh - 40px) * 297 / 210));
+  height: auto;
+  aspect-ratio: 297 / 210;
+  margin: 20px auto;
+  overflow: hidden;
+  border: 6px solid #614837;
+  outline: 1px solid var(--market-brass);
+  background: transparent;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 30px 75px #140c0877, 0 0 0 1px #26180f, 0 0 0 3px #a18362, inset 0 0 0 1px #d9bf9b;
+}
+.transfer-center-page--embedded { overflow: hidden; background: transparent; }
+.transfer-center-page--embedded .transfer-center { width: 100%; height: 100dvh; aspect-ratio: auto; margin: 0; border: 0; outline: 0; box-shadow: none; }
+.transfer-center-page--embedded .transfer-center__header { padding-right: 65px; }
+.transfer-center-page--embedded .transfer-close { display: none; }
+.transfer-center__header { flex-shrink: 0; cursor: default; }
+.transfer-close { flex-shrink: 0; width: 30px; height: 30px; padding: 0; border: 1px solid #b59463; border-radius: 50%; color: #e6cfad; background: #31231d; font-size: 23px; cursor: pointer; }
+.transfer-layout { display: grid; grid-template-columns: 154px minmax(0, 1fr); gap: 0; padding: 0; flex: 1; min-height: 0; background: radial-gradient(circle at 50% -10%, #e2c38f29, transparent 34%), linear-gradient(#77563a70, #4e362570); }
+.transfer-nav { position: relative; display: flex; flex-direction: column; gap: 18px; padding: 18px 8px 12px; border: 0; border-right: 2px solid #97714d; border-radius: 0; background: radial-gradient(circle at 50% 0%, #cfa3631f, transparent 34%), linear-gradient(#38291fcc, #1f1712cc); box-shadow: inset 0 0 0 1px #9c774a29; }
+.transfer-nav > .market_eyebrow { padding-inline: 8px; color: #c5a16a; }
+.transfer-nav [role="tablist"] { display: flex; flex-direction: column; gap: 8px; }
+.transfer-nav [role="tab"] { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 57px; padding: 10px 8px; border: 1px solid #84684e77; border-radius: 3px; background: transparent; color: #d0b99a; text-align: left; cursor: pointer; font: 600 11px "Segoe UI", sans-serif; }
+.transfer-nav [role="tab"]:hover { background: #74503a66; color: #fff0d2; }
+.transfer-nav [aria-selected="true"] { background: linear-gradient(155deg, #984a39, #713529); border-color: #d0a775; color: #ffe5b8; box-shadow: inset 3px 0 #edce96; }
+.transfer-nav svg { width: 22px; height: 22px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.transfer-nav b { margin-left: auto; padding: 3px 6px; border-radius: 50%; background: #28180e70; font-size: 10px; }
+.transfer-nav__edition { margin-top: auto; padding-top: 24px; color: #b28d5d; text-align: center; font: 26px Georgia, serif; }
+.transfer-nav__edition small { display: block; margin-top: 12px; font: 10px / 1.8 Georgia, serif; letter-spacing: 1px; }
+.transfer-workspace, .transfer-view { display: flex; flex: 1; flex-direction: column; gap: 0; min-width: 0; min-height: 0; }
+.transfer-view > .market_section_head { flex-basis: 62px; padding: 10px 16px; border: 0; border-bottom: 1px solid #b99b77; border-radius: 0; background: linear-gradient(#f8f1e5ee, #ddceb6e6); }
+.transfer-panel { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; border: 0; border-radius: 0; background: radial-gradient(ellipse at 50% 10%, #fffdf6a0, transparent 70%), linear-gradient(135deg, #fcf7ed, #eee0c3); }
+.transfer-panel .market_toolbar { padding: 13px 15px; flex-shrink: 0; }
+.transfer-panel .market_columns { gap: 12px; padding-inline: 16px; font-size: 10px; letter-spacing: .8px; }
+.transfer-panel .market_disclosures { flex-basis: 42px; padding-inline: 15px; font-size: 10px; }
+.transfer-search { display: flex; flex: 1; min-width: 0; }
+.transfer-center input:not([type="checkbox"]):not([type="hidden"]), .transfer-center select, .transfer-center textarea { min-width: 0; max-width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid #bc9973; border-radius: 5px; background: linear-gradient(#fffaf2, #f8eddb); color: var(--market-ink); font: inherit; box-shadow: inset 0 2px 5px #bda47a22, 0 2px 4px #61462d15; }
+.transfer-search input { width: 100%; }
+.transfer-center input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--market-red); }
+.transfer-center :focus-visible { outline: 2px solid var(--market-brass); outline-offset: 2px; }
+.transfer-center input:focus, .transfer-center textarea:focus { border-color: #a35a49; }
+.transfer-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 40px; padding: 8px 13px; border: 1px solid #bc9973; border-radius: 4px; color: var(--market-red); background: linear-gradient(#fffaf0, #eee0c7); font: 600 12px "Segoe UI", sans-serif; text-decoration: none; cursor: pointer; }
+.transfer-button:hover { background: #ead5b9; }
+.transfer-button:disabled { opacity: .45; cursor: default; }
+.transfer-button.danger { border-color: #ae796a; }
+.transfer-bulk-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 15px; border-top: 1px solid #d0b591; background: #ead8b9; }
+.transfer-bulk-form label { display: flex; align-items: center; gap: 6px; margin-right: auto; font-size: 12px; }
+.transfer-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #b6926e #eee0c9; }
+.transfer-offer { display: flex; align-items: start; min-width: 0; border-bottom: 1px solid #d6bea0; background: #fffbf240; }
+.transfer-offer:nth-child(even) { background: #dfcbac26; }
+.transfer-offer__select { padding: 20px 0 0 13px; }
+.transfer-offer details { flex: 1; min-width: 0; }
+.transfer-offer summary { display: flex; align-items: center; gap: 16px; min-height: 72px; padding: 12px 16px; list-style: none; cursor: pointer; }
+.transfer-offer summary::-webkit-details-marker { display: none; }
+.transfer-offer summary::after { content: "›"; color: #916d4b; font-size: 20px; }
+.transfer-offer details[open] summary::after { transform: rotate(90deg); }
+.transfer-offer details[open] { box-shadow: inset 3px 0 var(--market-red); }
+.transfer-offer summary:hover { background: #ead5b966; }
+.transfer-offer__body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.transfer-offer__body strong { font: 700 18px / 1.2 "Cormorant Garamond", Georgia, serif; }
+.transfer-offer small { display: block; margin-top: 5px; color: #87684d; font: 11px / 1.4 "Segoe UI", sans-serif; }
+.transfer-offer__recipient { flex-shrink: 0; max-width: 40%; text-align: right; overflow-wrap: anywhere; font-size: 12px; }
+.transfer-offer__details { padding: 0 16px 16px; color: #79593f; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.transfer-offer__image { float: left; width: 64px; height: 64px; object-fit: contain; margin: 0 14px 10px 0; border: 1px solid #c8a983; border-radius: 4px; }
+.transfer-offer blockquote { margin: 12px 0; padding: 10px 14px; border-left: 3px solid #b6926e; background: #fffaf080; }
+.transfer-actions { display: flex; flex-wrap: wrap; gap: 8px; clear: both; }
+.transfer-actions form:first-child button, .item-transfer-form__actions button { background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c); color: #f9e7c7; border-color: #b68661; }
+.transfer-status { font-size: 11px; color: #805638; }
+.transfer-status--accepted { color: #52764d; }
+.transfer-status--declined, .transfer-status--expired { color: #813d36; }
+.transfer-filter { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+.transfer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 100%; padding: 30px 18px; color: #927558; text-align: center; }
+.transfer-empty > span { color: var(--market-brass); font: 42px Georgia, serif; }
+.transfer-empty strong { color: #79533a; font: 700 23px "Cormorant Garamond", Georgia, serif; }
+.transfer-empty p { max-width: 330px; margin: 0; font-size: 13px; line-height: 1.6; }
+.transfer-no-results { padding: 24px; text-align: center; color: #927558; }
+.transfer-compose-scroll { overflow-y: auto; display: block; scrollbar-width: thin; scrollbar-color: #b6926e #eee0c9; }
+.transfer-sender-form { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; padding: 15px; border-bottom: 1px solid #c8a983; background: #ead8b980; }
+.transfer-sender-form label { display: grid; gap: 5px; flex: 1; min-width: 140px; font-size: 11px; font-weight: 600; }
+.transfer-compose { padding: 16px; }
+.item-transfer-form__heading { display: grid; gap: 6px; padding-bottom: 15px; border-bottom: 1px solid #d6bea0; }
+.item-transfer-form__heading > span { color: var(--market-red); font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; }
+.item-transfer-form__heading strong { font: 700 20px "Cormorant Garamond", Georgia, serif; }
+.item-transfer-form__columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; margin-top: 16px; }
+.item-transfer-form__details { min-width: 0; }
+.shop_item_form_row { display: grid; gap: 6px; margin-bottom: 14px; font-size: 12px; }
+.shop_item_form_row > span { font-weight: 600; }
+.shop_item_form_row small { font-size: 11px; color: #87684d; }
+.item-transfer-form textarea { width: 100%; resize: vertical; }
+.item-transfer-results { display: grid; max-height: 190px; overflow-y: auto; margin-top: -8px; margin-bottom: 12px; }
+.item-transfer-results:empty { display: none; }
+.item-transfer-results button { min-height: 44px; padding: 10px; border: 1px solid #c8a983; color: #70462f; background: #faf2e3; text-align: left; font: inherit; cursor: pointer; }
+.item-transfer-results button:hover { background: #ead5b9; }
+.item-transfer-selection { min-width: 0; padding: 12px; margin: 0; border: 1px solid #c8a983; border-radius: 4px; }
+.item-transfer-selection legend { padding-inline: 6px; font: 700 20px "Cormorant Garamond", Georgia, serif; }
+.item-transfer-selection__list { max-height: 360px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b6926e #eee0c9; }
+.item-transfer-selection__row { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 48px; padding: 8px 4px; border-bottom: 1px solid #d6bea080; cursor: pointer; }
+.item-transfer-selection__row > span { overflow-wrap: anywhere; font: 600 16px "Cormorant Garamond", Georgia, serif; }
+.item-transfer-selection__row > input[type="number"] { display: none; }
+.item-transfer-selection__row.is-selected { background: #ead5b966; }
+.item-transfer-selection__row.is-selected > input[type="number"] { display: block; grid-column: 2; width: 100px; }
+.item-transfer-permissions { padding: 12px; margin: 12px 0 0; border: 1px solid #c8a983; background: #ead8b955; border-radius: 4px; }
+.item-transfer-permissions__title { margin: 0; font: 700 19px "Cormorant Garamond", Georgia, serif; }
+.item-transfer-permissions__intro { font-size: 12px; line-height: 1.5; }
+.item-transfer-permission-row, .item-transfer-ownership-card { display: flex; align-items: start; gap: 8px; padding: 8px 0; font-size: 12px; cursor: pointer; }
+.item-transfer-permission-row small, .item-transfer-ownership-card small { display: block; margin-top: 4px; line-height: 1.4; }
+.item-transfer-ownership-card { margin-top: 8px; border-top: 1px solid #b8786c; color: #813d36; }
+.item-transfer-form__actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #c8a983; }
+.item-transfer-form__actions p { flex: 1; min-width: 180px; margin: 0; color: #87684d; font-size: 11px; line-height: 1.5; }
+.item-transfer-form__error, #itemTransferGmHint { padding: 10px; border-left: 3px solid #813d36; background: #813d3610; color: #813d36; font-size: 12px; }
+.transfer-feedback { flex-shrink: 0; margin: 0; padding: 10px 18px; background: #f5e8cd; color: #70462f; border-bottom: 1px solid #c8a983; font-size: 13px; }
+.transfer-feedback.is-error { color: #813d36; }
+.transfer-toast-stack { position: fixed; z-index: 20; bottom: 12px; left: 50%; width: min(360px, calc(100% - 30px)); transform: translateX(-50%); pointer-events: none; }
+.transfer-message { padding: 12px; margin: 5px 0; border: 1px solid #b6926e; border-radius: 4px; color: #70462f; background: #faf2e3; box-shadow: 0 8px 22px #3622123d; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 950px), (max-height: 760px) {
+  .transfer-center__header { flex-basis: 75px; padding: 8px 15px; gap: 12px; }
+  .transfer-center__header .market_subtitle { display: none; }
+  .transfer-layout { grid-template-columns: 140px minmax(0, 1fr); }
+  .transfer-nav { padding-inline: 5px; }
+  .transfer-nav [role="tab"] { gap: 5px; font-size: 10px; }
+}
+@media (max-width: 760px), (max-height: 560px) {
+  .transfer-center { width: calc(100vw - 16px); height: calc(100dvh - 16px); aspect-ratio: auto; margin: 8px; }
+}
+@media (max-width: 760px) {
+  .transfer-center__header { flex-basis: auto; min-height: 82px; flex-wrap: wrap; padding: 10px 12px; }
+  .transfer-center__header .market_emblem { width: 32px; height: 32px; }
+  .transfer-center__header .market_guild { font-size: 8px; letter-spacing: .7px; }
+  .transfer-center__header .market_title { font-size: 25px; }
+  .transfer-center__header .market_wallet { min-width: 0; padding: 6px 9px; }
+  .transfer-center__header .market_wallet span { font-size: 8px; letter-spacing: .3px; }
+  .transfer-center__header .market_wallet strong { font-size: 22px; }
+  .transfer-layout { display: flex; flex-direction: column; }
+  .transfer-nav { flex-shrink: 0; padding: 5px; border-right: 0; border-bottom: 1px solid #97714d; }
+  .transfer-nav > .market_eyebrow, .transfer-nav__edition { display: none; }
+  .transfer-nav [role="tablist"] { flex-direction: row; gap: 4px; }
+  .transfer-nav [role="tab"] { justify-content: center; flex: 1; width: auto; min-width: 0; min-height: 44px; padding: 7px 4px; font-size: 10px; }
+  .transfer-nav svg { width: 18px; height: 18px; }
+  .transfer-view > .market_section_head { flex-basis: 56px; padding: 9px 12px; }
+  .transfer-panel .market_toolbar { padding: 10px; flex-wrap: wrap; }
+  .transfer-panel .market_columns { font-size: 8px; padding-inline: 10px; }
+  .transfer-panel .market_disclosures { flex-basis: auto; min-height: 42px; padding: 8px 10px; font-size: 9px; }
+  .transfer-panel .market_disclosures button { white-space: nowrap; }
+  .transfer-center input:not([type="checkbox"]):not([type="hidden"]), .transfer-center select, .transfer-center textarea { min-height: 44px; font-size: 16px; }
+  .transfer-button { min-height: 44px; }
+  .transfer-offer summary { gap: 8px; padding: 12px 10px; }
+  .transfer-offer__body strong { font-size: 16px; }
+  .transfer-offer__recipient { max-width: 42%; font-size: 11px; }
+  .transfer-offer small { font-size: 10px; }
+  .transfer-bulk-form { padding: 8px 10px; }
+  .transfer-bulk-form label { width: 100%; }
+  .transfer-center input[type="checkbox"] { width: 22px; height: 22px; }
+  .item-transfer-form__columns { grid-template-columns: minmax(0, 1fr); }
+  .item-transfer-selection { grid-row: 1; }
+  .item-transfer-selection__list { max-height: 260px; }
+  .transfer-compose { padding: 12px; }
+  .transfer-filter { width: 100%; justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
