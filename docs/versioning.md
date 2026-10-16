@@ -1,47 +1,78 @@
-# Automatische Versionierung
+# CodexOS-Versionierung
 
-Codex Arcana zeigt seine Version im Format `v.X.Y.Z-bN` auf dem
-Login-Screen und im Dashboard an.
+Der Anwendungsname bleibt **Codex Arcana**. Die Versionsanzeige lautet
+beispielsweise `CodexOS 28`, `CodexOS 28-rc6` oder `CodexOS 28.1.2`.
+Die zentrale Quelle ist die eingecheckte Datei `VERSION`. Der Context Processor
+liest sie für Login, Dashboard und Passwort-Reset; Templates enthalten keine
+festen Versionsnummern. Die Anwendung berechnet beim Anzeigen keine Version
+aus Git und benötigt keine Versions-Umgebungsvariable.
 
-## Regeln
+## Manuelle Marker
 
-- `X` bezeichnet die Entwicklungsphase. Sie wird nicht automatisch erhöht.
-  Während der Beta bleibt sie `0`.
-- `Y` steigt bei einem fertigen Feature (`feat`) und setzt `Z` auf `000`.
-- `Z` steigt bei `fix`, `perf` und `refactor`.
-- Die Buildnummer steigt bei jedem Commit, unabhängig von dessen Typ.
-- `docs`, `test`, `style`, `chore`, `ci`, `build` und nicht klassifizierte
-  Commits verändern nur die Buildnummer.
-- Ein Commit mit `!` oder `BREAKING CHANGE:` wird während der Beta wie ein
-  Feature behandelt; `X` bleibt unverändert.
+Marker können im Betreff oder Text einer Commit-Nachricht stehen:
 
-Die vorhandene Historie bildet den Startstand. Bei Einführung der
-Versionierung ergeben 329 Commits und 91 `feat`-Commits den Stand
-`v.0.91.0-b329`.
+| Marker | Versionsbasis |
+| --- | --- |
+| `[v:28]` | `28` |
+| `[v:28-rc]` | `28-rc1` |
+| `[v:28-rc6]` | `28-rc6` |
+| `[v:29]` | `29` |
 
-## Deployment
+Auch vollständige Angaben wie `[v:28.1.2]` werden unterstützt. Zahlen haben
+keine führenden Nullen; RC-Stufen beginnen bei 1. Ungültige Marker werden
+ignoriert. Der neueste gültige Marker gewinnt, bei mehreren Markern im selben
+Commit der letzte gültige. Der Marker-Commit und alle früheren Commits lösen
+keine automatische Erhöhung aus. Nur spätere Commits werden ausgewertet.
+Hauptgeneration und RC-Stufe dürfen ausschließlich manuell festgelegt werden.
 
-Wenn das Deployment das Git-Repository einschließlich `.git` enthält, wird
-die Version aus der Historie berechnet. Die Anwendung prüft den aktuellen
-Git-Commit bei der Ausgabe und berechnet die Version neu, sobald sich `HEAD`
-ändert; ein Neustart des Django-Prozesses ist dafür nicht erforderlich.
+## Automatische Berechnung
 
-Ein Deployment-Skript kann den Wert mit folgendem Befehl abrufen:
+- Release Candidates bleiben vollständig unverändert, auch bei `feat`, `fix`,
+  `!` und `BREAKING CHANGE`. Erst ein neuer manueller Marker löst die Sperre
+  oder legt eine andere RC-Stufe fest.
+- Bei Vollversionen erhöht `feat` die Minor-Version und setzt Patch auf 0.
+- `fix` erhöht Patch um 1.
+- Alle anderen Commit-Typen verändern die Version nicht.
+- `!` und `BREAKING CHANGE` haben keine eigene Wirkung. `feat!` zählt wie
+  `feat`, `fix!` wie `fix`, `chore!` bewirkt keine Erhöhung.
+- Die Hauptgeneration wird niemals automatisch erhöht.
+- Alle Commits seit dem letzten Commit, der `VERSION` geändert hat, werden
+  gemeinsam ausgewertet (älteste zuerst). Nach einem manuellen Marker zählt
+  nur dessen nachfolgender Teil. Pro Berechnungsdurchlauf gibt es höchstens
+  einen Sprung; `feat` hat Vorrang vor `fix`.
+
+`28` entspricht rechnerisch `28.0.0`, wird aber als `28` geschrieben.
+Aufeinanderfolgende Durchläufe können beispielsweise diese Folge ergeben:
 
 ```text
-python manage.py app_version
+28 → 28.0.1 → 28.0.2 → 28.1.0 → 28.1.1
 ```
 
-Wenn der Webprozess nicht auf Git zugreifen kann, erzeugt das Deployment vor
-dem Prozessneustart eine Versionsdatei:
+## Bestehende Versionen und Umstellung
+
+Die Umstellung setzt keine neue Generation oder RC-Stufe. Der vorhandene
+Stand `1.0.0-rc11` bleibt einschließlich seiner Schreibweise erhalten, bis
+ein neuer manueller Marker gesetzt wird. Alte dreiteilige Versionen bleiben
+lesbar; auch ältere Vorabversionen wie `0.8.0-beta` werden bis zu einem
+manuellen Marker eingefroren. Es gibt keine automatische Umnummerierung in
+Generation 28. Die Entscheidung darüber erfolgt durch einen Commit-Marker.
+
+## GitHub Actions
+
+Der bestehende Workflow `.github/workflows/version.yml` läuft bei Pushes auf
+`main` oder manuell über `workflow_dispatch`. Er lädt die vollständige Historie
+und führt aus:
 
 ```text
-python manage.py app_version --write-deployment-file
+python -m codex_arcana.versioning
 ```
 
-Die Anwendung liest diese Datei ohne Git-Zugriff. Sie wird bei jedem Deployment
-atomar aktualisiert und darf nicht ins Repository eingecheckt werden.
+Dieser Befehl berechnet die Version und ersetzt `VERSION` bei einer Änderung
+atomar. Anschließend aktualisiert der Workflow die CodexOS-Badges in
+`README.md` und `README.de.md` aus derselben Datei und committet Änderungen
+als GitHub-Actions-Bot. Bot-Pushes starten keine weitere Versionsberechnung.
+Ohne Versionsänderung bleibt `VERSION` unverändert; reine Badge-Änderungen
+können ebenfalls eingecheckt werden.
 
-Wenn `.git` auf dem Produktivserver nicht vorhanden ist, muss das
-Deployment-Skript den vorher berechneten Wert als Umgebungsvariable
-`CODEX_ARCANA_VERSION` an die Anwendung übergeben.
+Deployments müssen die vom Workflow aktualisierte `VERSION` mit ausliefern.
+Die Anwendung liest ausschließlich diesen gespeicherten Stand.

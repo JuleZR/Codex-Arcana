@@ -1,4 +1,4 @@
-"""Semantic Versioning for Codex Arcana.
+"""CodexOS versioning for Codex Arcana.
 
 VERSION is the canonical application version.
 
@@ -7,18 +7,16 @@ most recent commit that changed VERSION.
 
 Rules:
 
-- [v:X.Y.Z] or [v:X.Y.Z-prerelease]:
+- [v:X], [v:X-rcN] or [v:X.Y.Z]:
     - manually sets the exact version at that commit
     - commits before the marker are ignored for the next calculation
     - commits after the marker are evaluated normally
-- BREAKING CHANGE:
-    - before 1.0.0 -> next minor version
-    - from 1.0.0 onward -> next major version
 - feat -> next minor version
 - fix -> next patch version
 - all other commit types -> no automatic version change
-- a manual -rc suffix starts at -rc1; automatic bumps only increase
-  the RC number until a manual marker removes the suffix
+- BREAKING CHANGE never changes the generation on its own
+- a manual -rc suffix starts at -rc1; prereleases stay frozen until
+  a new manual marker is set
 
 Commit scopes are supported, e.g.:
 
@@ -29,7 +27,7 @@ Commit scopes are supported, e.g.:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import subprocess
@@ -42,14 +40,16 @@ VERSION_FILE = PROJECT_ROOT / "VERSION"
 FALLBACK_VERSION = "0.8.0-beta"
 
 
-_SEMVER_PATTERN = re.compile(
+_VERSION_PATTERN = re.compile(
     r"""
     ^
     (?P<major>0|[1-9]\d*)
-    \.
-    (?P<minor>0|[1-9]\d*)
-    \.
-    (?P<patch>0|[1-9]\d*)
+    (?:
+        \.
+        (?P<minor>0|[1-9]\d*)
+        \.
+        (?P<patch>0|[1-9]\d*)
+    )?
     (?:
         -
         (?P<prerelease>[0-9A-Za-z.-]+)
@@ -62,12 +62,6 @@ _SEMVER_PATTERN = re.compile(
 
 _COMMIT_TYPE_PATTERN = re.compile(
     r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<breaking>!)?:",
-    re.IGNORECASE,
-)
-
-
-_BREAKING_CHANGE_PATTERN = re.compile(
-    r"(?:^|\n)BREAKING(?: |-)?CHANGE\s*:",
     re.IGNORECASE,
 )
 
@@ -88,15 +82,19 @@ class CommitDescription:
 
 @dataclass(frozen=True, slots=True)
 class Version:
-    """Semantic Versioning version."""
+    """CodexOS version, retaining explicit legacy components on read."""
 
     major: int
     minor: int
     patch: int
     prerelease: str | None = None
+    explicit_components: bool = field(default=False, compare=False)
 
     def __str__(self) -> str:
-        version = f"{self.major}.{self.minor}.{self.patch}"
+        version = str(self.major)
+
+        if self.minor or self.patch or self.explicit_components:
+            version = f"{self.major}.{self.minor}.{self.patch}"
 
         if self.prerelease:
             version = f"{version}-{self.prerelease}"
@@ -105,42 +103,31 @@ class Version:
 
     @classmethod
     def parse(cls, value: str) -> "Version":
-        """Parse a strict SemVer-style project version."""
+        """Parse CodexOS versions and existing SemVer versions losslessly."""
 
         normalized = value.strip()
 
-        match = _SEMVER_PATTERN.fullmatch(normalized)
+        match = _VERSION_PATTERN.fullmatch(normalized)
 
         if not match:
             raise ValueError(
                 f"Invalid Codex Arcana version: {value!r}"
             )
 
+        prerelease = match.group("prerelease")
+        explicit_components = match.group("minor") is not None
+        if not explicit_components and prerelease and not re.fullmatch(
+            r"rc(?:[1-9][0-9]*)?", prerelease
+        ):
+            raise ValueError(f"Invalid CodexOS version: {value!r}")
+
         return cls(
             major=int(match.group("major")),
-            minor=int(match.group("minor")),
-            patch=int(match.group("patch")),
-            prerelease=match.group("prerelease"),
+            minor=int(match.group("minor") or "0"),
+            patch=int(match.group("patch") or "0"),
+            prerelease=prerelease,
+            explicit_components=explicit_components,
         )
-
-
-def _commit_is_breaking(
-    commit: CommitDescription,
-) -> bool:
-    """Return whether a Conventional Commit declares a breaking change."""
-
-    match = _COMMIT_TYPE_PATTERN.match(
-        commit.subject.strip()
-    )
-
-    if match and match.group("breaking"):
-        return True
-
-    return bool(
-        _BREAKING_CHANGE_PATTERN.search(
-            commit.body
-        )
-    )
 
 
 def _commit_type(
@@ -165,16 +152,24 @@ def _manual_version(
 
     text = f"{commit.subject}\n{commit.body}"
 
-    matches = list(
-        _MANUAL_VERSION_PATTERN.finditer(text)
-    )
-
-    if not matches:
-        return None
-
-    return Version.parse(
-        matches[-1].group("version")
-    )
+    for match in reversed(list(_MANUAL_VERSION_PATTERN.finditer(text))):
+        try:
+            version = Version.parse(match.group("version"))
+        except ValueError:
+            continue
+        if version.prerelease and not re.fullmatch(
+            r"rc(?:[1-9][0-9]*)?", version.prerelease
+        ):
+            continue
+        return Version(
+            major=version.major,
+            minor=version.minor,
+            patch=version.patch,
+            prerelease=(
+                "rc1" if version.prerelease == "rc" else version.prerelease
+            ),
+        )
+    return None
 
 
 def calculate_version(
@@ -182,7 +177,7 @@ def calculate_version(
     *,
     base: Version,
 ) -> Version:
-    """Calculate the next semantic version candidate.
+    """Calculate the next CodexOS version candidate.
 
     All commits since the most recent VERSION update are evaluated
     together.
@@ -198,7 +193,7 @@ def calculate_version(
 
     Priority after the manual anchor:
 
-        BREAKING CHANGE > feat > fix
+        feat > fix (only for full releases)
     """
 
     for index in range(
@@ -213,22 +208,13 @@ def calculate_version(
         if manual_version is None:
             continue
 
-        if manual_version.prerelease == "rc":
-            manual_version = Version(
-                major=manual_version.major,
-                minor=manual_version.minor,
-                patch=manual_version.patch,
-                prerelease="rc1",
-            )
-
         base = manual_version
         commits = commits[index + 1:]
         break
 
-    has_breaking_change = any(
-        _commit_is_breaking(commit)
-        for commit in commits
-    )
+    # Keep RCs and legacy prereleases unchanged until a manual marker.
+    if base.prerelease:
+        return base
 
     has_feature = any(
         _commit_type(commit) == "feat"
@@ -239,38 +225,6 @@ def calculate_version(
         _commit_type(commit) == "fix"
         for commit in commits
     )
-
-    release_candidate = re.fullmatch(
-        r"rc(?P<number>[0-9]*)",
-        base.prerelease or "",
-    )
-
-    if release_candidate and (
-        has_breaking_change or has_feature or has_fix
-    ):
-        number = int(release_candidate.group("number") or "0")
-        return Version(
-            major=base.major,
-            minor=base.minor,
-            patch=base.patch,
-            prerelease=f"rc{number + 1}",
-        )
-
-    if has_breaking_change:
-        if base.major == 0:
-            return Version(
-                major=0,
-                minor=base.minor + 1,
-                patch=0,
-                prerelease=base.prerelease,
-            )
-
-        return Version(
-            major=base.major + 1,
-            minor=0,
-            patch=0,
-            prerelease=base.prerelease,
-        )
 
     if has_feature:
         return Version(

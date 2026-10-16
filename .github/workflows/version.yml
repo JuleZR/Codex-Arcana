@@ -50,14 +50,14 @@ jobs:
 
           replacement = (
               f'<img src="https://img.shields.io/badge/'
-              f'Version-{badge_version}-purple" '
-              f'alt="Version {version}" />'
+              f'CodexOS-{badge_version}-purple" '
+              f'alt="CodexOS {version}" />'
           )
 
           pattern = re.compile(
               r'<img src="https://img\.shields\.io/badge/'
-              r'(?:Status-Beta-purple|Version-[^"]+-purple)" '
-              r'alt="(?:Beta|Version [^"]+)" ?/>'
+              r'(?:Status-Beta-purple|(?:Version|CodexOS)-[^"]+-purple)" '
+              r'alt="(?:Beta|(?:Version|CodexOS) [^"]+)" ?/>'
           )
 
           for filename in (
@@ -88,7 +88,7 @@ jobs:
               )
 
               print(
-                  f"{filename}: Version {version}"
+                  f"{filename}: CodexOS {version}"
               )
 
       - name: Commit VERSION
