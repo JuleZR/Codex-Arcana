@@ -7,7 +7,7 @@ most recent commit that changed VERSION.
 
 Rules:
 
-- [v:X], [v:X-rcN] or [v:X.Y.Z]:
+- [v:X], [v:X-rc], [v:X-rcN], [v:X-beta] or [v:X.Y.Z]:
     - manually sets the exact version at that commit
     - commits before the marker are ignored for the next calculation
     - commits after the marker are evaluated normally
@@ -15,7 +15,7 @@ Rules:
 - fix -> next patch version
 - all other commit types -> no automatic version change
 - BREAKING CHANGE never changes the generation on its own
-- a manual -rc suffix starts at -rc1; prereleases stay frozen until
+- manual -rc and -beta suffixes stay unnumbered; prereleases freeze until
   a new manual marker is set
 
 Commit scopes are supported, e.g.:
@@ -117,7 +117,7 @@ class Version:
         prerelease = match.group("prerelease")
         explicit_components = match.group("minor") is not None
         if not explicit_components and prerelease and not re.fullmatch(
-            r"rc(?:[1-9][0-9]*)?", prerelease
+            r"(?:rc(?:[1-9][0-9]*)?|beta)", prerelease
         ):
             raise ValueError(f"Invalid CodexOS version: {value!r}")
 
@@ -158,16 +158,14 @@ def _manual_version(
         except ValueError:
             continue
         if version.prerelease and not re.fullmatch(
-            r"rc(?:[1-9][0-9]*)?", version.prerelease
+            r"(?:rc(?:[1-9][0-9]*)?|beta)", version.prerelease
         ):
             continue
         return Version(
             major=version.major,
             minor=version.minor,
             patch=version.patch,
-            prerelease=(
-                "rc1" if version.prerelease == "rc" else version.prerelease
-            ),
+            prerelease=version.prerelease,
         )
     return None
 
@@ -186,7 +184,7 @@ def calculate_version(
     version once.
 
     A manual [v:...] marker establishes a new base version.
-    A bare -rc suffix is normalized to -rc1.
+    Bare -rc and -beta suffixes stay unnumbered.
     The newest marker wins. Its own commit and all earlier commits are
     excluded from automatic bump classification; only later commits are
     evaluated.
@@ -212,7 +210,7 @@ def calculate_version(
         commits = commits[index + 1:]
         break
 
-    # Keep RCs and legacy prereleases unchanged until a manual marker.
+    # Keep all prereleases unchanged until a manual marker.
     if base.prerelease:
         return base
 

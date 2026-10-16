@@ -13,23 +13,26 @@ Marker können im Betreff oder Text einer Commit-Nachricht stehen:
 
 | Marker | Versionsbasis |
 | --- | --- |
+| `[v:27-beta]` | `27-beta` |
 | `[v:28]` | `28` |
-| `[v:28-rc]` | `28-rc1` |
+| `[v:28-rc]` | `28-rc` |
 | `[v:28-rc6]` | `28-rc6` |
 | `[v:29]` | `29` |
 
 Auch vollständige Angaben wie `[v:28.1.2]` werden unterstützt. Zahlen haben
-keine führenden Nullen; RC-Stufen beginnen bei 1. Ungültige Marker werden
-ignoriert. Der neueste gültige Marker gewinnt, bei mehreren Markern im selben
+keine führenden Nullen; explizite RC-Stufen beginnen bei 1. Die Suffixe `-rc`
+und `-beta` bleiben ohne Nummer erhalten; es wird keine Nummer angehängt.
+Auch `[v:28.1.2-beta]` wird unterstützt. Ungültige Marker werden ignoriert.
+Der neueste gültige Marker gewinnt, bei mehreren Markern im selben
 Commit der letzte gültige. Der Marker-Commit und alle früheren Commits lösen
 keine automatische Erhöhung aus. Nur spätere Commits werden ausgewertet.
 Hauptgeneration und RC-Stufe dürfen ausschließlich manuell festgelegt werden.
 
 ## Automatische Berechnung
 
-- Release Candidates bleiben vollständig unverändert, auch bei `feat`, `fix`,
+- Beta-Versionen und Release Candidates bleiben unverändert, auch bei `feat`, `fix`,
   `!` und `BREAKING CHANGE`. Erst ein neuer manueller Marker löst die Sperre
-  oder legt eine andere RC-Stufe fest.
+  oder legt einen anderen Vorabversionsstand fest.
 - Bei Vollversionen erhöht `feat` die Minor-Version und setzt Patch auf 0.
 - `fix` erhöht Patch um 1.
 - Alle anderen Commit-Typen verändern die Version nicht.
