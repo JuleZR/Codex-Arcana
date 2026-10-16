@@ -264,6 +264,7 @@ function normalizeUnicodeFraction(value) {
 
 export function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
+  html = html.replace(/\[\[BR\]\]/g, "<br>");
   html = html.replace(
     /\[\[EFFECTTOGGLE:([^;\]]+);([^;\]]+);([0-9,]+);([01])(?:;([01]))?\]\]/g,
     (_match, url, source, ids, active, inverted = "0") => {
@@ -827,9 +828,21 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   const weaponSymbolRows = [];
   const effectRows = [];
   const runeRows = [];
+  const substanceRows = [];
+  let substanceSource = "";
   let activeSection = "";
   Array.from(table.tBodies[0].rows).forEach((row) => {
     const label = normalizeInlineText(row.cells[0]?.textContent || "");
+    if (label.startsWith("[[SUBSTANCE]] ")) {
+      const substanceRow = row.cloneNode(true);
+      substanceRow.cells[0].textContent = label.slice("[[SUBSTANCE]] ".length);
+      if (substanceRow.cells[0].textContent === "Quelle") {
+        substanceSource = substanceRow.cells[1]?.innerHTML || "";
+        return;
+      }
+      substanceRows.push(substanceRow);
+      return;
+    }
     if (label === "[[WEAPON_SYMBOL]]") {
       activeSection = "weapon_symbols";
       weaponSymbolRows.push(row.cloneNode(true));
@@ -883,6 +896,15 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
   const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
   if (includeExtraSections) {
+    const substanceMarkup = createTooltipCardTableMarkup(table, substanceRows, { includeHead: false });
+    if (substanceMarkup) {
+      extras.push(`
+        <section class="floating-tooltip-card__section floating-tooltip-card__section--substance">
+          <h4 class="floating-tooltip-card__section_title">Substanzdaten</h4>
+          <div class="floating-tooltip-card__section_body">${substanceMarkup}</div>
+        </section>
+      `);
+    }
     const weaponSymbolMarkup = createTooltipCardTableMarkup(table, normalizedWeaponSymbolRows, { includeHead: false });
     if (weaponSymbolMarkup) {
       extras.push(`
@@ -923,6 +945,10 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
       extras.push(`<p>${escapeHtml(String(node.textContent || "").trim())}</p>`);
     }
   });
+
+  if (includeExtraSections && substanceSource) {
+    extras.push(`<small class="floating-tooltip-card__source" aria-label="Quelle">${substanceSource}</small>`);
+  }
 
   return {
     leadHtml: createTooltipCardTableMarkup(table, topRows) || table.outerHTML,
@@ -1162,6 +1188,9 @@ function applyDisclosureDisplayPayload(card, target, display) {
     const value = textValue(key);
     return value || (hiddenFields.has(key) ? "Verborgen" : "");
   };
+  card.querySelectorAll(".floating-tooltip-card__section--substance, .floating-tooltip-card__source").forEach((section) => {
+    section.hidden = ["substance_stats", "description", "item_type"].some((key) => hiddenFields.has(key));
+  });
   const title = card.querySelector(".floating-tooltip-card__title");
   if (title instanceof HTMLElement) {
     const lock = title.querySelector(".tooltip_disclosure_toggle");

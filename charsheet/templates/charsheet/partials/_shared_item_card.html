@@ -29,7 +29,7 @@
                 <input class="sl-card-alt-field" name="alternative_item_type" value="{{ item_card.field_controls.item_type.alternative_text }}" placeholder="Alternativer Typ" form="{{ disclosure_form_id }}">
               </span>
             {% endif %}
-            {% if item_card.controls and item_card.field_controls.quality %}
+            {% if item_card.controls and item_card.field_controls.quality and item_card.quality_label %}
               <span class="sl-card-lock-control sl-card-lock-control--meta">
                 <input type="hidden" name="disclosure_present_quality" value="1" form="{{ disclosure_form_id }}">
                 <input type="hidden" name="revealed_quality" value="1" form="{{ disclosure_form_id }}">
@@ -79,6 +79,7 @@
             <thead><tr><th>Wert</th><th>Details</th></tr></thead>
             <tbody>
               {% for row in item_card.detail_rows %}
+                {% if row.field_key != 'substance_stats' %}
                 <tr>
                   <td>{{ row.label }}</td>
                   <td>
@@ -96,14 +97,38 @@
                     </span>
                   </td>
                 </tr>
+                {% endif %}
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% endif %}
     </div>
-    {% if item_card.weapon_symbol_rows or item_card.effect_rows or item_card.rune_rows or item_card.description or item_card.controls and item_card.field_controls.description %}
+    {% if item_card.substance_rows or item_card.weapon_symbol_rows or item_card.effect_rows or item_card.rune_rows or item_card.description or item_card.controls and item_card.field_controls.description %}
       <section class="floating-tooltip-card__lore">
+        {% for row in item_card.substance_rows %}
+          {% if row.substance_fields or item_card.controls %}
+          <section class="floating-tooltip-card__section floating-tooltip-card__section--substance">
+            <h4 class="floating-tooltip-card__section_title">Substanzdaten</h4>
+            {% if item_card.controls and row.disclosure %}
+              <span class="sl-card-lock-control sl-card-lock-control--value">
+                <input type="hidden" name="disclosure_present_substance_stats" value="1" form="{{ disclosure_form_id }}">
+                <input type="hidden" name="revealed_substance_stats" value="1" form="{{ disclosure_form_id }}">
+                <input id="{{ disclosure_form_id }}-substance_stats-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_substance_stats" value="0" form="{{ disclosure_form_id }}"{% if not row.disclosure.revealed %} checked{% endif %}>
+                <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-substance_stats-lock" aria-label="Substanzdaten sperren"></label>
+                <input class="sl-card-alt-field" name="alternative_substance_stats" value="{{ row.disclosure.alternative_text }}" placeholder="Alternativ" form="{{ disclosure_form_id }}">
+              </span>
+            {% endif %}
+            <div class="floating-tooltip-card__section_body" data-sl-disclosure-target="substance_stats" data-actual="{{ row.value }}" data-hidden="Verborgen">
+              <table><tbody>
+                {% for label, value in row.substance_fields %}
+                  <tr><td>{{ label }}</td><td>{{ value|linebreaksbr }}</td></tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+          </section>
+          {% endif %}
+        {% endfor %}
         {% if item_card.weapon_symbol_rows %}
           <section class="floating-tooltip-card__section">
             <div class="floating-tooltip-card__section_body">
@@ -176,6 +201,11 @@
             <div data-sl-disclosure-target="description" data-actual="{{ item_card.description }}" data-hidden="Verborgen">{{ item_card.description|card_markdown }}</div>
           </div>
         {% endif %}
+        {% for row in item_card.substance_rows %}
+          {% if row.substance_source %}
+            <small class="floating-tooltip-card__source" aria-label="Quelle" data-sl-disclosure-target="substance_stats" data-actual="{{ row.substance_source }}" data-hidden="Verborgen">{{ row.substance_source|linebreaksbr }}</small>
+          {% endif %}
+        {% endfor %}
       </section>
     {% endif %}
   </div>

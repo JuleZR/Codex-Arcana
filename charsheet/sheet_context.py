@@ -3093,6 +3093,18 @@ def _build_tooltip_table(rows: list[tuple[str, object]]) -> str:
         "| --- | --- |",
     ]
     for label, value in rows:
+        if label == "Substanzdaten" and isinstance(value, dict):
+            for field_label, field_value in value["fields"]:
+                field_label = _escape_tooltip_table_cell(field_label)
+                field_text = _escape_tooltip_table_cell(field_value)
+                field_text = field_text.replace("\r", "").replace(
+                    "\n", "[[BR]]",
+                )
+                lines.append(
+                    f"| [[SUBSTANCE]] {field_label} "
+                    f"| {field_text} |"
+                )
+            continue
         lines.append(
             f"| {_escape_tooltip_table_cell(label)} | {_escape_tooltip_table_cell(value)} |"
         )
@@ -3568,7 +3580,10 @@ def build_character_item_card_context(
         )
 
     quality_label = "" if "quality" in hidden_field_keys and not include_controls else display.quality_label
-    quality_color = "" if "quality" in hidden_field_keys and not include_controls else quality["color"]
+    quality_color = (
+        quality["color"] if item.item_type.shows_quality
+        and ("quality" not in hidden_field_keys or include_controls) else ""
+    )
     detail_rows = _build_item_tooltip_rows(
         item_engine,
         item,
@@ -3600,8 +3615,13 @@ def build_character_item_card_context(
     for label, value in detail_rows:
         label_text = str(label).replace("**", "")
         field_key = detail_field_keys.get(str(label), "")
+        substance_fields = (
+            value["fields"]
+            if field_key == "substance_stats" and isinstance(value, dict)
+            else []
+        )
         value_text = (
-            str(value) if field_key == "substance_stats"
+            value["text"] if substance_fields
             else str(value).replace("**", "")
         )
         safe_detail_rows.append(
@@ -3609,6 +3629,14 @@ def build_character_item_card_context(
                 "label": label_text,
                 "value": value_text,
                 "field_key": field_key,
+                "substance_fields": [
+                    (label, value) for label, value in substance_fields
+                    if label != "Quelle"
+                ],
+                "substance_source": next((
+                    str(value) for label, value in substance_fields
+                    if label == "Quelle"
+                ), ""),
             }
         )
     return {
@@ -3621,6 +3649,10 @@ def build_character_item_card_context(
         "actual_image_url": display.image_url,
         "accent": quality_color,
         "detail_rows": safe_detail_rows,
+        "substance_rows": [
+            row for row in safe_detail_rows
+            if row["substance_fields"] or row["substance_source"]
+        ],
         **_item_structure_context(character_item),
         "weapon_symbol_rows": [
             {"label": "", "value": str(value).replace("**", "")}
@@ -3863,11 +3895,12 @@ def _build_item_tooltip_rows(
         if item.item_type.supports_substance_stats else None
     )
     if substance is not None:
+        fields = substance.display_fields
         text = "\n".join(
-            f"{label}: {value}" for label, value in substance.display_fields
+            f"{label}: {value}" for label, value in fields
         )
         if text:
-            rows.append(("Substanzdaten", text))
+            rows.append(("Substanzdaten", {"fields": fields, "text": text}))
     return rows
 
 
@@ -6217,7 +6250,7 @@ def _build_inventory_rows(
                 ),
             )
 
-        elif item_description:
+        elif item_description or item_tooltip_rows:
             tooltip_text = _format_item_tooltip(
                 description=item_description,
                 detail_rows=(

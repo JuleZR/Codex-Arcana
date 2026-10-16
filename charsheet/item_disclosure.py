@@ -142,6 +142,8 @@ def resolve_character_item_display(
         disclosures=disclosures,
         privileged=privileged,
     )
+    if not character_item.item.item_type.shows_quality:
+        quality_label, quality_visible = "", False
     price, price_visible = _field_value(
         field_key="price",
         actual_value=item_engine.get_price(),
@@ -192,7 +194,11 @@ def resolve_character_item_display(
         image_url=str(image_url or ""),
         item_type=str(item_type or ""),
         quality_label=str(quality_label or ""),
-        quality_color=item_engine.get_quality_color() if quality_visible or privileged else "",
+        quality_color=(
+            item_engine.get_quality_color()
+            if character_item.item.item_type.shows_quality
+            and (quality_visible or privileged) else ""
+        ),
         price=int(price) if isinstance(price, int) else None,
         weight=str(weight or ""),
         size_class=str(size_class or ""),

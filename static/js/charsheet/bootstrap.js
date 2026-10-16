@@ -10,7 +10,7 @@ import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20261016-quality-visibility";
 import { initLearningMenu } from "./learning_menu.js?v=20261014-open-choices-only";
-import { initTooltips } from "./tooltip.js?v=20261016-hotbar-mobile";
+import { initTooltips } from "./tooltip.js?v=20261016-substance-cards";
 import { initInventoryMenu } from "./inventory_menu.js?v=20261015-fit-item-card";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";

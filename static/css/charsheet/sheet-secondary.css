@@ -4844,6 +4844,38 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   white-space: normal;
 }
 
+.floating-tooltip-card__section--substance table {
+  table-layout: fixed;
+}
+
+.floating-tooltip-card__section--substance td:first-child {
+  width: 34%;
+  color: rgba(97, 68, 37, 0.88);
+}
+
+.floating-tooltip-card__section--substance td:nth-child(2) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.floating-tooltip-card__source {
+  display: block;
+  align-self: flex-end;
+  margin-top: auto;
+  max-width: 100%;
+  color: rgba(81, 58, 36, 0.62);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.floating-tooltip-card__source[hidden],
+.floating-tooltip-card__section--substance[hidden] {
+  display: none;
+}
+
 .floating-tooltip-card__section_body td:nth-child(2) .tooltip_effect_toggle {
   float: right;
   margin-left: 10px;

@@ -780,15 +780,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const target = card.querySelector(`[data-sl-disclosure-target='${CSS.escape(fieldKey)}']`);
-    if (!(target instanceof HTMLElement)) return;
-    if (!target.dataset.actualHtml) target.dataset.actualHtml = target.innerHTML;
     const lockedValue = disclosureValueFor(control);
-    if (lockedValue === null) {
-      target.innerHTML = target.dataset.actualHtml || "";
-      return;
-    }
-    target.textContent = lockedValue;
+    card.querySelectorAll(`[data-sl-disclosure-target='${CSS.escape(fieldKey)}']`).forEach((target) => {
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.dataset.actualHtml) target.dataset.actualHtml = target.innerHTML;
+      if (target.classList.contains("floating-tooltip-card__source")) {
+        target.hidden = lockedValue !== null;
+      }
+      if (lockedValue === null) {
+        target.innerHTML = target.dataset.actualHtml || "";
+      } else {
+        target.textContent = lockedValue;
+      }
+    });
   };
 
   const syncEffectControl = (control) => {
