@@ -17,7 +17,7 @@
               class="tooltip_target"
               data-tooltip-title="{{ item.name|escape }}"
               data-tooltip="{{ item.description|default:'Keine Beschreibung'|escape }}"
-              data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }} {{ item.quality_label|lower }}"
+              data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}{% if item.shows_quality %} {{ item.quality_label|lower }}{% endif %}"
               data-character-item-id="{{ item.character_item_id }}"
               data-shop-name="{{ item.name|escape }}"
               data-shop-item-type="{{ item.item_type }}"
@@ -25,6 +25,7 @@
               data-shop-available-qty="{{ item.amount }}"
               data-shop-unit-price="{{ item.effective_unit_price }}"
               data-shop-quality="{{ item.quality }}"
+              data-shop-shows-quality="{{ item.shows_quality|yesno:'1,0' }}"
             >
               <td class="shop_item_name">
                 <button type="button" class="market_pick" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>

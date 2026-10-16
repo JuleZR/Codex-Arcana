@@ -481,7 +481,7 @@ export function initItemForm() {
     if (forcedMagicInput instanceof HTMLInputElement) {
       forcedMagicInput.disabled = !isForcedMagicType;
     }
-    const isMagicItem = Boolean(magicInput?.checked) || isForcedMagicType;
+    const isMagicItem = Boolean(magicInput?.checked) || isForcedMagicType || isMagicType;
 
     armorFields.hidden = !isArmor;
     weaponFields.hidden = !isWeapon;

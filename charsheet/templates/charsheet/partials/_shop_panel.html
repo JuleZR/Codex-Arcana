@@ -108,6 +108,7 @@
                             data-shop-base-price="{{ item.base_price }}"
                             data-shop-default-price="{{ item.default_price }}"
                             data-shop-quality="{{ item.default_quality }}"
+                            data-shop-shows-quality="{{ item.shows_quality|yesno:'1,0' }}"
                             data-shop-damage-dice-amount="{{ item.stats.damage_dice_amount|default:'' }}"
                             data-shop-damage-dice-faces="{{ item.stats.damage_dice_faces|default:'' }}"
                             data-shop-damage-flat-operator="{{ item.stats.damage_flat_operator|default:'' }}"

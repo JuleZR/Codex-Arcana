@@ -1290,7 +1290,10 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
         return False
     description = (post_data.get("description") or "").strip()
     stackable = bool(post_data.get("stackable"))
-    is_magic = bool(post_data.get("is_magic")) or category.is_magic_equipment
+    is_magic = bool(
+        post_data.get("is_magic") or category.is_magic_equipment
+        or category.forces_magic
+    )
     not_buyable = bool(post_data.get("not_buyable"))
     not_sellable = bool(post_data.get("not_sellable"))
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
@@ -1346,11 +1349,8 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
             zone_fields = tuple(ArmorStats.ZONE_FIELDS)
             has_armor_coverage = any(bool(post_data.get(f"armor_covers_{zone}")) for zone in zone_fields)
             should_create_armor_stats = (
-                item.item_type.is_armor
-                or (
-                    item.item_type.supports_armor_stats
-                    and has_armor_coverage
-                )
+                item.item_type.supports_armor_stats
+                and (item.item_type.is_armor or has_armor_coverage)
             )
             if should_create_armor_stats:
                 armor_encumbrance = _read_int(post_data, "armor_encumbrance", 0, minimum=0)

@@ -160,6 +160,7 @@ export function initShopMenu() {
         characterItemId: row.getAttribute("data-character-item-id") || "",
         name: row.getAttribute("data-shop-name") || "",
         itemType: row.getAttribute("data-shop-item-type") || "misc",
+        showsQuality: row.getAttribute("data-shop-shows-quality") === "1",
         stackable: row.getAttribute("data-shop-stackable") === "1",
         availableQty: readInt(row.getAttribute("data-shop-available-qty"), 1),
         quality: normalizeQuality(row.getAttribute("data-shop-quality")),
@@ -171,6 +172,7 @@ export function initShopMenu() {
       id: row.getAttribute("data-shop-id") || "",
       name: row.getAttribute("data-shop-name") || "",
       itemType: row.getAttribute("data-shop-item-type") || "misc",
+      showsQuality: row.getAttribute("data-shop-shows-quality") === "1",
       stackable: row.getAttribute("data-shop-stackable") === "1",
       basePrice: readInt(row.getAttribute("data-shop-base-price"), 0),
       defaultPrice: readInt(row.getAttribute("data-shop-default-price"), 0),
@@ -223,7 +225,7 @@ export function initShopMenu() {
       const unitPrice = unitPriceForEntry(entry);
       const lineTotal = unitPrice * entry.qty;
       const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
-      const qualityAdjustable = entry.mode === "buy";
+      const qualityAdjustable = entry.mode === "buy" && entry.showsQuality;
       const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
       const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
       const qualityControls = qualityAdjustable
@@ -232,7 +234,7 @@ export function initShopMenu() {
             ${qualityBadge(entry.qualityPrices[entry.quality]?.quality || entry.quality)}
             <button type="button" data-cart-quality-dec aria-label="Qualität senken" ${disableDown}>&#9660;</button>
           </div>`
-        : entry.mode === "sell"
+        : entry.mode === "sell" && entry.showsQuality
           ? qualityBadge(entry.quality)
           : "";
       const qtyMax = entry.mode === "sell" ? Math.max(1, readInt(entry.availableQty, 1)) : null;
@@ -244,13 +246,15 @@ export function initShopMenu() {
           </div>`
         : `<span>1 Stück</span>`;
       const shownQuality = entry.qualityPrices?.[entry.quality]?.quality || entry.quality;
+      const qualityLabel = entry.showsQuality
+        ? ` · ${escapeHtml(QUALITY_LABELS[shownQuality] || "")}` : "";
       rows.push(`
         <tr data-cart-key="${cartKey}">
           <td class="market_cart_main">
-            <div class="market_cart_quality">${qualityControls}</div>
+            ${entry.showsQuality ? `<div class="market_cart_quality">${qualityControls}</div>` : ""}
             <div class="market_cart_description">
               <div class="market_cart_name"><span>${escapeHtml(entry.name)}</span><button type="button" class="market_remove" data-cart-remove aria-label="Gegenstand entfernen">×</button></div>
-              <small>${entry.mode === "sell" ? "Verkaufen" : "Kaufen"} · ${escapeHtml(QUALITY_LABELS[shownQuality] || "")} · ${fmtKs(unitPrice)} / Stück</small>
+              <small>${entry.mode === "sell" ? "Verkaufen" : "Kaufen"}${qualityLabel} · ${fmtKs(unitPrice)} / Stück</small>
             </div>
           </td>
           <td class="market_cart_qty">${qtyControls}</td>
@@ -417,7 +421,7 @@ export function initShopMenu() {
     }
 
     if (target.hasAttribute("data-cart-quality-dec") || target.hasAttribute("data-cart-quality-inc")) {
-      if (entry.mode !== "buy") {
+      if (entry.mode !== "buy" || !entry.showsQuality) {
         return;
       }
       const delta = target.hasAttribute("data-cart-quality-inc") ? 1 : -1;

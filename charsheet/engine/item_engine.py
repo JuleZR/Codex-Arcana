@@ -1069,7 +1069,7 @@ class ItemEngine:
         """Return carried weight excluding worn armor, shields and clothing."""
         worn_equipment = Q(
             item__item_type__excludes_equipped_carry_weight=True,
-        ) | Q(item__armorstats__isnull=False)
+        )
         character_items = (
             CharacterItem.objects.filter(owner=character, stored=False)
             .exclude(transfers__status="pending")

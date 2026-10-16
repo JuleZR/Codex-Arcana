@@ -6251,15 +6251,12 @@ def _build_inventory_rows(
         equip_drop_zones = []
 
         if (
-            item.item_type.is_weapon
-            or item.item_type.is_shield
+            item.item_type.is_equippable
+            and (item.item_type.is_weapon or item.item_type.is_shield)
         ):
             equip_drop_zones.append("weapon")
 
-        elif (
-            item.item_type.is_equippable
-            or character_item.is_magic_effective
-        ):
+        elif item.item_type.is_equippable:
             equip_drop_zones.append("armor")
 
         inventory_rows.append(
@@ -6357,7 +6354,7 @@ def _build_inventory_rows(
                 "can_consume": (
                     can_use_item
                     and item.stackable
-                    and item.is_consumable
+                    and item.item_type.is_consumable
                     and (
                         character_item.amount > 1
                         or can_consume_final
@@ -6391,7 +6388,7 @@ def _build_inventory_rows(
                     and item_engine.get_structure_status() != "destroyed"
                     and (
                         item.item_type.is_equippable
-                        or character_item.is_magic_effective
+                        or character_item.equipped
                     )
                 ),
                 "equip_drop_zone": (
@@ -7902,6 +7899,7 @@ def _build_shop_item_groups() -> list[dict]:
                 "stackable": bool(item.stackable),
                 "base_price": int(item.price),
                 "default_price": item_engine.get_price(),
+                "shows_quality": item.item_type.shows_quality,
                 "default_quality": item.default_quality_id,
                 "quality_prices": quality_prices,
                 "default_quality_label": quality["label"],
@@ -7969,6 +7967,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
                 "quality_label": quality["label"],
                 "quality_color": quality["color"],
                 "effective_unit_price": effective_unit_price,
+                "shows_quality": item.item_type.shows_quality,
                 "unit_price": ItemEngine.resale_price(effective_unit_price),
             }
         )

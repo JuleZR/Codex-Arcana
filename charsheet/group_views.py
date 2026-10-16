@@ -3110,7 +3110,12 @@ def create_group_catalog_item(request, group_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        is_magic = bool(request.POST.get("is_magic")) or request.POST.get("item_type") in Item.magic_item_type_values()
+        category = ItemType.objects.filter(
+            pk=request.POST.get("item_type"),
+        ).first()
+        is_magic = bool(request.POST.get("is_magic")) or bool(
+            category and (category.is_magic_equipment or category.forces_magic)
+        )
         try:
             magic_effects = json.loads(request.POST.get("magic_modifier_payloads") or "[]")
         except json.JSONDecodeError as exc:
@@ -3162,9 +3167,11 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
                 "invalid_item", "Die Gegenstandskategorie ist ungültig.")
         item.item_type = category
         item.stackable = bool(request.POST.get("stackable"))
-        item.is_consumable = bool(request.POST.get("is_consumable"))
-        item.is_magic = bool(request.POST.get("is_magic")
-                             ) or item.item_type.is_magic_equipment
+        item.is_consumable = category.is_consumable
+        item.is_magic = bool(
+            request.POST.get("is_magic") or category.is_magic_equipment
+            or category.forces_magic
+        )
         item.not_buyable = bool(request.POST.get("not_buyable"))
         item.not_sellable = bool(request.POST.get("not_sellable"))
         try:

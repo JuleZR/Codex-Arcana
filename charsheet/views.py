@@ -475,7 +475,11 @@ def _equipment_action_partial_keys(
         for key in ("weapon_panel", "battle_calculator"):
             _append_partial_key(keys, key)
 
-    if item_type.is_armor or item_type.is_shield:
+    if (
+        item_type.is_armor or item_type.is_shield
+        or item_type.excludes_equipped_carry_weight
+        or getattr(item, "armorstats", None) is not None
+    ):
         for key in (
             "load_panel",
             "skills_panel",
@@ -6101,7 +6105,7 @@ def toggle_equip(request, pk):
             status=409
             ), character_id=ci.owner_id)
 
-    if not ci.item.item_type.is_equippable and not ci.item.is_magic_effective:
+    if not ci.item.item_type.is_equippable and not ci.equipped:
         return redirect("character_sheet", character_id=ci.owner_id)
 
     if ItemEngine(ci).get_structure_status() == "destroyed":

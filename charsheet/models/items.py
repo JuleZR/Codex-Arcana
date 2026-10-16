@@ -539,6 +539,8 @@ class Item(models.Model):
             raise ValidationError({"item_type": "Unknown item type."})
         if category.is_consumable:
             self.is_consumable = True
+        if category.forces_magic:
+            self.is_magic = True
         if self.stackable and (category.forbids_stacking or self.is_magic):
             raise ValidationError({
                 "stackable": f"Type: {category.name} can't be stackable.",
@@ -552,7 +554,10 @@ class Item(models.Model):
 
     @property
     def is_magic_effective(self) -> bool:
-        return bool(self.is_magic or self.item_type.is_magic_equipment)
+        return bool(
+            self.is_magic or self.item_type.is_magic_equipment
+            or self.item_type.forces_magic
+        )
 
     @classmethod
     def type_choices(cls, *, active_only=False, form_order=False):

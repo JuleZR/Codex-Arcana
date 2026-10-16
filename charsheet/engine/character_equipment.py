@@ -211,6 +211,7 @@ def equipped_magic_item_items(engine) -> list[CharacterItem]:
             .filter(
                 Q(item__is_magic=True)
                 | Q(item__item_type__is_magic_equipment=True)
+                | Q(item__item_type__forces_magic=True)
                 | Q(is_magic=True)
                 | Q(item__magicitemstats__isnull=False)
             )

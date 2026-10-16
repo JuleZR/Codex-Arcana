@@ -364,7 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (forcedMagicInput instanceof HTMLInputElement) {
         forcedMagicInput.disabled = !isForcedMagicType;
       }
-      const isMagic = Boolean(magicInput?.checked) || isForcedMagicType;
+      const isMagic = Boolean(magicInput?.checked) || isForcedMagicType || isMagicType;
       syncTypeSections(baseItemForm, type);
       if (detailPlaceholder) {
         const hasTypeFields = Boolean(baseItemForm.querySelector(`[data-item-fields='${detailType}']`));
