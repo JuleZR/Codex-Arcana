@@ -14,12 +14,14 @@
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=9"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-table.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/dashboard/refit.css' %}?v=20261016e">
+    <script defer src="{% static 'js/dashboard_register.js' %}?v=20261016a"></script>
     <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-single-result"></script>
 
   </head>
   <body class="dashboard-theme--{{ request.user.settings.theme_mode|default:'default' }}">
     <main class="book-spread dashboard_spread">
-      <article class="page dashboard_page" aria-label="Benutzerspezifisches Dashboard">
+      <article class="page dashboard_page dashboard_register" aria-label="Benutzerspezifisches Dashboard">
         <section class="dashboard_layout">
           <aside class="dashboard_panel dashboard_panel--sidebar" aria-label="Benutzerbereich">
             <div class="dashboard_logo_wrap">
@@ -42,30 +44,16 @@
               </div>
             </div>
 
-            <div id="dashboardDraftRegion">
-              {% if draft_rows %}
-              <div class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charaktererschaffungen">
-                <div class="dashboard_side_title">Offene Charaktererschaffungen</div>
-                <ul class="dashboard_list">
-                  {% for draft in draft_rows %}
-                    <li class="dashboard_draft_item">
-                      <span>{{ draft.name }} ({{ draft.race_name }})<small>Aktueller Bereich: {{ draft.section_label }}</small></span>
-                      <div class="dashboard_draft_actions">
-                        <a class="dashboard_button dashboard_button--small" href="{% url 'create_character' %}?draft={{ draft.id }}">Charaktererschaffung fortsetzen</a>
-                        <form method="post" action="{% url 'delete_creation_draft' draft.id %}">
-                          {% csrf_token %}
-                          <button type="submit" class="dashboard_button dashboard_button--small">Verwerfen</button>
-                        </form>
-                      </div>
-                    </li>
-                  {% endfor %}
-                </ul>
-              </div>
-              {% endif %}
-            </div>
-
-            {% dashboard_announcements %}
           </aside>
+
+          <section class="dashboard_botenbrett" aria-labelledby="dashboardNewsTitle">
+            <header class="dashboard_news_header">
+              <span class="dashboard_eyebrow">Mitteilungen</span>
+              <h2 id="dashboardNewsTitle">Botenbrett</h2>
+            </header>
+            {% dashboard_announcements %}
+          </section>
+
 
           <section class="dashboard_panel dashboard_panel--main" aria-label="Charakterübersicht und Schnellaktionen">
             {% if messages %}
@@ -78,7 +66,7 @@
             <div class="dashboard_main_stack">
               <section class="dashboard_active_block" aria-label="Aktive Charaktere">
                 <div class="dashboard_panel_header">
-                  <h2>Charakterverwaltung</h2>
+                  <div><span class="dashboard_eyebrow">Codex Arcana / Deine Abenteuer</span><h2>Charakterverwaltung</h2><p>Alle Gefährten. Alle Spielrunden. Ein Griff.</p></div>
                   <div class="dashboard_header_actions">
                     <span>{{ character_count }} aktiv</span>
                     <form method="post" action="{% url 'create_game_group' %}">
@@ -95,104 +83,82 @@
                   </div>
                 </div>
 
+                <div class="dashboard_register_toolbar">
+                  <label class="dashboard_register_search" for="dashboardCharacterSearch">
+                    <span class="dashboard_sr_only">Charakter oder Spielgruppe suchen</span>
+                    <input id="dashboardCharacterSearch" type="search" placeholder="Charakter oder Spielgruppe suchen …" autocomplete="off">
+                  </label>
+                  <div class="dashboard_register_filters" role="group" aria-label="Charakterfilter">
+                    <button type="button" data-character-filter="all" aria-pressed="true">Alle</button>
+                    <button type="button" data-character-filter="own" aria-pressed="false">Eigene</button>
+                    <button type="button" data-character-filter="npc" aria-pressed="false">NPC</button>
+                    <button type="button" data-character-filter="foreign" aria-pressed="false">Fremde</button>
+                  </div>
+                  <output id="dashboardRegisterCount" aria-live="polite"></output>
+                </div>
                 <div id="dashboardCharacterTableRegion">
-                {% if character_rows or dashboard_group_sections or pending_group_invitations %}
-                  <div class="dashboard_table_wrap dashboard_table_wrap--active">
-                    <table class="dashboard_table">
-                      <thead>
-                        <tr>
-                          <th>Name</th>
-                          <th>Rasse</th>
-                          <th>Erfahrung</th>
-                          <th>Zustand</th>
-                          <th>Aktionen</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for section in dashboard_group_sections %}
-                          <tr class="dashboard_table_group_heading">
-                            <th colspan="5">
-                              <span>{{ section.group.name }}{% if section.group.is_archived %} · archiviert{% endif %}</span>
-                              <span class="dashboard_actions_inline">
-                                <button type="button" class="dashboard_button dashboard_button--small" data-open-group-window data-group-url="{% url 'game_group_detail' section.group.id %}" data-group-name="{{ section.group.name }}">Gruppe öffnen</button>
-                                {% if section.is_gm %}<a class="dashboard_button dashboard_button--small" href="{% url 'game_master_screen' section.group.id %}">SL-Screen</a>{% endif %}
-                              </span>
-                            </th>
-                          </tr>
-                          {% for row in section.members %}
-                            <tr>
-                              <td>{{ row.character.name }}{% if row.is_foreign %}<span class="dashboard_foreign_badge">Fremdcharakter</span>{% endif %}{% if row.character.is_npc %}<span class="dashboard_npc_badge">NPC</span>{% endif %}</td>
-                              <td>{% if row.is_own %}{{ row.character.race.name }}{% else %}–{% endif %}</td>
-                              <td>{% if row.is_own %}{{ row.status.experience }}{% else %}–{% endif %}</td>
-                              <td>{% if row.is_own %}{{ row.status.condition }}{% else %}–{% endif %}</td>
-                              <td class="dashboard_action_cell">
-                                {% if row.is_own %}
-                                  <div class="dashboard_actions_inline">
-                                    <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen">{% include "charsheet/partials/_dashboard_icon.html" with icon="open" %}</a>
-                                    <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken">{% include "charsheet/partials/_dashboard_icon.html" with icon="print" %}</button>
-                                    <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren">{% include "charsheet/partials/_dashboard_icon.html" with icon="archive" %}</button></form>
-                                    <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen">{% include "charsheet/partials/_dashboard_icon.html" with icon="delete" %}</button></form>
-                                  </div>
-                                {% elif section.is_gm %}
-                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}" aria-label="Bogen lesen" title="Bogen lesen">{% include "charsheet/partials/_dashboard_icon.html" with icon="view" %}</a>
-                                {% endif %}
-                              </td>
-                            </tr>
-                          {% empty %}
-                            <tr><td colspan="5">Keine aktiven Mitglieder.</td></tr>
-                          {% endfor %}
+                  {% for section in dashboard_group_sections %}
+                    <section class="dashboard_register_group" data-register-group data-group-name="{{ section.group.name }}" aria-labelledby="dashboardGroupTitle-{{ section.group.id }}">
+                      <header class="dashboard_register_group_header dashboard_table_group_heading">
+                        <div class="dashboard_register_group_summary">
+                          <h3 id="dashboardGroupTitle-{{ section.group.id }}">{{ section.group.name }}{% if section.group.is_archived %} · archiviert{% endif %}</h3>
+                          <small>{{ section.members|length }} Charaktere{% if section.is_gm %} · Spielleitung{% endif %}</small>
+                        </div>
+                        <div class="dashboard_actions_inline">
+                          <button type="button" class="dashboard_button dashboard_button--small" data-open-group-window data-group-url="{% url 'game_group_detail' section.group.id %}" data-group-name="{{ section.group.name }}">Gruppe öffnen</button>
+                          {% if section.is_gm %}<a class="dashboard_button dashboard_button--small" href="{% url 'game_master_screen' section.group.id %}">SL-Screen</a>{% endif %}
+                        </div>
+                      </header>
+                      <div class="dashboard_register_rows">
+                        {% for row in section.members %}
+                          {% include "charsheet/partials/_dashboard_character_row.html" with is_own=row.is_own %}
+                        {% empty %}
+                          <p class="dashboard_hint dashboard_register_empty_group">Keine aktiven Mitglieder.</p>
                         {% endfor %}
-                        {% if ungrouped_character_rows %}
-                          <tr class="dashboard_table_group_heading"><th colspan="5">Ohne aktive Gruppe</th></tr>
-                          {% for row in ungrouped_character_rows %}
-                            <tr>
-                              <td>{{ row.character.name }}{% if row.character.is_npc %}<span class="dashboard_npc_badge">NPC</span>{% endif %}</td>
-                              <td>{{ row.character.race.name }}</td>
-                              <td>{{ row.status.experience }}</td>
-                              <td>{{ row.status.condition }}</td>
-                              <td class="dashboard_action_cell">
-                                <div class="dashboard_actions_inline">
-                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen">{% include "charsheet/partials/_dashboard_icon.html" with icon="open" %}</a>
-                                  <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken">{% include "charsheet/partials/_dashboard_icon.html" with icon="print" %}</button>
-                                  <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren">{% include "charsheet/partials/_dashboard_icon.html" with icon="archive" %}</button></form>
-                                  <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen">{% include "charsheet/partials/_dashboard_icon.html" with icon="delete" %}</button></form>
-                                </div>
-                              </td>
-                            </tr>
-                          {% endfor %}
-                        {% endif %}
-                        {% if pending_group_invitations %}
-                          <tr class="dashboard_table_group_heading">
-                            <th colspan="5">Offene Gruppeneinladungen</th>
-                          </tr>
-                          {% for invitation in pending_group_invitations %}
-                            <tr>
-                              <td>{{ invitation.character.name }}</td>
-                              <td>{{ invitation.character.race.name }}</td>
-                              <td>Einladung</td>
-                              <td>{{ invitation.group.name }}</td>
-                              <td class="dashboard_action_cell">
-                                <div class="dashboard_actions_inline">
-                                  <form method="post" action="{% url 'accept_group_invitation' invitation.id %}">{% csrf_token %}<button class="dashboard_button dashboard_button--small">Annehmen</button></form>
-                                  <form method="post" action="{% url 'decline_group_invitation' invitation.id %}">{% csrf_token %}<button class="dashboard_button dashboard_button--small">Ablehnen</button></form>
-                                </div>
-                              </td>
-                            </tr>
-                          {% endfor %}
-                        {% endif %}
-                      </tbody>
-                    </table>
-                  </div>
-                {% else %}
-                  <div class="dashboard_empty">
-                    <p>Du hast aktuell noch keine aktiven Charaktere.</p>
-                  </div>
-                {% endif %}
+                      </div>
+                    </section>
+                  {% endfor %}
+                  {% if ungrouped_character_rows %}
+                    <section class="dashboard_register_group" data-register-group data-group-name="Ohne Spielgruppe" aria-labelledby="dashboardUngroupedTitle">
+                      <header class="dashboard_register_group_header">
+                        <div class="dashboard_register_group_summary">
+                          <h3 id="dashboardUngroupedTitle">Ohne Spielgruppe</h3>
+                          <small>{{ ungrouped_character_rows|length }} Charaktere</small>
+                        </div>
+                      </header>
+                      <div class="dashboard_register_rows">
+                        {% for row in ungrouped_character_rows %}
+                          {% include "charsheet/partials/_dashboard_character_row.html" with is_own=True %}
+                        {% endfor %}
+                      </div>
+                    </section>
+                  {% endif %}
+                  {% if not dashboard_group_sections and not ungrouped_character_rows %}
+                    <p class="dashboard_empty">Du hast aktuell noch keine aktiven Charaktere.</p>
+                  {% endif %}
+                  <p class="dashboard_empty" data-register-no-results hidden>Keine passenden Charaktere gefunden.</p>
+                  {% if pending_group_invitations %}
+                    <section class="dashboard_register_invitations" aria-labelledby="dashboardInvitationsTitle">
+                      <h3 id="dashboardInvitationsTitle">Offene Gruppeneinladungen</h3>
+                      <ul class="dashboard_list">
+                        {% for invitation in pending_group_invitations %}
+                          <li>
+                            <span>{{ invitation.character.name }} ({{ invitation.character.race.name }}) · {{ invitation.group.name }}</span>
+                            <div class="dashboard_actions_inline">
+                              <form method="post" action="{% url 'accept_group_invitation' invitation.id %}">{% csrf_token %}<button class="dashboard_button dashboard_button--small">Annehmen</button></form>
+                              <form method="post" action="{% url 'decline_group_invitation' invitation.id %}">{% csrf_token %}<button class="dashboard_button dashboard_button--small">Ablehnen</button></form>
+                            </div>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </section>
+                  {% endif %}
                 </div>
               </section>
 
-              <section class="dashboard_subpanel dashboard_subpanel--archive" aria-label="Archiv">
-                <h3>Archivierte Charaktere</h3>
+              <div class="dashboard_register_drawers">
+              <details class="dashboard_subpanel dashboard_subpanel--archive" aria-label="Archiv">
+                <summary>Archiv <span>{{ archived_characters|length }} Charaktere</span></summary>
                 <div class="dashboard_archive_scroll">
                   {% if archived_characters %}
                     <ul class="dashboard_list">
@@ -210,7 +176,30 @@
                     <p class="dashboard_hint">Archiv ist leer.</p>
                   {% endif %}
                 </div>
-              </section>
+              </details>
+            <div id="dashboardDraftRegion">
+              {% if draft_rows %}
+              <details class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charaktererschaffungen">
+                <summary>Entwürfe <span>{{ draft_rows|length }} offen</span></summary>
+                <ul class="dashboard_list">
+                  {% for draft in draft_rows %}
+                    <li class="dashboard_draft_item">
+                      <span>{{ draft.name }} ({{ draft.race_name }})<small>Aktueller Bereich: {{ draft.section_label }}</small></span>
+                      <div class="dashboard_draft_actions">
+                        <a class="dashboard_button dashboard_button--small" href="{% url 'create_character' %}?draft={{ draft.id }}">Charaktererschaffung fortsetzen</a>
+                        <form method="post" action="{% url 'delete_creation_draft' draft.id %}">
+                          {% csrf_token %}
+                          <button type="submit" class="dashboard_button dashboard_button--small">Verwerfen</button>
+                        </form>
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </details>
+              {% endif %}
+            </div>
+
+              </div>
             </div>
 
           </section>
@@ -1830,7 +1819,7 @@ if (dddiceCheckbox) {
         const groupTitle = document.getElementById("dashboardGroupWindowTitle");
         let groupDashboardRefreshPending = false;
 
-        if (groupButtons.length && groupWin && groupHandle && groupClose && groupBackdrop && groupFrame) {
+        if (groupWin && groupHandle && groupClose && groupBackdrop && groupFrame) {
           const placeGroupWindow = function () {
             const rect = groupWin.getBoundingClientRect();
             groupWin.style.left = Math.max(12, (window.innerWidth - rect.width) / 2) + "px";

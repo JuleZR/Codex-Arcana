@@ -1,0 +1,31 @@
+<div class="dashboard_register_row" data-register-character data-character-name="{{ row.character.name }}" data-character-own="{{ is_own|yesno:'1,0' }}" data-character-npc="{{ row.character.is_npc|yesno:'1,0' }}">
+  <div class="dashboard_register_character">
+    <span class="dashboard_register_initial" aria-hidden="true">{{ row.character.name|first }}</span>
+    <div class="dashboard_register_character_copy">
+      <div class="dashboard_register_name">
+        {% if is_own %}
+          <a href="{% url 'character_sheet' row.character.id %}" title="Charakter öffnen">{{ row.character.name }}</a>
+        {% elif section.is_gm %}
+          <a href="{% url 'game_master_character_sheet' section.group.id row.character.id %}" title="Bogen lesen">{{ row.character.name }}</a>
+        {% else %}
+          <span>{{ row.character.name }}</span>
+        {% endif %}
+        {% if not is_own %}<span class="dashboard_foreign_badge">Fremdcharakter</span>{% endif %}
+        {% if row.character.is_npc %}<span class="dashboard_npc_badge">NPC</span>{% endif %}
+      </div>
+      {% if is_own %}
+        <div class="dashboard_register_metadata"><span>{{ row.character.race.name }}</span><span>{{ row.status.experience }}</span><span>{{ row.status.condition }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="dashboard_actions_inline" role="group" aria-label="Aktionen für {{ row.character.name }}">
+    {% if is_own %}
+      <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen">{% include "charsheet/partials/_dashboard_icon.html" with icon="open" %}</a>
+      <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken">{% include "charsheet/partials/_dashboard_icon.html" with icon="print" %}</button>
+      <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren">{% include "charsheet/partials/_dashboard_icon.html" with icon="archive" %}</button></form>
+      <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen">{% include "charsheet/partials/_dashboard_icon.html" with icon="delete" %}</button></form>
+    {% elif section.is_gm %}
+      <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}" aria-label="Bogen lesen" title="Bogen lesen">{% include "charsheet/partials/_dashboard_icon.html" with icon="view" %}</a>
+    {% endif %}
+  </div>
+</div>
