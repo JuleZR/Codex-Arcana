@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_FLOOR
 import json
 import math
 
-from django.db.models import F, Q
+from django.db.models import F, Prefetch, Q
 from django.urls import reverse
 from django.utils.functional import SimpleLazyObject
 
@@ -150,6 +150,7 @@ from charsheet.models import (
     Trait,
     VampirePower,
     VampireTrait,
+    WeaponStats,
     WeaponType,
     Race,
 )
@@ -3528,7 +3529,7 @@ def build_character_item_card_context(
         viewer,
         preview_player=False if include_controls else preview_player,
     )
-    quality = quality_payload(item_engine.get_effective_quality())
+    quality = quality_payload(item_engine.get_effective_quality_obj())
     stored_modifier_payloads = (
         modifier_payloads
         if modifier_payloads is not None
@@ -6008,6 +6009,10 @@ def _build_inventory_rows(
         )
         .select_related(
             "item",
+            "item__item_type",
+            "item__default_quality",
+            "item__material__quality_overwrite",
+            "quality",
             "original_owner_character",
             "item__rangedweaponstats",
             "item__armorstats",
@@ -7780,7 +7785,9 @@ def _build_shop_item_groups() -> list[dict]:
         )
         .prefetch_related(
             "runes",
-            "weapon_stats",
+            Prefetch(
+                "weapon_stats", queryset=WeaponStats.objects.order_by("id"),
+            ),
             "weapon_stats__damage_source",
             "weapon_stats__weapon_type",
             "weapon_stats__skills",
@@ -7792,18 +7799,14 @@ def _build_shop_item_groups() -> list[dict]:
         if item.id in race_item_ids or item.not_buyable:
             continue
         item_engine = ItemEngine(item)
-        quality = quality_payload(item_engine.get_effective_quality())
+        quality = quality_payload(item_engine.get_effective_quality_obj())
         stats_payload: dict[str, object] = {
             "item_type": item.item_type_id,
             "size_class": item.size_class,
             "weight": str(item.weight),
             "min_st": None,
         }
-        weapon_stats = (
-            item.weapon_stats
-            .order_by("id")
-            .first()
-        )
+        weapon_stats = next(iter(item.weapon_stats.all()), None)
 
         if weapon_stats is not None:
             stats_payload.update(
@@ -7923,6 +7926,8 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         .exclude(item__not_sellable=True)
         .select_related(
             "item__item_type", "item", "item__armorstats",
+            "item__default_quality", "item__material__quality_overwrite",
+            "quality",
             "original_owner_character",
         )
         .order_by(
@@ -7934,7 +7939,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
             continue
         item = character_item.item
         item_engine = ItemEngine(character_item)
-        quality = quality_payload(item_engine.get_effective_quality())
+        quality = quality_payload(item_engine.get_effective_quality_obj())
         effective_unit_price = item_engine.get_price()
         armor_stats = getattr(item, "armorstats", None)
         group_key = (
@@ -8338,7 +8343,12 @@ def _build_learning_rows(
                 ),
             ).select_related("type") if is_divine_entity_school(school)
         )
-    for school in School.objects.select_related("type").order_by("type__name", "name"):
+    schools = (
+        School.objects.select_related("type")
+        .prefetch_related("druid_cults", "shaman_patrons")
+        .order_by("type__name", "name")
+    )
+    for school in schools:
         base_level = int(school_levels.get(school.id, 0))
         if school.id in vampire_disallowed_school_ids and base_level <= 0:
             continue

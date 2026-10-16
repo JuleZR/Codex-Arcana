@@ -1867,7 +1867,8 @@ export function initTooltips() {
     const maxTop = window.innerHeight - tooltipRect.height - viewportPadding;
     if (top > maxTop) top = maxTop;
 
-    tooltip.style.left = `${Math.max(viewportPadding, left)}px`;
+    const maxLeft = window.innerWidth - tooltipRect.width - viewportPadding;
+    tooltip.style.left = `${Math.max(viewportPadding, Math.min(left, maxLeft))}px`;
     tooltip.style.top = `${Math.max(viewportPadding, top)}px`;
   };
 

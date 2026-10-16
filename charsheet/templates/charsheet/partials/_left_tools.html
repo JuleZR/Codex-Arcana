@@ -22,12 +22,6 @@
           </span>
           <span class="left-tools__icon_label">Chronik</span>
         </button>
-        <button type="button" class="left-tools__icon_btn" id="battleCalculatorTrigger" aria-label="Kampfrechner oeffnen" title="Kampfrechner">
-          <span class="left-tools__icon_frame">
-            <span class="left-tools__icon_symbol" aria-hidden="true">&#x2694;&#xFE0E;</span>
-          </span>
-          <span class="left-tools__icon_label">Kampf</span>
-        </button>
         <button type="button" class="left-tools__icon_btn" data-open-item-transfer-window data-transfer-url="{% url 'item_transfer_center' %}?character={{ character.id }}&amp;embedded=1" aria-label="Übergabepostfach" title="Übergabepostfach">
           <span class="left-tools__icon_frame"><span class="left-tools__icon_symbol" aria-hidden="true">✉</span>{% if open_item_transfer_count %}<span class="transfer-nav-badge">{{ open_item_transfer_count }}</span>{% endif %}</span>
           <span class="left-tools__icon_label">Post</span>

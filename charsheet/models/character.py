@@ -60,7 +60,7 @@ class Character(models.Model):
     )
     weight = models.IntegerField(default=60, null=True, blank=True)
     religion = models.CharField(max_length=25, null=True, blank=True)
-    appearance = models.TextField(max_length=300, null=True, blank=True)
+    appearance = models.TextField(max_length=1000, null=True, blank=True)
 
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     is_npc = models.BooleanField(default=False)

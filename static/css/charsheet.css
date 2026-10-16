@@ -5,14 +5,14 @@
 @import url("./charsheet/sheet-primary.css?v=20261006-skill-sorting");
 @import url("./charsheet/sheet-secondary.css?v=20261015-item-workshop");
 @import url("./charsheet/windows.css");
-@import url("./charsheet/commerce.css?v=20261015-preview-top");
+@import url("./charsheet/commerce.css?v=20261016-character-layout");
 @import url("./charsheet/_card.css?v=20260630n");
 @import url("./charsheet/card-hand.css?v=20261001-mobile-tray2");
 @import url("./charsheet/responsive.css?v=20261007-clear-viewport");
 @import url("./charsheet/parchment.css?v=20260801b");
 @import url("./charsheet/quick-access.css?v=20261007-clear-viewport");
 @import url("./charsheet/battle-calculator.css");
-@import url("./charsheet/window-system.css");
+@import url("./charsheet/window-system.css?v=20261016-character-controls");
 @import url("./charsheet/shop.css?v=20261013-market-arrows");
 @import url("./charsheet/learning.css?v=20261014-free-language-cards");
 @import url("./charsheet/choices.css?v=20261014-open-choices-only");

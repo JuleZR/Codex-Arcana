@@ -153,13 +153,14 @@
 .dashboard_register .dashboard_register_row:last-child { border-bottom: 0; }
 .dashboard_register .dashboard_register_character { display: flex; align-items: center; gap: 9px; flex: 1 1 200px; min-width: 0; }
 .dashboard_register .dashboard_register_initial { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 32px; color: #795537; border: 1px solid #c4a57a; background: linear-gradient(#f4e8d3, #d9c29e); font: 700 20px "Cormorant Garamond", Georgia, serif; }
-.dashboard_register .dashboard_register_character_copy { flex: 1; min-width: 0; }
+.dashboard_register .dashboard_register_character_copy { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr); align-items: center; gap: 20px; flex: 1; min-width: 0; }
 .dashboard_register .dashboard_register_name { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; font: 700 19px/1.15 "Cormorant Garamond", Georgia, serif; overflow-wrap: anywhere; }
 .dashboard_register .dashboard_register_name > a { color: #513724; text-decoration: none; }
 .dashboard_register .dashboard_register_name > a:hover { color: var(--register-wine); text-decoration: underline; }
 .dashboard_register .dashboard_register_name > a, .dashboard_register .dashboard_register_name > span { min-width: 0; max-width: 100%; }
 .dashboard_register .dashboard_foreign_badge, .dashboard_register .dashboard_npc_badge { margin: 0; border-radius: 2px; font: 600 10px/1.3 "Segoe UI", sans-serif; }
-.dashboard_register .dashboard_register_metadata { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 3px; font-size: 11px; color: #7d634d; overflow-wrap: anywhere; }
+.dashboard_register .dashboard_register_metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 4px 20px; font-size: 14px; line-height: 1.4; color: #6b4b33; overflow-wrap: anywhere; }
+.dashboard_register .dashboard_register_metadata > span { min-width: 0; }
 .dashboard_register .dashboard_register_row > .dashboard_actions_inline { flex: 0 1 auto; max-width: 100%; gap: 5px; }
 .dashboard_register.dashboard_page .dashboard_register_row .dashboard_button--icon { width: 32px; min-width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 3px; }
 .dashboard_register.dashboard_page .dashboard_register_row .dashboard_button--danger { color: #9b463c; border-color: #d3afa1; }
@@ -179,7 +180,7 @@
 .dashboard_register .dashboard_sr_only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .dashboard-theme--compact .dashboard_register .dashboard_register_row { padding-block: 4px; }
 .dashboard-theme--large .dashboard_register { font-size: 1rem; }
-.dashboard-theme--large .dashboard_register .dashboard_register_metadata { font-size: 13px; }
+.dashboard-theme--large .dashboard_register .dashboard_register_metadata { font-size: 16px; }
 .dashboard-theme--high_contrast .dashboard_register .dashboard_register_group { background: #fffdf6; border-color: #503524; }
 .dashboard-theme--high_contrast .dashboard_register .dashboard_register_metadata { color: #503524; }
 .dashboard-theme--high_contrast .dashboard_register.dashboard_page .dashboard_register_row .dashboard_button { border-color: #503524; color: #503524; }
@@ -219,5 +220,7 @@
   .dashboard_register.dashboard_page [data-character-filter] { flex: 1; padding-inline: 6px; }
   .dashboard_register .dashboard_register_row { gap: 6px; }
   .dashboard_register .dashboard_register_character { flex-basis: 100%; }
+  .dashboard_register .dashboard_register_character_copy { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .dashboard_register .dashboard_register_metadata { gap: 4px 10px; }
   .dashboard_register .dashboard_register_group_header > .dashboard_actions_inline { justify-content: flex-start; }
 }

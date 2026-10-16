@@ -594,6 +594,11 @@ def update_account_settings(request):
     settings_valid = settings_form.is_valid()
 
     if not account_valid or not settings_valid:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse(
+                {"errors": {**account_form.errors, **settings_form.errors}},
+                status=400,
+            )
         for field_errors in account_form.errors.values():
             for error in field_errors:
                 messages.error(request, error)
@@ -651,6 +656,8 @@ def update_account_settings(request):
     else:
         messages.info(request, "Keine Änderungen erkannt.")
 
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"redirect": reverse("dashboard")})
     return redirect("dashboard")
 
 

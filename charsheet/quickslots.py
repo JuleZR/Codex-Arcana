@@ -107,6 +107,23 @@ def _validated_layout(payload):
                or len(entry["name"]) > 80 for entry in modifiers):
             raise ValueError
         clean.append(action)
+    bars = payload.get("bars")
+    if "bars" in payload:
+        if not isinstance(bars, dict) or set(bars) != {"ctrl", "shift"}:
+            raise ValueError
+        stored = {"base": clean}
+        for key in ("ctrl", "shift"):
+            bar = bars[key]
+            if (not isinstance(bar, dict)
+                    or type(bar.get("enabled")) is not bool):
+                raise ValueError
+            validated = _validated_layout({
+                "slots": bar["slots"], "collapsed": False,
+            })
+            stored[key] = {
+                "enabled": bar["enabled"], "slots": validated["slots"],
+            }
+        clean = stored
     return {"slots": clean, "collapsed": payload["collapsed"]}
 
 
@@ -136,12 +153,27 @@ def quickslot_layout(request, character_id):
                 **lookup, defaults=state,
             )
         else:
+            if "bars" not in payload:
+                existing = CharacterQuickslotLayout.objects.filter(
+                    **lookup,
+                ).first()
+                if existing and isinstance(existing.slots, dict):
+                    state["slots"] = {
+                        **existing.slots, "base": state["slots"],
+                    }
             layout, _ = CharacterQuickslotLayout.objects.update_or_create(
                 **lookup, defaults=state,
             )
-    return JsonResponse({"layout": None if layout is None else {
-        "slots": layout.slots, "collapsed": layout.collapsed,
-    }})
+    result = None
+    if layout is not None:
+        stored = layout.slots
+        result = {
+            "slots": stored["base"] if isinstance(stored, dict) else stored,
+            "collapsed": layout.collapsed,
+        }
+        if isinstance(stored, dict):
+            result["bars"] = {key: stored[key] for key in ("ctrl", "shift")}
+    return JsonResponse({"layout": result})
 
 
 def build_quickslot_actions(character, engine):

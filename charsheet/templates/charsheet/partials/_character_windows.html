@@ -1,6 +1,10 @@
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="charInfoWindow" aria-hidden="true">
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal character-info-window" id="charInfoWindow" aria-hidden="true" aria-labelledby="charInfoWindowTitle">
   <div class="payday-window__titlebar sheet-window__header" id="charInfoWindowHandle">
-    <h3 class="payday-window__title sheet-window__title">Charakterinfo bearbeiten</h3>
+    <span class="character-info-window__sigil" aria-hidden="true">✦</span>
+    <div class="character-info-window__heading">
+      <span class="character-info-window__eyebrow">Charakter</span>
+      <h3 class="payday-window__title sheet-window__title" id="charInfoWindowTitle">Charakterinfo bearbeiten</h3>
+    </div>
     <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
@@ -8,6 +12,7 @@
       <div class="sheet-window__editor-pane">
         <form method="post" action="{% url 'update_character_info' character.id %}" enctype="multipart/form-data" id="charInfoForm" class="shop_item_form sheet-window__editor-form">
           {% csrf_token %}
+          <div class="character-info-window__overview">
           <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form char_picture_editor">
             <div class="char_picture_editor__header">
               <span>Charakterbild</span>
@@ -24,9 +29,9 @@
               </div>
               <div class="char_picture_editor__controls">
                 <div class="char_picture_editor__preview_actions">
-                  <label class="char_picture_editor__pick" for="charPictureInput">Bild wählen</label>
-                  <button type="button" class="shop_item_cancel_btn char_picture_editor__adjust" id="charPictureAdjustBtn"{% if not character.char_picture %} hidden{% endif %}>Bild anpassen</button>
-                  <button type="button" class="shop_item_cancel_btn char_picture_editor__remove" id="charPictureRemoveBtn"{% if not character.char_picture %} hidden{% endif %}>Bild löschen</button>
+                  <label class="char_picture_editor__pick" for="charPictureInput"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3Zm0 14 6-6 5 5 3-3 4 4"/><circle cx="16" cy="8" r="2"/></svg>Bild wählen<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14m0-10H3v17h17v-7"/></svg></label>
+                  <button type="button" class="shop_item_cancel_btn char_picture_editor__adjust" id="charPictureAdjustBtn" aria-label="Bild anpassen" title="Bild anpassen"{% if not character.char_picture %} hidden{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2v16h16M2 6h16v16"/></svg></button>
+                  <button type="button" class="shop_item_cancel_btn char_picture_editor__remove" id="charPictureRemoveBtn" aria-label="Bild löschen" title="Bild löschen"{% if not character.char_picture %} hidden{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M6 5l1 16h10l1-16M9 5V2h6v3m-5 4v8m4-8v8"/></svg></button>
                 </div>
               </div>
             </div>
@@ -34,25 +39,30 @@
             {{ char_info_form.char_picture_cropped_data }}
             {{ char_info_form.remove_char_picture }}
           </div>
-          <div class="shop_item_form_grid sheet-window__surface sheet-window__surface--editor sheet-window__surface--form sheet-window__surface--form-grid">
+          <div class="character-info-window__identity">
+            <div class="char_picture_editor__header"><span>Persönliches</span></div>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Name</span>{{ char_info_form.name }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Geschlecht</span>{{ char_info_form.gender }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Herkunftsland</span>{{ char_info_form.country_of_origin }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Religion</span>{{ char_info_form.religion_entity }}</label>
+          </div>
+          </div>
+          <div class="shop_item_form_grid sheet-window__surface sheet-window__surface--editor sheet-window__surface--form sheet-window__surface--form-grid character-info-window__traits">
+            <div class="char_picture_editor__header"><span>Körper &amp; Merkmale</span></div>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Alter</span>{{ char_info_form.age }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Gr&ouml;&szlig;e (cm)</span>{{ char_info_form.height }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Gewicht (kg)</span>{{ char_info_form.weight }}</label>
-            <label class="shop_item_form_row shop_item_form_row--compact"><span>Herkunftsland</span>{{ char_info_form.country_of_origin }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Hautfarbe</span>{{ char_info_form.skin_color }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Haarfarbe</span>{{ char_info_form.hair_color }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Augenfarbe</span>{{ char_info_form.eye_color }}</label>
-            <label class="shop_item_form_row shop_item_form_row--compact"><span>Religion</span>{{ char_info_form.religion_entity }}</label>
           </div>
           <label class="shop_item_form_row sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
             <span>Aussehen</span>
             {{ char_info_form.appearance }}
             <span class="sheet_char_counter" data-char-count-for="id_appearance" aria-live="polite"></span>
           </label>
-          <div class="shop_item_form_actions">
-            <button type="submit" class="wax_seal_btn" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+          <div class="character-info-window__actions">
+            <button type="submit" class="shop_item_save_btn">Speichern</button>
           </div>
         </form>
       </div>
@@ -83,9 +93,13 @@
   </div>
 </section>
 
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="appearanceDetailWindow" aria-hidden="true">
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal character-info-window" id="appearanceDetailWindow" aria-hidden="true" aria-labelledby="appearanceDetailWindowTitle">
   <div class="payday-window__titlebar sheet-window__header" id="appearanceDetailWindowHandle">
-    <h3 class="payday-window__title sheet-window__title">Aussehen</h3>
+    <span class="character-info-window__sigil" aria-hidden="true">✦</span>
+    <div class="character-info-window__heading">
+      <span class="character-info-window__eyebrow">Charakter</span>
+      <h3 class="payday-window__title sheet-window__title" id="appearanceDetailWindowTitle">Aussehen</h3>
+    </div>
     <button type="button" class="payday-window__close" id="appearanceDetailWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">

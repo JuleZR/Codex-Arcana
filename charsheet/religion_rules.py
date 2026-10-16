@@ -6,7 +6,7 @@ from charsheet.constants import SCHOOL_DIVINE
 
 
 def is_druid_school(school_or_entry) -> bool:
-    """Return whether a school is backed by a druid circle instead of a deity."""
+    """Return whether a school is backed by a druid circle."""
     school = getattr(school_or_entry, "school", school_or_entry)
     school_id = getattr(school, "id", None) or getattr(school, "pk", None)
     if not school_id:
@@ -20,7 +20,7 @@ def is_druid_school(school_or_entry) -> bool:
 
 
 def has_active_druid_school(character) -> bool:
-    """Return whether the character has learned at least one druid school level."""
+    """Return whether the character has learned a druid school level."""
     from charsheet.models import CharacterSchool, DruidCult
 
     learned_school_ids = CharacterSchool.objects.filter(
@@ -31,7 +31,7 @@ def has_active_druid_school(character) -> bool:
 
 
 def is_shaman_school(school_or_entry) -> bool:
-    """Return whether a school is backed by a shaman patron instead of a deity."""
+    """Return whether a school is backed by a shaman patron."""
     school = getattr(school_or_entry, "school", school_or_entry)
     school_id = getattr(school, "id", None) or getattr(school, "pk", None)
     if not school_id:
@@ -59,16 +59,23 @@ def is_cult_school(school_or_entry) -> bool:
 
 
 def is_clerical_school(school_or_entry) -> bool:
-    """Return whether a school uses the mutually exclusive clerical progression."""
+    """Return whether a school uses the clerical progression."""
     school = getattr(school_or_entry, "school", school_or_entry)
-    if is_cult_school(school) or is_druid_school(school) or is_shaman_school(school):
+    if (
+        is_cult_school(school)
+        or is_druid_school(school)
+        or is_shaman_school(school)
+    ):
         return True
     school_type = getattr(school, "type", None)
     if school_type is None:
         return False
     slug = str(getattr(school_type, "slug", "") or "").strip().lower()
     name = str(getattr(school_type, "name", "") or "").strip().lower()
-    return slug in {SCHOOL_DIVINE, "school_divine"} or "kler" in name or "divin" in name or "priest" in name
+    return (
+        slug in {SCHOOL_DIVINE, "school_divine"}
+        or "kler" in name or "divin" in name or "priest" in name
+    )
 
 
 def is_divine_entity_school(school_or_entry) -> bool:
@@ -90,13 +97,14 @@ def active_clerical_school_entries(character):
             level__gt=0,
         )
         .select_related("school", "school__type")
+        .prefetch_related("school__druid_cults", "school__shaman_patrons")
         .order_by("school__name")
     )
     return [entry for entry in entries if is_divine_entity_school(entry)]
 
 
 def selected_divine_entity(character):
-    """Return the selected divine entity from binding or legacy display text."""
+    """Return the divine entity from binding or legacy display text."""
     from charsheet.models import CharacterDivineEntity, DivineEntity
 
     binding = (
@@ -137,18 +145,18 @@ def divine_school_for_entity(character, entity):
 
 
 def unique_divine_entity_for_school(school_id: int):
-    """Return the only entity for a school, or None if the mapping is ambiguous."""
+    """Return the only entity for a school, or None if ambiguous."""
     entities = list(divine_entities_for_school(school_id)[:2])
     return entities[0] if len(entities) == 1 else None
 
 
 def divine_entity_count_for_school(school_id: int) -> int:
-    """Return how many divine entities point to one clerical school."""
+    """Count the divine entities pointing to one clerical school."""
     return divine_entities_for_school(school_id).count()
 
 
 def locked_religion_entity(character, *, repair: bool = False):
-    """Return the entity that locks religion while a clerical school is active."""
+    """Return the entity locking religion for an active clerical school."""
     from charsheet.models import CharacterDivineEntity
 
     entries = active_clerical_school_entries(character)

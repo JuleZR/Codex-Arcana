@@ -6,7 +6,7 @@ function loadCropperModule() {
     .catch(error => { cropperModulePromise = null; throw error; });
 }
 
-export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropperModule }) {
+export function initQuickslotImageEditor({ onBusyChange, onImageChange = () => {}, loadCropper = loadCropperModule }) {
   const fileInput = document.getElementById("quickslotImageFile");
   const preview = document.getElementById("quickslotImagePreview");
   const previewImage = document.getElementById("quickslotImagePreviewImage");
@@ -17,10 +17,25 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
   let cropper, objectUrl, picture = "", generation = 0, busy = false;
   let removeSelectionLimit;
 
+  function positionCrop() {
+    if (stage.hidden) return;
+    let rect = editor.getBoundingClientRect();
+    const width = stage.offsetWidth;
+    if (window.innerWidth >= rect.width + width + 44) {
+      const left = Math.max(16, Math.min(rect.left, window.innerWidth - rect.width - width - 28));
+      if (left !== rect.left) {
+        Object.assign(editor.style, { left: `${left}px`, top: `${rect.top}px`, right: "auto", bottom: "auto", margin: "0" });
+        rect = editor.getBoundingClientRect();
+      }
+    }
+    stage.style.left = `${Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16))}px`;
+    stage.style.top = `${Math.max(16, Math.min(rect.top, window.innerHeight - stage.offsetHeight - 16))}px`;
+  }
   function render() {
     preview.hidden = !picture;
     if (picture) previewImage.src = picture;
     else previewImage.removeAttribute("src");
+    onImageChange();
   }
   function cancel() {
     generation++;
@@ -42,6 +57,8 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
     cancel(); error.hidden = true;
     const token = generation;
     busy = true; onBusyChange(true); stage.hidden = false;
+    positionCrop();
+    stage.focus();
     if (file) source = objectUrl = URL.createObjectURL(source);
     try {
       const Cropper = await loadCropper();
@@ -103,8 +120,15 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
   editor.querySelector("[data-quickslot-image-remove]").addEventListener("click", () => {
     cancel(); picture = ""; render(); error.hidden = true;
   });
-  editor.querySelector("[data-quickslot-crop-cancel]").addEventListener("click", cancel);
-  const apply = editor.querySelector("[data-quickslot-crop-apply]");
+  stage.querySelector("[data-quickslot-crop-cancel]").addEventListener("click", () => {
+    cancel(); fileInput.focus();
+  });
+  stage.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    event.preventDefault(); event.stopPropagation();
+    cancel(); fileInput.focus();
+  });
+  const apply = stage.querySelector("[data-quickslot-crop-apply]");
   apply.addEventListener("click", async () => {
     if (!cropper || apply.disabled) return;
     const token = generation;
@@ -119,12 +143,19 @@ export function initQuickslotImageEditor({ onBusyChange, loadCropper = loadCropp
       });
       if (token !== generation) return;
       picture = canvas.toDataURL("image/jpeg", .9);
-      cancel(); render();
+      cancel(); render(); fileInput.focus();
     } catch (_error) {
       if (token === generation) report();
     } finally { apply.disabled = false; }
   });
   editor.addEventListener("close", cancel);
+  editor.addEventListener("pointermove", positionCrop);
+  window.addEventListener("resize", positionCrop);
+  if (typeof ResizeObserver !== "undefined") {
+    const observer = new ResizeObserver(positionCrop);
+    observer.observe(editor);
+    observer.observe(stage);
+  }
   return {
     setImage(value) { cancel(); picture = value || ""; error.hidden = true; render(); },
     getImage: () => picture,

@@ -1,5 +1,5 @@
 import { getCsrfToken } from "./utils.js";
-import { initQuickslotImageEditor } from "./quickslot_image_editor.js?v=20261007-crop-bounds";
+import { initQuickslotImageEditor } from "./quickslot_image_editor.js?v=20261016-floating-crop";
 import { initQuickslotModifiers, initModifierList } from "./quickslot_modifiers.js?v=20261007-named-bonuses";
 
 const KEYS = [..."1234567890ß"];
@@ -73,10 +73,16 @@ export function actionMatches(reference, action) {
 }
 
 export function shortcutIndex(event) {
-  const digit = KEYS.indexOf(event.key);
-  if (digit !== -1) return digit;
+  if (event.altKey || event.metaKey || (event.ctrlKey && event.shiftKey)) return -1;
+  const offset = event.ctrlKey ? 11 : event.shiftKey ? 22 : 0;
+  let digit = KEYS.indexOf(event.key);
+  if (digit === -1 && offset) {
+    const physical = /^Digit([0-9])$/.exec(event.code || "");
+    digit = physical ? KEYS.indexOf(physical[1]) : event.code === "Minus" ? 10 : -1;
+  }
+  if (digit !== -1) return offset + digit;
   const functionKey = /^F(1[3-9]|2[0-3])$/.exec(event.key);
-  return functionKey ? Number(functionKey[1]) - 13 : -1;
+  return functionKey ? offset + Number(functionKey[1]) - 13 : -1;
 }
 
 export function isEditingText(element) {
@@ -88,7 +94,7 @@ export function isEditingText(element) {
 
 export function moveQuickslot(slots, from, to) {
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0
-      || from >= 11 || to >= 11 || !slots[from]) return;
+      || from >= slots.length || to >= slots.length || !slots[from]) return;
   [slots[from], slots[to]] = [slots[to], slots[from]];
 }
 
@@ -97,6 +103,9 @@ export function initQuickslots({ rollDice, isRolling }) {
   if (!root || root.dataset.bound === "1") return;
   root.dataset.bound = "1";
   const buttons = [...root.querySelectorAll("[data-quickslot-index]")];
+  buttons.forEach((button, index) => { button.dataset.quickslotIndex = String(index); });
+  const bankToggles = [...root.querySelectorAll("[data-quickslot-bar-toggle]")];
+  const banks = [...root.querySelectorAll("[data-quickslot-bank]")];
   const toggle = root.querySelector("[data-quickslot-toggle]");
   const editor = document.getElementById("quickslotEditor");
   const editorTitle = document.getElementById("quickslotEditorTitle");
@@ -147,10 +156,11 @@ export function initQuickslots({ rollDice, isRolling }) {
   const diceOperandInput = document.getElementById("quickslotDiceOperand");
   const debugInputs = [document.getElementById("quickslotDebugFirst"), document.getElementById("quickslotDebugSecond")];
   const slotModifiers = initModifierList(document.getElementById("quickslotSlotModifiers"),
-    editor.querySelector("[data-quickslot-slot-modifier-add]"));
+    editor.querySelector("[data-quickslot-slot-modifier-add]"), refreshEditorPreview);
   const saveButton = editor.querySelector("[data-quickslot-save]");
   const status = document.getElementById("quickslotStatus");
-  let slots = [...FREE_DICE, ...Array(8).fill(null)];
+  let slots = [...FREE_DICE, ...Array(30).fill(null)];
+  const enabledBars = { ctrl: false, shift: false };
   let collapsed = window.matchMedia("(max-width: 700px)").matches;
   let catalog = [];
   let editingIndex = null;
@@ -163,10 +173,17 @@ export function initQuickslots({ rollDice, isRolling }) {
   let legacyLayout = null;
   const labelInput = document.getElementById("quickslotLabel");
   const labelPositionSelect = document.getElementById("quickslotLabelPosition");
+  const positionButtons = [...editor.querySelectorAll("[data-quickslot-label-position]")];
+  positionButtons.forEach(button => button.addEventListener("click", () => {
+    labelPositionSelect.value = button.dataset.quickslotLabelPosition;
+    refreshEditorPreview();
+  }));
   const ignoreBonusInput = document.getElementById("quickslotIgnoreBonus");
   const targetInput = document.getElementById("quickslotTarget");
+  const slotPreview = document.getElementById("quickslotSlotPreview");
   const imageEditor = initQuickslotImageEditor({
     onBusyChange: busy => { saveButton.disabled = busy || !choices.length; },
+    onImageChange: refreshEditorPreview,
   });
   try {
     const saved = JSON.parse(window.localStorage.getItem(root.dataset.storageKey));
@@ -195,6 +212,10 @@ export function initQuickslots({ rollDice, isRolling }) {
         || data.layout.slots.length !== 11 || typeof data.layout.collapsed !== "boolean")) {
       throw new Error("Ungültige zentrale Hotbar-Belegung.");
     }
+    if (data.layout?.bars !== undefined && ["ctrl", "shift"].some(key => {
+      const bar = data.layout.bars?.[key];
+      return typeof bar?.enabled !== "boolean" || !Array.isArray(bar.slots) || bar.slots.length !== 11;
+    })) throw new Error("Ungültige zusätzliche Hotkey-Leisten.");
     return data.layout;
   }
 
@@ -209,7 +230,12 @@ export function initQuickslots({ rollDice, isRolling }) {
         });
       }
       if (layout) {
-        slots = layout.slots.map(normalizeAction);
+        slots = [...layout.slots.map(normalizeAction), ...Array(22).fill(null)];
+        ["ctrl", "shift"].forEach((key, index) => {
+          const bar = layout.bars?.[key];
+          enabledBars[key] = bar?.enabled === true;
+          if (bar) slots.splice((index + 1) * 11, 11, ...bar.slots.map(normalizeAction));
+        });
         collapsed = layout.collapsed;
         try { window.localStorage.removeItem?.(root.dataset.storageKey); } catch (_) { /* Central layout is already loaded. */ }
       }
@@ -222,13 +248,25 @@ export function initQuickslots({ rollDice, isRolling }) {
     saving = true;
     render();
     try {
-      await requestLayout("POST", { slots, collapsed });
+      await requestLayout("POST", {
+        slots: slots.slice(0, 11), collapsed,
+        bars: Object.fromEntries(["ctrl", "shift"].map((key, index) => [key, {
+          enabled: enabledBars[key], slots: slots.slice((index + 1) * 11, (index + 2) * 11),
+        }])),
+      });
       return true;
     } catch (error) { notify(error.message || "Die Hotbar konnte nicht gespeichert werden."); return false; }
     finally { saving = false; render(); }
   }
 
   function render() {
+    const bankCount = 1 + Object.values(enabledBars).filter(Boolean).length;
+    root.style.setProperty("--quickslots-bank-count", String(bankCount));
+    banks.forEach(bank => { bank.hidden = bank.dataset.quickslotBank !== "base" && !enabledBars[bank.dataset.quickslotBank]; });
+    bankToggles.forEach(input => {
+      input.checked = enabledBars[input.dataset.quickslotBarToggle];
+      input.disabled = !ready || saving;
+    });
     toggle.disabled = !ready || saving;
     modifiers.setCollapsed(collapsed);
     root.classList.toggle("is-collapsed", collapsed);
@@ -253,9 +291,13 @@ export function initQuickslots({ rollDice, isRolling }) {
       if (action?.image) image.src = action.image;
       else image.removeAttribute("src");
       button.draggable = Boolean(action);
-      button.title = `${KEYS[index]} / F${index + 13}: ${label}${current?.detail ? ` · ${current.detail}` : ""}${modifier ? ` ${modifier}` : ""}${action && !available ? " · Nicht verfügbar" : ""}\nRechtsklick: Belegen / Entfernen`;
+      button.title = `${slotKey(index)} / ${index >= 22 ? "Shift+" : index >= 11 ? "Strg+" : ""}F${index % 11 + 13}: ${label}${current?.detail ? ` · ${current.detail}` : ""}${modifier ? ` ${modifier}` : ""}${action && !available ? " · Nicht verfügbar" : ""}\nRechtsklick: Belegen / Entfernen`;
       button.setAttribute("aria-label", button.title);
     });
+  }
+
+  function slotKey(index) {
+    return `${index >= 22 ? "Shift+" : index >= 11 ? "Strg+" : ""}${KEYS[index % 11]}`;
   }
 
   async function refreshCatalog() {
@@ -349,6 +391,7 @@ export function initQuickslots({ rollDice, isRolling }) {
   }
 
   function fillChoices() {
+    const previousChoice = choices[Number(actionSelect.value)];
     choices = typeSelect.value === "dice" ? FREE_DICE : catalog.filter(action => action.type === typeSelect.value);
     document.getElementById("quickslotActionField").hidden = ["initiative", "dice"].includes(typeSelect.value);
     document.getElementById("quickslotDiceFields").hidden = typeSelect.value !== "dice";
@@ -363,12 +406,14 @@ export function initQuickslots({ rollDice, isRolling }) {
       option.textContent = `${action.label}${action.detail ? ` · ${action.detail}` : ""}${action.available === false ? " · Nicht verfügbar" : ""}`;
       actionSelect.append(option);
     });
+    const reference = previousChoice?.type === typeSelect.value ? previousChoice : slots[editingIndex];
     const selected = choices.findIndex(action => action.type === "dice"
       ? action.sides === slots[editingIndex]?.sides && action.count === slots[editingIndex]?.count
-      : actionMatches(slots[editingIndex], action));
+      : actionMatches(reference, action));
     if (selected !== -1) actionSelect.value = String(selected);
     updateDebugFields();
     saveButton.disabled = !choices.length || imageEditor.isBusy();
+    refreshEditorPreview();
   }
 
   function updateDebugFields() {
@@ -380,11 +425,49 @@ export function initQuickslots({ rollDice, isRolling }) {
         ? index === 0 ? "Zehnerwürfel (0–9)" : "Einerwürfel (0–9)"
         : `Würfel ${index + 1}`;
     });
+    refreshEditorPreview();
+  }
+
+  function refreshEditorPreview() {
+    const selected = choices[Number(actionSelect.value)];
+    const dice = typeSelect.value === "dice" ? normalizeAction({
+      type: "dice", count: Number(diceCountInput.value), sides: Number(diceSidesSelect.value),
+      operator: diceOperatorSelect.value, operand: String(diceOperandInput.value).trim() === "" ? NaN : Number(diceOperandInput.value),
+    }) : null;
+    let formula = typeSelect.value === "dice" ? dice?.label || "Ungültige Würfelformel"
+      : selected?.label || "Keine Aktion verfügbar";
+    if (typeSelect.value === "debug" && selected) formula += ` · ${debugInputs.map(input => input.value).join(" / ")}`;
+    document.getElementById("quickslotFormula").textContent = formula;
+    for (const id of ["quickslotActionIcon", "quickslotPreviewIcon"]) {
+      document.getElementById(id).setAttribute("href", `#quickslot-icon-${typeSelect.value || "dice"}`);
+    }
+    labelInput.placeholder = formula;
+    const label = labelInput.value.trim() || formula;
+    slotPreview.querySelector(".quickslot__label").textContent = label;
+    slotPreview.querySelector(".quickslot__key").textContent = editingIndex === null ? "" : slotKey(editingIndex);
+    slotPreview.dataset.labelPosition = labelPositionSelect.value;
+    positionButtons.forEach(button => button.setAttribute("aria-pressed",
+      String(button.dataset.quickslotLabelPosition === labelPositionSelect.value)));
+    const picture = imageEditor.getImage();
+    const image = slotPreview.querySelector(".quickslot__image");
+    image.hidden = !picture;
+    if (picture) image.src = picture;
+    else image.removeAttribute("src");
+    slotPreview.classList.toggle("has-image", Boolean(picture));
+    slotPreview.setAttribute("aria-label", `Slotvorschau: ${label}`);
+    document.getElementById("quickslotTargetSummary").textContent = String(targetInput.value).trim()
+      ? `MW ${targetInput.value}` : "Kein Mindestwurf festgelegt";
+    const count = slotModifiers.getEntries().length;
+    document.getElementById("quickslotModifiersSummary").textContent = count
+      ? `${count} eigene${count === 1 ? "r Modifikator" : " Modifikatoren"}` : "Keine eigenen Modifikatoren";
+    document.getElementById("quickslotBonusSummary").textContent = ignoreBonusInput.checked
+      ? "Allgemeine Boni ignoriert" : "Werden angewendet";
   }
 
   function openEditor(index) {
     if (!ready || saving) return;
     editingIndex = index;
+    choices = [];
     labelInput.value = slots[index]?.customLabel || "";
     labelPositionSelect.value = slots[index]?.labelPosition || (slots[index]?.image ? "bottom" : "center");
     ignoreBonusInput.checked = slots[index]?.ignoreBonus === true;
@@ -396,10 +479,17 @@ export function initQuickslots({ rollDice, isRolling }) {
     slotModifiers.setEntries(slots[index]?.modifiers || []);
     labelInput.placeholder = slots[index]?.label || "Bezeichnung der Aktion";
     imageEditor.setImage(slots[index]?.image || "");
-    document.getElementById("quickslotEditorTitle").textContent = `Slot ${KEYS[index]} einrichten`;
+    document.getElementById("quickslotEditorTitle").textContent = "Slot einrichten";
+    const slotNumber = document.getElementById("quickslotEditorNumber");
+    slotNumber.textContent = String(index % 11 + 1).padStart(2, "0");
+    slotNumber.setAttribute("aria-label", `Slot ${slotKey(index)}`);
+    slotNumber.title = slotKey(index);
     typeSelect.value = slots[index]?.type || "dice";
     fillChoices();
     debugInputs.forEach((input, i) => { input.value = slots[index]?.rolls?.[i] ?? 5; });
+    editor.querySelectorAll(".quickslot-editor__option").forEach(panel => { panel.open = false; });
+    editor.querySelector(".quickslot-editor__content").scrollTop = 0;
+    refreshEditorPreview();
     if (!editor.open) editor.show();
     refreshCatalog().then(() => { if (editor.open) fillChoices(); }).catch(error => notify(error.message));
   }
@@ -409,8 +499,20 @@ export function initQuickslots({ rollDice, isRolling }) {
     collapsed = !collapsed;
     if (!await persist()) { collapsed = !collapsed; render(); }
   });
+  bankToggles.forEach(input => input.addEventListener("change", async () => {
+    const key = input.dataset.quickslotBarToggle;
+    if (!ready || saving) { input.checked = enabledBars[key]; return; }
+    const previous = enabledBars[key];
+    enabledBars[key] = input.checked;
+    if (!await persist()) { enabledBars[key] = previous; render(); }
+  }));
   typeSelect.addEventListener("change", fillChoices);
   actionSelect.addEventListener("change", updateDebugFields);
+  [diceCountInput, diceSidesSelect, diceOperatorSelect, diceOperandInput, ...debugInputs,
+    labelInput, labelPositionSelect, ignoreBonusInput, targetInput].forEach(input => {
+    input.addEventListener("input", refreshEditorPreview);
+    input.addEventListener("change", refreshEditorPreview);
+  });
   saveButton.addEventListener("click", async () => {
     if (!ready || saving || imageEditor.isBusy()) return;
     const selected = typeSelect.value === "dice"
@@ -488,7 +590,9 @@ export function initQuickslots({ rollDice, isRolling }) {
   document.addEventListener("keydown", event => {
     const index = shortcutIndex(event);
     if (index < 0 || event.repeat || event.isComposing
-        || event.composedPath().some(isEditingText)) return;
+        || (index >= 22 ? !enabledBars.shift : index >= 11 && !enabledBars.ctrl)
+        || event.composedPath().some(isEditingText)
+        || editor.open || event.target.closest?.("select, dialog, [role='dialog']")) return;
     event.preventDefault(); activateQuickslot(index);
   }, true);
   document.addEventListener("keydown", rollField);

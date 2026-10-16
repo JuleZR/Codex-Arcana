@@ -1492,6 +1492,13 @@ class CreatureEngine:
     def size_modifier(self) -> int:
         return int(GK_MODS.get(self.size_class(), 0))
 
+    @cached_property
+    def _base_attribute_values(self) -> dict[str, int | None]:
+        values = {}
+        for row in self.creature.attributes.select_related("attribute"):
+            values.setdefault(row.attribute.short_name, row.base_value)
+        return values
+
     def attribute_base_mod(self, attribute: str) -> int | None:
         field_name = ATTRIBUTE_FIELD_MAP.get(attribute)
         if not field_name:
@@ -1500,11 +1507,7 @@ class CreatureEngine:
         if override is not None and override != "":
             value = override
         else:
-            value = None
-            for row in self.creature.attributes.select_related("attribute"):
-                if row.attribute.short_name == attribute:
-                    value = row.base_value
-                    break
+            value = self._base_attribute_values.get(attribute)
         if value is None:
             return None
         return (

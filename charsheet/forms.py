@@ -361,7 +361,7 @@ class CharacterInfoInlineForm(forms.ModelForm):
                 "class": "dashboard_input", "min": 0, "step": 1,
             }),
             "appearance": forms.Textarea(attrs={
-                "class": "dashboard_input", "maxlength": 300, "rows": 3,
+                "class": "dashboard_input", "maxlength": 1000, "rows": 5,
                 "style": "resize: none;",
             }),
         }

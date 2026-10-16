@@ -1,0 +1,597 @@
+    <div id="dashboardAccountBackdrop" class="dashboard_creation_backdrop dashboard_account_backdrop" aria-hidden="true"></div>
+    <section class="payday-window payday-window--large dashboard_account_window" id="dashboardAccountWindow" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dashboardAccountTitle" data-open-security="{% if open_account_security %}true{% else %}false{% endif %}">
+      <div class="payday-window__titlebar" id="dashboardAccountHandle">
+        <div class="dashboard_account_heading"><span>CODEX ARCANA · PERSÖNLICHE VERWALTUNG</span><h3 class="payday-window__title" id="dashboardAccountTitle">Kontoeinstellungen</h3><p>Dein Konto. Deine Regeln.</p></div>
+        <button type="button" id="dashboardAccountClose" class="payday-window__close" aria-label="Fenster schließen" title="Fenster schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
+      </div>
+      <div class="payday-window__body dashboard_account_body">
+        <form method="post" action="{% url 'update_account_settings' %}" class="dashboard_account_form" autocomplete="off" data-lpignore="true" data-1p-ignore>
+          {% csrf_token %}
+          <div class="dashboard_account_shell">
+            <nav class="dashboard_account_nav" aria-label="Kontobereiche">
+              <div class="dashboard_account_user"><strong>{{ request.user.get_username }}</strong><small>Dein Abenteurerkonto</small></div>
+              <button type="button" data-account-page="accountProfile" aria-controls="accountProfile">Mein Konto</button>
+              <button type="button" data-account-page="accountAppearance" aria-controls="accountAppearance">Darstellung</button>
+              <button type="button" data-account-page="accountGame" aria-controls="accountGame">Spiel &amp; Würfel</button>
+              <button type="button" data-account-page="accountPrint" aria-controls="accountPrint">Druck</button>
+              <button type="button" data-account-page="accountSecurity" aria-controls="accountSecurity">Sicherheit</button>
+              <button type="button" data-account-page="accountData" aria-controls="accountData">Meine Daten</button>
+              <div class="dashboard_account_signature" aria-hidden="true">✧<small>CODEX ARCANA</small></div>
+            </nav>
+            <div class="dashboard_account_workspace">
+            <div class="dashboard_account_content">
+          <section class="dashboard_account_section" data-account-panel id="accountProfile">
+            <div class="dashboard_account_section_header">
+              <h4>Mein Konto</h4>
+              <p>Name und Kontaktadresse deines Benutzerkontos.</p>
+            </div>
+            <div class="dashboard_account_identity">
+              <span class="dashboard_account_monogram" aria-hidden="true">{{ request.user.get_username|first|upper }}</span>
+              <div><small>ANGEMELDET ALS</small><strong>{{ request.user.get_username }}</strong><span>{{ request.user.email|default:"Keine E-Mail-Adresse hinterlegt" }}</span></div>
+              <span>{% if request.user.settings.email_verified %}E-Mail bestätigt{% else %}E-Mail nicht bestätigt{% endif %}</span>
+            </div>
+            <details class="dashboard_account_disclosure" id="accountIdentity">
+              <summary>Persönliche Angaben <small>Benutzername und E-Mail-Adresse bearbeiten</small></summary>
+              <div class="dashboard_account_disclosure_body">
+            <div class="dashboard_account_grid">
+              <label class="form_row">
+                <span>Benutzername</span>
+                <input class="dashboard_input" type="text" name="username" value="{{ request.user.get_username }}" required maxlength="150" autocomplete="off" data-lpignore="true" data-1p-ignore>
+              </label>
+              <label class="form_row">
+                <span>E-Mail</span>
+                <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Optional">
+              </label>
+              <div class="form_row">
+                <span>Status</span>
+                {% if request.user.settings.email_verified %}
+                  <strong>E-Mail bestätigt</strong>
+                {% else %}
+                  <strong>E-Mail nicht bestätigt</strong>
+                  {% if request.user.email %}
+                    <button class="dashboard_button" type="submit" formaction="{% url 'resend_email_verification' %}" formmethod="post">Bestätigungslink erneut senden</button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+              </div>
+            </details>
+          </section>
+
+          <section class="dashboard_account_section" data-account-panel id="accountAppearance">
+            <div class="dashboard_account_section_header">
+              <h4>Darstellung</h4>
+              <p>Lesemodus und visuelle Dichte für längere Spielsitzungen.</p>
+            </div>
+            <div class="dashboard_account_choice_grid">
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="default"{% if request.user.settings.theme_mode == "default" %} checked{% endif %}>
+                <span><strong>Standard</strong><small>Ausgewogenes Dashboard.</small></span>
+              </label>
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="compact"{% if request.user.settings.theme_mode == "compact" %} checked{% endif %}>
+                <span><strong>Kompakt</strong><small>Mehr Inhalt auf engem Raum.</small></span>
+              </label>
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="large"{% if request.user.settings.theme_mode == "large" %} checked{% endif %}>
+                <span><strong>Groß</strong><small>Mehr Abstand und größere Schrift.</small></span>
+              </label>
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="high_contrast"{% if request.user.settings.theme_mode == "high_contrast" %} checked{% endif %}>
+                <span><strong>Hoher Kontrast</strong><small>Klarere Kanten und stärkere Schrift.</small></span>
+              </label>
+            </div>
+            <div class="dashboard_account_toggle_grid">
+              <label class="dashboard_account_toggle">
+                <span>
+                  <strong>Charakterdatum</strong>
+                  <small>Kalenderdatum und Navigation auf dem Charakterbogen anzeigen.</small>
+                </span>
+                <input type="checkbox" name="show_character_date" id="id_show_character_date"
+                       {% if request.user.settings.show_character_date %}checked{% endif %}>
+              </label>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" data-account-panel id="accountPrint">
+            <div class="dashboard_account_section_header">
+              <h4>Druck</h4>
+              <p>Voreinstellungen für den Charakterbogen-Druck aus dem Dashboard.</p>
+            </div>
+            <div class="dashboard_account_toggle_grid">
+              <label class="dashboard_account_toggle">
+                <span><strong>Inventar mitdrucken</strong><small>Ausrüstung und Waffen als Anhang ergänzen.</small></span>
+                <input type="checkbox" name="print_include_inventory" id="id_print_include_inventory"{% if request.user.settings.print_include_inventory %} checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span><strong>Notizen mitdrucken</strong><small>Beschreibungen und Notiztexte im Druck behalten.</small></span>
+                <input type="checkbox" name="print_include_notes" id="id_print_include_notes"{% if request.user.settings.print_include_notes %} checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span><strong>Kompakte Druckversion</strong><small>Reduzierte Abstände für weniger Seiten.</small></span>
+                <input type="checkbox" name="print_compact" id="id_print_compact"{% if request.user.settings.print_compact %} checked{% endif %}>
+              </label>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" data-account-panel id="accountSecurity">
+            <div class="dashboard_account_section_header">
+              <h4>Sicherheit</h4>
+              <p>Passwort ändern und offene Sitzungen verwalten.</p>
+            </div>
+            <div class="dashboard_account_meta">
+              <span>Passwort zuletzt geändert</span>
+              <strong>{% if request.user.settings.password_changed_at %}{{ request.user.settings.password_changed_at|date:"d.m.Y H:i" }}{% else %}Nicht erfasst{% endif %}</strong>
+            </div>
+            <details class="dashboard_account_disclosure" id="accountTwoFactor"{% if show_two_factor_setup %} open{% endif %}>
+              <summary>Zwei-Faktor-Authentifizierung<small>Authenticator-App einrichten oder verwalten</small></summary>
+              <div class="dashboard_account_disclosure_body">
+            <div class="dashboard_two_factor_status">
+              <div>
+                <h5>Zwei-Faktor-Authentifizierung: {% if request.user.settings.two_factor_enabled %}Aktiviert{% else %}Deaktiviert{% endif %}</h5>
+                {% if request.user.settings.two_factor_enabled %}
+                  <p>Noch {{ unused_recovery_code_count }} unbenutzte Wiederherstellungscodes.</p>
+                {% else %}
+                  <p>Schütze dein Konto zusätzlich mit einer Authenticator-App.</p>
+                {% endif %}
+              </div>
+              {% if not request.user.settings.two_factor_enabled %}
+                <button type="button" class="dashboard_account_link_button dashboard_two_factor_start" id="twoFactorSetupToggle" aria-controls="twoFactorEnrollment" aria-expanded="{% if show_two_factor_setup %}true{% else %}false{% endif %}"{% if show_two_factor_setup %} hidden{% endif %}>2FA einrichten</button>
+              {% endif %}
+            </div>
+            {% if not request.user.settings.two_factor_enabled %}
+              <fieldset class="dashboard_two_factor_enrollment" id="twoFactorEnrollment"{% if not show_two_factor_setup %} hidden{% endif %}>
+                <legend>Authenticator-App verbinden</legend>
+                <p class="dashboard_two_factor_intro">Scanne den QR-Code mit einer TOTP-kompatiblen Authenticator-App. Gib anschließend den dort angezeigten sechsstelligen Code ein.</p>
+                <div class="dashboard_two_factor_qr_container">
+                  <span class="dashboard_two_factor_qr_label">QR-Code scannen</span>
+                  <img class="dashboard_two_factor_qr"{% if two_factor_setup.qr_data_uri %} src="{{ two_factor_setup.qr_data_uri }}"{% endif %} alt="QR-Code für die Authenticator-App" width="220" height="220" id="twoFactorSetupQr">
+                </div>
+                <div class="dashboard_two_factor_manual_key">
+                  <span>Manueller Einrichtungsschlüssel</span>
+                  <code id="twoFactorSetupSecret">{{ two_factor_setup.secret }}</code>
+                </div>
+                <label class="form_row dashboard_two_factor_code_field">
+                  <span>Aktueller Authentifizierungscode</span>
+                  <input class="dashboard_input" type="text" name="code" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore maxlength="6" form="twoFactorSetupForm" required id="twoFactorSetupCode">
+                </label>
+                <div class="dashboard_two_factor_actions">
+                  <button type="submit" class="dashboard_account_link_button dashboard_two_factor_primary_action" form="twoFactorSetupForm">2FA aktivieren</button>
+                  <button type="button" class="dashboard_account_link_button dashboard_two_factor_cancel_action" id="twoFactorSetupCancel">Einrichtung abbrechen</button>
+                </div>
+              </fieldset>
+            {% else %}
+              <div class="dashboard_account_grid dashboard_account_grid--security">
+                <label class="form_row">
+                  <span>Passwort zum Deaktivieren</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="twoFactorDisableForm">
+                </label>
+                <label class="form_row">
+                  <span>Authenticator- oder Wiederherstellungscode</span>
+                  <input class="dashboard_input" type="text" name="code" autocomplete="off" data-lpignore="true" data-1p-ignore form="twoFactorDisableForm">
+                </label>
+                <button type="submit" class="dashboard_account_link_button" form="twoFactorDisableForm">2FA deaktivieren</button>
+              </div>
+            {% endif %}
+
+              </div>
+            </details>
+            {% if request.user.settings.two_factor_enabled %}
+            <details class="dashboard_account_disclosure" id="accountRecovery"{% if two_factor_recovery_codes %} open{% endif %}>
+              <summary>Wiederherstellungscodes <small>{{ unused_recovery_code_count }} unbenutzte Codes · sicher aufbewahren</small></summary>
+              <div class="dashboard_account_disclosure_body">
+              {% if two_factor_recovery_codes %}
+                <section class="dashboard_two_factor_recovery" aria-labelledby="twoFactorRecoveryTitle">
+                  <h5 id="twoFactorRecoveryTitle">Neue Wiederherstellungscodes</h5>
+                  <p><strong>Speichere diese Codes jetzt an einem sicheren Ort.</strong> Jeder Code kann nur einmal verwendet werden und wird später nicht erneut angezeigt.</p>
+                  <ul>
+                    {% for code in two_factor_recovery_codes %}
+                      <li><code>{{ code }}</code></li>
+                    {% endfor %}
+                  </ul>
+                </section>
+              {% endif %}
+              <div class="dashboard_account_grid dashboard_account_grid--security">
+                <label class="form_row dashboard_account_grid_full">
+                  <span>Passwort für neue Wiederherstellungscodes</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="twoFactorRecoveryCodesForm">
+                </label>
+                <button type="submit" class="dashboard_account_link_button" form="twoFactorRecoveryCodesForm">Wiederherstellungscodes erneuern</button>
+</div>
+
+              </div>
+            </details>
+            {% endif %}
+            <details class="dashboard_account_disclosure" id="accountPasskeys">
+              <summary>Passkeys verwalten<small>Passwortlose Anmeldung und registrierte Schlüssel</small></summary>
+              <div class="dashboard_account_disclosure_body">
+            <div class="dashboard_passkeys"
+                 data-passkey-registration
+                 data-options-url="{% url 'passkey_registration_options' %}"
+                 data-verify-url="{% url 'passkey_registration_verify' %}">
+              <div class="dashboard_session_header">
+                <div>
+                  <h5>Passkeys: {% if registered_passkeys %}{{ registered_passkeys|length }} registriert{% else %}Keine registriert{% endif %}</h5>
+                  <p>Passwortlos anmelden – auch mit synchronisierten Passkeys aus Passwortmanagern wie Bitwarden.</p>
+                </div>
+              </div>
+              <div class="dashboard_passkey_list">
+                {% for passkey in registered_passkeys %}
+                  <article class="dashboard_passkey">
+                    <div class="dashboard_session_details">
+                      <strong>{{ passkey.name }}</strong>
+                      <small>Hinzugefügt am {{ passkey.created_at|date:"d.m.Y H:i" }}{% if passkey.backed_up %} · synchronisierbar{% endif %}</small>
+                    </div>
+                    <label class="form_row dashboard_passkey_password">
+                      <span>Passwort zum Entfernen</span>
+                      <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="passkeyRemove{{ passkey.pk }}" required>
+                    </label>
+                    <button type="submit" class="dashboard_account_link_button" form="passkeyRemove{{ passkey.pk }}">Entfernen</button>
+                  </article>
+                {% empty %}
+                  <p class="dashboard_session_empty">Noch kein Passkey hinterlegt.</p>
+                {% endfor %}
+              </div>
+              <div class="dashboard_account_grid dashboard_account_grid--security">
+                <label class="form_row">
+                  <span>Name des Passkeys</span>
+                  <input class="dashboard_input" type="text" name="name" maxlength="80" placeholder="z. B. Bitwarden oder iPhone" form="passkeyRegistrationForm" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');" required>
+                </label>
+                <label class="form_row">
+                  <span>Aktuelles Passwort zur Bestätigung</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="passkeyRegistrationForm" readonly onfocus="this.removeAttribute('readonly');" required>
+                </label>
+                <button type="button" class="dashboard_account_link_button" data-passkey-register-button>Passkey hinzufügen</button>
+                <p class="dashboard_passkey_error dashboard_account_grid_full" role="alert" data-passkey-error hidden></p>
+              </div>
+            </div>
+
+              </div>
+            </details>
+            <details class="dashboard_account_disclosure" id="accountPassword">
+              <summary>Passwort ändern<small>Ein neues Passwort für dein Konto festlegen</small></summary>
+              <div class="dashboard_account_disclosure_body">
+            <div class="dashboard_account_grid dashboard_account_grid--security">
+              <label class="form_row dashboard_account_grid_full">
+                <span>Aktuelles Passwort</span>
+                <input class="dashboard_input" type="password" name="current_password" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');">
+              </label>
+              <label class="form_row">
+                <span>Neues Passwort</span>
+                <input class="dashboard_input" type="password" name="new_password1" id="id_new_password1" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');">
+              </label>
+              <label class="form_row">
+                <span>Neues Passwort wiederholen</span>
+                <input class="dashboard_input" type="password" name="new_password2" id="id_new_password2" autocomplete="off" data-lpignore="true" data-1p-ignore readonly onfocus="this.removeAttribute('readonly');">
+              </label>
+              <div class="dashboard_password_strength dashboard_account_grid_full" id="accountPasswordStrength" data-strength="empty" aria-live="polite">
+                <div class="dashboard_password_strength_header">
+                  <span>Passwortstärke</span>
+                  <strong>Bereit</strong>
+                </div>
+                <div class="dashboard_password_strength_bar" aria-hidden="true"><span></span></div>
+                <p>Neues Passwort eingeben.</p>
+              </div>
+            </div>
+
+              </div>
+            </details>
+            <details class="dashboard_account_disclosure" id="accountSessions">
+              <summary>Aktive Sitzungen<small>Angemeldete Geräte prüfen und Sitzungen beenden</small></summary>
+              <div class="dashboard_account_disclosure_body">
+            <div class="dashboard_session_header">
+              <div>
+                <h5>Aktive Sitzungen</h5>
+                <p>Angemeldete Codex-Arcana-Sitzungen dieses Kontos.</p>
+              </div>
+              <button type="submit" class="dashboard_account_link_button" form="logoutOtherSessionsForm">Andere Sitzungen abmelden</button>
+            </div>
+            <div class="dashboard_session_list">
+              {% for active_session in active_sessions %}
+                <article class="dashboard_session{% if active_session.is_current %} dashboard_session--current{% endif %}">
+                  <div class="dashboard_session_details">
+                    <div class="dashboard_session_title">
+                      <strong>Codex Arcana Sitzung</strong>
+                      {% if active_session.is_current %}<span>Aktuelle Sitzung</span>{% endif %}
+                    </div>
+                    <small>Gültig bis {{ active_session.expire_date|date:"d.m.Y H:i" }}</small>
+                  </div>
+                  {% if not active_session.is_current %}
+                    <button type="submit" class="dashboard_account_link_button" form="logoutSession{{ forloop.counter }}">Abmelden</button>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <p class="dashboard_session_empty">Keine aktiven Sitzungen gefunden.</p>
+              {% endfor %}
+            </div>
+
+              </div>
+            </details>
+            <details class="dashboard_account_disclosure" id="accountActivity">
+              <summary>Sicherheitsaktivitäten<small>Anmeldungen und sicherheitsrelevante Ereignisse</small></summary>
+              <div class="dashboard_account_disclosure_body">
+            <div class="dashboard_session_header dashboard_security_activity_header">
+              <div>
+                <h5>Sicherheitsaktivitäten</h5>
+                <p>Letzte sicherheitsrelevante Änderungen und Anmeldeversuche.</p>
+              </div>
+            </div>
+            <div class="dashboard_security_activity_list">
+              {% for security_event in security_events %}
+                <article class="dashboard_security_activity">
+                  <div>
+                    <strong>{{ security_event.description }}</strong>
+                    <small>{{ security_event.created_at|date:"d.m.Y H:i" }}</small>
+                  </div>
+                  {% if security_event.device or security_event.source_ip %}
+                    <small class="dashboard_security_activity_source">
+                      {% if security_event.device %}{{ security_event.device }}{% endif %}
+                      {% if security_event.device and security_event.source_ip %} · {% endif %}
+                      {% if security_event.source_ip %}{{ security_event.source_ip }}{% endif %}
+                    </small>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <p class="dashboard_session_empty">Noch keine Sicherheitsaktivität erfasst.</p>
+              {% endfor %}
+            </div>
+
+              </div>
+            </details>
+            </section>
+
+          <section class="dashboard_account_section" data-account-panel id="accountData">
+            <div class="dashboard_account_section_header">
+              <h4>Meine Daten</h4>
+              <p>Eigene Charakterdaten sichern oder weiterverarbeiten.</p>
+            </div>
+            <a class="dashboard_account_export" href="{% url 'export_account_data' %}">
+              <strong>Charakterdaten exportieren</strong>
+              <span>JSON-Datei mit Profil, Charakteren, Inventar und Chronik herunterladen.</span>
+            </a>
+            <div class="dashboard_account_danger_zone">
+              <div class="dashboard_account_section_header">
+                <h5>Kontolebenszyklus</h5>
+                <p>Diese Aktionen sind von den normalen Kontoeinstellungen getrennt.</p>
+              </div>
+              <details class="dashboard_account_disclosure"><summary>Konto deaktivieren<small>Anmeldung sperren und Kontodaten erhalten</small></summary><div class="dashboard_account_lifecycle_action">
+                <div>
+                  <h6>Konto deaktivieren</h6>
+                  <p>Dein Login wird gesperrt und alle Sitzungen werden beendet. Charaktere, Gruppenbeziehungen und Historie bleiben erhalten. Die Administration kann das Konto später reaktivieren.</p>
+                </div>
+                <label class="form_row">
+                  <span>Aktuelles Passwort</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="deactivateAccountForm" required>
+                </label>
+                <button type="submit" class="dashboard_button dashboard_button--danger" form="deactivateAccountForm">Konto deaktivieren</button>
+              </div></details>
+              <details class="dashboard_account_disclosure"><summary>Konto dauerhaft löschen<small>Konto und persönliche Daten unwiderruflich löschen</small></summary><div class="dashboard_account_lifecycle_action dashboard_account_lifecycle_action--delete">
+                <div>
+                  <h6>Konto dauerhaft löschen</h6>
+                  <p>Die Löschung ist unumkehrbar. Dein Konto, deine Charaktere und ausschließlich dazugehörige Daten werden gelöscht. Gemeinsam genutzte oder historisch erforderliche Daten werden nicht stillschweigend entfernt.</p>
+                  <p>Exportiere deine Daten vorher über den Link oben.</p>
+                </div>
+                {% if account_deletion_blockers %}
+                  <div class="dashboard_account_deletion_blockers" role="status">
+                    <strong>Die Löschung ist derzeit gesperrt:</strong>
+                    <ul>
+                      {% for blocker in account_deletion_blockers %}
+                        <li>{{ blocker.label }} ({{ blocker.count }})</li>
+                      {% endfor %}
+                    </ul>
+                    <p>Übertrage klärbare Verantwortlichkeiten ausdrücklich. Historische Beziehungen müssen durch die Administration geprüft werden.</p>
+                  </div>
+                {% else %}
+                  <p class="dashboard_account_deletion_ready">Es wurden keine ungelösten gemeinsamen Beziehungen gefunden.</p>
+                {% endif %}
+                <div class="dashboard_account_grid dashboard_account_grid--security">
+                  <label class="form_row">
+                    <span>Aktuelles Passwort</span>
+                    <input class="dashboard_input" type="password" name="password" autocomplete="off" data-lpignore="true" data-1p-ignore form="deleteAccountForm" required>
+                  </label>
+                  <label class="form_row">
+                    <span>Zur Bestätigung „KONTO LÖSCHEN“ eingeben</span>
+                    <input class="dashboard_input" type="text" name="confirmation" autocomplete="off" form="deleteAccountForm" required>
+                  </label>
+                </div>
+                <button type="submit" class="dashboard_button dashboard_button--danger" form="deleteAccountForm"{% if account_deletion_blockers %} disabled{% endif %}>Konto dauerhaft löschen</button>
+              </div></details>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" data-account-panel id="accountGame">
+            <div class="dashboard_account_section_header">
+              <h4>Spiel &amp; Würfel</h4>
+              <p>Optionale Werkzeuge für Spieltisch und Charakterbogen.</p>
+            </div>
+            <div class="dashboard_account_toggle_grid">
+              <label class="dashboard_account_toggle">
+                <span>
+                  <strong>GRW 1: Kostenlose Sprachen</strong>
+                  <small>Je +1 natürlichem INT-Mod eine Sprache auf Fließend. Auswahl im Lernmenü; Lesen und Schreiben separat.</small>
+                </span>
+                <input type="checkbox" name="int_bonus_languages_enabled" id="id_int_bonus_languages_enabled"
+                       {% if request.user.settings.int_bonus_languages_enabled %}checked{% endif %}>
+              </label>
+
+              <label class="dashboard_account_toggle">
+                <span>
+                  <strong>Würfelfunktion</strong>
+                  <small>Hotbar und Würfe über die Wertefelder aktivieren.</small>
+                </span>
+                <input type="checkbox" name="dice_enabled" id="id_dice_enabled"
+                       {% if request.user.settings.dice_enabled %}checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span>
+                  <strong>DDDdice</strong>
+                  <small>Animierte 3D-Würfel und Online-Würfelraum verwenden.</small>
+                </span>
+                <input type="checkbox" name="dddice_enabled" id="id_dddice_enabled"
+                       {% if request.user.settings.dddice_enabled %}checked{% endif %}>
+              </label>
+            </div>
+          <details class="dashboard_account_disclosure" id="accountResultTexts">
+            <summary>Ergebnistexte anpassen<small>Kritische Erfolge, MW-Proben und Fehlschläge</small></summary>
+            <div class="dashboard_account_disclosure_body">
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>Kritische Fertigkeitsproben</h4>
+              <p>Deine Ergebnisinschriften für alle Charaktere.</p>
+            </div>
+            <div class="dashboard_account_grid">
+              <label class="form_row">
+                <span>Text bei kritischem Erfolg</span>
+                <input class="dashboard_input" type="text" name="critical_success_text" id="id_critical_success_text" maxlength="64" value="{{ request.user.settings.critical_success_text|default:'KRITISCHER ERFOLG' }}" placeholder="KRITISCHER ERFOLG">
+              </label>
+              <label class="form_row">
+                <span>Text bei kritischem Fehlschlag</span>
+                <input class="dashboard_input" type="text" name="critical_failure_text" id="id_critical_failure_text" maxlength="64" value="{{ request.user.settings.critical_failure_text|default:'KRITISCHER FEHLSCHLAG' }}" placeholder="KRITISCHER FEHLSCHLAG">
+              </label>
+            </div>
+            <p>Kurze Inschriften für kritische Fertigkeitsproben, maximal 64 Zeichen. Leere Felder verwenden den Standard.</p>
+            <button type="button" class="dashboard_button" id="resetCriticalTexts">Krit-Texte auf Standard setzen</button>
+          </section>
+
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>MW-Proben</h4>
+              <p>Deine Ergebnistexte für alle Charaktere.</p>
+            </div>
+            <div class="dashboard_account_grid">
+              <label class="form_row">
+                <span>Text bei erreichtem MW</span>
+                <input class="dashboard_input" type="text" name="mw_success_text" id="id_mw_success_text" maxlength="64" value="{{ request.user.settings.mw_success_text|default:'Erfolgreich' }}" placeholder="Erfolgreich">
+              </label>
+              <label class="form_row">
+                <span>Text bei nicht erreichtem MW</span>
+                <input class="dashboard_input" type="text" name="mw_failure_text" id="id_mw_failure_text" maxlength="64" value="{{ request.user.settings.mw_failure_text|default:'Nicht erfolgreich' }}" placeholder="Nicht erfolgreich">
+              </label>
+            </div>
+            <p>Maximal 64 Zeichen. Leere Felder verwenden den Standard.</p>
+            <button type="button" class="dashboard_button" id="resetMwTexts">MW-Texte auf Standard setzen</button>
+          </section>
+
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>Fehlschlag bei 1 + 2</h4>
+              <p>Für freie Würfe und Fertigkeitsproben, auch bei 2 + 1.</p>
+            </div>
+            <label class="form_row">
+              <span>Text bei Fehlschlag</span>
+              <input class="dashboard_input" type="text" name="special_failure_text" id="id_special_failure_text" maxlength="64" value="{{ request.user.settings.special_failure_text|default:'Fehlschlag' }}" placeholder="Fehlschlag">
+            </label>
+            <p>Maximal 64 Zeichen. Ein leeres Feld verwendet den Standard.</p>
+            <button type="button" class="dashboard_button" id="resetSpecialFailureText">Fehlschlag-Text auf Standard setzen</button>
+          </section>
+
+            </div>
+          </details>
+          <details class="dashboard_account_disclosure" id="dddice_fields">
+            <summary>DDDdice-Verbindung konfigurieren<small>Zugangsdaten, Würfelraum und Würfelset</small></summary>
+            <div class="dashboard_account_disclosure_body">
+            <span id="accountIntegrations" class="dashboard_account_anchor"></span>
+            <div class="dashboard_account_section_header">
+              <h4>DDDdice Verbindung</h4>
+              <p>Zugangsdaten und Würfelset für gemeinsame Würfe.</p>
+            </div>
+            <div class="dashboard_account_grid dashboard_account_grid--dddice">
+              <label class="form_row dashboard_account_grid_full">
+                <span>API Key</span>
+                <input class="dashboard_input"
+                       type="password"
+                       name="dddice_api_key"
+                       id="id_dddice_api_key"
+                       value="{{ request.user.settings.dddice_api_key|default:'' }}">
+              </label>
+              <label class="form_row">
+                <span>Room ID</span>
+                <input class="dashboard_input"
+                       type="text"
+                       name="dddice_room_id"
+                       id="id_dddice_room_id"
+                       value="{{ request.user.settings.dddice_room_id|default:'' }}">
+              </label>
+              <label class="form_row">
+                <span>Room Passwort</span>
+                <input class="dashboard_input"
+                       type="password"
+                       name="dddice_room_password"
+                       id="id_dddice_room_password"
+                       value="{{ request.user.settings.dddice_room_password|default:'' }}"
+                       placeholder="Optional">
+              </label>
+              <label class="form_row dashboard_account_grid_full">
+                <span>Würfelset</span>
+                <div class="dice_set_row">
+                  <select class="dashboard_input"
+                          name="dddice_theme_id"
+                          id="id_dddice_theme"
+                          data-current-value="{{ request.user.settings.dddice_theme_id|default:'' }}">
+                    {% if request.user.settings.dddice_theme_id %}<option value="{{ request.user.settings.dddice_theme_id }}" selected>Gespeichertes Würfelset</option>{% endif %}
+                    <option value="">– Würfelsets laden –</option>
+                  </select>
+                  <button type="button"
+                          id="dddice_refresh_sets"
+                          class="dice_refresh_button"
+                          title="Würfelsets aktualisieren" aria-label="Würfelsets aktualisieren">
+                    ⟳
+                  </button>
+                </div>
+              </label>
+            </div>
+            </div>
+          </details>
+          </section>
+            </div>
+          <div id="accountFormErrors" class="dashboard_account_errors" role="alert" hidden></div>
+          <div class="dashboard_account_actions">
+            <output id="accountSaveStatus" aria-live="polite">Keine ausstehenden Änderungen</output>
+            <button type="button" id="dashboardAccountCancel" class="dashboard_button dashboard_button--small">Verwerfen</button>
+            <button type="submit" id="accountSave" class="dashboard_button dashboard_button--small dashboard_button--primary">Änderungen speichern</button>
+          </div>
+            </div>
+          </div>
+        </form>
+        <form method="post" action="{% url 'logout_other_sessions' %}" id="logoutOtherSessionsForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'deactivate_account' %}" id="deactivateAccountForm" autocomplete="off" data-lpignore="true" data-1p-ignore onsubmit="return confirm('Konto wirklich deaktivieren und alle Sitzungen beenden?');">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'delete_account' %}" id="deleteAccountForm" autocomplete="off" data-lpignore="true" data-1p-ignore onsubmit="return confirm('Konto und persönliche Daten wirklich unwiderruflich löschen?');">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_recovery_codes' %}" id="twoFactorRecoveryCodesForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_setup_start' %}" id="twoFactorSetupStartForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_setup' %}" id="twoFactorSetupForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_setup_cancel' %}" id="twoFactorSetupCancelForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_disable' %}" id="twoFactorDisableForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
+          {% csrf_token %}
+        </form>
+        <form method="post" id="passkeyRegistrationForm" autocomplete="off" data-lpignore="true" data-1p-ignore>
+          {% csrf_token %}
+        </form>
+        {% for passkey in registered_passkeys %}
+          <form method="post" action="{% url 'passkey_remove' passkey.pk %}" id="passkeyRemove{{ passkey.pk }}" autocomplete="off" data-lpignore="true" data-1p-ignore>
+            {% csrf_token %}
+          </form>
+        {% endfor %}
+        {% for active_session in active_sessions %}
+          {% if not active_session.is_current %}
+            <form method="post" action="{% url 'logout_session' %}" id="logoutSession{{ forloop.counter }}">
+              {% csrf_token %}
+              <input type="hidden" name="session" value="{{ active_session.reference }}">
+            </form>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>

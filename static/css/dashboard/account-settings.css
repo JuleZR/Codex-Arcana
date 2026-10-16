@@ -1,0 +1,165 @@
+/* Account settings only. Shared window, buttons and form controls stay in use. */
+#dashboardAccountWindow,
+#dashboardAccountWindow * { box-sizing: border-box; }
+#dashboardAccountWindow [hidden] { display: none !important; }
+#dashboardAccountWindow {
+  grid-template-rows: 90px minmax(0, 1fr);
+  border: 4px solid #594132;
+  border-radius: 3px;
+  outline: 1px solid #bb9663;
+  background: linear-gradient(130deg, #f6eddce8, #e8d2b0e8);
+  backdrop-filter: blur(8px);
+}
+#dashboardAccountWindow .payday-window__titlebar {
+  padding: 14px 24px;
+  border-bottom: 3px double #bc9863;
+  background: radial-gradient(ellipse at 60% 0%, #b78a5830, transparent 66%), linear-gradient(110deg, #35271ff2, #604331ed 53%, #382820f2);
+  color: #f9ecd3;
+}
+#dashboardAccountWindow .payday-window__titlebar::after { content: none; }
+#dashboardAccountWindow .payday-window__title { color: #f9ecd3; font-size: 1.65rem; line-height: 1.1; }
+#dashboardAccountWindow .payday-window__close { color: #f9ecd3; }
+#dashboardAccountWindow .dashboard_account_heading > span {
+  display: block;
+  margin-bottom: 5px;
+  color: #d5b786;
+  font-size: 9px;
+  letter-spacing: 1.7px;
+}
+#dashboardAccountWindow .dashboard_account_heading p { margin: 4px 0 0; color: #e5d1b8; font-size: 12px; }
+#dashboardAccountWindow .dashboard_account_body { padding: 0; }
+#dashboardAccountWindow .dashboard_account_form { display: block; }
+#dashboardAccountWindow .dashboard_account_workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; }
+#dashboardAccountWindow .dashboard_account_shell {
+  position: relative;
+  grid-template-columns: 205px minmax(0, 1fr);
+  gap: 0;
+  height: 100%;
+  overflow: hidden;
+}
+#dashboardAccountWindow .dashboard_account_nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 0;
+  border-right: 2px solid #b99462;
+  border-radius: 0;
+  padding: 0 10px 12px;
+  background: linear-gradient(170deg, #473328f5, #2e231df5 80%);
+  box-shadow: none;
+}
+#dashboardAccountWindow .dashboard_account_user { display: grid; gap: 5px; padding: 22px 10px; margin-bottom: 12px; border-bottom: 1px solid #b891653c; color: #f4dfbe; overflow-wrap: anywhere; }
+#dashboardAccountWindow .dashboard_account_user small { font-size: 10px; color: #c0a58a; }
+#dashboardAccountWindow .dashboard_account_nav button {
+  color: #d3bfa5;
+  border-radius: 2px;
+  padding: 12px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-shadow: none;
+}
+#dashboardAccountWindow .dashboard_account_nav button:hover { background: #ac865d28; color: #f6e5c7; }
+#dashboardAccountWindow .dashboard_account_nav button[aria-current="page"] {
+  color: #f8e5bd;
+  font-weight: 700;
+  border-color: #c09b655e;
+  background: linear-gradient(90deg, #94503e85, #8d5d4230);
+  box-shadow: inset 3px 0 0 #dcb67b;
+}
+#dashboardAccountWindow .dashboard_account_signature { display: grid; gap: 8px; margin-top: auto; padding: 20px 8px 0; text-align: center; color: #b99a73; font-size: 24px; }
+#dashboardAccountWindow .dashboard_account_signature small { font-size: 10px; letter-spacing: 2px; }
+#dashboardAccountWindow .dashboard_account_content {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  padding: 25px 30px;
+  background: radial-gradient(ellipse at 20% 5%, #fffdf0b0, transparent 58%), repeating-linear-gradient(35deg, transparent 0 5px, #86613b05 6px 7px), linear-gradient(140deg, #f5ead4e8, #e9d5b7e8);
+}
+#dashboardAccountWindow [data-account-panel] { position: static; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+#dashboardAccountWindow .dashboard_account_section_header { display: block; margin: 0 0 20px; padding-bottom: 16px; border-bottom: 1px solid #b9987059; }
+#dashboardAccountWindow .dashboard_account_section_header h4 { margin: 0 0 6px; font-size: 1.8rem; font-weight: 600; }
+#dashboardAccountWindow .dashboard_account_section_header p { text-align: left; font-size: 12px; line-height: 1.5; }
+#dashboardAccountWindow .dashboard_account_identity { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 18px; margin-bottom: 24px; border: 1px solid #c9a67a; background: linear-gradient(120deg, #fffaf0d9, #ead5b5ab); box-shadow: inset 0 0 0 3px #fffaf066; }
+#dashboardAccountWindow .dashboard_account_monogram { display: grid; place-items: center; width: 52px; height: 52px; border: 2px solid #b89260; color: #f6e2b7; background: linear-gradient(140deg, #74503a, #382820); font-size: 29px; }
+#dashboardAccountWindow .dashboard_account_identity > div { display: grid; gap: 5px; flex: 1; min-width: 120px; overflow-wrap: anywhere; }
+#dashboardAccountWindow .dashboard_account_identity strong { font-size: 22px; }
+#dashboardAccountWindow .dashboard_account_identity small { color: #926b47; font-size: 9px; letter-spacing: 1px; }
+#dashboardAccountWindow .dashboard_account_identity span { font-size: 12px; }
+#dashboardAccountWindow .dashboard_account_identity > span:last-child { color: #61714e; font-size: 11px; }
+#dashboardAccountWindow .dashboard_account_toggle_grid { grid-template-columns: 1fr; gap: 0; margin-top: 18px; border: 1px solid #cdb18b; }
+#dashboardAccountWindow .dashboard_account_toggle { min-height: 64px; padding: 12px 16px; border: 0; border-bottom: 1px solid #d6bea075; border-radius: 0; background: #fff9ef85; box-shadow: none; }
+#dashboardAccountWindow .dashboard_account_toggle:last-child { border-bottom: 0; }
+#dashboardAccountWindow .dashboard_account_toggle strong { font-size: 12px; }
+#dashboardAccountWindow .dashboard_account_toggle small { font-size: 11px; line-height: 1.5; margin-top: 4px; }
+#dashboardAccountWindow .dashboard_account_choice_grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#dashboardAccountWindow .dashboard_account_choice { border-radius: 2px; padding: 14px; }
+#dashboardAccountWindow .dashboard_account_choice strong { font-size: 13px; }
+#dashboardAccountWindow .dashboard_account_choice small { font-size: 11px; }
+#dashboardAccountWindow .dashboard_account_disclosure { margin-top: 10px; border: 1px solid #cdb18b; border-radius: 2px; background: #fff9ef92; }
+#dashboardAccountWindow .dashboard_account_disclosure > summary { position: relative; display: block; list-style: none; padding: 15px 40px 15px 17px; font-size: 12px; color: #463326; }
+#dashboardAccountWindow .dashboard_account_disclosure > summary::-webkit-details-marker { display: none; }
+#dashboardAccountWindow .dashboard_account_disclosure > summary::after { content: "›"; position: absolute; right: 16px; top: 18px; font-size: 22px; color: #9e7a53; }
+#dashboardAccountWindow .dashboard_account_disclosure > summary small { display: block; margin-top: 5px; color: #89735f; font-size: 11px; font-weight: 400; line-height: 1.4; }
+#dashboardAccountWindow .dashboard_account_back { display: none; }
+#dashboardAccountWindow.has-account-detail .dashboard_account_content { overflow: hidden; }
+#dashboardAccountWindow .dashboard_account_disclosure.is-active-detail {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border: 0;
+  border-left: 3px solid #b99462;
+  border-radius: 0;
+  padding: 20px 28px;
+  background: linear-gradient(140deg, #f9efdd, #e5cba7);
+  box-shadow: -8px 0 30px #35271f33;
+  animation: account-detail-enter 180ms ease;
+}
+#dashboardAccountWindow .is-active-detail > summary { flex: 0 0 auto; padding: 4px 0 14px; border-bottom: 1px solid #b99870; font-size: 1.7rem; font-weight: 600; }
+#dashboardAccountWindow .is-active-detail > summary::after { content: none; }
+#dashboardAccountWindow .is-active-detail > summary small { display: none; }
+#dashboardAccountWindow .is-active-detail > .dashboard_account_back { display: block; align-self: flex-start; flex: 0 0 auto; margin: 12px 0; padding: 7px 10px; font-size: 12px; }
+#dashboardAccountWindow .is-active-detail > :is(.dashboard_account_disclosure_body, .dashboard_account_lifecycle_action) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 4px 20px; border: 0; background: transparent; }
+#dashboardAccountWindow .dashboard_account_grid { gap: 14px; }
+#dashboardAccountWindow .dashboard_account_meta { border-radius: 2px; font-size: 12px; }
+#dashboardAccountWindow .dashboard_account_danger_zone { gap: 0; margin-top: 26px; padding-top: 18px; border-top: 1px solid #a8645359; }
+#dashboardAccountWindow .dashboard_account_danger_zone .dashboard_account_section_header { margin-bottom: 4px; border: 0; padding-bottom: 4px; }
+#dashboardAccountWindow .dashboard_account_export { border-radius: 2px; padding: 16px; font-size: 12px; }
+#dashboardAccountWindow .dashboard_account_export span { margin-top: 5px; font-size: 11px; }
+#dashboardAccountWindow .dashboard_account_actions { position: relative; z-index: 7; flex-wrap: wrap; align-items: center; margin: 0; padding: 13px 20px; min-height: 64px; border-top: 2px solid #b59062; background: linear-gradient(180deg, #e9d6b9, #d9bb92); }
+#dashboardAccountWindow #accountSaveStatus { flex: 1; min-width: 140px; color: #6e5944; font-size: 11px; }
+#dashboardAccountWindow #accountSaveStatus.is-dirty { color: #88442f; font-weight: 700; }
+#dashboardAccountWindow .dashboard_account_actions button { min-height: 36px; font-size: 12px; }
+#dashboardAccountWindow button:disabled { opacity: .48; cursor: default; }
+#dashboardAccountWindow .dashboard_account_errors { padding: 12px 20px; max-height: 100px; overflow-y: auto; color: #7a241a; background: #f9e3d8; border-top: 1px solid #a34b40; font-size: 12px; }
+#dashboardAccountWindow [aria-invalid="true"] { border-color: #a34b40; outline: 1px solid #a34b40; }
+@keyframes account-detail-enter { from { opacity: .7; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) {
+  #dashboardAccountWindow .dashboard_account_shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  #dashboardAccountWindow .dashboard_account_nav { flex-direction: row; overflow-x: auto; padding: 7px; border-right: 0; border-bottom: 2px solid #b99462; }
+  #dashboardAccountWindow .dashboard_account_nav button { flex: 0 0 auto; white-space: nowrap; padding: 10px; }
+  #dashboardAccountWindow :is(.dashboard_account_user, .dashboard_account_signature) { display: none; }
+  #dashboardAccountWindow .dashboard_account_content { padding: 18px; }
+  #dashboardAccountWindow .dashboard_account_grid,
+  #dashboardAccountWindow .dashboard_passkey { grid-template-columns: 1fr; }
+  #dashboardAccountWindow .dashboard_account_disclosure.is-active-detail { padding: 16px; }
+}
+@media (max-width: 760px) {
+  #dashboardAccountWindow { grid-template-rows: 80px minmax(0, 1fr); inset: 8px !important; width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  #dashboardAccountWindow .payday-window__titlebar { padding: 10px 14px; }
+  #dashboardAccountWindow .dashboard_account_heading > span { font-size: 8px; letter-spacing: 1px; }
+  #dashboardAccountWindow .dashboard_account_actions { padding: 10px; gap: 8px; }
+  #dashboardAccountWindow #accountSaveStatus { flex-basis: 100%; }
+  #dashboardAccountWindow .dashboard_account_choice_grid { grid-template-columns: 1fr; }
+}
+@media (max-height: 560px) {
+  #dashboardAccountWindow { grid-template-rows: 64px minmax(0, 1fr); width: calc(100vw - 40px); height: calc(100dvh - 40px); }
+  #dashboardAccountWindow .dashboard_account_heading p { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #dashboardAccountWindow .dashboard_account_disclosure.is-active-detail { animation: none; }
+}

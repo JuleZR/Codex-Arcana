@@ -1,5 +1,5 @@
 import { createResultAnimation } from "./charsheet/dice_result.js?v=20261009-percentile-gold";
-import { initQuickslots } from "./charsheet/quickslots.js?v=20261009-debug-w100-restore";
+import { initQuickslots } from "./charsheet/quickslots.js?v=20261016-floating-crop";
 import { initQuickslotHistory } from "./charsheet/quickslot_history.js?v=20261009-special-failure";
 
 /* ---------------------------------------------------

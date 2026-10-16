@@ -733,7 +733,7 @@ body.sheet-feedback--error::after {
 }
 
 .sheet-window--editor-modal#charInfoWindow {
-  width: min(560px, calc(100vw - 24px));
+  width: min(660px, calc(100vw - 24px));
 }
 
 .sheet-window--editor-modal#inventoryDeleteWarningWindow {
@@ -746,6 +746,333 @@ body.sheet-feedback--error::after {
 
 .sheet-window--editor-modal#charInfoWindow .sheet-window__surface--form-grid {
   align-items: start;
+}
+
+/* Compact character windows share the bronze and paper treatment of the slot editor. */
+.character-info-window.sheet-window:is(#charInfoWindow, #appearanceDetailWindow) {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  max-height: calc(100dvh - 32px);
+  border: 1px solid #a78963;
+  border-radius: 4px;
+  color: #503524;
+  background: transparent;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 22px 65px #09060488, 0 0 0 3px #312419, inset 0 0 0 1px #fff9ed;
+}
+
+.character-info-window.sheet-window::before,
+.character-info-window.sheet-window::after {
+  display: none;
+}
+
+.character-info-window .sheet-window__header.payday-window__titlebar {
+  box-sizing: border-box;
+  position: relative;
+  inset: auto;
+  justify-content: flex-start;
+  gap: 16px;
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 84px;
+  padding: 14px 20px;
+  border-bottom: 3px double #c6a06c;
+  color: #f7e9ce;
+  background: radial-gradient(ellipse at 16% 0%, #bb895b25, transparent 60%), linear-gradient(115deg, #3c2a23e6, #624737e6 55%, #34271fe6);
+}
+
+.character-info-window__sigil {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 1px solid #b38b56;
+  border-radius: 4px;
+  color: #edcf94;
+  background: #21191044;
+  font-size: 25px;
+}
+
+.character-info-window__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.character-info-window__eyebrow {
+  color: #d9b98a;
+  font: 600 9px "Inter", Arial, sans-serif;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+
+.character-info-window .sheet-window__title.payday-window__title {
+  display: block;
+  margin: 2px 0 0;
+  color: inherit;
+  font: 700 27px/1.1 "Cormorant Garamond", Georgia, serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.character-info-window .payday-window__close {
+  position: relative;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #b59463;
+  border-radius: 50%;
+  color: #e6cfad;
+  background: #31231d;
+  font: 20px Georgia, serif;
+  text-indent: 0;
+}
+
+.character-info-window .payday-window__close::before,
+.character-info-window .payday-window__close::after {
+  display: none;
+}
+
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__body {
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #baa17f transparent;
+  background: linear-gradient(135deg, #fcf7ed, #f1e5d1);
+}
+
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__editor-shell {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__editor-pane {
+  padding: 20px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__surface--form {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#charInfoWindow.character-info-window .sheet-window__editor-form {
+  gap: 20px;
+}
+
+#charInfoWindow .character-info-window__overview {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 24px;
+  align-items: start;
+}
+
+#charInfoWindow .character-info-window__identity {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+#charInfoWindow .char_picture_editor__layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#charInfoWindow .char_picture_editor__preview {
+  width: min(100%, 176px);
+  align-self: center;
+}
+
+#charInfoWindow .char_picture_editor__controls {
+  width: 100%;
+  padding: 0;
+}
+
+#charInfoWindow .char_picture_editor__preview_actions {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+#charInfoWindow.character-info-window .character-info-window__traits {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#charInfoWindow .character-info-window__traits > .char_picture_editor__header {
+  grid-column: 1 / -1;
+}
+
+#charInfoWindow.character-info-window .char_picture_editor__header {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #d5c3a7;
+  color: #73462d;
+  font: 700 10px "Inter", Arial, sans-serif;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+#charInfoWindow.character-info-window .shop_item_form_row > span:first-child {
+  color: #674a35;
+  font: 12px/1.4 "Segoe UI", sans-serif;
+}
+
+#charInfoWindow.character-info-window .shop_item_form_row :is(input, select, textarea) {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d0bda0;
+  border-radius: 2px;
+  background: linear-gradient(#fffaf2, #f8eddb);
+  color: #503524;
+  box-shadow: inset 0 1px 3px #6147290c;
+}
+
+#charInfoWindow.character-info-window #id_appearance {
+  min-height: 24em;
+  height: auto;
+  max-height: none;
+  field-sizing: content;
+  line-height: 1.4;
+}
+
+#charInfoWindow.character-info-window :is(.char_picture_editor__pick, .shop_item_cancel_btn) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #cbb292;
+  border-radius: 2px;
+  color: #79573c;
+  background: #eee0ca;
+  font: 11px "Inter", Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+#charInfoWindow.character-info-window .char_picture_editor__pick {
+  flex: 1;
+  gap: 7px;
+  min-width: 0;
+  white-space: nowrap;
+  height: 32px;
+}
+
+#charInfoWindow .char_picture_editor__pick svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+#charInfoWindow .char_picture_editor__pick svg:last-child {
+  margin-left: auto;
+}
+
+#charInfoWindow.character-info-window :is(.char_picture_editor__adjust, .char_picture_editor__remove) {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  padding: 0;
+}
+
+#charInfoWindow .char_picture_editor__preview_actions svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#charInfoWindow :is(.char_picture_editor__adjust, .char_picture_editor__remove) svg {
+  width: 15px;
+  height: 15px;
+}
+
+#charInfoWindow.character-info-window .char_picture_editor__remove {
+  color: #985a47;
+  border-color: #d7bfa2;
+  background: #f4e4cf;
+}
+
+#charInfoWindow.character-info-window :is(.char_picture_editor__pick, .shop_item_cancel_btn):hover {
+  border-color: #ae795f;
+  background: #e5d0b0;
+}
+
+#charInfoWindow.character-info-window .shop_item_form_row select:disabled {
+  color: #6e5a46;
+  background: #e9dfce;
+}
+
+#charInfoWindow.character-info-window .sheet_char_counter {
+  color: #73553c;
+  font: 11px "Segoe UI", sans-serif;
+}
+
+#charInfoWindow.character-info-window [hidden] {
+  display: none !important;
+}
+
+#charInfoWindow.character-info-window .character-info-window__actions {
+  display: flex;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  justify-content: flex-end;
+}
+
+#charInfoWindow.character-info-window .shop_item_save_btn {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid #60402a;
+  border-radius: 2px;
+  color: #fff8e9;
+  background: linear-gradient(#956a43, #68442b);
+  box-shadow: inset 0 1px #caa274;
+  font: 600 12px "Inter", Arial, sans-serif;
+}
+
+#charInfoWindow.character-info-window .shop_item_save_btn:hover {
+  background: linear-gradient(#aa8053, #785035);
+}
+
+.character-info-window :is(button, .char_picture_editor__pick):focus-visible {
+  outline: 2px solid #9d754a;
+  outline-offset: 2px;
+}
+
+.character-info-window .character-appearance-card__text {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  #charInfoWindow .character-info-window__overview {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  #charInfoWindow .char_picture_editor__preview_actions {
+    max-width: 280px;
+    align-self: center;
+  }
+
+  #charInfoWindow.character-info-window .character-info-window__traits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .sheet-window .shop_item_form_row--compact {

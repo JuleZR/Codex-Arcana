@@ -8,7 +8,20 @@
   <div id="quickslotBody" class="quickslots__body">
     <button type="button" class="quickslots__modifiers-toggle" data-quickslot-modifiers-toggle aria-controls="quickslotModifiers" aria-expanded="false" title="Boni und Mali" aria-label="Boni und Mali ein- oder ausklappen">±</button>
     <button type="button" class="quickslots__modifiers-toggle" data-quickslot-history-toggle aria-controls="quickslotHistory" aria-expanded="false" title="Wurfprotokoll" aria-label="Wurfprotokoll ein- oder ausklappen">≡</button>
-    <div class="quickslots__list">
+    <details class="quickslots__settings">
+      <summary aria-label="Zusätzliche Hotkey-Leisten" title="Zusätzliche Hotkey-Leisten">⚙</summary>
+      <div class="quickslots__settings-panel">
+        <div class="quickslot-modifiers__heading">Einstellungen</div>
+        <label><input type="checkbox" data-quickslot-bar-toggle="ctrl"> Strg-Leiste</label>
+        <label><input type="checkbox" data-quickslot-bar-toggle="shift"> Shift-Leiste</label>
+        <small>Mit Strg bzw. Shift + Ziffer auslösen. Rechtsklick zum Belegen.</small>
+      </div>
+    </details>
+    <div class="quickslots__banks">
+    {% for bank in 'bcs' %}
+    <div class="quickslots__bank" data-quickslot-bank="{% if bank == 'b' %}base{% elif bank == 'c' %}ctrl{% else %}shift{% endif %}"{% if bank != 'b' %} hidden{% endif %}>
+      <div class="quickslots__bank-heading">{% if bank == 'b' %}Basis{% elif bank == 'c' %}Strg{% else %}Shift{% endif %}</div>
+      <div class="quickslots__list">
       {% for key in '1234567890ß' %}
       <button type="button" class="quickslot" data-quickslot-index="{{ forloop.counter0 }}" draggable="true">
         <img class="quickslot__image" alt="" hidden>
@@ -16,6 +29,9 @@
         <span class="quickslot__label">+</span>
       </button>
       {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
     </div>
   </div>
   <section id="quickslotModifiers" class="quickslot-modifiers" data-quickslot-modifiers-panel aria-label="Boni und Mali" aria-hidden="true" inert>
@@ -29,12 +45,33 @@
   </section>
 </aside>
 <span id="quickslotStatus" class="quickslots__status" role="status" hidden></span>
-<dialog id="quickslotEditor" class="quickslot-editor">
+<dialog id="quickslotEditor" class="quickslot-editor" aria-labelledby="quickslotEditorTitle quickslotEditorNumber">
   <form method="dialog">
-    <h2 id="quickslotEditorTitle">Slot einrichten</h2>
+    <header class="quickslot-editor__header">
+      <span class="quickslot-editor__sigil" aria-hidden="true">
+        <svg viewBox="0 0 24 24" class="quickslot-editor__icon">
+          <defs>
+            <symbol id="quickslot-icon-dice" viewBox="0 0 24 24"><path d="m12 2 9 6v10l-9 4-9-4V8Zm0 0L7 10l5 8 5-8Zm-9 6 4 2-4 8m18-10-4 2 4 8M3 18h18M7 10h10m-5 8v4"/></symbol>
+            <symbol id="quickslot-icon-skill" viewBox="0 0 24 24"><path d="M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v15M5 8h4m-4 4h4m6-4h4m-4 4h4"/></symbol>
+            <symbol id="quickslot-icon-weapon" viewBox="0 0 24 24"><path d="m15 3 6-1-1 6L8 20l-4-4Zm-9 11 4 4m-8 4 4-4m-3 1 2 2M15 3l5 5"/></symbol>
+            <symbol id="quickslot-icon-initiative" viewBox="0 0 24 24"><path d="m14 2-10 12h7l-1 8 10-12h-7Z"/></symbol>
+            <symbol id="quickslot-icon-debug" viewBox="0 0 24 24"><path d="M8 8h8v9a4 4 0 0 1-8 0Zm1 0V6a3 3 0 0 1 6 0v2M6 3l3 2m9-2-3 2M3 10h5m8 0h5M2 15h6m8 0h6M4 21l4-3m8 0 4 3M12 8v12"/></symbol>
+          </defs>
+          <use href="#quickslot-icon-dice"/>
+        </svg>
+      </span>
+      <div class="quickslot-editor__header-copy">
+        <span class="quickslot-editor__eyebrow">Codex Arcana · Aktionsleiste</span>
+        <h2 id="quickslotEditorTitle">Slot einrichten</h2>
+      </div>
+      <span id="quickslotEditorNumber" class="quickslot-editor__number">01</span>
+    </header>
+    <div class="quickslot-editor__content">
     <fieldset class="quickslot-editor__section">
-    <legend>Wurf</legend>
-    <label for="quickslotType">Aktion</label>
+    <legend><span>01</span> Aktion</legend>
+    <label for="quickslotType" class="quickslot-editor__field-title">Was soll dieser Slot ausführen?</label>
+    <div class="quickslot-editor__action-select">
+    <span class="quickslot-editor__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" class="quickslot-editor__icon"><use id="quickslotActionIcon" href="#quickslot-icon-dice"/></svg></span>
     <select id="quickslotType">
       <option value="skill">Fertigkeit</option>
       <option value="weapon">Waffe</option>
@@ -42,11 +79,13 @@
       <option value="dice">Freier Würfelwurf</option>
       {% if request.user.is_staff %}<option value="debug">DEBUG</option>{% endif %}
     </select>
+    </div>
     <div id="quickslotActionField">
     <label for="quickslotAction" id="quickslotActionLabel">Fertigkeit</label>
     <select id="quickslotAction"></select>
     </div>
     <div id="quickslotDiceFields" class="quickslot-editor__dice-fields" hidden>
+      <span class="quickslot-editor__field-title">Würfelkombination</span>
       <div>
         <label for="quickslotDiceCount">Anzahl</label>
         <input id="quickslotDiceCount" type="number" min="1" max="100" step="1" value="1">
@@ -82,52 +121,86 @@
         <input id="quickslotDebugSecond" type="number" min="1" max="10" step="1" value="5">
       </div>
     </div>
+    <div class="quickslot-editor__formula"><span><svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="M5 4h13v13a3 3 0 0 0 3 3H9a4 4 0 0 1-4-4Zm13 13h5v1a2 2 0 0 1-5 0M5 4a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3"/></svg> Wurfformel</span><strong id="quickslotFormula"></strong></div>
+    </fieldset>
+    <fieldset class="quickslot-editor__section">
+    <legend><span>02</span> Wurfoptionen</legend>
+    <details class="quickslot-editor__option">
+    <summary><span class="quickslot-editor__option-icon" aria-hidden="true"><svg viewBox="0 0 24 24" class="quickslot-editor__icon"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span><span>Mindestwurf</span><small id="quickslotTargetSummary">Kein Mindestwurf festgelegt</small></summary>
+    <div class="quickslot-editor__option-body">
     <label for="quickslotTarget">MW <small>optional</small></label>
     <input id="quickslotTarget" type="number" step="any" placeholder="Mindestwurf">
-    <label>Eigene Boni und Mali</label>
+    </div>
+    </details>
+    <details class="quickslot-editor__option">
+    <summary><span class="quickslot-editor__option-icon" aria-hidden="true"><svg viewBox="0 0 24 24" class="quickslot-editor__icon"><path d="M12 3v18m-6 0h12M3 7h18M6 7l-4 9h8Zm12 0-4 9h8ZM2 16a4 4 0 0 0 8 0m4 0a4 4 0 0 0 8 0"/></svg></span><span>Eigene Boni und Mali</span><small id="quickslotModifiersSummary">Keine eigenen Modifikatoren</small></summary>
+    <div class="quickslot-editor__option-body">
     <div id="quickslotSlotModifiers" class="quickslot-editor__modifiers"></div>
     <button type="button" class="quickslot-editor__add-modifier" data-quickslot-slot-modifier-add>+ Bonus oder Malus</button>
+    </div>
+    </details>
+    <details class="quickslot-editor__option">
+    <summary><span class="quickslot-editor__option-icon" aria-hidden="true"><svg viewBox="0 0 24 24" class="quickslot-editor__icon"><path d="M4 7h8m-4-4v8m6 6h8M5 22 19 2"/></svg></span><span>Allgemeine Boni und Mali</span><small id="quickslotBonusSummary">Werden angewendet</small></summary>
+    <div class="quickslot-editor__option-body">
     <label class="quickslot-editor__check" for="quickslotIgnoreBonus">
       <input id="quickslotIgnoreBonus" type="checkbox">
       Allgemeine Boni und Mali ignorieren
     </label>
     <p class="quickslot-editor__hint">Eigene Slot-Boni und Mali gelten weiterhin.</p>
+    </div>
+    </details>
     </fieldset>
     <fieldset class="quickslot-editor__section">
-    <legend>Darstellung</legend>
-    <label for="quickslotLabel">Beschriftung <small>optional</small></label>
+    <legend><span>03</span> Darstellung</legend>
+    <div class="quickslot-editor__appearance">
+    <div class="quickslot-editor__preview-wrap">
+      <span>Vorschau</span>
+      <div id="quickslotSlotPreview" class="quickslot is-filled quickslot-editor__slot-preview" role="img" aria-label="Slotvorschau">
+        <svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><use id="quickslotPreviewIcon" href="#quickslot-icon-dice"/></svg>
+        <img id="quickslotImagePreviewImage" class="quickslot__image" alt="" hidden>
+        <small class="quickslot__key"></small>
+        <span class="quickslot__label"></span>
+      </div>
+    </div>
+    <div>
+    <label for="quickslotLabel" class="quickslot-editor__field-title">Beschriftung</label>
     <input id="quickslotLabel" type="text" maxlength="80" placeholder="Name der Aktion">
-    <label for="quickslotLabelPosition">Beschriftung anzeigen</label>
-    <select id="quickslotLabelPosition">
-      <option value="top">Oben</option>
-      <option value="center">Mittig</option>
-      <option value="bottom">Unten</option>
-      <option value="hidden">Ausgeblendet</option>
-    </select>
     <div class="quickslot-editor__image-heading">
-      <span>Slotbild <small>optional</small></span>
-      <label class="quickslot-editor__file-button" for="quickslotImageFile">Bild wählen</label>
+      <label class="quickslot-editor__file-button" for="quickslotImageFile"><svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="M3 3h18v18H3Zm0 14 6-6 5 5 3-3 4 4"/><circle cx="16" cy="8" r="2"/></svg> Slotbild wählen <svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14m0-10H3v17h17v-7"/></svg></label>
+      <div id="quickslotImagePreview" class="quickslot-editor__image-actions" hidden>
+        <button type="button" data-quickslot-image-adjust aria-label="Bild zuschneiden" title="Zuschneiden"><svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="M6 2v16h16M2 6h16v16"/></svg></button>
+        <button type="button" data-quickslot-image-remove class="quickslot-editor__image-remove" aria-label="Bild löschen" title="Bild löschen"><svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="M3 5h18M6 5l1 16h10l1-16M9 5V2h6v3m-5 4v8m4-8v8"/></svg></button>
+      </div>
     </div>
     <input id="quickslotImageFile" class="quickslot-editor__file-input" type="file" accept="image/*" aria-label="Slotbild wählen">
-    <div class="quickslot-editor__image-preview" id="quickslotImagePreview" hidden>
-      <img id="quickslotImagePreviewImage" alt="Vorschau des Buttonbilds">
-      <button type="button" data-quickslot-image-adjust>Zuschneiden</button>
-      <button type="button" data-quickslot-image-remove>Bild löschen</button>
     </div>
-    <section id="quickslotImageCrop" class="quickslot-editor__crop" aria-label="Bildausschnitt wählen" hidden>
-      <div class="quickslot-editor__crop-stage"><img id="quickslotCropImage" alt="Bildausschnitt"></div>
-      <p>Verschiebe und vergrößere den quadratischen Ausschnitt.</p>
-      <div class="quickslot-editor__buttons">
-        <button type="button" data-quickslot-crop-cancel>Abbrechen</button>
-        <button type="button" data-quickslot-crop-apply>Übernehmen</button>
-      </div>
-    </section>
+    </div>
+    <span id="quickslotLabelPositionTitle" class="quickslot-editor__position-title">Beschriftung anzeigen</span>
+    <input id="quickslotLabelPosition" type="hidden" value="center">
+    <div class="quickslot-editor__positions" role="group" aria-labelledby="quickslotLabelPositionTitle">
+      <button type="button" data-quickslot-label-position="top" aria-pressed="false">Oben</button>
+      <button type="button" data-quickslot-label-position="center" aria-pressed="true">Mittig</button>
+      <button type="button" data-quickslot-label-position="bottom" aria-pressed="false">Unten</button>
+      <button type="button" data-quickslot-label-position="hidden" aria-pressed="false">Keine</button>
+    </div>
     </fieldset>
     <p class="quickslot-editor__error" id="quickslotImageError" role="status" hidden></p>
+    </div>
     <div class="quickslot-editor__buttons quickslot-editor__footer">
-      <button type="button" data-quickslot-remove class="quickslot-editor__clear">Slot leeren</button>
+      <button type="button" data-quickslot-remove class="quickslot-editor__clear"><svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="M3 5h18M6 5l1 16h10l1-16M9 5V2h6v3m-5 4v8m4-8v8"/></svg> Slot leeren</button>
       <button type="submit" value="cancel">Abbrechen</button>
-      <button type="button" data-quickslot-save class="quickslot-editor__save">Speichern</button>
+      <button type="button" data-quickslot-save class="quickslot-editor__save"><svg viewBox="0 0 24 24" class="quickslot-editor__icon" aria-hidden="true"><path d="m4 12 5 5L20 6"/></svg> Speichern</button>
     </div>
   </form>
 </dialog>
+<section id="quickslotImageCrop" class="quickslot-editor quickslot-editor--crop" role="dialog" aria-labelledby="quickslotCropTitle" tabindex="-1" hidden>
+  <header class="quickslot-editor__header"><h2 id="quickslotCropTitle">Bildausschnitt wählen</h2></header>
+  <div class="quickslot-editor__content">
+    <div class="quickslot-editor__crop-stage"><img id="quickslotCropImage" alt="Bildausschnitt"></div>
+    <p>Verschiebe und vergrößere den quadratischen Ausschnitt.</p>
+  </div>
+  <div class="quickslot-editor__buttons quickslot-editor__footer">
+    <button type="button" data-quickslot-crop-cancel>Abbrechen</button>
+    <button type="button" data-quickslot-crop-apply class="quickslot-editor__save">Übernehmen</button>
+  </div>
+</section>

@@ -1612,13 +1612,13 @@ html[data-left-tools-open="1"] .left-tools {
   border-radius: 8px;
   background: rgba(255, 251, 241, 0.9);
   color: rgba(61, 42, 24, 0.96);
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 1.08rem;
   text-align: right;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
 }
 
-.left-tools__group[aria-label="Geld"] .wallet_delta_input.left-tools__delta_input {
+.left-tools .wallet_delta_input.left-tools__delta_input {
   padding-right: 24px !important;
   text-align: right !important;
 }
