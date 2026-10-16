@@ -4154,11 +4154,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card--skill {
+  width: min(420px, calc(100vw - 28px));
   z-index: 1200;
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__frame {
-  width: min(420px, calc(100vw - 28px));
+  width: 100%;
   max-height: min(560px, calc(100vh - 28px));
   gap: 6px;
   padding: 12px 12px 14px;
