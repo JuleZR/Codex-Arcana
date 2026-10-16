@@ -5483,7 +5483,9 @@ class SkillAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("category", "attribute")
     ordering = ("category", "name")
-    autocomplete_fields = ("category", "attribute")
+    autocomplete_fields = (
+        "category", "attribute", "related_skill_categories",
+    )
     list_select_related = ("category", "attribute")
     inlines = (SkillCharacterInline,)
 
@@ -6186,10 +6188,10 @@ class ItemTypeAdmin(admin.ModelAdmin):
     def icon_preview(self, obj):
         from django.templatetags.static import static
 
-        path = obj.icon_path if obj else "img/equipment_icons/item.svg"
+        url = obj.icon_url if obj else static("img/equipment_icons/item.svg")
         return format_html(
             '<img src="{}" width="32" height="32" alt="Kategorie-Icon">',
-            static(path),
+            url,
         )
 
     def get_prepopulated_fields(self, request, obj=None):

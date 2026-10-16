@@ -5140,10 +5140,16 @@ def _build_skill_modifier_rows(
 
 
 def _skill_card_description(skill: Skill) -> str:
-    """Show configured related skills below the skill's description."""
-    related_names = ", ".join(
+    """Show all related-skill metadata together below the description."""
+    related_entries = [
         related.name for related in skill.related_skills.all()
+    ]
+    related_entries.extend(
+        category.name for category in skill.related_skill_categories.all()
     )
+    if skill.related_skills_text.strip():
+        related_entries.append(skill.related_skills_text.strip())
+    related_names = ", ".join(related_entries)
     if related_names:
         description = skill.description or "Keine Beschreibung"
         return f"{description}\n\nVerwandte Fertigkeiten: {related_names}"
@@ -5770,7 +5776,8 @@ def _build_skill_rows(
     skills_by_id = {
         skill.id: skill
         for skill in Skill.objects.select_related("category", "attribute")
-        .prefetch_related("related_skills").order_by("name", "id")
+        .prefetch_related("related_skills", "related_skill_categories")
+        .order_by("name", "id")
     }
     character_skills_by_skill_id: dict[int, list[object]] = {}
     for character_skill in character_skills:
@@ -7870,7 +7877,7 @@ def _build_shop_item_groups() -> list[dict]:
             if armor_stats is not None and armor_stats.parent_set_id
             else item.item_type_id
         )
-        group_icons[group_key] = item.item_type.icon_path
+        group_icons[group_key] = item.item_type
         quality_prices = {}
         for tier in qualities:
             effective = (
@@ -7908,7 +7915,8 @@ def _build_shop_item_groups() -> list[dict]:
         {
             "key": item_type,
             "label": label,
-            "icon_path": group_icons[item_type],
+            "icon_path": group_icons[item_type].icon_path,
+            "icon_url": group_icons[item_type].icon_url,
             "items": grouped_items[item_type],
         }
         for item_type, label in _shop_type_groups()
@@ -7947,7 +7955,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
             if armor_stats is not None and armor_stats.parent_set_id
             else item.item_type_id
         )
-        group_icons[group_key] = item.item_type.icon_path
+        group_icons[group_key] = item.item_type
         grouped_items.setdefault(group_key, []).append(
             {
                 "character_item_id": character_item.id,
@@ -7969,7 +7977,8 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         {
             "key": item_type,
             "label": label,
-            "icon_path": group_icons[item_type],
+            "icon_path": group_icons[item_type].icon_path,
+            "icon_url": group_icons[item_type].icon_url,
             "items": grouped_items[item_type],
         }
         for item_type, label in _shop_type_groups()

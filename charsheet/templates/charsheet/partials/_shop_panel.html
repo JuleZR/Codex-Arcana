@@ -88,7 +88,7 @@
                 {% for group in shop_item_groups %}
                   <details class="market_group" data-shop-group data-collapse-key="buy:{{ group.key }}">
                     <summary>
-                      <img class="market_category_icon" src="{% static group.icon_path|default:'img/equipment_icons/item.svg' %}" alt="" width="28" height="28"><span>{{ group.label }}</span>
+                      <img class="market_category_icon" src="{% if group.icon_url %}{{ group.icon_url }}{% else %}{% static group.icon_path|default:'img/equipment_icons/item.svg' %}{% endif %}" alt="" width="28" height="28"><span>{{ group.label }}</span>
                       <span class="market_group_count">{{ group.items|length }}</span>
                     </summary>
                     <table class="market_table">

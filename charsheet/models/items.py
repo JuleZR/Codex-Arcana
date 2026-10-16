@@ -1,7 +1,12 @@
 """Item and equipment definition models."""
 
+import re
+from xml.etree import ElementTree
+
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, RegexValidator
+from django.core.validators import (
+    FileExtensionValidator, MinValueValidator, RegexValidator,
+)
 from django.db import models, transaction
 from django.utils.text import slugify
 
@@ -297,6 +302,53 @@ class RuneSemanticEffect(SemanticEffectFields):
         return "rune_effect"
 
 
+def validate_item_type_icon(value):
+    """Accept static SVG icons without scripts or external resources."""
+    if value.size > 1024 * 1024:
+        raise ValidationError("Das Icon darf höchstens 1 MB groß sein.")
+    try:
+        value.seek(0)
+        content = value.read().decode("utf-8-sig")
+        if "\x00" in content:
+            raise ValueError
+        if any(marker in content.upper() for marker in (
+            "<!DOCTYPE", "<!ENTITY", "<?XML-STYLESHEET",
+        )):
+            raise ValueError
+        root = ElementTree.fromstring(content)
+        namespace = "{http://www.w3.org/2000/svg}"
+        allowed_tags = {
+            "svg", "g", "path", "circle", "ellipse", "rect", "line",
+            "polyline", "polygon", "defs", "clipPath", "mask", "symbol",
+            "use", "linearGradient", "radialGradient", "stop", "title", "desc",
+        }
+        if root.tag != f"{namespace}svg":
+            raise ValueError
+        for element in root.iter():
+            if element.tag not in {namespace + tag for tag in allowed_tags}:
+                raise ValueError
+            for key, attribute in element.attrib.items():
+                key = key.rsplit("}", 1)[-1].lower()
+                if key.startswith("on") or key in {"style", "base"}:
+                    raise ValueError
+                if key == "href" and not attribute.startswith("#"):
+                    raise ValueError
+                if "\\" in attribute or "@" in attribute:
+                    raise ValueError
+                if "url" in attribute.lower() and not re.fullmatch(
+                    r"url\(\s*(['\"]?)#[\w:.-]+\1\s*\)", attribute,
+                    flags=re.IGNORECASE,
+                ):
+                    raise ValueError
+    except (ElementTree.ParseError, ValueError):
+        raise ValidationError(
+            "Bitte eine einfache SVG ohne Skripte, Styles oder externe "
+            "Verweise hochladen."
+        )
+    finally:
+        value.seek(0)
+
+
 class ItemType(models.Model):
     """Catalog category and orthogonal equipment capabilities."""
 
@@ -336,6 +388,14 @@ class ItemType(models.Model):
     excludes_equipped_carry_weight = models.BooleanField(default=False)
     shows_quality = models.BooleanField(default=False)
     icon_key = models.CharField(max_length=30, blank=True)
+    icon = models.FileField(
+        "Eigenes Kategorie-Icon", upload_to="item_type_icons/", blank=True,
+        validators=[FileExtensionValidator(["svg"]), validate_item_type_icon],
+        help_text=(
+            "SVG-Datei, maximal 1 MB. Hat Vorrang vor der Icon-Auswahl. "
+            "Zum Verwenden der Auswahl das eigene Icon entfernen."
+        ),
+    )
 
     class Meta:
         ordering = ["sort_order", "name", "slug"]
@@ -349,6 +409,14 @@ class ItemType(models.Model):
         if key not in dict(self.ICON_CHOICES):
             key = "item"
         return f"img/equipment_icons/{key}.svg"
+
+    @property
+    def icon_url(self):
+        if self.icon:
+            return self.icon.url
+        from django.templatetags.static import static
+
+        return static(self.icon_path)
 
     def clean(self):
         super().clean()

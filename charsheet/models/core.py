@@ -83,6 +83,13 @@ class Skill(models.Model):
         related_name="related_to_skills", blank=True,
         verbose_name="Verwandte Fertigkeiten",
     )
+    related_skill_categories = models.ManyToManyField(
+        SkillCategory, related_name="related_to_skills", blank=True,
+        verbose_name="Verwandte Fertigkeitskategorien",
+    )
+    related_skills_text = models.TextField(
+        blank=True, verbose_name="Verwandte Fertigkeiten (Text)",
+    )
 
     objects = SkillQuerySet.as_manager()
 
