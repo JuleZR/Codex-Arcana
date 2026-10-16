@@ -61,7 +61,7 @@
             <td class="weapon_damage">
               <span class="weapon_damage_value">{{ row.damage|default:"-" }}</span>
             </td>
-            <td>{{ row.size_class|default:"-" }}</td>
+            <td>{% if row.item.item_type.supports_GK %}{{ row.size_class|default:"-" }}{% endif %}</td>
             <td class="weapon_min_col{% if row.min_attribute_compact %} weapon_min_col--compact{% endif %}">
               <span class="weapon_min_value">{{ row.min_attribute_label|default:row.min_st|default:"-" }}</span>
             </td>

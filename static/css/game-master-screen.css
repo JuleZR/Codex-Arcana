@@ -7,6 +7,10 @@
   font-family: "Cormorant Garamond", Georgia, serif;
 }
 
+[data-item-size-field][hidden] {
+  display: none !important;
+}
+
 .gm-screen {
   width: min(1680px, calc(100% - 32px));
   margin: 0 auto;

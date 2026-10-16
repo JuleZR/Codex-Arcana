@@ -54,7 +54,7 @@
     </div>
     <div class="shop_item_form_grid">
       <label class="shop_item_form_row"><span>Gewicht</span><input type="number" name="weight" min="0" step="0.01" value="0"></label>
-      <label class="shop_item_form_row">
+      <label class="shop_item_form_row" data-item-size-field hidden>
         <span>Gr&ouml;&szlig;enklasse</span>
         <select name="size_class">
           {% for option in item_editor_size_choices %}

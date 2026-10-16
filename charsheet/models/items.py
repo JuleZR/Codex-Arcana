@@ -387,6 +387,7 @@ class ItemType(models.Model):
     forbids_stacking = models.BooleanField(default=False)
     excludes_equipped_carry_weight = models.BooleanField(default=False)
     shows_quality = models.BooleanField(default=False)
+    supports_GK = models.BooleanField("GK anzeigen", default=False)
     icon_key = models.CharField(max_length=30, blank=True)
     icon = models.FileField(
         "Eigenes Kategorie-Icon", upload_to="item_type_icons/", blank=True,

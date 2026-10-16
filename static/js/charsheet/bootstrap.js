@@ -4,7 +4,7 @@ import { initStandardFloatingWindows } from "./window_manager.js?v=20261013-shop
 import { initLeftTools } from "./left_tools.js?v=20261001-mobile-menu1";
 import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-investment";
 import { initFireflies } from "./fireflies.js";
-import { initItemForm } from "./item_form.js?v=20261016-type-capabilities";
+import { initItemForm } from "./item_form.js?v=20261016-item-gk";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";

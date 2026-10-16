@@ -461,6 +461,9 @@ export function initItemForm() {
 
   const syncItemTypeFields = () => {
     const value = String(typeSelect.value || "");
+    form?.querySelectorAll("[data-item-size-field]").forEach((field) => {
+      field.hidden = !hasCapability(value, "supports_GK");
+    });
     const isArmor = hasCapability(value, "supports_armor_stats");
     const isWeapon = hasCapability(value, "supports_weapon_stats");
     const isShield = hasCapability(value, "supports_shield_stats");

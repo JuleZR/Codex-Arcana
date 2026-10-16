@@ -162,6 +162,8 @@ def resolve_character_item_display(
         disclosures=disclosures,
         privileged=privileged,
     )
+    if not character_item.item.item_type.supports_GK:
+        size_class, size_visible = "", False
     visible_field_keys = {
         key
         for key, visible in {

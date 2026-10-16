@@ -3775,7 +3775,9 @@ def _build_item_tooltip_rows(
         rows.append(("Struktur", structure))
 
     weight = item_engine.get_weight()
-    size_class = item_engine.get_size_class()
+    size_class = (
+        item_engine.get_size_class() if item.item_type.supports_GK else ""
+    )
     if size_class and _has_visible_item_weight(weight):
         rows.append((
             "GK · Gewicht", f"{size_class} · {_format_item_weight(weight)}",

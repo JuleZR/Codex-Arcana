@@ -90,6 +90,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("item-type-capabilities")?.textContent || "{}",
   );
   const hasCapability = (type, key) => Boolean(typeCapabilities[type]?.[key]);
+  const syncSizeFields = (form, type) => {
+    form.querySelectorAll("[data-item-size-field]").forEach((field) => {
+      field.hidden = !hasCapability(type, "supports_GK");
+    });
+  };
   const detailTypeFor = (type) => {
     if (hasCapability(type, "supports_weapon_stats")) return "weapon";
     if (hasCapability(type, "supports_armor_stats")) return "armor";
@@ -98,6 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const syncTypeSections = (form, type) => {
+    syncSizeFields(form, type);
     form.querySelectorAll("[data-substance-fields]").forEach((section) => {
       const active = hasCapability(type, "supports_substance_stats");
       section.hidden = !active;
@@ -680,6 +686,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll("[data-sl-instance-form]").forEach((form) => {
     syncTypeSections(form, form.dataset.itemType || "misc");
+  });
+  document.querySelectorAll(".sl-inventory-catalog-form").forEach((form) => {
+    const typeSelect = form.querySelector("[name='item_type']");
+    const syncSize = () => syncSizeFields(form, typeSelect?.value || "");
+    typeSelect?.addEventListener("change", syncSize);
+    syncSize();
   });
 
   const actionBody = document.querySelector("[data-sl-item-action-body]");
