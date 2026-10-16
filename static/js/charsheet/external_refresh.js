@@ -79,6 +79,7 @@ export function initExternalSheetRefresh() {
   let timerId = 0;
   let inFlight = false;
   let queuedRefresh = null;
+  let learningRefreshPending = false;
 
   const getNotificationAudio = () => {
     const soundUrl = String(body.dataset.itemTransferNotificationSound || "").trim();
@@ -168,6 +169,9 @@ export function initExternalSheetRefresh() {
   };
 
   const poll = async ({ force = false, learning = false, scope = "" } = {}) => {
+    learningRefreshPending = Boolean(learning || learningRefreshPending);
+    learning = learningRefreshPending;
+    force = Boolean(force || learning);
     if (inFlight) {
       if (force || learning || scope) {
         queuedRefresh = {
@@ -203,6 +207,7 @@ export function initExternalSheetRefresh() {
           Accept: "application/json",
         },
         credentials: "same-origin",
+        cache: "no-store",
       });
       if (!response.ok) {
         return;
@@ -214,13 +219,16 @@ export function initExternalSheetRefresh() {
       if (String(body.dataset.externalRefreshSignature || "") !== requestedSignature) {
         return;
       }
-      signature = String(payload.signature || signature);
-      body.dataset.externalRefreshSignature = signature;
       syncItemTransferCount(payload);
       if (payload.changed) {
         applySheetPartials(payload);
         updateLearningFormFromPayload(payload);
+        if (learning) {
+          learningRefreshPending = false;
+        }
       }
+      signature = String(payload.signature || signature);
+      body.dataset.externalRefreshSignature = signature;
     } catch (_error) {
       // The next scheduled poll will recover after transient network issues.
     } finally {

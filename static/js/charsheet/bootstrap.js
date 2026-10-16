@@ -32,7 +32,7 @@ import { initItemTransfers } from "./item_transfers.js?v=20261015-post1";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20261015-post1";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20261014-attribute-flavor";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
-import { initExternalSheetRefresh } from "./external_refresh.js?v=20261007-shop-signature";
+import { initExternalSheetRefresh } from "./external_refresh.js?v=20261016-learning-refresh";
 import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260917e";
 
 function initCharacterImageEditorSafely() {
