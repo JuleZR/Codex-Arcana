@@ -108,8 +108,9 @@
   position: absolute;
   inset: 0;
   z-index: 6;
-  display: flex;
-  flex-direction: column;
+  display: block;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0;
   border: 0;
   border-left: 3px solid #b99462;
@@ -123,7 +124,7 @@
 #dashboardAccountWindow .is-active-detail > summary::after { content: none; }
 #dashboardAccountWindow .is-active-detail > summary small { display: none; }
 #dashboardAccountWindow .is-active-detail > .dashboard_account_back { display: block; align-self: flex-start; flex: 0 0 auto; margin: 12px 0; padding: 7px 10px; font-size: 12px; }
-#dashboardAccountWindow .is-active-detail > :is(.dashboard_account_disclosure_body, .dashboard_account_lifecycle_action) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 4px 20px; border: 0; background: transparent; }
+#dashboardAccountWindow .is-active-detail > :is(.dashboard_account_disclosure_body, .dashboard_account_lifecycle_action) { padding: 10px 4px 20px; border: 0; background: transparent; }
 #dashboardAccountWindow .dashboard_account_grid { gap: 14px; }
 #dashboardAccountWindow .dashboard_account_meta { border-radius: 2px; font-size: 12px; }
 #dashboardAccountWindow .dashboard_account_danger_zone { gap: 0; margin-top: 26px; padding-top: 18px; border-top: 1px solid #a8645359; }
