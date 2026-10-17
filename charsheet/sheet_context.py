@@ -5538,6 +5538,8 @@ def _build_skill_rows(
             )
             for option in weapon_row.get("maneuver_options") or []:
                 maneuver_bonus = int(option.get("total_modifier") or 0) - int(option.get("attribute_modifier") or 0)
+                if maneuver_bonus == 0 and not conditional_modifiers:
+                    continue
                 rows.append(
                     {
                         "row_kind": "weapon_context",
@@ -7217,25 +7219,32 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         details = (
             [specification_value or "*"] if technique.has_specification else []
         )
-        details.extend(
-            dict.fromkeys(
-                choice.selected_target_display()
-                for choice in engine.technique_choices(technique)
-            )
+        choices = list(dict.fromkeys(
+            choice.selected_target_display()
+            for choice in engine.technique_choices(technique)
+        ))
+        choice_tooltip = "\n".join(choices) if len(choices) > 1 else ""
+        if not choice_tooltip:
+            details.extend(choices)
+        entry_name = technique.name + (
+            f": {', '.join(details)}" if details else ""
         )
-        return technique.name + (f": {', '.join(details)}" if details else "")
+        return entry_name, choice_tooltip
 
     for race_link in race_techniques:
         technique = race_link.technique
         learned_technique = learned_techniques_by_technique_id.get(technique.id)
         specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
-        entry_name = technique_entry_name(technique, specification_value)
+        entry_name, choice_tooltip = technique_entry_name(
+            technique, specification_value,
+        )
         school_technique_rows.append(
             {
                 "kind": "race_technique",
                 "level": "",
                 "school_name": character.race.name,
                 "entry_name": entry_name,
+                "choice_tooltip": choice_tooltip,
                 "description": technique.description,
                 "can_edit_specification": bool(technique.has_specification),
                 "specification_value": specification_value,
@@ -7280,7 +7289,9 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 if technique.acquisition_type == Technique.AcquisitionType.CHOICE and learned_technique is None:
                     continue
                 specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
-                entry_name = technique_entry_name(technique, specification_value)
+                entry_name, choice_tooltip = technique_entry_name(
+                    technique, specification_value,
+                )
                 selected_specializations = technique_specialization_names.get(technique.id, [])
                 selected_specialization_descriptions = technique_specialization_descriptions.get(technique.id, [])
                 description_text = technique.description
@@ -7324,6 +7335,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                             technique.school.description or ""
                         ).strip(),
                         "entry_name": entry_name,
+                        "choice_tooltip": choice_tooltip,
                         "description": description_text,
                         "tooltip_title": tooltip_title,
                         "tooltip_subtitle": tooltip_subtitle,
@@ -7336,9 +7348,19 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 )
     if race_row_count and len(school_technique_rows) > race_row_count:
         school_technique_rows[race_row_count - 1]["show_group_separator"] = True
+    displayed_technique_ids = {
+        row["technique_id"]
+        for row in school_technique_rows
+    }
     for school_entry in schools:
         for specialization_entry in engine.character_specializations(school_entry.school_id):
             specialization = specialization_entry.specialization
+            if (
+                specialization_entry.source_choice_id
+                and specialization_entry.source_technique_id
+                in displayed_technique_ids
+            ):
+                continue
             choices = ", ".join(
                 choice.selected_target_display()
                 for choice in specialization_entry.choices.select_related(

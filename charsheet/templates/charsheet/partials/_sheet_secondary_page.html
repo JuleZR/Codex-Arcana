@@ -1064,7 +1064,7 @@
                   data-tooltip-subtitle="{{ row.school_name }}"
                   data-tooltip-card-key="race:{{ row.technique_id|default:row.entry_name|slugify }}"
                   data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
-                  data-school-search="{{ row.school_name|lower }} {{ row.entry_name|lower }}"
+                  data-school-search="{{ row.school_name|lower }} {{ row.entry_name|lower }} {{ row.choice_tooltip|lower }}"
                   data-school-pin-item
               data-school-pin-key="race:{{ row.technique_id|default:row.entry_name|slugify }}"
             >
@@ -1073,6 +1073,9 @@
                   <span class="school_row_origin">{{ row.school_name }}</span>
                 </span>
                 <span class="skill_name_text">{{ row.entry_name }}</span>
+                {% if row.choice_tooltip %}
+                <button type="button" class="school_info_btn tooltip_target" data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-variant="technique" data-tooltip-title="{{ row.entry_name }}" data-tooltip-subtitle="Auswahl" data-tooltip="{{ row.choice_tooltip }}" aria-label="Auswahl zu {{ row.entry_name }}" title="Auswahl zu {{ row.entry_name }}"><span aria-hidden="true">i</span></button>
+                {% endif %}
                 {% if row.can_edit_specification %}
                 <button
                   type="button"
@@ -1234,7 +1237,7 @@
                   data-tooltip-image-layout="header"
                   data-tooltip-accent="{{ group.accent|default:'#b98f56' }}"
                   data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
-                  data-school-search="{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}"
+                  data-school-search="{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }} {{ row.choice_tooltip|lower }}"
                   data-school-pin-item
                   data-school-pin-key="technique:{{ row.technique_id|default:row.entry_name|slugify }}"
                 >
@@ -1243,6 +1246,9 @@
                       <span class="school_row_label--level">{{ row.level_label|default:row.level }}</span>
                       {{ row.entry_name }}
                     </span>
+                    {% if row.choice_tooltip %}
+                    <button type="button" class="school_info_btn tooltip_target" data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-variant="technique" data-tooltip-title="{{ row.entry_name }}" data-tooltip-subtitle="Auswahl" data-tooltip="{{ row.choice_tooltip }}" aria-label="Auswahl zu {{ row.entry_name }}" title="Auswahl zu {{ row.entry_name }}"><span aria-hidden="true">i</span></button>
+                    {% endif %}
                     {% if row.can_edit_specification %}
                     <button
                       type="button"
