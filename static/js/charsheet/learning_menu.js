@@ -233,13 +233,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const targetLevel = base + value;
       let targetWrite = baseWrite;
       if (writeInput instanceof HTMLInputElement) {
-        if (targetLevel < LANGUAGE_LITERACY_MIN_LEVEL && !baseWrite) {
+        if (targetLevel < LANGUAGE_LITERACY_MIN_LEVEL) {
           writeInput.checked = false;
           writeInput.disabled = true;
         } else {
           writeInput.disabled = false;
         }
-        if (baseWrite && !writeInput.dataset.learnWriteTouched) {
+        if (baseWrite && !writeInput.disabled && !writeInput.dataset.learnWriteTouched) {
           writeInput.checked = true;
         }
         targetWrite = writeInput.checked;

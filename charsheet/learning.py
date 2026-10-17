@@ -1169,6 +1169,8 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             return "error", f"{language.name}: Zielwert ist unter 0."
         if target_level > int(language.max_level):
             return "error", f"{language.name}: Zielwert ist ueber dem Maximum."
+        if add < 0 and target_level < LANGUAGE_LITERACY_MIN_LEVEL:
+            target_write = False
         if target_write and target_level < LANGUAGE_LITERACY_MIN_LEVEL:
             return "error", f"{language.name}: Lesen und Schreiben benoetigt Sprachlevel 3."
         if add == 0 and target_write == base_write:
