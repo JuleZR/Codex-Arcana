@@ -2574,7 +2574,10 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
     """User-friendly item effect editor that maps dropdowns to semantic fields."""
 
     class Media:
-        js = ("charsheet/js/semantic_effect_rounding_v1.js",)
+        js = (
+            "charsheet/js/item_semantic_effect_admin_v3.js",
+            "charsheet/js/semantic_effect_rounding_v1.js",
+        )
 
     class CommaFloatField(forms.FloatField):
         widget = forms.TextInput
@@ -3598,7 +3601,10 @@ class RuleSemanticEffectAdminForm(
     """
 
     class Media:
-        js = ("charsheet/js/semantic_effect_rounding_v1.js",)
+        js = (
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
+            "charsheet/js/semantic_effect_rounding_v1.js",
+        )
 
     class CommaFloatField(forms.FloatField):
         widget = forms.TextInput
@@ -4309,8 +4315,7 @@ class CreatureTraitSemanticEffectAdminForm(
 
     class Media:
         js = (
-            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
-            "?v=20261004",
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
             "charsheet/js/semantic_effect_rounding_v1.js",
         )
 
@@ -5213,7 +5218,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
         )
 
 
@@ -5231,7 +5236,7 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
         )
 
 
@@ -5286,7 +5291,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
         )
 
 
@@ -5342,7 +5347,7 @@ class SchoolSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
         )
 
 
@@ -5359,7 +5364,7 @@ class RuneSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
         )
 
 
@@ -6991,7 +6996,7 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
+            "charsheet/js/rule_semantic_effect_admin_v2.js",
         )
 
 
@@ -9379,8 +9384,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
-            "?v=20261004",
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
         )
 
     fieldsets = (
@@ -9411,8 +9415,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
-            "?v=20261004",
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
         )
 
     fieldsets = (
@@ -10398,8 +10401,7 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
 
     class Media:
         js = (
-            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
-            "?v=20261004",
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
         )
 
 
@@ -10427,8 +10429,7 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
 
     class Media:
         js = (
-            "charsheet/js/creature_trait_semantic_effect_admin_v9.js"
-            "?v=20261004",
+            "charsheet/js/creature_trait_semantic_effect_admin_v9.js",
         )
 
     def semantic_effect_preview(self, obj):
