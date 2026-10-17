@@ -392,10 +392,14 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         payload["target_kind"] = WEAPON_MASTERY_BONUS
         payload["effect_description"] = payload["effect_description"] or WEAPON_MASTERY_EFFECT_DESCRIPTION
     elif target_kind == TARGET_KIND_SKILL:
-        skill_id = int(row_data.get("target_skill") or 0)
-        if skill_id <= 0:
+        skill_ids = _positive_int_list(row_data.get("target_skills"))
+        if not skill_ids:
+            skill_ids = _positive_int_list([row_data.get("target_skill")])
+        skills = list(Skill.objects.filter(pk__in=skill_ids).order_by("pk"))
+        if not skills:
             return None
-        payload["target_skill"] = Skill.objects.get(pk=skill_id)
+        payload["target_skill"] = skills[0]
+        payload["target_skills"] = skills
         # target_slug must stay empty when target_skill FK is set (only one selector allowed)
     elif target_kind == TARGET_KIND_CATEGORY:
         category_id = int(row_data.get("target_skill_category") or 0)
@@ -734,6 +738,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "legacy_target_slug": target_slug,
         "base_item_effect_id": payload.get("base_item_effect_id"),
     }
+    if payload.get("target_skills"):
+        skills = payload["target_skills"]
+        metadata["target_skill_ids"] = [skill.pk for skill in skills]
+        metadata["target_skill_slugs"] = [skill.slug for skill in skills]
     if target_kind == "wound_stage":
         metadata[WOUND_STAGE_POSITION_METADATA_KEY] = (
             payload["target_wound_stage_position"]
@@ -803,6 +811,15 @@ def _semantic_effect_matches_magic_payload(
 
     current_metadata = dict(effect.metadata or {})
     incoming_metadata = dict(kwargs.get("metadata") or {})
+    if effect.target_domain == TargetDomain.SKILL:
+        current_skills = (
+            current_metadata.get("target_skill_slugs") or [effect.target_key]
+        )
+        incoming_skills = (
+            incoming_metadata.get("target_skill_slugs") or [kwargs["target_key"]]
+        )
+        if set(current_skills) != set(incoming_skills):
+            return False
     current_description = str(
         current_metadata.get("condition_text") or effect.notes or ""
     ).strip()
@@ -934,6 +951,8 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         for key in (
             "ui_target_kind",
             "target_skill_id",
+            "target_skill_ids",
+            "target_skill_slugs",
             "target_skill_category_id",
             "target_item_id",
             "target_specialization_id",

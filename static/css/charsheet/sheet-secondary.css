@@ -4355,6 +4355,19 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   text-align: right;
 }
 
+.floating-tooltip .tooltip_markdown_quote,
+.floating-tooltip-card .tooltip_markdown_quote {
+  margin: 8px 0;
+  padding: 2px 0 2px 10px;
+  border: 0;
+  border-left: 2px solid rgba(110, 78, 46, 0.3);
+}
+
+.floating-tooltip .tooltip_markdown_quote > p,
+.floating-tooltip-card .tooltip_markdown_quote > p {
+  margin: 0;
+}
+
 .floating-tooltip-card .tooltip_quality_line,
 .floating-tooltip-card .tooltip_status_line {
   margin: 0 0 10px;

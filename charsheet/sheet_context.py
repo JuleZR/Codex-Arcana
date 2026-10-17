@@ -1851,6 +1851,10 @@ def _serialize_item_semantic_effect_payload(
     elif target_domain == "skill":
         payload["target_kind"] = "skill"
         payload["target_skill"] = str(metadata.get("target_skill_id") or "")
+        skills = Skill.objects.filter(
+            slug__in=metadata.get("target_skill_slugs") or [target_key]
+        ).order_by("pk")
+        payload["target_skills"] = [str(skill.pk) for skill in skills]
         payload["target_display"] = _item_skill_target_display(target_key, metadata)
     elif target_domain == "skill_category":
         payload["target_kind"] = "category"
@@ -1887,6 +1891,13 @@ def _serialize_item_semantic_effect_payload(
 def _item_skill_target_display(target_key: str, metadata: dict[str, object] | None = None) -> str:
     """Return the human-facing skill name for an item semantic-effect target."""
     metadata = metadata or {}
+    if metadata.get("target_skill_slugs"):
+        names = list(Skill.objects.filter(
+            slug__in=metadata["target_skill_slugs"]
+        ).order_by("name").values_list("name", flat=True))
+        if len(names) > 1:
+            return f"{', '.join(names[:-1])} und {names[-1]}"
+        return ", ".join(names)
     target_skill_id = str(metadata.get("target_skill_id") or "").strip()
     if target_skill_id.isdigit():
         name = Skill.objects.filter(pk=int(target_skill_id)).values_list("name", flat=True).first()

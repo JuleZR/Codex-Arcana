@@ -969,6 +969,63 @@
   max-height: calc(100vh - 28px);
 }
 
+/* The SL editor uses the shared character-sheet workshop surfaces. */
+.sl-workshop-window {
+  aspect-ratio: auto;
+}
+
+.sl-workshop-window .sheet-window__title {
+  flex: 1;
+}
+
+.sl-workshop-window .sl-item-action-window__body {
+  margin: 0;
+  scrollbar-gutter: auto;
+}
+
+.sl-workshop-window .sl-editor-card {
+  margin: 12px 0;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid #c8a983;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sl-workshop-window .sl-workshop-runes {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.sl-workshop-window .sl-workshop-runes .sl-rune-picker__trigger {
+  display: none;
+}
+
+.sl-workshop-window .sl-workshop-runes .sl-rune-picker__panel {
+  position: static;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sl-workshop-window .sl-workshop-runes .sl-rune-picker__list {
+  max-height: none;
+  margin-top: 12px;
+}
+
+.sl-workshop-window .sl-workshop-runes .sl-rune-picker__list label {
+  padding: 12px 0;
+  border-bottom: 1px solid #c8a983;
+}
+
+.sl-workshop-window .workshop_footer [data-close-sl-item-action] {
+  background: #4c3528;
+  color: #e6cfad;
+}
+
 .sl-item-action-window.is-disclosure-card {
   width: min(784px, calc(100vw - 28px));
   height: min(1074px, calc(100dvh - 28px));

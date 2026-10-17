@@ -769,6 +769,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_rule_flag = String(row.querySelector("[data-magic-target-select='rule_flag']")?.value || "").trim();
       } else if (targetKind === "skill") {
         payload.target_skill = String(row.querySelector("[data-magic-target-select='skill']")?.value || "").trim();
+        payload.target_skills = Array.from(row.querySelector("[data-magic-target-select='skill']")?.selectedOptions || [], option => option.value);
       } else if (targetKind === "category") {
         payload.target_skill_category = String(row.querySelector("[data-magic-target-select='category']")?.value || "").trim();
       } else if (targetKind === "movement") {
@@ -988,6 +989,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       };
       Object.entries(targetFieldMap).forEach(([kind, fieldName]) => {
         const select = row.querySelector(`[data-magic-target-select='${kind}']`);
+        if (kind === "skill" && select instanceof HTMLSelectElement) {
+          const ids = new Set((initialPayload.target_skills || [initialPayload.target_skill]).map(String));
+          Array.from(select.options).forEach(option => { option.selected = ids.has(option.value); });
+          return;
+        }
         if (select instanceof HTMLSelectElement && initialPayload[fieldName] !== undefined) {
           select.value = String(initialPayload[fieldName] || "");
         }

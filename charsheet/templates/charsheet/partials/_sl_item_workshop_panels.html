@@ -1,0 +1,86 @@
+<section class="workshop_panel" id="workshopPanel-base-{{ instance.id }}" data-sl-workshop-panel="base" role="tabpanel" aria-labelledby="workshopTab-base-{{ instance.id }}">
+                      <h2>Grunddaten</h2>
+                      <div class="sl-editor-grid">
+                        <label><span>Qualität</span><select name="quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == instance.quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
+                        <label><span>Menge</span><input name="amount" type="number" min="1" value="{{ instance.amount }}"></label>
+                        <label><span>Eigener Name</span><input name="name" value="{{ instance.effective_name }}"></label>
+                        <label><span>Preis</span><input name="price_override" type="number" min="0" value="{{ instance.price_override|default_if_none:'' }}" placeholder="{{ instance.base_values.price }}"></label>
+                        <label><span>Gewicht</span><input name="weight_override" type="number" min="0" step=".01" value="{{ instance.weight_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weight }}"></label>
+                        <label data-item-size-field{% if not instance.item.item_type.supports_GK %} hidden{% endif %}><span>Größenklasse</span><select name="size_class_override"><option value="">{{ instance.base_values.size_class }}</option>{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if instance.size_class_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="3">{{ instance.description }}</textarea></label>
+                      </div>
+                    </section>
+                    <section class="workshop_panel" id="workshopPanel-runes-{{ instance.id }}" data-sl-workshop-panel="runes" role="tabpanel" aria-labelledby="workshopTab-runes-{{ instance.id }}" hidden>
+                      <h2>Runen</h2>
+                      <div class="sl-rune-picker sl-workshop-runes" data-sl-rune-picker>
+                        <button type="button" class="sl-rune-picker__trigger" data-sl-rune-trigger aria-expanded="false"><span data-sl-rune-label>Keine Runen ausgewählt</span><strong data-sl-rune-count>0</strong></button>
+                        <div class="sl-rune-picker__panel" data-sl-rune-panel hidden>
+                          <input type="search" placeholder="Runen durchsuchen …" aria-label="Runen durchsuchen" data-sl-rune-search>
+                          <div class="sl-rune-picker__list" data-sl-rune-list>{% for rune in group_inventory_runes %}<label data-rune-search="{{ rune.name|lower }} {{ rune.description|default:''|lower }}"><input type="checkbox" name="instance_runes" value="{{ rune.pk }}"{% if rune in instance.runes.all %} checked{% endif %}> <span><strong>{{ rune.name }}</strong><small>{{ rune.description|default:"Keine Beschreibung vorhanden." }}</small></span></label>{% empty %}<p>Keine Runen verfügbar.</p>{% endfor %}</div>
+                        </div>
+                      </div>
+                    </section>
+                    <section class="workshop_panel" id="workshopPanel-magic-{{ instance.id }}" data-sl-workshop-panel="magic" role="tabpanel" aria-labelledby="workshopTab-magic-{{ instance.id }}" hidden>
+                    <h2>Magische Effekte</h2>
+                    <div data-sl-instance-magic-editor>
+                      {% include "charsheet/partials/item_editor/_item_magic_effect_editor.html" with magic_editor_eyebrow="Instanz" magic_editor_payloads=instance.editor_magic_modifier_payloads_json magic_editor_effect_kinds=group_inventory_effect_kinds magic_editor_attribute_choices=group_inventory_effect_attributes magic_editor_stat_choices=group_inventory_effect_stats magic_editor_movement_choices=group_inventory_effect_movements magic_editor_rule_choices=group_inventory_effect_rules magic_editor_skill_choices=group_inventory_weapon_skills magic_editor_category_choices=group_inventory_skill_categories magic_editor_item_choices=group_inventory_effect_items magic_editor_item_category_choices=group_inventory_item_types magic_editor_specialization_choices=group_inventory_specializations magic_editor_race_choices=group_inventory_races magic_editor_school_choices=group_inventory_schools %}
+                    </div>
+                    </section>
+                    <section class="workshop_panel" id="workshopPanel-advanced-{{ instance.id }}" data-sl-workshop-panel="advanced" role="tabpanel" aria-labelledby="workshopTab-advanced-{{ instance.id }}" hidden>
+                    <h2>Erweitert</h2>
+                    <details class="workshop_accordion">
+                      <summary>Investierte CP und CP-Schritte</summary>
+                      <div class="workshop_accordion_body sl-editor-grid">
+                        <label><span>Investierte CP</span><input name="invested_cp" type="number" min="0" step="1" value="{{ instance.invested_cp|default_if_none:'' }}" placeholder="{{ instance.base_values.invested_cp }}"></label>
+                        <label><span>CP-Schritte</span><input type="text" value="{{ instance.base_values.invested_cp_steps }}" placeholder="Keine Vorgabe" readonly></label>
+                      </div>
+                    </details>
+                    <details class="workshop_accordion">
+                      <summary>Gegenstandsbild</summary>
+                      <div class="workshop_accordion_body"><label><span>Eigenes Bild</span><input name="image_override" type="file" accept="image/*"></label></div>
+                    </details>
+                    <section class="sl-editor-card" data-item-fields="weapon" hidden>
+                      <header><span>Typwerte</span><h4>Waffe</h4></header>
+                      <div class="sl-editor-fields">
+                        <div class="sl-editor-row sl-editor-row--identity">
+                          <label><span>Waffentyp</span><select name="weapon_type_override"><option value="">{{ instance.base_values.weapon_type }}</option>{% for option in group_inventory_weapon_types %}<option value="{{ option.pk }}"{% if instance.weapon_type_override_id == option.pk %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>
+                          <label><span>Schadensquelle</span><select name="weapon_damage_source_override"><option value="">{{ instance.base_values.weapon_damage_source }}</option>{% for option in group_inventory_damage_sources %}<option value="{{ option.pk }}"{% if instance.weapon_damage_source_override_id == option.pk %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>
+                        </div>
+                        <div class="sl-editor-row sl-editor-row--handling">
+                          <label><span>Waffenwurf</span><select name="weapon_maneuver_attribute_override"><option value="">{{ instance.base_values.weapon_maneuver_attribute }}</option>{% for value,label in group_inventory_maneuver_attributes %}<option value="{{ value }}"{% if instance.weapon_maneuver_attribute_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                          <label><span>Waffengriff</span><select name="weapon_wield_mode_override"><option value="">{{ instance.base_values.weapon_wield_mode }}</option><option value="1h"{% if instance.weapon_wield_mode_override == "1h" %} selected{% endif %}>Einhändig</option><option value="2h"{% if instance.weapon_wield_mode_override == "2h" %} selected{% endif %}>Zweihändig</option><option value="vh"{% if instance.weapon_wield_mode_override == "vh" %} selected{% endif %}>Ein- und zweihändig</option></select></label>
+                          <label><span>Min-ST</span><input name="weapon_min_st_override" type="number" min="1" value="{{ instance.weapon_min_st_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_min_st }}"></label>
+                        </div>
+                        <div class="sl-editor-row sl-editor-row--damage">
+                          <label><span>Würfelanzahl</span><input name="weapon_damage_dice_amount_override" type="number" min="1" value="{{ instance.weapon_damage_dice_amount_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_damage_dice_amount }}"></label>
+                          <label><span>Würfelseiten</span><input name="weapon_damage_dice_faces_override" type="number" min="2" value="{{ instance.weapon_damage_dice_faces_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_damage_dice_faces }}"></label>
+                          <label><span>Operator</span><select name="weapon_damage_flat_operator_override"><option value="">{{ instance.base_values.weapon_damage_flat_operator }}</option><option value="+"{% if instance.weapon_damage_flat_operator_override == "+" %} selected{% endif %}>+</option><option value="-"{% if instance.weapon_damage_flat_operator_override == "-" %} selected{% endif %}>−</option><option value="/"{% if instance.weapon_damage_flat_operator_override == "/" %} selected{% endif %}>÷</option></select></label>
+                          <label><span>Festwert</span><input name="weapon_damage_flat_bonus_override" type="number" value="{{ instance.weapon_damage_flat_bonus_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_damage_flat_bonus }}"></label>
+                          <label><span>Schadenstyp</span><select name="weapon_damage_type_override"><option value="">{{ instance.base_values.weapon_damage_type }}</option>{% for value,label in group_inventory_damage_types %}<option value="{{ value }}"{% if instance.weapon_damage_type_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        </div>
+                        <div class="sl-editor-row sl-editor-row--damage">
+                          <label><span>2H Würfel</span><input name="weapon_h2_dice_amount_override" type="number" min="1" value="{{ instance.weapon_h2_dice_amount_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_h2_dice_amount }}"></label>
+                          <label><span>2H Seiten</span><input name="weapon_h2_dice_faces_override" type="number" min="2" value="{{ instance.weapon_h2_dice_faces_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_h2_dice_faces }}"></label>
+                          <label><span>2H Operator</span><select name="weapon_h2_flat_operator_override"><option value="">{{ instance.base_values.weapon_h2_flat_operator }}</option><option value="+"{% if instance.weapon_h2_flat_operator_override == "+" %} selected{% endif %}>+</option><option value="-"{% if instance.weapon_h2_flat_operator_override == "-" %} selected{% endif %}>−</option><option value="/"{% if instance.weapon_h2_flat_operator_override == "/" %} selected{% endif %}>÷</option></select></label>
+                          <label><span>2H Festwert</span><input name="weapon_h2_flat_bonus_override" type="number" value="{{ instance.weapon_h2_flat_bonus_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_h2_flat_bonus }}"></label>
+                          <label><span>2H Schadenstyp</span><select name="weapon_h2_damage_type_override"><option value="">{{ instance.base_values.weapon_h2_damage_type }}</option>{% for value,label in group_inventory_damage_types %}<option value="{{ value }}"{% if instance.weapon_h2_damage_type_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        </div>
+                      </div>
+                    </section>
+                    <section class="sl-editor-card" data-item-fields="armor" hidden>
+                      <header><span>Typwerte</span><h4>Rüstung</h4></header>
+                      <div class="sl-editor-grid">
+                        <label><span>RS gesamt</span><input name="armor_rs_total_override" type="number" min="0" value="{{ instance.armor_rs_total_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_total }}"></label>
+                        <label><span>Belastung</span><input name="armor_encumbrance_override" type="number" min="0" value="{{ instance.armor_encumbrance_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_encumbrance }}"></label>
+                        <label><span>Mindeststärke</span><input name="armor_min_st_override" type="number" min="1" value="{{ instance.armor_min_st_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_min_st }}"></label>
+                      </div>
+                    </section>
+                    <section class="sl-editor-card" data-item-fields="shield" hidden>
+                      <header><span>Typwerte</span><h4>Schild</h4></header>
+                      <div class="sl-editor-grid">
+                        <label><span>Schild-RS</span><input name="shield_rs_override" type="number" min="0" value="{{ instance.shield_rs_override|default_if_none:'' }}" placeholder="{{ instance.base_values.shield_rs }}"></label>
+                        <label><span>Belastung</span><input name="shield_encumbrance_override" type="number" min="0" value="{{ instance.shield_encumbrance_override|default_if_none:'' }}" placeholder="{{ instance.base_values.shield_encumbrance }}"></label>
+                        <label><span>Mindeststärke</span><input name="shield_min_st_override" type="number" min="1" value="{{ instance.shield_min_st_override|default_if_none:'' }}" placeholder="{{ instance.base_values.shield_min_st }}"></label>
+                      </div>
+                    </section>
+                    </section>

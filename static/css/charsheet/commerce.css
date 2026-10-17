@@ -3531,7 +3531,7 @@
 }
 
 /* Owned-item workshop: isolated from the catalog item editor and market. */
-#runeRetrofitWindow.sheet-window {
+:is(#runeRetrofitWindow.sheet-window, .sl-workshop-window) {
   width: min(1240px, calc(100vw - 28px));
   height: min(860px, calc(100dvh - 28px));
   max-height: calc(100dvh - 28px);
@@ -3546,16 +3546,16 @@
   color: #503524;
   font: 13px "Segoe UI", sans-serif;
 }
-#runeRetrofitWindow, #runeRetrofitWindow * { box-sizing: border-box; }
-#runeRetrofitWindow [hidden] { display: none !important; }
-#runeRetrofitWindow::before { inset: 0; border-color: #c5a16a80; pointer-events: none; }
-#runeRetrofitWindow::after { display: none; }
-#runeRetrofitWindow button, #runeRetrofitWindow input,
-#runeRetrofitWindow select, #runeRetrofitWindow textarea { font: inherit; }
-#runeRetrofitWindow button { cursor: pointer; }
-#runeRetrofitWindow button:disabled { cursor: default; opacity: .45; }
-#runeRetrofitWindow :focus-visible { outline: 2px solid #c5a16a; outline-offset: 2px; }
-#runeRetrofitWindow .workshop_header {
+:is(#runeRetrofitWindow, .sl-workshop-window), :is(#runeRetrofitWindow, .sl-workshop-window) * { box-sizing: border-box; }
+:is(#runeRetrofitWindow, .sl-workshop-window) [hidden] { display: none !important; }
+:is(#runeRetrofitWindow, .sl-workshop-window)::before { inset: 0; border-color: #c5a16a80; pointer-events: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window)::after { display: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) button, :is(#runeRetrofitWindow, .sl-workshop-window) input,
+:is(#runeRetrofitWindow, .sl-workshop-window) select, :is(#runeRetrofitWindow, .sl-workshop-window) textarea { font: inherit; }
+:is(#runeRetrofitWindow, .sl-workshop-window) button { cursor: pointer; }
+:is(#runeRetrofitWindow, .sl-workshop-window) button:disabled { cursor: default; opacity: .45; }
+:is(#runeRetrofitWindow, .sl-workshop-window) :focus-visible { outline: 2px solid #c5a16a; outline-offset: 2px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header {
   position: relative;
   display: flex;
   flex: 0 0 auto;
@@ -3569,43 +3569,43 @@
   background: radial-gradient(ellipse at 16% 0%, #bb895b25, transparent 60%), linear-gradient(115deg, #3c2a23e6, #624737e6 55%, #34271fe6);
   color: #f7e9ce;
 }
-#runeRetrofitWindow .sheet-window__heading { display: block; flex: 1; min-width: 0; }
-#runeRetrofitWindow .sheet-window__title { display: block; margin: 0; color: #f7e9ce; font: 700 clamp(23px, 2.5vw, 32px)/1.1 "Cormorant Garamond", Georgia, serif; letter-spacing: 0; }
-#runeRetrofitWindow .workshop_header p { margin: 3px 0 0; color: #e6cfad; font: italic 16px/1.15 "Cormorant Garamond", Georgia, serif; }
-#runeRetrofitWindow .sheet-window__actions { align-self: flex-start; }
-#runeRetrofitWindow .workshop_resources { display: flex; gap: 8px; }
-#runeRetrofitWindow .workshop_resources > div { padding: 6px 10px; border: 1px solid #b5946380; background: linear-gradient(150deg, #31231db3, #4c3528b3); }
-#runeRetrofitWindow .workshop_resources span { display: block; color: #d6b888; font-size: 10px; }
-#runeRetrofitWindow .workshop_resources strong { display: block; margin-top: 2px; color: #f3dab0; font: 700 21px/1.1 "Cormorant Garamond", Georgia, serif; white-space: nowrap; }
-#runeRetrofitWindow .sheet-window__body { display: flex; flex: 1; height: auto; min-height: 0; padding: 0; overflow: hidden; background: transparent; }
-#runeRetrofitWindow .sheet-window__editor-form { display: flex; flex: 1; flex-direction: column; gap: 0; min-height: 0; min-width: 0; height: 100%; padding: 0; }
-#runeRetrofitWindow .workshop_layout { display: grid; grid-template-columns: 85px minmax(0, 1fr); flex: 1; min-height: 0; }
-#runeRetrofitWindow .workshop_nav { display: flex; flex-direction: column; gap: 8px; padding: 14px 6px; border-right: 2px solid #97714d; background: linear-gradient(90deg, #281f1ae6, #403027e6, #30241ee6); overflow-y: auto; }
-#runeRetrofitWindow .workshop_nav button { display: grid; place-items: center; gap: 5px; min-height: 64px; width: 100%; padding: 6px 2px; border: 1px solid #84684e77; border-radius: 3px; color: #d0b99a; background: transparent; font-size: 10px; }
-#runeRetrofitWindow .workshop_nav button > span { font-size: 24px; line-height: 1; }
-#runeRetrofitWindow .workshop_nav button:hover { background: #74503a66; color: #fff0d2; }
-#runeRetrofitWindow .workshop_nav button[aria-selected="true"] { border-color: #d0a775; background: linear-gradient(155deg, #984a39, #713529); color: #ffe5b8; box-shadow: inset 3px 0 #edce96; }
-#runeRetrofitWindow .workshop_workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-#runeRetrofitWindow .workshop_sockets { --workshop-socket-duration: 220ms; flex: 0 0 auto; padding: 10px 20px; border-bottom: 1px solid #c8a983; background: linear-gradient(180deg, #fffaf0, #eee0c7); transition: padding var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow .workshop_section_heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-#runeRetrofitWindow h2 { margin: 0 0 12px; color: #813d36; font: 700 24px "Cormorant Garamond", Georgia, serif; }
-#runeRetrofitWindow .workshop_section_heading h2 { margin: 0; transition: font-size var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow .workshop_socket_list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 100%; gap: 12px; margin-top: 8px; transition: margin-top var(--workshop-socket-duration) ease, max-width var(--workshop-socket-duration) ease, gap var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow .workshop_socket { display: grid; justify-items: center; align-content: start; gap: 4px; min-width: 0; padding: 4px; border: 0; border-radius: 4px; background: transparent; color: #503524; transition: gap var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow .workshop_socket strong { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; transition: font-size var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow .workshop_socket_list .workshop_socket_ring { padding: 4px; border-width: 1px; transition: width var(--workshop-socket-duration) ease, height var(--workshop-socket-duration) ease, padding var(--workshop-socket-duration) ease, border-width var(--workshop-socket-duration) ease, font-size var(--workshop-socket-duration) ease, box-shadow var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow .workshop_socket_list .workshop_socket_ring::before { inset: 3px; border-width: .5px; transition: inset var(--workshop-socket-duration) ease, border-width var(--workshop-socket-duration) ease, box-shadow var(--workshop-socket-duration) ease; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_sockets { padding: 6px 20px; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_section_heading h2 { font-size: 18px; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket_list { max-width: 520px; margin-top: 4px; gap: 8px; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket { gap: 2px; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket_list .workshop_socket_ring { width: 36px; height: 36px; padding: 4px; border-width: 1px; font-size: 16px; box-shadow: 0 0 3px #301b1244, inset 0 .5px 1px #fff0bc, inset 0 -1px 1.5px #382418; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket_list .workshop_socket_ring::before { inset: 3px; border-width: .5px; box-shadow: inset 0 1.5px 4px #000c, 0 .5px .5px #f7dca777; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket_list .workshop_socket_ring.is-occupied::before { box-shadow: inset 0 1px 3px #68482b66, 0 .5px .5px #f7dca777; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket:hover .workshop_socket_ring,
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket.is-selected .workshop_socket_ring { box-shadow: 0 0 0 1px #a66b3580, 0 0 9px #bd8a4f66, inset 0 .5px 1px #fff0bc; }
-#runeRetrofitWindow.workshop--compact-sockets .workshop_socket strong { display: none; }
-#runeRetrofitWindow .workshop_socket_ring {
+:is(#runeRetrofitWindow, .sl-workshop-window) .sheet-window__heading { display: block; flex: 1; min-width: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .sheet-window__title { display: block; margin: 0; color: #f7e9ce; font: 700 clamp(23px, 2.5vw, 32px)/1.1 "Cormorant Garamond", Georgia, serif; letter-spacing: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header p { margin: 3px 0 0; color: #e6cfad; font: italic 16px/1.15 "Cormorant Garamond", Georgia, serif; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .sheet-window__actions { align-self: flex-start; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources { display: flex; gap: 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources > div { padding: 6px 10px; border: 1px solid #b5946380; background: linear-gradient(150deg, #31231db3, #4c3528b3); }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources span { display: block; color: #d6b888; font-size: 10px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources strong { display: block; margin-top: 2px; color: #f3dab0; font: 700 21px/1.1 "Cormorant Garamond", Georgia, serif; white-space: nowrap; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .sheet-window__body { display: flex; flex: 1; height: auto; min-height: 0; padding: 0; overflow: hidden; background: transparent; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .sheet-window__editor-form { display: flex; flex: 1; flex-direction: column; gap: 0; min-height: 0; min-width: 0; height: 100%; padding: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_layout { display: grid; grid-template-columns: 85px minmax(0, 1fr); flex: 1; min-height: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav { display: flex; flex-direction: column; gap: 8px; padding: 14px 6px; border-right: 2px solid #97714d; background: linear-gradient(90deg, #281f1ae6, #403027e6, #30241ee6); overflow-y: auto; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav button { display: grid; place-items: center; gap: 5px; min-height: 64px; width: 100%; padding: 6px 2px; border: 1px solid #84684e77; border-radius: 3px; color: #d0b99a; background: transparent; font-size: 10px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav button > span { font-size: 24px; line-height: 1; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav button:hover { background: #74503a66; color: #fff0d2; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav button[aria-selected="true"] { border-color: #d0a775; background: linear-gradient(155deg, #984a39, #713529); color: #ffe5b8; box-shadow: inset 3px 0 #edce96; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_sockets { --workshop-socket-duration: 220ms; flex: 0 0 auto; padding: 10px 20px; border-bottom: 1px solid #c8a983; background: linear-gradient(180deg, #fffaf0, #eee0c7); transition: padding var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_section_heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) h2 { margin: 0 0 12px; color: #813d36; font: 700 24px "Cormorant Garamond", Georgia, serif; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_section_heading h2 { margin: 0; transition: font-size var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 100%; gap: 12px; margin-top: 8px; transition: margin-top var(--workshop-socket-duration) ease, max-width var(--workshop-socket-duration) ease, gap var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket { display: grid; justify-items: center; align-content: start; gap: 4px; min-width: 0; padding: 4px; border: 0; border-radius: 4px; background: transparent; color: #503524; transition: gap var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket strong { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; transition: font-size var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_list .workshop_socket_ring { padding: 4px; border-width: 1px; transition: width var(--workshop-socket-duration) ease, height var(--workshop-socket-duration) ease, padding var(--workshop-socket-duration) ease, border-width var(--workshop-socket-duration) ease, font-size var(--workshop-socket-duration) ease, box-shadow var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_list .workshop_socket_ring::before { inset: 3px; border-width: .5px; transition: inset var(--workshop-socket-duration) ease, border-width var(--workshop-socket-duration) ease, box-shadow var(--workshop-socket-duration) ease; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_sockets { padding: 6px 20px; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_section_heading h2 { font-size: 18px; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket_list { max-width: 520px; margin-top: 4px; gap: 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket { gap: 2px; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket_list .workshop_socket_ring { width: 36px; height: 36px; padding: 4px; border-width: 1px; font-size: 16px; box-shadow: 0 0 3px #301b1244, inset 0 .5px 1px #fff0bc, inset 0 -1px 1.5px #382418; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket_list .workshop_socket_ring::before { inset: 3px; border-width: .5px; box-shadow: inset 0 1.5px 4px #000c, 0 .5px .5px #f7dca777; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket_list .workshop_socket_ring.is-occupied::before { box-shadow: inset 0 1px 3px #68482b66, 0 .5px .5px #f7dca777; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket:hover .workshop_socket_ring,
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket.is-selected .workshop_socket_ring { box-shadow: 0 0 0 1px #a66b3580, 0 0 9px #bd8a4f66, inset 0 .5px 1px #fff0bc; }
+:is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket strong { display: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_ring {
   display: grid;
   place-items: center;
   position: relative;
@@ -3621,115 +3621,115 @@
   font-size: 28px;
   isolation: isolate;
 }
-#runeRetrofitWindow .workshop_socket_ring::before { content: ""; position: absolute; inset: 6px; z-index: -1; border: 1px solid #291d16; border-radius: 50%; background: radial-gradient(circle at 50% 60%, #302820, #100e0c); box-shadow: inset 0 3px 7px #000c, 0 1px 1px #f7dca777; }
-#runeRetrofitWindow .workshop_socket_ring.is-occupied::before { background: radial-gradient(circle at 50% 40%, #ead7b3, #bfa17b); box-shadow: inset 0 2px 5px #68482b66, 0 1px 1px #f7dca777; }
-#runeRetrofitWindow .workshop_socket_ring img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: cover; border-radius: 50%; overflow: hidden; }
-#runeRetrofitWindow .workshop_socket:hover .workshop_socket_ring,
-#runeRetrofitWindow .workshop_socket.is-selected .workshop_socket_ring { border-color: #f1ce88; box-shadow: 0 0 0 2px #a66b3580, 0 0 15px #bd8a4f66, inset 0 1px 2px #fff0bc; }
-#runeRetrofitWindow .workshop_content { flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(135deg, #fcf7ed, #f1e5d1); }
-#runeRetrofitWindow .workshop_panel { height: 100%; padding: 18px 20px; overflow-y: auto; }
-#runeRetrofitWindow .workshop_panel:has(> .workshop_split) { display: flex; flex-direction: column; overflow: hidden; }
-#runeRetrofitWindow .workshop_panel > h2 { flex: 0 0 auto; }
-#runeRetrofitWindow .shop_item_form_row { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin-bottom: 12px; }
-#runeRetrofitWindow .shop_item_form_row > span { color: #73462d; font-size: 12px; font-weight: 600; }
-#runeRetrofitWindow input:not([type="checkbox"]), #runeRetrofitWindow select, #runeRetrofitWindow textarea { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #b69a79; border-radius: 3px; color: #503524; background: #fffaf2; }
-#runeRetrofitWindow input[type="checkbox"] { accent-color: #813d36; }
-#runeRetrofitWindow .shop_item_form_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-#runeRetrofitWindow .workshop_accordion { margin: 12px 0; border-top: 1px solid #c8a983; }
-#runeRetrofitWindow .workshop_accordion > summary { padding: 12px 0; color: #813d36; cursor: pointer; font-weight: 600; }
-#runeRetrofitWindow .workshop_accordion_body { padding: 0 0 8px; }
-#runeRetrofitWindow .workshop_split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); flex: 1; min-height: 0; gap: 20px; overflow: hidden; }
-#runeRetrofitWindow .workshop_catalog, #runeRetrofitWindow .workshop_inspector { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding-right: 8px; }
-#runeRetrofitWindow .workshop_inspector { border-left: 3px double #c8a983; padding-left: 20px; }
-#runeRetrofitWindow .workshop_inspector > .workshop_socket_ring { width: 112px; height: 112px; margin-bottom: 14px; }
-#runeRetrofitWindow .workshop_inspector > h3 { color: #73462d; font: 700 26px "Cormorant Garamond", Georgia, serif; margin: 0 0 8px; }
-#runeRetrofitWindow .workshop_inspector > p { line-height: 1.5; white-space: pre-line; }
-#runeRetrofitWindow .workshop_item_card_preview .floating-tooltip-card__close { display: none; }
-#runeRetrofitWindow .workshop_card_inspector { display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
-#runeRetrofitWindow .workshop_item_card_preview { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-#runeRetrofitWindow .workshop_item_card_preview > .floating-tooltip-card { transform-origin: top center; }
-#runeRetrofitWindow #workshopItemCardStatus:empty { display: none; }
-#runeRetrofitWindow .workshop_catalog_entry { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid #c8a983; }
-#runeRetrofitWindow .workshop_rune_image { display: grid; place-items: center; width: 46px; height: 46px; color: #73462d; font-size: 28px; }
-#runeRetrofitWindow .workshop_rune_image img { display: block; width: 100%; height: 100%; object-fit: contain; }
-#runeRetrofitWindow .workshop_catalog_entry p { margin: 4px 0; line-height: 1.4; font-size: 12px; white-space: pre-line; }
-#runeRetrofitWindow .workshop_catalog_entry > button { grid-column: 2; justify-self: start; }
-#runeRetrofitWindow .workshop_effect_entry { display: grid; gap: 5px; width: 100%; padding: 12px; margin-bottom: 8px; text-align: left; }
-#runeRetrofitWindow .workshop_effect_catalog_row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px; margin-bottom: 8px; }
-#runeRetrofitWindow .workshop_effect_catalog_row .workshop_effect_entry { margin-bottom: 0; }
-#runeRetrofitWindow .workshop_effect_group { margin-bottom: 8px; }
-#runeRetrofitWindow .workshop_effect_group > .workshop_effect_catalog_row { margin-bottom: 0; }
-#runeRetrofitWindow .workshop_effect_group > .workshop_effect_catalog_row:not(:only-child) .workshop_effect_entry { border-radius: 0; }
-#runeRetrofitWindow .workshop_effect_group > .workshop_effect_catalog_row:first-child:not(:only-child) .workshop_effect_entry { border-radius: 3px 3px 0 0; }
-#runeRetrofitWindow .workshop_effect_group > .workshop_effect_catalog_row:last-child:not(:only-child) .workshop_effect_entry { border-radius: 0 0 3px 3px; }
-#runeRetrofitWindow .workshop_effect_group > .workshop_effect_catalog_row + .workshop_effect_catalog_row .workshop_effect_entry { border-top-width: 0; }
-#runeRetrofitWindow .workshop_effect_entry[aria-pressed="true"] { border-color: #813d36; background: #ead8b9; box-shadow: inset 3px 0 #813d36; }
-#runeRetrofitWindow .workshop_effect_entry small { overflow-wrap: anywhere; }
-#runeRetrofitWindow .workshop_effect_preview { line-height: 1.5; }
-#runeRetrofitWindow .workshop_effect_preview::before { content: attr(data-preview-label); display: block; margin-bottom: 2px; color: #866b50; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
-#runeRetrofitWindow .workshop_stepper { display: flex; gap: 8px; align-items: center; }
-#runeRetrofitWindow .workshop_stepper input { max-width: 80px; text-align: center; }
-#runeRetrofitWindow .workshop_stepper button { width: 36px; height: 36px; }
-#runeRetrofitWindow .shop_magic_effect_editor { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-#runeRetrofitWindow .shop_magic_effect_list { display: block; overflow: visible; }
-#runeRetrofitWindow .shop_magic_effect_card { padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-#runeRetrofitWindow .shop_magic_effect_card_header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-#runeRetrofitWindow .shop_magic_effect_card_header .shop_magic_effect_remove { display: grid; place-items: center; width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; font-size: 20px; line-height: 1; }
-#runeRetrofitWindow .magic-effect-target,
-#runeRetrofitWindow .sl-editor-row--effect { display: grid; grid-template-columns: minmax(0, 1fr) minmax(96px, .32fr); gap: 10px 12px; width: 100%; margin: 0; padding: 0; }
-#runeRetrofitWindow .magic-effect-target > .shop_item_form_row,
-#runeRetrofitWindow .sl-editor-row--effect > .shop_item_form_row { margin: 0; }
-#runeRetrofitWindow .magic-effect-target > [data-magic-target-row] { grid-column: 1 / -1; }
-#runeRetrofitWindow .magic-effect-target:has(> [data-magic-value-row][hidden]) > label:first-child,
-#runeRetrofitWindow .sl-editor-row--effect:has(> [data-magic-scale-divisor-row][hidden]) > [data-magic-scale-source-row] { grid-column: 1 / -1; }
-#runeRetrofitWindow .workshop_footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 20px; border-top: 1px solid #b7976b; background: linear-gradient(115deg, #3c2a23e6, #624737e6 55%, #34271fe6); color: #e6cfad; }
-#runeRetrofitWindow .workshop_footer > span { flex: 1; color: #e6cfad; }
-#runeRetrofitWindow button:not(.workshop_socket, .sheet-window__close, [role="tab"]) { padding: 8px 12px; border: 1px solid #b59463; border-radius: 3px; color: #73462d; background: #fbf1df; }
-#runeRetrofitWindow #runeRetrofitCancelBtn { background: #4c3528; color: #e6cfad; }
-#runeRetrofitWindow #runeRetrofitCancelBtn:hover { background: #624737; }
-#runeRetrofitWindow .workshop_footer .workshop_submit { border-color: #b59463; background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c); color: #f9e7c7; }
-#runeRetrofitWindow .workshop_footer .workshop_submit:hover { filter: brightness(1.12); }
-#runeRetrofitWindow .rune_window_save_error { color: #f2b6a3; margin: 0; max-width: 38%; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_ring::before { content: ""; position: absolute; inset: 6px; z-index: -1; border: 1px solid #291d16; border-radius: 50%; background: radial-gradient(circle at 50% 60%, #302820, #100e0c); box-shadow: inset 0 3px 7px #000c, 0 1px 1px #f7dca777; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_ring.is-occupied::before { background: radial-gradient(circle at 50% 40%, #ead7b3, #bfa17b); box-shadow: inset 0 2px 5px #68482b66, 0 1px 1px #f7dca777; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_ring img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: cover; border-radius: 50%; overflow: hidden; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket:hover .workshop_socket_ring,
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket.is-selected .workshop_socket_ring { border-color: #f1ce88; box-shadow: 0 0 0 2px #a66b3580, 0 0 15px #bd8a4f66, inset 0 1px 2px #fff0bc; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_content { flex: 1; min-height: 0; overflow: hidden; background: linear-gradient(135deg, #fcf7ed, #f1e5d1); }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_panel { height: 100%; padding: 18px 20px; overflow-y: auto; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_panel:has(> .workshop_split) { display: flex; flex-direction: column; overflow: hidden; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_panel > h2 { flex: 0 0 auto; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_item_form_row { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin-bottom: 12px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_item_form_row > span { color: #73462d; font-size: 12px; font-weight: 600; }
+:is(#runeRetrofitWindow, .sl-workshop-window) input:not([type="checkbox"]), :is(#runeRetrofitWindow, .sl-workshop-window) select, :is(#runeRetrofitWindow, .sl-workshop-window) textarea { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #b69a79; border-radius: 3px; color: #503524; background: #fffaf2; }
+:is(#runeRetrofitWindow, .sl-workshop-window) input[type="checkbox"] { accent-color: #813d36; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_item_form_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_accordion { margin: 12px 0; border-top: 1px solid #c8a983; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_accordion > summary { padding: 12px 0; color: #813d36; cursor: pointer; font-weight: 600; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_accordion_body { padding: 0 0 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); flex: 1; min-height: 0; gap: 20px; overflow: hidden; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_catalog, :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding-right: 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector { border-left: 3px double #c8a983; padding-left: 20px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector > .workshop_socket_ring { width: 112px; height: 112px; margin-bottom: 14px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector > h3 { color: #73462d; font: 700 26px "Cormorant Garamond", Georgia, serif; margin: 0 0 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector > p { line-height: 1.5; white-space: pre-line; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview .floating-tooltip-card__close { display: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_card_inspector { display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview > .floating-tooltip-card { transform-origin: top center; }
+:is(#runeRetrofitWindow, .sl-workshop-window) #workshopItemCardStatus:empty { display: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_catalog_entry { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid #c8a983; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_rune_image { display: grid; place-items: center; width: 46px; height: 46px; color: #73462d; font-size: 28px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_rune_image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_catalog_entry p { margin: 4px 0; line-height: 1.4; font-size: 12px; white-space: pre-line; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_catalog_entry > button { grid-column: 2; justify-self: start; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_entry { display: grid; gap: 5px; width: 100%; padding: 12px; margin-bottom: 8px; text-align: left; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_catalog_row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px; margin-bottom: 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_catalog_row .workshop_effect_entry { margin-bottom: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_group { margin-bottom: 8px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_group > .workshop_effect_catalog_row { margin-bottom: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_group > .workshop_effect_catalog_row:not(:only-child) .workshop_effect_entry { border-radius: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_group > .workshop_effect_catalog_row:first-child:not(:only-child) .workshop_effect_entry { border-radius: 3px 3px 0 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_group > .workshop_effect_catalog_row:last-child:not(:only-child) .workshop_effect_entry { border-radius: 0 0 3px 3px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_group > .workshop_effect_catalog_row + .workshop_effect_catalog_row .workshop_effect_entry { border-top-width: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_entry[aria-pressed="true"] { border-color: #813d36; background: #ead8b9; box-shadow: inset 3px 0 #813d36; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_entry small { overflow-wrap: anywhere; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_preview { line-height: 1.5; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_effect_preview::before { content: attr(data-preview-label); display: block; margin-bottom: 2px; color: #866b50; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_stepper { display: flex; gap: 8px; align-items: center; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_stepper input { max-width: 80px; text-align: center; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_stepper button { width: 36px; height: 36px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_editor { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_list { display: block; overflow: visible; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_card { padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_card_header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_card_header .shop_magic_effect_remove { display: grid; place-items: center; width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; font-size: 20px; line-height: 1; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target,
+:is(#runeRetrofitWindow, .sl-workshop-window) .sl-editor-row--effect { display: grid; grid-template-columns: minmax(0, 1fr) minmax(96px, .32fr); gap: 10px 12px; width: 100%; margin: 0; padding: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target > .shop_item_form_row,
+:is(#runeRetrofitWindow, .sl-workshop-window) .sl-editor-row--effect > .shop_item_form_row { margin: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target > [data-magic-target-row] { grid-column: 1 / -1; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target:has(> [data-magic-value-row][hidden]) > label:first-child,
+:is(#runeRetrofitWindow, .sl-workshop-window) .sl-editor-row--effect:has(> [data-magic-scale-divisor-row][hidden]) > [data-magic-scale-source-row] { grid-column: 1 / -1; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 20px; border-top: 1px solid #b7976b; background: linear-gradient(115deg, #3c2a23e6, #624737e6 55%, #34271fe6); color: #e6cfad; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer > span { flex: 1; color: #e6cfad; }
+:is(#runeRetrofitWindow, .sl-workshop-window) button:not(.workshop_socket, .sheet-window__close, [role="tab"]) { padding: 8px 12px; border: 1px solid #b59463; border-radius: 3px; color: #73462d; background: #fbf1df; }
+:is(#runeRetrofitWindow, .sl-workshop-window) #runeRetrofitCancelBtn { background: #4c3528; color: #e6cfad; }
+:is(#runeRetrofitWindow, .sl-workshop-window) #runeRetrofitCancelBtn:hover { background: #624737; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit { border-color: #b59463; background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c); color: #f9e7c7; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit:hover { filter: brightness(1.12); }
+:is(#runeRetrofitWindow, .sl-workshop-window) .rune_window_save_error { color: #f2b6a3; margin: 0; max-width: 38%; }
 @media (max-width: 700px) {
-  #runeRetrofitWindow .workshop_header { flex-wrap: wrap; gap: 8px; padding: 6px 12px; }
-  #runeRetrofitWindow .workshop_header .sheet-window__heading { flex-basis: calc(100% - 50px); }
-  #runeRetrofitWindow .workshop_resources { order: 3; width: 100%; }
-  #runeRetrofitWindow .workshop_resources > div { flex: 1; padding: 4px 8px; }
-  #runeRetrofitWindow .workshop_resources strong { font-size: 19px; }
-  #runeRetrofitWindow .workshop_layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  #runeRetrofitWindow .workshop_nav { flex-direction: row; padding: 5px; border-right: 0; border-bottom: 1px solid #97714d; gap: 4px; }
-  #runeRetrofitWindow .workshop_nav button { min-height: 46px; flex: 1; gap: 2px; }
-  #runeRetrofitWindow .workshop_nav button > span { font-size: 18px; }
-  #runeRetrofitWindow .workshop_sockets { padding: 8px; }
-  #runeRetrofitWindow .workshop_socket_list { gap: 2px; }
-  #runeRetrofitWindow .workshop_socket_ring { width: clamp(32px, 9vw, 58px); height: clamp(32px, 9vw, 58px); }
-  #runeRetrofitWindow .workshop_socket strong { font-size: 9px; }
-  #runeRetrofitWindow .workshop_panel { padding: 12px; }
-  #runeRetrofitWindow .workshop_panel:has(> .workshop_split) { display: block; overflow-y: auto; }
-  #runeRetrofitWindow .workshop_split { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; gap: 14px; overflow: visible; }
-  #runeRetrofitWindow .workshop_catalog, #runeRetrofitWindow .workshop_inspector { overflow: visible; scrollbar-gutter: auto; padding-right: 0; }
-  #runeRetrofitWindow .workshop_inspector { border-left: 0; border-top: 3px double #c8a983; padding: 14px 0 0; }
-  #runeRetrofitWindow .workshop_card_inspector { height: min(70dvh, 600px); overflow: hidden; }
-  #runeRetrofitWindow .workshop_footer { flex-wrap: wrap; gap: 8px; padding: 8px; }
-  #runeRetrofitWindow .workshop_footer > span:empty { display: none; }
-  #runeRetrofitWindow .workshop_footer .workshop_submit { flex: 1; }
-  #runeRetrofitWindow .rune_window_save_error { max-width: 100%; flex-basis: 100%; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header { flex-wrap: wrap; gap: 8px; padding: 6px 12px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header .sheet-window__heading { flex-basis: calc(100% - 50px); }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources { order: 3; width: 100%; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources > div { flex: 1; padding: 4px 8px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_resources strong { font-size: 19px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav { flex-direction: row; padding: 5px; border-right: 0; border-bottom: 1px solid #97714d; gap: 4px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav button { min-height: 46px; flex: 1; gap: 2px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_nav button > span { font-size: 18px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_sockets { padding: 8px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_list { gap: 2px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_ring { width: clamp(32px, 9vw, 58px); height: clamp(32px, 9vw, 58px); }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket strong { font-size: 9px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_panel { padding: 12px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_panel:has(> .workshop_split) { display: block; overflow-y: auto; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_split { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; gap: 14px; overflow: visible; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_catalog, :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector { overflow: visible; scrollbar-gutter: auto; padding-right: 0; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_inspector { border-left: 0; border-top: 3px double #c8a983; padding: 14px 0 0; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_card_inspector { height: min(70dvh, 600px); overflow: hidden; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer { flex-wrap: wrap; gap: 8px; padding: 8px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer > span:empty { display: none; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit { flex: 1; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .rune_window_save_error { max-width: 100%; flex-basis: 100%; }
 }
 @media (max-height: 600px) {
-  #runeRetrofitWindow .workshop_header { min-height: 0; padding: 7px 12px; }
-  #runeRetrofitWindow .workshop_header p { display: none; }
-  #runeRetrofitWindow .workshop_sockets { padding: 5px 10px; }
-  #runeRetrofitWindow .workshop_socket_ring { width: 36px; height: 36px; }
-  #runeRetrofitWindow .workshop_socket_list { margin-top: 3px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header { min-height: 0; padding: 7px 12px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header p { display: none; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_sockets { padding: 5px 10px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_ring { width: 36px; height: 36px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_socket_list { margin-top: 3px; }
 }
 
 @media (max-width: 700px), (max-height: 600px) {
-  #runeRetrofitWindow.workshop--compact-sockets .workshop_sockets { padding: 5px 8px; }
-  #runeRetrofitWindow.workshop--compact-sockets .workshop_socket_list .workshop_socket_ring { width: 28px; height: 28px; padding: 3px; font-size: 14px; }
-  #runeRetrofitWindow.workshop--compact-sockets .workshop_socket strong { font-size: 9px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_sockets { padding: 5px 8px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket_list .workshop_socket_ring { width: 28px; height: 28px; padding: 3px; font-size: 14px; }
+  :is(#runeRetrofitWindow, .sl-workshop-window).workshop--compact-sockets .workshop_socket strong { font-size: 9px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #runeRetrofitWindow .workshop_sockets { --workshop-socket-duration: 0ms; }
+  :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_sockets { --workshop-socket-duration: 0ms; }
 }
 
 /* Catalog item editor retains its existing layout. */

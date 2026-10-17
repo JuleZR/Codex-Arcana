@@ -280,6 +280,7 @@ export function initItemForm() {
         payload.target_rule_flag = String(ruleFlagSelect?.value || "").trim();
       } else if (targetKind === "skill") {
         payload.target_skill = String(skillSelect?.value || "").trim();
+        payload.target_skills = Array.from(skillSelect?.selectedOptions || [], option => option.value);
       } else if (targetKind === "category") {
         payload.target_skill_category = String(categorySelect?.value || "").trim();
       } else if (targetKind === "movement") {

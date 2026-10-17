@@ -42,7 +42,10 @@ def _is_table_separator(line: str) -> bool:
     cells = _split_table_row(line)
     if len(cells) < 2:
         return False
-    return all(cell.replace(":", "").replace("-", "").strip() == "" and "-" in cell for cell in cells)
+    return all(
+        cell.replace(":", "").replace("-", "").strip() == "" and "-" in cell
+        for cell in cells
+    )
 
 
 def _split_table_row(line: str) -> list[str]:
@@ -57,7 +60,8 @@ def _split_table_row(line: str) -> list[str]:
 
 
 def _render_inline(value: str) -> str:
-    return _markdown.renderInline(value.strip()) if value.strip() else "&ndash;"
+    return _markdown.renderInline(
+        value.strip()) if value.strip() else "&ndash;"
 
 
 def _render_compact_table(header: list[str], rows: list[list[str]]) -> str:
@@ -67,15 +71,21 @@ def _render_compact_table(header: list[str], rows: list[list[str]]) -> str:
         row + [""] * max(0, len(header) - len(row))
         for row in rows
     ]
-    html = ['<div class="card-roll-strip" role="group" aria-label="Wurftabelle">']
+    html = [
+        '<div class="card-roll-strip" role="group" aria-label="Wurftabelle">'
+    ]
     html.append('<div class="card-roll-strip__ranges">')
     for cell in header:
-        html.append(f'<span class="card-roll-strip__range">{_render_inline(cell)}</span>')
+        html.append(
+            '<span class="card-roll-strip__range">'
+            f'{_render_inline(cell)}</span>')
     html.append("</div>")
     for row in normalized_rows:
         html.append('<div class="card-roll-strip__results">')
         for cell in row[:len(header)]:
-            html.append(f'<span class="card-roll-strip__result">{_render_inline(cell)}</span>')
+            html.append(
+                '<span class="card-roll-strip__result">'
+                f'{_render_inline(cell)}</span>')
         html.append("</div>")
     html.append("</div>")
     return "".join(html)
@@ -87,10 +97,14 @@ def _render_vertical_roll(rows: list[tuple[str, list[str]]]) -> str:
     html = ['<div class="card-roll-list" role="group" aria-label="Wurfliste">']
     for label, values in rows:
         html.append('<div class="card-roll-list__row">')
-        html.append(f'<span class="card-roll-list__range">{_render_inline(label)}</span>')
+        html.append(
+            '<span class="card-roll-list__range">'
+            f'{_render_inline(label)}</span>')
         html.append('<span class="card-roll-list__result">')
-        rendered_values = [_render_inline(value) for value in values if value.strip()]
-        html.append("<br>".join(rendered_values) if rendered_values else "&ndash;")
+        rendered_values = [_render_inline(value)
+                           for value in values if value.strip()]
+        html.append("<br>".join(rendered_values)
+                    if rendered_values else "&ndash;")
         html.append("</span></div>")
     html.append("</div>")
     return "".join(html)
@@ -102,16 +116,21 @@ def _render_tabstop_rows(rows: list[tuple[str, list[str]]]) -> str:
     html = ['<div class="card-tabstops">']
     for label, values in rows:
         html.append('<div class="card-tabstop">')
-        html.append(f'<span class="card-tabstop__label">{_render_inline(label)}</span>')
+        html.append(
+            '<span class="card-tabstop__label">'
+            f'{_render_inline(label)}</span>')
         html.append('<span class="card-tabstop__value">')
-        rendered_values = [_render_inline(value) for value in values if value.strip()]
-        html.append("<br>".join(rendered_values) if rendered_values else "&ndash;")
+        rendered_values = [_render_inline(value)
+                           for value in values if value.strip()]
+        html.append("<br>".join(rendered_values)
+                    if rendered_values else "&ndash;")
         html.append("</span></div>")
     html.append("</div>")
     return "".join(html)
 
 
-def _parse_roll_directive(lines: list[str]) -> tuple[list[str], list[list[str]]]:
+def _parse_roll_directive(
+        lines: list[str]) -> tuple[list[str], list[list[str]]]:
     pairs: list[tuple[str, str]] = []
     for line in lines:
         for raw_part in line.split("|"):
@@ -125,10 +144,12 @@ def _parse_roll_directive(lines: list[str]) -> tuple[list[str], list[list[str]]]
             else:
                 label, result = part, ""
             pairs.append((label.strip(), result.strip()))
-    return [label for label, _result in pairs], [[result for _label, result in pairs]]
+    return [label for label, _result in pairs], [
+        [result for _label, result in pairs]]
 
 
-def _parse_vertical_roll_directive(lines: list[str]) -> list[tuple[str, list[str]]]:
+def _parse_vertical_roll_directive(
+        lines: list[str]) -> list[tuple[str, list[str]]]:
     rows: list[tuple[str, list[str]]] = []
     for line in lines:
         if not line.strip():
@@ -145,7 +166,8 @@ def _parse_vertical_roll_directive(lines: list[str]) -> list[tuple[str, list[str
         if "\t" in line:
             parts = line.split("\t")
             label = parts[0].strip()
-            value = " ".join(part.strip() for part in parts[1:] if part.strip())
+            value = " ".join(part.strip()
+                             for part in parts[1:] if part.strip())
             if label:
                 rows.append((label, [value]))
             elif rows and value:
@@ -181,6 +203,26 @@ def _render_card_markdown(value: str) -> str:
     index = 0
     while index < len(lines):
         stripped = lines[index].strip()
+        if stripped.startswith(">"):
+            quote_lines = []
+            while index < len(lines) and lines[index].lstrip().startswith(">"):
+                quote_lines.append(re.sub(r"^\s*> ?", "", lines[index]))
+                index += 1
+            speaker_match = re.match(r"^\s*—\s+(.+)$", quote_lines[-1])
+            speaker = ""
+            if speaker_match:
+                quote_lines.pop()
+                speaker = (
+                    '<footer class="tooltip_lesson_quote__speaker">'
+                    f'— {_render_inline(speaker_match[1])}</footer>'
+                )
+            quote = _render_card_markdown("\n".join(quote_lines))
+            output.append(
+                '<blockquote class="tooltip_lesson_quote '
+                'tooltip_markdown_quote">'
+                f'{quote}{speaker}</blockquote>'
+            )
+            continue
         if stripped.startswith("::roll"):
             directive_lines: list[str] = []
             inline_value = stripped.removeprefix("::roll").strip()
@@ -194,12 +236,18 @@ def _render_card_markdown(value: str) -> str:
             if index < len(lines) and lines[index].strip() == "::":
                 index += 1
             if is_vertical:
-                output.append(_render_vertical_roll(_parse_vertical_roll_directive(directive_lines)))
-            elif len(directive_lines) >= 2 and _is_table_separator(directive_lines[1]):
+                output.append(_render_vertical_roll(
+                    _parse_vertical_roll_directive(directive_lines)))
+            elif (
+                len(directive_lines) >= 2
+                and _is_table_separator(directive_lines[1])
+            ):
                 header = _split_table_row(directive_lines[0])
                 rows = [
                     row
-                    for row in (_split_table_row(line) for line in directive_lines[2:])
+                    for row in (
+                        _split_table_row(line) for line in directive_lines[2:]
+                    )
                     if row
                 ]
                 output.append(_render_compact_table(header, rows))
@@ -208,16 +256,25 @@ def _render_card_markdown(value: str) -> str:
                 output.append(_render_compact_table(header, rows))
             continue
 
-        if "::" in lines[index] and stripped != "::" and not stripped.startswith("::"):
+        if (
+            "::" in lines[index]
+            and stripped != "::"
+            and not stripped.startswith("::")
+        ):
             tabstop_lines: list[str] = []
             while index < len(lines):
                 current = lines[index]
                 current_stripped = current.strip()
-                if "::" not in current or current_stripped == "::" or current_stripped.startswith("::roll"):
+                if (
+                    "::" not in current
+                    or current_stripped == "::"
+                    or current_stripped.startswith("::roll")
+                ):
                     break
                 tabstop_lines.append(current)
                 index += 1
-            output.append(_render_tabstop_rows(_parse_tabstop_lines(tabstop_lines)))
+            output.append(_render_tabstop_rows(
+                _parse_tabstop_lines(tabstop_lines)))
             continue
 
         if index + 1 < len(lines):
@@ -234,7 +291,8 @@ def _render_card_markdown(value: str) -> str:
                     index += 1
                 output.append(_render_compact_table(header, rows))
                 continue
-        output.append(_markdown.render(lines[index] + "\n") if lines[index].strip() else "")
+        output.append(_markdown.render(
+            lines[index] + "\n") if lines[index].strip() else "")
         index += 1
     return "\n".join(output)
 
@@ -283,16 +341,21 @@ def compact_number_fraction_de(value):
 
 
 def _render_fluff_lines(value: str) -> str:
-    return "<br>".join(_markdown.renderInline(line) for line in value.splitlines())
+    return "<br>".join(
+        _markdown.renderInline(line) for line in value.splitlines()
+    )
 
 
 @register.filter(name="card_fluff")
 def card_fluff(value):
-    """Render card fluff, with content after a standalone --- outside the quote."""
+    """Render fluff with content after standalone --- outside the quote."""
     if not value:
         return ""
     lines = str(value).splitlines()
-    separator_index = next((index for index, line in enumerate(lines) if line.strip() == "---"), None)
+    separator_index = next(
+        (index for index, line in enumerate(lines) if line.strip() == "---"),
+        None,
+    )
     if separator_index is None:
         quote_text = "\n".join(lines).strip()
         outside_text = ""
@@ -302,35 +365,12 @@ def card_fluff(value):
 
     html: list[str] = ['<div class="card-vow-group">']
     if quote_text:
-        html.append(f'<blockquote class="card-vow">&bdquo;{_render_fluff_lines(quote_text)}&ldquo;</blockquote>')
+        html.append(
+            '<blockquote class="card-vow">&bdquo;'
+            f'{_render_fluff_lines(quote_text)}&ldquo;</blockquote>')
     if outside_text:
-        html.append(f'<div class="card-vow-outside">{_render_fluff_lines(outside_text)}</div>')
-    html.append("</div>")
-    return mark_safe("".join(html))
-
-
-def _render_fluff_lines(value: str) -> str:
-    return "<br>".join(_markdown.renderInline(line) for line in value.splitlines())
-
-
-@register.filter(name="card_fluff")
-def card_fluff(value):
-    """Render card fluff, with content after a standalone --- outside the quote."""
-    if not value:
-        return ""
-    lines = str(value).splitlines()
-    separator_index = next((index for index, line in enumerate(lines) if line.strip() == "---"), None)
-    if separator_index is None:
-        quote_text = "\n".join(lines).strip()
-        outside_text = ""
-    else:
-        quote_text = "\n".join(lines[:separator_index]).strip()
-        outside_text = "\n".join(lines[separator_index + 1:]).strip()
-
-    html: list[str] = ['<div class="card-vow-group">']
-    if quote_text:
-        html.append(f'<blockquote class="card-vow">&bdquo;{_render_fluff_lines(quote_text)}&ldquo;</blockquote>')
-    if outside_text:
-        html.append(f'<div class="card-vow-outside">{_render_fluff_lines(outside_text)}</div>')
+        html.append(
+            '<div class="card-vow-outside">'
+            f'{_render_fluff_lines(outside_text)}</div>')
     html.append("</div>")
     return mark_safe("".join(html))

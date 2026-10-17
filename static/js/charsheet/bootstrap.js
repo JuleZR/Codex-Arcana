@@ -4,14 +4,14 @@ import { initStandardFloatingWindows } from "./window_manager.js?v=20261013-shop
 import { initLeftTools } from "./left_tools.js?v=20261001-mobile-menu1";
 import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-investment";
 import { initFireflies } from "./fireflies.js";
-import { initItemForm } from "./item_form.js?v=20261016-item-gk";
+import { initItemForm } from "./item_form.js?v=20261017-multi-skills";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20261016-quality-visibility";
 import { initLearningMenu } from "./learning_menu.js?v=20261017-language-unlearning";
-import { initTooltips } from "./tooltip.js?v=20261016-substance-cards";
-import { initInventoryMenu } from "./inventory_menu.js?v=20261015-fit-item-card";
+import { initTooltips } from "./tooltip.js?v=20261017-item-quotes";
+import { initInventoryMenu } from "./inventory_menu.js?v=20261017-multi-skills";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";

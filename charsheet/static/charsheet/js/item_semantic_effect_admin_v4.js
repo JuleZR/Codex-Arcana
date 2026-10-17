@@ -1,8 +1,8 @@
 (function () {
-  if (window.__itemSemanticEffectAdminV3Loaded) {
+  if (window.__itemSemanticEffectAdminV4Loaded) {
     return;
   }
-  window.__itemSemanticEffectAdminV3Loaded = true;
+  window.__itemSemanticEffectAdminV4Loaded = true;
 
   function isEmptyTemplate(root) {
     return root && root.classList && root.classList.contains("empty-form");
@@ -94,7 +94,8 @@
       rebuildOptions(operator, operatorOptions, operator.value);
     }
 
-    setRowVisible(root, "simple_target", !isTextOnly);
+    setRowVisible(root, "simple_target", !isTextOnly && area.value !== "multi_skill");
+    setRowVisible(root, "simple_target_skills", area.value === "multi_skill");
     setRowVisible(root, "simple_operator", !isTextOnly);
     setRowVisible(root, "simple_weapon_category_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_type_filter", isWeaponRange);

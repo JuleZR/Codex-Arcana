@@ -530,7 +530,7 @@ function startsStructuredBlock(line, nextLine = "") {
   ) {
     return true;
   }
-  if (/^\s*[-*]\s+/.test(trimmed)) {
+  if (/^\s*[-*]\s+/.test(trimmed) || /^\s*>/.test(trimmed)) {
     return true;
   }
   if (isHorizontalRuleLine(trimmed)) {
@@ -554,6 +554,23 @@ export function renderTooltipMarkup(rawText) {
     const line = lines[index];
     if (!line.trim()) {
       index += 1;
+      continue;
+    }
+
+    if (/^\s*>/.test(line)) {
+      const quoteLines = [];
+      while (index < lines.length && /^\s*>/.test(lines[index])) {
+        quoteLines.push(lines[index].replace(/^\s*> ?/, ""));
+        index += 1;
+      }
+      const speakerMatch = quoteLines.at(-1)?.match(/^\s*—\s+(.+)$/);
+      if (speakerMatch) {
+        quoteLines.pop();
+      }
+      const speaker = speakerMatch
+        ? `<footer class="tooltip_lesson_quote__speaker">— ${renderInlineMarkdown(speakerMatch[1])}</footer>`
+        : "";
+      chunks.push(`<blockquote class="tooltip_lesson_quote tooltip_markdown_quote">${renderTooltipMarkup(quoteLines.join("\n"))}${speaker}</blockquote>`);
       continue;
     }
 

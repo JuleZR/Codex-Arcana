@@ -1,0 +1,33 @@
+      <div class="workshop_layout">
+        <nav class="workshop_nav" role="tablist" aria-label="Werkstattbereiche" aria-orientation="vertical">
+          <button type="button" id="workshopTab-base{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" {% if workshop_instance %}data-sl-workshop-tab{% else %}data-workshop-tab{% endif %}="base" role="tab" aria-controls="workshopPanel-base{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" aria-selected="true" tabindex="0">
+            <span aria-hidden="true">&#9672;</span>Grunddaten</button>
+          <button type="button" id="workshopTab-runes{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" {% if workshop_instance %}data-sl-workshop-tab{% else %}data-workshop-tab{% endif %}="runes" role="tab" aria-controls="workshopPanel-runes{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" aria-selected="false" tabindex="-1">
+            <span aria-hidden="true">&#5841;</span>Runen</button>
+          <button type="button" id="workshopTab-magic{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" {% if workshop_instance %}data-sl-workshop-tab{% else %}data-workshop-tab{% endif %}="magic" role="tab" aria-controls="workshopPanel-magic{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" aria-selected="false" tabindex="-1">
+            <span aria-hidden="true">&#10023;</span>Magische Effekte</button>
+          <button type="button" id="workshopTab-advanced{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" {% if workshop_instance %}data-sl-workshop-tab{% else %}data-workshop-tab{% endif %}="advanced" role="tab" aria-controls="workshopPanel-advanced{% if workshop_instance %}-{{ workshop_instance.id }}{% endif %}" aria-selected="false" tabindex="-1">
+            <span aria-hidden="true">&#9881;</span>Erweitert</button>
+        </nav>
+        <div class="workshop_workspace">
+          <section class="workshop_sockets" aria-label="Runenfassung">
+            <div class="workshop_section_heading">
+              <h2>Runenfassung</h2>
+            </div>
+            <div {% if workshop_instance %}data-sl-workshop-sockets{% else %}id="workshopSockets"{% endif %} class="workshop_socket_list">
+            </div>
+          </section>
+          <div class="workshop_content">
+{% if workshop_instance %}
+  {% include "charsheet/partials/_sl_item_workshop_panels.html" %}
+{% else %}
+  {% include "charsheet/partials/_rune_retrofit_panels.html" %}
+{% endif %}
+</div>
+          <footer class="workshop_footer">
+            <span {% if not workshop_instance %}id="workshopStatus"{% endif %} role="status">{% if workshop_instance %}Grau dargestellte Angaben sind die aktuell wirksamen Werte.{% endif %}</span>
+            <button type="button" {% if workshop_instance %}data-close-sl-item-action{% else %}id="runeRetrofitCancelBtn"{% endif %}>Verwerfen</button>
+            <button type="submit" class="workshop_submit">Änderungen übernehmen</button>
+          </footer>
+        </div>
+      </div>

@@ -2575,7 +2575,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
 
     class Media:
         js = (
-            "charsheet/js/item_semantic_effect_admin_v3.js",
+            "charsheet/js/item_semantic_effect_admin_v4.js",
             "charsheet/js/semantic_effect_rounding_v1.js",
         )
 
@@ -2598,6 +2598,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         ("combat", "Kampf / Waffe"),
         ("weapon_range", "Waffenreichweite"),
         ("skill", "Fertigkeit"),
+        ("multi_skill", "Mehrere Fertigkeiten"),
         ("skill_category", "Fertigkeitskategorie"),
         ("item", "Item"),
         ("item_category", "Item-Kategorie"),
@@ -2653,6 +2654,12 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         required=False,
     )
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
+    simple_target_skills = forms.ModelMultipleChoiceField(
+        label="Fertigkeiten",
+        queryset=Skill.objects.none(),
+        required=False,
+        widget=FilteredSelectMultiple("Fertigkeiten", is_stacked=False),
+    )
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = forms.CharField(label="Zahl", required=False)
     simple_weapon_category_filter = forms.ChoiceField(
@@ -2687,6 +2694,9 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             semantic_effect_area_optgroups(self.EFFECT_AREA_CHOICES)
         )
         self.fields["simple_target"].choices = self._simple_target_choices()
+        self.fields["simple_target_skills"].queryset = (
+            Skill.objects.order_by("name")
+        )
         self.fields["simple_weapon_type_filter"].queryset = WeaponType.objects.order_by(
             "sort_order",
             "name",
@@ -2714,6 +2724,16 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             self.fields["condition_schools"].label = "Nur fuer Schulen"
             self.fields["condition_schools"].queryset = School.objects.order_by("name")
         self._apply_initial_simple_values()
+        metadata = self.instance.metadata or {}
+        if (
+            self.instance.target_domain == "skill"
+            and metadata.get("target_skill_slugs")
+        ):
+            self.initial["effect_area"] = "multi_skill"
+            self.initial["simple_target_skills"] = list(
+                Skill.objects.filter(slug__in=metadata["target_skill_slugs"])
+                .values_list("pk", flat=True)
+            )
         self._polish_technical_fields()
 
     def _simple_target_choices(self):
@@ -2861,6 +2881,14 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             return cleaned_data
 
         target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
+        if area == "multi_skill":
+            skills = cleaned_data.get("simple_target_skills")
+            if not skills:
+                self.add_error(
+                    "simple_target_skills", "Bitte Fertigkeiten auswählen.",
+                )
+            else:
+                target_domain, target_key = "skill", skills.first().slug
         if target_domain and target_key:
             cleaned_data["target_domain"] = target_domain
             cleaned_data["target_key"] = target_key
@@ -2904,6 +2932,17 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
             cleaned_data["scale_divisor"] = None
         metadata = dict(cleaned_data.get("metadata") or {})
+        metadata.pop("target_skill_ids", None)
+        metadata.pop("target_skill_slugs", None)
+        metadata.pop("target_skill_id", None)
+        if area == "multi_skill" and cleaned_data.get("simple_target_skills"):
+            skills = cleaned_data["simple_target_skills"]
+            metadata["target_skill_ids"] = list(
+                skills.values_list("pk", flat=True)
+            )
+            metadata["target_skill_slugs"] = list(
+                skills.values_list("slug", flat=True)
+            )
         for key in (
             "target_weapon_category",
             "target_weapon_type",
@@ -3027,7 +3066,9 @@ class ItemSemanticEffectInline(admin.StackedInline):
     filter_horizontal = ("condition_races", "condition_schools")
 
     class Media:
-        js = ("charsheet/js/item_semantic_effect_admin_v3.js",)
+        js = (
+            "charsheet/js/item_semantic_effect_admin_v4.js",
+        )
 
     fieldsets = (
         (
@@ -3037,6 +3078,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     "sort_order",
                     "effect_area",
                     "simple_target",
+                    "simple_target_skills",
                     ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
                     "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),

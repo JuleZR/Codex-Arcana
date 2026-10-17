@@ -261,6 +261,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (targetKind === "rule_flag") payload.target_rule_flag = target?.value || "";
         if (targetKind === "skill") payload.target_skill = target?.value || "";
+        if (targetKind === "skill") payload.target_skills = Array.from(target?.selectedOptions || [], option => option.value);
         if (targetKind === "category") payload.target_skill_category = target?.value || "";
         if (targetKind === "movement") payload.target_movement = target?.value || "";
         if (targetKind === "item") payload.target_item = target?.value || "";
@@ -486,6 +487,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (kind === "rule_flag") payload.target_rule_flag = target;
         if (kind === "skill") payload.target_skill = target;
+        if (kind === "skill") payload.target_skills = Array.from(row.querySelector("[data-magic-target-select='skill']")?.selectedOptions || [], option => option.value);
         if (kind === "category") payload.target_skill_category = target;
         if (kind === "movement") payload.target_movement = target;
         if (kind === "item") payload.target_item = target;
@@ -603,6 +605,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetSelect && targetValues[selectedKind] !== undefined && targetValues[selectedKind] !== null) {
         targetSelect.value = String(targetValues[selectedKind]);
       }
+      if (selectedKind === "skill" && targetSelect) {
+        const ids = new Set((payload.target_skills || [payload.target_skill]).map(String));
+        Array.from(targetSelect.options).forEach(option => { option.selected = ids.has(option.value); });
+      }
       row.querySelectorAll("input, select").forEach((field) => {
         field.addEventListener("input", serialize);
         field.addEventListener("change", serialize);
@@ -639,12 +645,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const label = picker.querySelector("[data-sl-rune-label]");
     const count = picker.querySelector("[data-sl-rune-count]");
     if (!trigger || !panel || !list) return;
+    const workshop = picker.classList.contains("sl-workshop-runes")
+      ? picker.closest("[data-sl-instance-form]") : null;
+    const sockets = workshop?.querySelector("[data-sl-workshop-sockets]");
     const emptyLabel = label?.textContent?.trim() || "Keine Auswahl";
     const selectedSuffix = emptyLabel.includes("Fertigkeiten") ? "Fertigkeiten ausgewählt" : "Runen ausgewählt";
 
     const updateSelection = () => {
       const selected = Array.from(list.querySelectorAll("input[type='checkbox']:checked"));
       if (count) count.textContent = String(selected.length);
+      if (sockets) {
+        sockets.replaceChildren();
+        Array.from({ length: Math.max(5, selected.length) }, (_, index) => {
+          const input = selected[index];
+          const name = input?.closest("label")?.querySelector("strong")?.textContent?.trim();
+          const socket = document.createElement("button");
+          socket.type = "button";
+          socket.className = "workshop_socket";
+          const ring = document.createElement("span");
+          ring.className = "workshop_socket_ring" + (input ? " is-occupied" : "");
+          ring.textContent = input ? "ᛑ" : "+";
+          ring.setAttribute("aria-hidden", "true");
+          const caption = document.createElement("strong");
+          caption.textContent = name || "Freier Platz";
+          socket.append(ring, caption);
+          socket.addEventListener("click", () => {
+            workshop.querySelector('[data-sl-workshop-tab="runes"]')?.click();
+            (input || search)?.focus();
+          });
+          sockets.append(socket);
+        });
+      }
       if (!label) return;
       if (!selected.length) {
         label.textContent = emptyLabel;
@@ -659,10 +690,11 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const setOpen = (open) => {
+      if (sockets) open = true;
       panel.hidden = !open;
       trigger.setAttribute("aria-expanded", open ? "true" : "false");
       picker.classList.toggle("is-open", open);
-      if (open) search?.focus();
+      if (open && !sockets) search?.focus();
     };
 
     const filter = () => {
@@ -682,10 +714,41 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     updateSelection();
     filter();
+    if (sockets) setOpen(true);
   });
 
   document.querySelectorAll("[data-sl-instance-form]").forEach((form) => {
     syncTypeSections(form, form.dataset.itemType || "misc");
+    const tabs = Array.from(form.querySelectorAll("[data-sl-workshop-tab]"));
+    const activate = (tab) => {
+      tabs.forEach((button) => {
+        const selected = button === tab;
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      });
+      form.querySelectorAll("[data-sl-workshop-panel]").forEach((panel) => {
+        panel.hidden = panel.dataset.slWorkshopPanel !== tab.dataset.slWorkshopTab;
+      });
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => activate(tab));
+      tab.addEventListener("keydown", (event) => {
+        let next;
+        if (["ArrowDown", "ArrowRight"].includes(event.key)) next = (index + 1) % tabs.length;
+        if (["ArrowUp", "ArrowLeft"].includes(event.key)) next = (index + tabs.length - 1) % tabs.length;
+        if (event.key === "Home") next = 0;
+        if (event.key === "End") next = tabs.length - 1;
+        if (next === undefined) return;
+        event.preventDefault();
+        activate(tabs[next]);
+        tabs[next].focus();
+      });
+    });
+    form.addEventListener("invalid", (event) => {
+      const panel = event.target.closest("[data-sl-workshop-panel]");
+      const tab = tabs.find((button) => button.dataset.slWorkshopTab === panel?.dataset.slWorkshopPanel);
+      if (tab) activate(tab);
+    }, true);
   });
   document.querySelectorAll(".sl-inventory-catalog-form").forEach((form) => {
     const typeSelect = form.querySelector("[name='item_type']");
@@ -709,6 +772,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = document.getElementById(button.dataset.toggleSlInventoryPanel || "");
       const panelId = String(button.dataset.toggleSlInventoryPanel || "");
       if (!row || !actionBody) return false;
+      const isWorkshop = panelId.startsWith("edit-");
+      actionWindow?.classList.toggle("sl-workshop-window", isWorkshop);
+      actionWindow?.querySelector("[data-sl-item-action-handle]")?.classList.toggle("workshop_header", isWorkshop);
+      actionWindow?.querySelector(".payday-window__close")?.classList.toggle("sheet-window__close", isWorkshop);
+      actionTitle?.classList.toggle("sheet-window__title", isWorkshop);
+      actionBody.classList.toggle("sheet-window__body", isWorkshop);
       sourceCell = row.querySelector("td") || row;
       if (panelId.startsWith("disclosure-")) {
         actionWindow?.classList.add("is-disclosure-card");
@@ -730,7 +799,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ? "Sichtbarkeit verwalten"
           : panelId.startsWith("send-")
           ? "Gegenstand senden"
-          : "Instanz anpassen";
+          : "Die Modifikationswerkstatt";
       }
     },
     afterClose: () => {
@@ -740,6 +809,11 @@ document.addEventListener("DOMContentLoaded", () => {
       activeForm = null;
       movedNodes = [];
       actionWindow?.classList.remove("is-disclosure-card");
+      actionWindow?.classList.remove("sl-workshop-window");
+      actionWindow?.querySelector("[data-sl-item-action-handle]")?.classList.remove("workshop_header");
+      actionWindow?.querySelector(".payday-window__close")?.classList.remove("sheet-window__close");
+      actionTitle?.classList.remove("sheet-window__title");
+      actionBody?.classList.remove("sheet-window__body");
     },
   });
   document.querySelectorAll("[data-toggle-sl-inventory-panel]").forEach((button) => {
