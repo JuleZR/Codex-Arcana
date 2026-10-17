@@ -160,9 +160,9 @@
           {% for trait in advantage_rows %}
             {% if trait.specification_hidden %}
             <details class="trait_details">
-            <summary class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+            <summary class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}{% if trait.tooltip_title %} data-tooltip-title="{{ trait.tooltip_title }}" data-tooltip-subtitle="{{ trait.tooltip_subtitle }}"{% endif %}>
             {% else %}
-            <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+            <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}{% if trait.tooltip_title %} data-tooltip-title="{{ trait.tooltip_title }}" data-tooltip-subtitle="{{ trait.tooltip_subtitle }}"{% endif %}>
             {% endif %}
               <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }}){% if trait.specification_hidden %} <span class="trait_details_label">&middot; Details</span>{% endif %}</span>
               {% if trait.can_edit_specification %}
@@ -184,9 +184,9 @@
           {% for trait in disadvantage_rows %}
             {% if trait.specification_hidden %}
             <details class="trait_details">
-            <summary class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+            <summary class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}{% if trait.tooltip_title %} data-tooltip-title="{{ trait.tooltip_title }}" data-tooltip-subtitle="{{ trait.tooltip_subtitle }}"{% endif %}>
             {% else %}
-            <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+            <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}{% if trait.tooltip_title %} data-tooltip-title="{{ trait.tooltip_title }}" data-tooltip-subtitle="{{ trait.tooltip_subtitle }}"{% endif %}>
             {% endif %}
               <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }}){% if trait.specification_hidden %} <span class="trait_details_label">&middot; Details</span>{% endif %}</span>
               {% if trait.can_edit_specification %}

@@ -1,6 +1,6 @@
 import { createChoiceModalController } from "./choice_modal.js?v=20261017-decisions";
 import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
-import { initLearningChronicle } from "./learning_chronicle.js?v=20261014u";
+import { initLearningChronicle } from "./learning_chronicle.js?v=20261017-detail-tables";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
 const renderOpenSpellSlotMarkup = (remaining) => {
@@ -200,6 +200,18 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = Number.isFinite(maxAdd) ? String(maxAdd) : "";
+      row.querySelectorAll("[data-learn-entity-choice]").forEach((select) => {
+        const active = base + value > 0;
+        select.disabled = !active;
+        select.required = active && select.dataset.choiceRequired === "1";
+        const nameInput = select.closest("label").querySelector("[data-learn-entity-name]");
+        const custom = active && select.selectedOptions[0]?.dataset.requiresSpecification === "1";
+        if (nameInput) {
+          nameInput.disabled = !custom;
+          nameInput.required = custom;
+          nameInput.closest("[data-learn-entity-name-wrap]").hidden = !custom;
+        }
+      });
     } else if (kind === "skill" || kind === "skill-cs" || kind === "skill-new-spec") {
       const base = readInt(row.getAttribute("data-base"), 0);
       const max = readInt(row.getAttribute("data-max"), 10);
@@ -590,6 +602,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   };
 
   const bindRow = (row) => {
+    row.querySelectorAll("[data-learn-entity-choice]").forEach((select) => {
+      select.addEventListener("change", refreshTotals);
+    });
     const valueInput = row.querySelector("[data-learn-value]");
     const removeBtn = row.querySelector("[data-learn-remove]");
     const writeInput = row.querySelector("[data-learn-lang-write]");
@@ -817,6 +832,27 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const currentOption = source.getAttribute("data-specification-option") || "";
       const currentSpecification = source.getAttribute("data-specification") || "";
       let specificationInput = "";
+      let entityChoices = [];
+      try {
+        entityChoices = JSON.parse(source.getAttribute("data-entity-choices") || "[]");
+      } catch (_error) {
+        entityChoices = [];
+      }
+      const entityInputs = entityChoices.map((choice) => {
+        if (choice.selected_label) {
+          return `<label class="learn_trait_spec_control"><span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span><span class="learn_trait_spec_field">${escapeHtml(choice.selected_label)}</span></label>`;
+        }
+        const options = ['<option value="">Bitte wählen</option>'].concat(
+          choice.options.map((option) => `<option value="${escapeHtml(option.value)}" data-requires-specification="${option.requires_specification ? "1" : "0"}">${escapeHtml(option.label)}${option.meta ? ` – ${escapeHtml(option.meta)}` : ""}</option>`),
+        ).join("");
+        return `<label class="learn_trait_spec_control">
+          <span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span>
+          <span class="learn_trait_spec_field">
+            <select class="learn_trait_spec_select" name="${escapeHtml(choice.field_name)}" data-learn-entity-choice data-choice-required="${choice.required ? "1" : "0"}">${options}</select>
+            <span data-learn-entity-name-wrap hidden><input class="learn_trait_spec_input" name="${escapeHtml(choice.field_name)}_specification" maxlength="200" placeholder="Name der Organisation" aria-label="Name der Organisation" data-learn-entity-name disabled></span>
+          </span>
+        </label>`;
+      }).join("");
       if (Array.isArray(specificationOptions) && specificationOptions.length) {
         const optionMarkup = ['<option value="">Bitte wählen</option>'].concat(
           specificationOptions.map((entry) => {
@@ -848,7 +884,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           <div class="learn_cart_entry">
             <div class="learn_cart_entry_title"><span>${safeName}</span><span class="learn_cart_entry_level" data-learn-level-info>(${base + startAdd})</span></div>
             <input type="hidden" name="learn_trait_add_${slug}" value="${startAdd}" data-learn-hidden>
-            ${specificationInput}
+            ${entityInputs}${specificationInput}
           </div>
         </td>
         <td>
@@ -1369,6 +1405,11 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       cartController.clearCart();
     } else {
       cartController.refreshTotals();
+      if (validationHint && event.detail?.message) {
+        validationHint.textContent = String(event.detail.message);
+        validationHint.hidden = false;
+        validationHint.setAttribute("role", "alert");
+      }
     }
   });
 

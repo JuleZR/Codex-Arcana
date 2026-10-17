@@ -37,7 +37,7 @@ function parseTableRow(line) {
 }
 
 function isTableDividerRow(row) {
-  return row.length > 0 && row.every((cell) => /^:?-{2,}:?$/.test(cell));
+  return row.length > 0 && row.every((cell) => /^:?-+:?$/.test(cell));
 }
 
 function isHorizontalRuleLine(line) {
@@ -1880,6 +1880,13 @@ export function initTooltips() {
       ? `floating-tooltip floating-tooltip--${variant}`
       : "floating-tooltip";
     tooltip.innerHTML = renderTooltipMarkup(text);
+    if (target.matches(".trait_line[data-tooltip-title]")) {
+      const heading = document.createElement("p");
+      const title = escapeHtml(target.getAttribute("data-tooltip-title") || "");
+      const subtitle = escapeHtml(target.getAttribute("data-tooltip-subtitle") || "");
+      heading.innerHTML = `<strong>${title}</strong>${subtitle ? `<br>${subtitle}` : ""}`;
+      tooltip.prepend(heading);
+    }
     tooltip.classList.toggle("has-markdown-table", Boolean(tooltip.querySelector(".tooltip_markdown_table")));
     activeTarget = target;
     tooltip.classList.add("is-visible");

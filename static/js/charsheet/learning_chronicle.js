@@ -1,5 +1,5 @@
 import { escapeHtml, readInt } from "./utils.js?v=20260622a";
-import { renderTooltipMarkup } from "./tooltip.js?v=20261014c";
+import { renderTooltipMarkup } from "./tooltip.js?v=20261017-detail-tables";
 
 // Presentation only: the cart controller owns costs, limits and submitted fields.
 export function initLearningChronicle(form, cartBody, controller) {
@@ -104,22 +104,24 @@ export function initLearningChronicle(form, cartBody, controller) {
       }
       if (!rankKinds.has(source.dataset.kind)) return;
       const base = readInt(source.dataset.base, 0);
-      const max = readInt(source.dataset.max, 0);
-      if (max < 1 || max > 30) return;
+      const delta = readInt(row?.querySelector("[data-learn-value]")?.value, 0);
+      const target = base + delta;
+      const unbounded = source.dataset.kind === "trait" && !source.dataset.max?.trim();
+      const max = unbounded ? Math.max(0, base, target) + 1 : readInt(source.dataset.max, 0);
+      if (max < 1 || (!unbounded && max > 30)) return;
       let track = source.querySelector(".learn_rank_track");
       if (!track) {
         track = document.createElement("span");
         track.className = `learn_rank_track${source.dataset.kind === "school" ? " learn_rank_track--path" : ""}`;
         source.cells[1].append(track);
       }
-      const delta = readInt(row?.querySelector("[data-learn-value]")?.value, 0);
-      const target = base + delta;
+      track.classList.toggle("learn_rank_track--unbounded", unbounded);
       const freeLanguage = source.dataset.kind === "lang" && (
         row?.querySelector("[data-learn-lang-free]")?.checked
         || readInt(source.dataset.min, 0) > 0
       );
       const paidLevel = readInt(source.dataset.paidBase, base);
-      track.setAttribute("aria-label", `Aktuell ${base}, geplant ${target}, Maximum ${max}`);
+      track.setAttribute("aria-label", `Aktuell ${base}, geplant ${target}, ${unbounded ? "ohne Maximum" : `Maximum ${max}`}`);
       track.innerHTML = Array.from({ length: max }, (_, index) => {
         const level = index + 1;
         const state = level <= Math.min(base, target) ? "owned"

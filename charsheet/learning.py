@@ -1010,14 +1010,26 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         specification = " ".join(
             str(post_data.get(f"learn_trait_spec_text_{slug}", "") or "").split()
         )
+        organization_choices = trait.uses_organization_choices
+        if (
+            organization_choices and slug in trait_rows
+            and f"learn_trait_spec_option_{slug}" not in post_data
+            and f"learn_trait_spec_text_{slug}" not in post_data
+        ):
+            option_id = trait_rows[slug].specification_option_id
+            specification = trait_rows[slug].specification
         has_options = trait.specification_options.exists()
-        if target_level > 0 and has_options:
+        if target_level == 0:
+            option_id, specification = None, ""
+        elif has_options and not organization_choices:
             if option_id is None or not trait.specification_options.filter(
                 pk=option_id
             ).exists():
                 return "error", f"{trait.name}: Ungültige Spezifikation."
             specification = ""
-        elif option_id is not None:
+        elif option_id is not None and not trait.specification_options.filter(
+            pk=option_id,
+        ).exists():
             return "error", f"{trait.name}: Ungültige Spezifikation."
         elif specification and not trait.has_specification:
             return "error", f"{trait.name}: Spezifikation nicht erlaubt."

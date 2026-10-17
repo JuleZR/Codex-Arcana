@@ -76,7 +76,10 @@ from charsheet.forms import (
     CharacterTraitSpecificationForm,
 )
 from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
-from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
+from charsheet.learning_progression import (
+    build_learning_magic_groups, build_learning_progression_context,
+    trait_choice_field_name,
+)
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.lesson_rules import (
     LESSON_COST_HANDLERS,
@@ -141,6 +144,7 @@ from charsheet.models import (
     Quality,
     RaceTechnique,
     Rune,
+    Organization,
     School,
     Skill,
     SkillCategory,
@@ -5964,14 +5968,39 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         else:
             row["display_name"] = entry.trait.name
             row["tooltip"] = row["description"]
-        affiliations = [
-            choice.selected_target_display()
-            for choice in entry.choices.all()
+        affiliations = []
+        guild_memberships = []
+        guild_tooltip_labels = []
+        for choice in entry.choices.all():
             if (
-                choice.selected_object_id is not None
-                or choice.custom_organization_name
+                choice.selected_object_id is None
+                and not choice.custom_organization_name
+            ):
+                continue
+            organization = choice.selected_entity
+            guild_name = choice.custom_organization_name or (
+                organization.name
+                if isinstance(organization, Organization) else ""
             )
-        ]
+            if entry.trait.slug == "adv_guild_membership" and guild_name:
+                rank = choice.organization_rank
+                guild_memberships.append(
+                    f"{rank or 'Mitglied'} der {guild_name}"
+                )
+                guild_tooltip_labels.append(
+                    f"{guild_name}: {rank}" if rank else guild_name
+                )
+            else:
+                affiliations.append(choice.selected_target_display())
+        if guild_memberships:
+            row["display_name"] = ", ".join(dict.fromkeys(guild_memberships))
+            row["specification_hidden"] = False
+            row["can_edit_specification"] = False
+            row["tooltip_title"] = entry.trait.name
+            row["tooltip_subtitle"] = ", ".join(
+                dict.fromkeys(guild_tooltip_labels)
+            )
+            row["tooltip"] = row["description"] or "Keine Beschreibung"
         if affiliations:
             row["display_name"] += ": " + ", ".join(
                 dict.fromkeys(affiliations)
@@ -8263,7 +8292,7 @@ def _build_learning_rows(
         entry.trait_id: entry
         for entry in CharacterTrait.objects.filter(owner=character).select_related(
             "trait", "specification_option"
-        )
+        ).prefetch_related("choices")
     }
     trait_levels = {
         trait_id: int(entry.trait_level)
@@ -8482,7 +8511,9 @@ def _build_learning_rows(
         )
 
     trait_groups: OrderedDict[str, list[dict]] = OrderedDict()
-    for trait in Trait.objects.prefetch_related("specification_options").order_by(
+    for trait in Trait.objects.prefetch_related(
+        "specification_options", "choice_definitions",
+    ).order_by(
         "trait_type", "name"
     ):
         base_level = int(trait_levels.get(trait.id, 0))
@@ -8496,6 +8527,34 @@ def _build_learning_rows(
         ):
             continue
         group_name = "Vorteile" if trait.trait_type == Trait.TraitType.ADV else "Nachteile"
+        entry = character_trait_entries.get(trait.id)
+        existing_choices = {
+            choice.definition_id: choice
+            for choice in entry.choices.all()
+        } if entry else {}
+        entity_choices = []
+        for definition in trait.choice_definitions.all():
+            if (
+                not definition.is_active or definition.target_kind != "entity"
+                or definition.max_choices != 1
+            ):
+                continue
+            choice = existing_choices.get(definition.pk)
+            entity_choices.append({
+                "name": definition.name,
+                "field_name": trait_choice_field_name(
+                    "entity", trait.pk, definition.pk,
+                ),
+                "required": definition.is_required
+                and definition.min_choices > 0,
+                "selected_label": (
+                    choice.selected_target_display() if choice else ""
+                ),
+                "options": (
+                    [] if choice else definition.entity_choice_options()
+                ),
+            })
+        organization_choices = trait.uses_organization_choices
         trait_groups.setdefault(group_name, []).append(
             {
                 "slug": trait.slug,
@@ -8507,11 +8566,15 @@ def _build_learning_rows(
                 "points_per_level": int(trait.points_per_level),
                 "points_display": trait.cost_display(),
                 "points_by_level": list(trait.cost_curve()),
-                "has_specification": trait.has_specification,
+                "entity_choices_json": json.dumps(entity_choices),
+                "has_specification": (
+                    trait.has_specification and not organization_choices
+                ),
                 "specification_options_json": json.dumps(
                     [
                         {"id": option.id, "name": option.name}
                         for option in trait.specification_options.all()
+                        if not organization_choices
                     ]
                 ),
                 "specification_option_id": getattr(

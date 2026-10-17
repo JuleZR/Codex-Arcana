@@ -474,6 +474,15 @@ class Trait(models.Model):
             return ",".join(str(value) for value in curve)
         return f"{int(self.points_per_level)}/Lvl"
 
+    @property
+    def uses_organization_choices(self):
+        """Organization choices replace legacy membership specifications."""
+        return bool(self.pk) and any(
+            definition.is_active and definition.target_kind == "entity"
+            and definition.allowed_organization_type_id
+            for definition in self.choice_definitions.all()
+        )
+
     def __str__(self):
         return self.name
 

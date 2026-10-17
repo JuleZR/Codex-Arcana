@@ -6,7 +6,7 @@
     {% include "charsheet/partials/_viewport.html" %}
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{% if edit_mode %}Charakter bearbeiten{% else %}Geburt einer Legende – Charaktererschaffung{% endif %}</title>
-    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261006-attribute-headings">
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261017-tooltip-table-layout">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261006-template-delete-dialog">
   </head>
   <body class="charsheet-page {% if edit_mode %}character_edit_page{% else %}character_creation_page{% endif %}">
@@ -1030,7 +1030,7 @@
       import { initTooltips } from "{% static 'js/charsheet/tooltip.js' %}?v=20261004creation";
       initTooltips();
     </script>
-    <script src="{% static 'js/charsheet_tooltips.js' %}?v=20261005-item-types"></script>
+    <script src="{% static 'js/charsheet_tooltips.js' %}?v=20261017-tooltip-table-layout"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         const templateSelect = document.getElementById("creationTemplate");

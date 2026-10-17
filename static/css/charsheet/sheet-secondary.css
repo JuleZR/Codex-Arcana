@@ -4597,13 +4597,17 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip table.tooltip_markdown_table {
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
 }
 
-.floating-tooltip.has-markdown-table {
-  box-sizing: border-box;
-  width: min(420px, calc(100vw - 24px));
+.floating-tooltip table.tooltip_markdown_table th,
+.floating-tooltip table.tooltip_markdown_table td {
+  min-width: 0;
+  max-width: none;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .floating-tooltip th,

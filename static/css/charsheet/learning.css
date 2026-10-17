@@ -138,6 +138,8 @@
 #learnWindow .shop_table tr[data-learn-source]:hover .shop_item_name, #learnWindow .shop_table tr[data-learn-source]:hover .shop_item_price { color: #ffe3b7; text-shadow: none; }
 #learnWindow .learn_rank_track { display: flex; gap: 3px; margin-top: 6px; }
 #learnWindow .learn_rank { flex: 1; height: 6px; min-width: 0; border: 1px solid #73604d; background: #514339; }
+#learnWindow .learn_rank_track--unbounded { flex-wrap: wrap; }
+#learnWindow .learn_rank_track--unbounded .learn_rank { flex-basis: 12px; flex-shrink: 0; }
 #learnWindow .learn_rank.owned { background: #b0926b; border-color: #c3a276; }
 #learnWindow .learn_rank.next { background: #b85e47; border-color: #da8768; }
 #learnWindow .learn_rank.removed { background: repeating-linear-gradient(45deg, #a16964 0 3px, #392c2c 3px 6px); }
@@ -185,9 +187,9 @@
 #learnWindow .learn_inspector [data-chronicle-add], #learnWindow #learnApplyBtn { background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c); color: #f9e7c7; }
 #learnWindow .learn_inspector .shop_step_btn { width: 36px; padding: 0; font-size: 22px; }
 #learnWindow .learn_inspector_controls--attribute { text-align: center; font-size: 16px; }
-#learnWindow .learn_inspector_controls--attribute .shop_qty_stepper { gap: 12px; }
+#learnWindow .learn_inspector_controls--attribute .shop_qty_stepper { grid-template-columns: 44px auto 44px; gap: 12px; }
 #learnWindow .learn_inspector_controls--attribute .shop_step_btn { width: 44px; min-height: 44px; border: 0; background: transparent; box-shadow: none; font-size: 30px; }
-#learnWindow .learn_inspector_controls--attribute input[type="number"] { width: 56px; min-height: 44px; border: 0; background: transparent; box-shadow: none; color: #634029; text-align: center; font-size: 24px; }
+#learnWindow .learn_inspector_controls--attribute input[type="number"] { box-sizing: border-box; width: 5ch; max-width: none; min-height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; color: #634029; text-align: center; font-size: 24px; }
 #learnWindow .learn_inspector input[type="text"], #learnWindow .learn_inspector select { width: 100%; padding: 8px; border: 1px solid #ad8d65; background: #fff5e3; color: #513c2d; }
 #learnWindow .learn_spec_name { display: grid; gap: 7px; margin: 12px 0; }
 #learnWindow .learn_inspector .learn_trait_spec_control { display: grid; gap: 8px; width: 100%; margin-top: 10px; text-align: left; }

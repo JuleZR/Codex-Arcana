@@ -786,15 +786,22 @@ class CharacterTrait(models.Model):
                 ]
                 if len(matches) == 1:
                     self.specification_option = matches[0]
-            if self.specification_option_id is None:
+            if (
+                self.specification_option_id is None
+                and not self.trait.uses_organization_choices
+            ):
                 raise ValidationError(
                     {"specification_option": "Choose a controlled specification."}
                 )
-            if self.specification_option.trait_id != self.trait_id:
+            if (
+                self.specification_option_id is not None
+                and self.specification_option.trait_id != self.trait_id
+            ):
                 raise ValidationError(
                     {"specification_option": "The option must belong to this trait."}
                 )
-            self.specification = self.specification_option.name
+            if self.specification_option_id is not None:
+                self.specification = self.specification_option.name
         elif self.specification_option_id is not None:
             raise ValidationError(
                 {"specification_option": "This trait has no controlled options."}
@@ -1418,7 +1425,7 @@ class CharacterTraitChoice(models.Model):
 
     @property
     def organization_rank(self):
-        """Resolve the exact rank from paid trait points, type, and size."""
+        """Resolve reached rank thresholds, falling back to the first rank."""
         if self.custom_organization_name:
             type_id = self.definition.allowed_organization_type_id
             size = self.custom_organization_size
@@ -1427,11 +1434,17 @@ class CharacterTraitChoice(models.Model):
             size = self.selected_entity.size_category
         else:
             return ""
-        return OrganizationTypeRank.objects.filter(
+        ranks = OrganizationTypeRank.objects.filter(
             organization_type_id=type_id,
-            points=self.trait.cost_for_level(self.character_trait.trait_level),
             size_category=size,
-        ).values_list("name", flat=True).first() or ""
+        )
+        points = self.trait.cost_for_level(self.character_trait.trait_level)
+        return (
+            ranks.filter(points__lte=points).order_by("-points")
+            .values_list("name", flat=True).first()
+            or ranks.order_by("points").values_list("name", flat=True).first()
+            or ""
+        )
 
     def resolved_modifier_target(self) -> tuple[str, str] | None:
         """Return the concrete modifier target tuple derived from this stored choice."""

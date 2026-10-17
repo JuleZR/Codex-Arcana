@@ -1891,7 +1891,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const isTableDividerRow = (row) =>
-    row.length > 0 && row.every((cell) => /^:?-{2,}:?$/.test(cell));
+    row.length > 0 && row.every((cell) => /^:?-+:?$/.test(cell));
 
   const parseQualityLine = (line) => {
     const match = String(line || "").trim().match(/^\[\[QUALITY:(.+?)\|(.+?)\]\]$/);
@@ -2078,7 +2078,7 @@ document.addEventListener("DOMContentLoaded", () => {
           j += 1;
         }
 
-        const tableClasses = [];
+        const tableClasses = ["tooltip_markdown_table"];
         if (
           header.length === 2
           && String(header[0] || "").trim() === "Mod."
