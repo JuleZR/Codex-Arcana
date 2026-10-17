@@ -540,8 +540,8 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     titleEl.textContent = "Wege der Entscheidung";
     if (introEl instanceof HTMLElement) {
       introEl.textContent = pendingSections.length > 1
-        ? "Links siehst du alle offenen Choices. Rechts bearbeitest du die jeweils ausgewaehlte Entscheidung direkt."
-        : "Links steht die offene Choice, rechts kannst du die Auswahl direkt festlegen.";
+        ? "Links siehst du alle offenen Entscheidungen. Rechts bearbeitest du die jeweils ausgewaehlte Entscheidung direkt."
+        : "Links steht die offene Entscheidung, rechts kannst du die Auswahl direkt festlegen.";
     }
     confirmBtn.disabled = pendingSections.length === 0;
     setHint("");

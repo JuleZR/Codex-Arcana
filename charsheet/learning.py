@@ -422,7 +422,10 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         saved_field_name_values.add(dedup_key)
 
         choice_scope = row.get("choice_scope", "technique")
-        choice_label = row.get("technique_name") or row.get("race_name") or row.get("trait_name") or "Choice"
+        choice_label = (
+            row.get("technique_name") or row.get("race_name")
+            or row.get("trait_name") or "Auswahl"
+        )
         choice_payload: dict[str, object] = {"character": character}
         choice_model = CharacterTechniqueChoice
         if choice_scope == "specialization":
@@ -514,7 +517,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Fertigkeitswahl.")
             if (
-                choice_scope == "specialization"
+                choice_scope in {"specialization", "technique", "race"}
                 and raw_value.startswith("character-skill:")
             ):
                 character_skill = CharacterSkill.objects.get(
@@ -522,7 +525,14 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
                     character=character,
                 )
                 choice_payload["selected_skill_id"] = character_skill.skill_id
-                choice_payload["selected_character_skill"] = character_skill
+                if choice_scope == "specialization":
+                    choice_payload["selected_character_skill"] = (
+                        character_skill
+                    )
+                else:
+                    choice_payload["selected_specification"] = (
+                        character_skill.specification
+                    )
             elif (
                 choice_scope == "creature_trait"
                 and raw_value.startswith("special:")

@@ -30,6 +30,7 @@ function updateLearningFormFromPayload(payload) {
   currentForm.replaceWith(nextForm);
   const currentChoiceWindow = document.getElementById("learnChoiceWindow");
   const nextChoiceWindow = template.content.querySelector("#learnChoiceWindow");
+  const choiceWindowWasOpen = currentChoiceWindow?.classList.contains("is-open");
   if (
     currentChoiceWindow instanceof HTMLElement
     && nextChoiceWindow instanceof HTMLElement
@@ -42,6 +43,9 @@ function updateLearningFormFromPayload(payload) {
   document.dispatchEvent(new CustomEvent("charsheet:partials-applied", {
     detail: { targets: ["learnForm", "learnChoiceWindow"] },
   }));
+  if (choiceWindowWasOpen && nextChoiceWindow?.querySelector("[data-choice-decision-id]")) {
+    nextChoiceWindow.__floatingWindowController?.open();
+  }
   return true;
 }
 
@@ -121,14 +125,36 @@ function updateCultistCorruptionFromPayload(payload) {
   document.body.dataset.cultistCorruptionLevel = String(level);
 }
 
-function refreshDeferredSheetPartials(payload) {
+async function refreshDeferredSheetPartials(payload) {
   const url = String(payload?.deferredPartialsUrl || "").trim();
   if (!url) {
     return;
   }
-  document.dispatchEvent(new CustomEvent("charsheet:external-refresh-requested", {
-    detail: { force: true, learning: true },
-  }));
+  try {
+    const response = await fetch(url, {
+      headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("sheet refresh failed");
+    const refreshed = await response.json();
+    if (!refreshed?.ok) throw new Error("sheet refresh invalid");
+    applySheetPartials(refreshed);
+    updateCultistCorruptionFromPayload(refreshed);
+    updateLearningFormFromPayload(refreshed);
+    if (refreshed.signature) {
+      document.body.dataset.externalRefreshSignature = String(refreshed.signature);
+    }
+    if (Object.prototype.hasOwnProperty.call(refreshed, "openItemTransferCount")) {
+      document.dispatchEvent(new CustomEvent("charsheet:item-transfer-count-updated", {
+        detail: { count: refreshed.openItemTransferCount },
+      }));
+    }
+  } catch (_error) {
+    document.dispatchEvent(new CustomEvent("charsheet:external-refresh-requested", {
+      detail: { force: true, learning: true },
+    }));
+  }
 }
 
 function waitForPrintAssets() {
@@ -274,7 +300,7 @@ export function initSheetActions() {
           detail: { count: payload.openItemTransferCount },
         }));
       }
-      refreshDeferredSheetPartials(payload);
+      await refreshDeferredSheetPartials(payload);
       if (form.hasAttribute("data-ajax-only")) {
         form.dispatchEvent(new CustomEvent("sheet:action-success", { bubbles: true, detail: payload }));
       }

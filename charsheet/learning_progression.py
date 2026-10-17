@@ -1258,10 +1258,48 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
         if not row["supported"]:
             input_type = "unsupported"
         choice_scope = row.get("choice_scope")
+        if (
+            choice_scope in {"technique", "race"}
+            and row["target_kind"] == Technique.ChoiceTargetKind.SKILL
+        ):
+            allowed_ids = {
+                option["value"] for option in row["options"]
+                if option.get("requires_specification")
+            }
+            existing_choices = (
+                character.technique_choices.filter(
+                    technique_id=row["technique_id"],
+                )
+                if choice_scope == "technique"
+                else character.race_choices.filter(
+                    definition_id=row["definition_id"],
+                )
+            )
+            used_targets = {
+                (skill_id, specification.strip().casefold())
+                for skill_id, specification in existing_choices.values_list(
+                    "selected_skill_id", "selected_specification",
+                )
+            }
+            for character_skill in specified_skills:
+                if character_skill.skill_id not in allowed_ids or (
+                    character_skill.skill_id,
+                    character_skill.specification.strip().casefold(),
+                ) in used_targets:
+                    continue
+                choice = CharacterSpecializationChoice(
+                    selected_skill=character_skill.skill,
+                    selected_character_skill=character_skill,
+                )
+                row["options"].append({
+                    "value": f"character-skill:{character_skill.pk}",
+                    "label": choice.selected_target_display(),
+                    "meta": character_skill.skill.category.name,
+                })
         if choice_scope == "specialization":
             decision_prefix = "specialization-choice"
             decision_kind = "specialization_choice"
-            decision_title = f"Choice: {row['specialization_name']}"
+            decision_title = row["specialization_name"]
             selection_group_id = (
                 f"specialization-choice:{row['definition_id']}"
             )
@@ -1276,13 +1314,13 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
         elif choice_scope == "race":
             decision_prefix = "race-choice"
             decision_kind = "race_choice"
-            decision_title = f"Choice: {row['race_name']}"
+            decision_title = row["race_name"]
             selection_group_id = f"race-choice:{row['definition_id']}"
             decision_key = f"{row['definition_id']}-{row['slot_index']}"
         elif choice_scope == "trait":
             decision_prefix = "trait-choice"
             decision_kind = "trait_choice"
-            decision_title = f"Choice: {row['trait_name']}"
+            decision_title = row["trait_name"]
             selection_group_id = f"trait-choice:{row['trait_id']}:{row['definition_id']}"
             decision_key = (
                 f"{row['trait_id']}-{row['definition_id']}-{row['slot_index']}"
@@ -1290,7 +1328,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
         else:
             decision_prefix = "technique-choice"
             decision_kind = "technique_choice"
-            decision_title = f"Choice: {row['technique_name']}"
+            decision_title = row["technique_name"]
             if row.get("choice_count", 1) > 1:
                 decision_title += (
                     f" ({row['slot_index'] + 1}/{row['choice_count']})"

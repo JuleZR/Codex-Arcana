@@ -1,4 +1,4 @@
-import { createChoiceModalController } from "./choice_modal.js?v=20261014-open-choices-only";
+import { createChoiceModalController } from "./choice_modal.js?v=20261017-decisions";
 import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
 import { initLearningChronicle } from "./learning_chronicle.js?v=20261014u";
 
