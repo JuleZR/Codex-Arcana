@@ -1328,7 +1328,11 @@ def export_account_data(request):
         },
         "characters": [],
     }
-    characters = Character.objects.filter(owner=request.user).select_related("race").order_by("name", "id")
+    characters = (
+        Character.objects.filter(owner=request.user)
+        .select_related("race")
+        .order_by("name", "id")
+    )
     for character in characters:
         payload["characters"].append(
             {
@@ -1343,17 +1347,23 @@ def export_account_data(request):
                 "current_experience": character.current_experience,
                 "used_experience": character.used_experience,
                 "current_damage": character.current_damage,
-                "created_at": character.created_at.isoformat() if getattr(character, "created_at", None) else None,
+                "created_at": (
+                    character.created_at.isoformat()
+                    if getattr(character, "created_at", None) else None
+                ),
                 "items": list(
                     CharacterItem.objects.filter(owner=character)
                     .select_related("item", "quality")
                     .order_by("item__name", "id")
-                    .values("item__name", "amount", "equipped", "quality__name", "notes")
+                    .values(
+                        "item__name", "amount", "equipped", "quality__name",
+                        "description",
+                    )
                 ),
                 "diary_entries": list(
                     CharacterDiaryEntry.objects.filter(character=character)
                     .order_by("created_at", "id")
-                    .values("title", "content", "created_at", "updated_at")
+                    .values("text", "created_at", "updated_at")
                 ),
             }
         )
@@ -1361,7 +1371,9 @@ def export_account_data(request):
         json.dumps(payload, ensure_ascii=False, indent=2, default=str),
         content_type="application/json; charset=utf-8",
     )
-    response["Content-Disposition"] = 'attachment; filename="codex-arcana-account-export.json"'
+    response["Content-Disposition"] = (
+        'attachment; filename="codex-arcana-account-export.json"'
+    )
     return response
 
 
@@ -4103,15 +4115,24 @@ def _creation_entity_choices(trait, choice_map):
         target_kind="entity", is_active=True,
     ).order_by("sort_order", "id"):
         values = choice_map.get(trait.slug, {}).get(definition.pk, [])
+        selected = values[0] if values else ""
+        custom_name = ""
+        if selected.startswith("custom:{"):
+            try:
+                custom = json.loads(selected.removeprefix("custom:"))
+                selected = f"custom:{custom['size_category']}"
+                custom_name = custom["name"]
+            except (ValueError, KeyError, TypeError):
+                selected = ""
         rows.append({
             "id": definition.pk,
             "name": definition.name,
-            "selected": values[0] if values else "",
-            "options": [
-                {"value": str(option.pk), "label": str(option.entity)}
-                for option in definition.entity_options.all()
-                if option.entity is not None
-            ],
+            "selected": selected,
+            "custom_name": custom_name,
+            "organization_choice": bool(
+                definition.allowed_organization_type_id,
+            ),
+            "options": definition.entity_choice_options(),
         })
     return rows
 
@@ -4605,7 +4626,19 @@ def create_character(request):
                     for definition in trait.choice_definitions.filter(
                         target_kind__in=["attribute", "entity"],
                     ).order_by("sort_order", "id"):
-                        selected = (request.POST.get(f"dis_choice_{trait.slug}_{definition.id}") or "").strip()
+                        field_name = (
+                            f"dis_choice_{trait.slug}_{definition.id}"
+                        )
+                        selected = str(
+                            request.POST.get(field_name) or ""
+                        ).strip()
+                        if definition.target_kind == "entity":
+                            selected = definition.serialize_entity_selection(
+                                selected,
+                                request.POST.get(
+                                    f"{field_name}_specification", "",
+                                ),
+                            )
                         if selected:
                             choice_payload[str(definition.id)] = [selected]
                     if choice_payload:
@@ -4641,7 +4674,19 @@ def create_character(request):
                     for definition in trait.choice_definitions.filter(
                         target_kind__in=["attribute", "entity"],
                     ).order_by("sort_order", "id"):
-                        selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
+                        field_name = (
+                            f"adv_choice_{trait.slug}_{definition.id}"
+                        )
+                        selected = str(
+                            request.POST.get(field_name) or ""
+                        ).strip()
+                        if definition.target_kind == "entity":
+                            selected = definition.serialize_entity_selection(
+                                selected,
+                                request.POST.get(
+                                    f"{field_name}_specification", "",
+                                ),
+                            )
                         if selected:
                             choice_payload[str(definition.id)] = [selected]
                     for definition in trait.choice_definitions.filter(target_kind="resource").order_by("sort_order", "id"):
@@ -5019,10 +5064,7 @@ def create_character(request):
         phase_3_rows.append(
             {
                 "slug": trait.slug,
-                "name": (
-                    f"{trait.name}: {trait.organization}"
-                    if trait.organization_id else trait.name
-                ),
+                "name": trait.name,
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
                 "points_per_level": trait.points_per_level,
@@ -5110,10 +5152,7 @@ def create_character(request):
         phase_4_adv_rows.append(
             {
                 "slug": trait.slug,
-                "name": (
-                    f"{trait.name}: {trait.organization}"
-                    if trait.organization_id else trait.name
-                ),
+                "name": trait.name,
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
                 "points_per_level": trait.points_per_level,

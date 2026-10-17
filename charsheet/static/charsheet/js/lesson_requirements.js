@@ -12,6 +12,7 @@
     lesson: ["required_lesson"],
     aspect_level: ["aspect", "minimum_value"],
     trait_level: ["required_trait", "required_trait_specification", "minimum_value"],
+    organization_level: ["organization_type", "required_organization", "minimum_value"],
   };
 
   function initialize(row) {
@@ -21,10 +22,15 @@
     const type = input("requirement_type");
     const school = input("required_school");
     const trait = input("required_trait");
+    const organizationType = input("organization_type");
     const message = row.querySelector("[data-requirement-message]");
     let revision = 0;
     let traitRevision = 0;
+    let organizationRevision = 0;
     let previousSchool = school.value;
+    let previousType = type.value;
+    let previousTrait = trait?.value;
+    let previousOrganizationType = organizationType?.value;
 
     function replaceOptions(select, options, selected) {
       select.replaceChildren(new Option("---------", ""));
@@ -86,6 +92,31 @@
       }
     }
 
+    async function refreshOrganizations(reset) {
+      const currentRevision = ++organizationRevision;
+      const select = input("required_organization");
+      if (!select) return;
+      const selected = reset ? "" : select.value;
+      replaceOptions(select, [], "");
+      select.disabled = true;
+      if (type.value !== "organization_level" || !organizationType?.value) return;
+      message.textContent = "";
+      try {
+        const url = new URL(select.dataset.optionsUrl, window.location.origin);
+        url.searchParams.set("organization_type", organizationType.value);
+        const response = await fetch(url, { credentials: "same-origin" });
+        if (!response.ok) throw new Error("Organisationen konnten nicht geladen werden.");
+        const payload = await response.json();
+        if (currentRevision !== organizationRevision) return;
+        replaceOptions(select, payload.results, selected);
+        select.disabled = false;
+      } catch (error) {
+        if (currentRevision === organizationRevision) {
+          message.textContent = "Organisationen konnten nicht geladen werden. Bitte Typ erneut auswählen.";
+        }
+      }
+    }
+
     function updateType(reset) {
       const fields = typeFields[type.value] || [];
       row.querySelectorAll("[data-requirement-field]").forEach((container) => {
@@ -97,8 +128,12 @@
         if (!visible) control.value = "";
       });
       previousSchool = school.value;
+      previousType = type.value;
+      previousTrait = trait?.value;
+      previousOrganizationType = organizationType?.value;
       refresh(reset);
       refreshTraitOptions(reset);
+      refreshOrganizations(reset);
     }
 
     function schoolChanged() {
@@ -109,14 +144,45 @@
       refresh(true);
     }
 
-    type.addEventListener("change", () => updateType(true));
+    function typeChanged() {
+      if (type.value === previousType) return;
+      updateType(true);
+    }
+
+    function traitChanged() {
+      if (trait?.value === previousTrait) return;
+      previousTrait = trait?.value;
+      refreshTraitOptions(true);
+    }
+
+    function organizationTypeChanged() {
+      if (organizationType?.value === previousOrganizationType) return;
+      previousOrganizationType = organizationType?.value;
+      refreshOrganizations(true);
+    }
+
+    type.addEventListener("change", typeChanged);
     school.addEventListener("change", schoolChanged);
-    trait?.addEventListener("change", () => refreshTraitOptions(true));
+    trait?.addEventListener("change", traitChanged);
+    organizationType?.addEventListener("change", organizationTypeChanged);
     if (window.django?.jQuery) {
       // Django's related-object popups emit a jQuery-only change event.
       window.django.jQuery(school).on("change.lessonRequirement", (event) => {
         if (!event.originalEvent) schoolChanged();
       });
+      window.django.jQuery(type).on("change.lessonRequirement", (event) => {
+        if (!event.originalEvent) typeChanged();
+      });
+      if (trait) {
+        window.django.jQuery(trait).on("change.lessonRequirement", (event) => {
+          if (!event.originalEvent) traitChanged();
+        });
+      }
+      if (organizationType) {
+        window.django.jQuery(organizationType).on("change.lessonRequirement", (event) => {
+          if (!event.originalEvent) organizationTypeChanged();
+        });
+      }
     }
     updateType(false);
   }

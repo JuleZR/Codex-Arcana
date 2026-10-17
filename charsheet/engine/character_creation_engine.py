@@ -1338,15 +1338,18 @@ class CharacterCreationEngine:
                     skill_levels.get(skill_id, 0), level
                 )
         trait_states: dict[int, tuple[int, int | None, str]] = {}
-        for values, specs, trait_type in (
+        organization_levels: dict[int, int] = {}
+        for values, specs, choices, trait_type in (
             (
                 self.phase_3_disadvantages(),
                 self.phase_3_trait_specifications(),
+                self.phase_3_trait_choices(),
                 Trait.TraitType.DIS,
             ),
             (
                 self.phase_4_advantages(),
                 self.phase_4_trait_specifications(),
+                self.phase_4_trait_choices(),
                 Trait.TraitType.ADV,
             ),
         ):
@@ -1360,6 +1363,32 @@ class CharacterCreationEngine:
                     self._to_int(payload.get("option_id"), 0) or None,
                     str(payload.get("text") or "").strip().casefold(),
                 )
+                level = int(values[trait.slug])
+                for definition in self._relevant_choice_definitions(
+                    trait, level,
+                ):
+                    if definition.target_kind != "entity":
+                        continue
+                    for value in choices.get(trait.slug, {}).get(
+                        definition.pk, [],
+                    ):
+                        try:
+                            selection = definition.entity_selection_payload(
+                                value,
+                            )
+                        except ValidationError:
+                            continue
+                        content_type = selection.get("selected_content_type")
+                        if (
+                            content_type is None
+                            or content_type.app_label != "charsheet"
+                            or content_type.model != "organization"
+                        ):
+                            continue
+                        organization_id = selection["selected_object_id"]
+                        organization_levels[organization_id] = max(
+                            organization_levels.get(organization_id, 0), level,
+                        )
         return LessonRequirementContext.from_state(
             school_levels,
             learned_technique_ids,
@@ -1369,6 +1398,7 @@ class CharacterCreationEngine:
                 for aspect_id, level in self.phase_4_aspects().items()
             },
             trait_states=trait_states,
+            organization_levels=organization_levels,
         )
 
     def phase_4_aspects(self) -> dict[str, int]:

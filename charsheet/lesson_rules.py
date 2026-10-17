@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Mapping
 
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Max, Prefetch
 
 from charsheet.fame import spend_personal_fame_rank
 from charsheet.models.lessons import (
@@ -110,13 +110,17 @@ class FameLessonCostHandler(LessonCostHandler):
         return available >= amount, "Nicht genug RP für diese Lektion."
 
     def deduct(self, character, costs, context):
-        manual_total = character.personal_fame_rank * 10 + character.personal_fame_point
+        manual_total = (
+            character.personal_fame_rank * 10 + character.personal_fame_point
+        )
         category_total = sum(getattr(character, name) for name in (
             "reputation_personal_points",
             "reputation_group_points",
         ))
         if category_total < manual_total:
-            character.reputation_personal_points += manual_total - category_total
+            character.reputation_personal_points += (
+                manual_total - category_total
+            )
         cost = sum(int(cost.value) for cost in costs)
         for name in (
             "reputation_personal_points",
@@ -145,7 +149,10 @@ class PersonalFameRankLessonCostHandler(LessonCostHandler):
 
     def display(self, cost: LessonCost) -> str:
         amount = int(cost.value)
-        unit = "Persönlicher Ruhmrang" if amount == 1 else "Persönliche Ruhmränge"
+        unit = (
+            "Persönlicher Ruhmrang" if amount == 1
+            else "Persönliche Ruhmränge"
+        )
         return f"{amount} {unit}"
 
     def is_available(self, character, costs, context):
@@ -182,7 +189,9 @@ class PersonalFameRankLessonCostHandler(LessonCostHandler):
     def deduct(self, character, costs, context):
         for _ in range(sum(int(cost.value) for cost in costs)):
             if not spend_personal_fame_rank(character):
-                raise LessonRuleError("Nicht genug freier Persönlicher Ruhmrang.")
+                raise LessonRuleError(
+                    "Nicht genug freier Persönlicher Ruhmrang."
+                )
 
 
 LESSON_COST_HANDLERS: dict[str, LessonCostHandler] = {}
@@ -237,6 +246,11 @@ def format_requirement(requirement: LessonRequirement) -> str:
         return requirement.required_lesson.name
     if kind == types.ASPECT_LEVEL:
         return f"{requirement.aspect.name} {requirement.minimum_value}"
+    if kind == types.ORGANIZATION_LEVEL:
+        return (
+            f"{requirement.required_organization.name} "
+            f"{requirement.minimum_value}"
+        )
     if kind == types.TRAIT_LEVEL:
         specification = (
             f": {requirement.required_trait_specification.name}"
@@ -277,6 +291,7 @@ def lesson_queryset():
         "aspect",
         "required_trait",
         "required_trait_specification",
+        "required_organization",
     )
     return Lesson.objects.prefetch_related(
         "costs",
@@ -335,6 +350,7 @@ class LessonRequirementContext:
     skill_levels: Mapping[int, int] = field(default_factory=dict)
     learned_lesson_ids: set[int] = field(default_factory=set)
     aspect_levels: Mapping[int, int] = field(default_factory=dict)
+    organization_levels: Mapping[int, int] = field(default_factory=dict)
     trait_states: Mapping[int, tuple[int, int | None, str]] = field(
         default_factory=dict
     )
@@ -349,6 +365,7 @@ class LessonRequirementContext:
         learned_lesson_ids=None,
         aspect_levels=None,
         trait_states=None,
+        organization_levels=None,
     ):
         from charsheet.models import School
         from charsheet.religion_rules import is_clerical_school
@@ -368,6 +385,7 @@ class LessonRequirementContext:
             learned_lesson_ids=learned_lesson_ids or set(),
             aspect_levels=aspect_levels or {},
             trait_states=trait_states or {},
+            organization_levels=organization_levels or {},
             arcane_level=max(
                 (
                     school_levels[school.pk]
@@ -435,7 +453,20 @@ class LessonRequirementContext:
                 "specification",
             )
         }
-        from charsheet.models import CharacterDruidCult
+        from charsheet.models import CharacterDruidCult, CharacterTraitChoice
+
+        context.organization_levels = dict(
+            CharacterTraitChoice.objects.filter(
+                character_trait__owner=character,
+                definition__target_kind="entity",
+                definition__is_active=True,
+                selected_content_type__app_label="charsheet",
+                selected_content_type__model="organization",
+                selected_object_id__isnull=False,
+            ).values("selected_object_id").annotate(
+                level=Max("character_trait__trait_level"),
+            ).values_list("selected_object_id", "level")
+        )
 
         context.druid_cult_id = (
             CharacterDruidCult.objects.filter(character=character)
@@ -532,6 +563,12 @@ def requirement_met(
         return (
             state.aspect_levels.get(requirement.aspect_id, 0)
             >= requirement.minimum_value
+        )
+    if kind == types.ORGANIZATION_LEVEL:
+        return (
+            state.organization_levels.get(
+                requirement.required_organization_id, 0,
+            ) >= requirement.minimum_value
         )
     if kind == types.TRAIT_LEVEL:
         level, option_id, legacy_value = state.trait_states.get(

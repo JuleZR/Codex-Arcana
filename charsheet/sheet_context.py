@@ -5913,7 +5913,7 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     traits_qs = (
         CharacterTrait.objects
         .filter(owner=character)
-        .select_related("trait", "trait__organization", "specification_option")
+        .select_related("trait", "specification_option")
         .prefetch_related(
             "trait__specification_options", "choices__selected_content_type",
         )
@@ -5964,15 +5964,14 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         else:
             row["display_name"] = entry.trait.name
             row["tooltip"] = row["description"]
-        affiliations = (
-            [str(entry.trait.organization)]
-            if entry.trait.organization_id else []
-        )
-        affiliations.extend(
+        affiliations = [
             choice.selected_target_display()
             for choice in entry.choices.all()
-            if choice.selected_object_id is not None
-        )
+            if (
+                choice.selected_object_id is not None
+                or choice.custom_organization_name
+            )
+        ]
         if affiliations:
             row["display_name"] += ": " + ", ".join(
                 dict.fromkeys(affiliations)

@@ -228,6 +228,7 @@ from .models import (
     TraitChoiceEntityOption,
     Organization,
     OrganizationType,
+    OrganizationTypeRank,
     TraitExclusion,
     TraitSpecificationOption,
     TraitSemanticEffect,
@@ -3288,6 +3289,7 @@ class TraitChoiceDefinitionInline(
         "allowed_derived_stat",
         "allowed_resource",
         "allowed_proficiency_group",
+        "allowed_organization_type",
         "sort_order",
         "is_active",
         "description",
@@ -4652,6 +4654,11 @@ def _lesson_technique_label(technique: Technique) -> str:
 
 
 class LessonRequirementInlineForm(forms.ModelForm):
+    organization_type = forms.ModelChoiceField(
+        queryset=OrganizationType.objects.all(), required=False,
+        label="Organisationstyp",
+    )
+
     class Meta:
         model = LessonRequirement
         fields = "__all__"
@@ -4670,6 +4677,33 @@ class LessonRequirementInlineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["requirement_group"].required = False
         from charsheet.models.lessons import is_arcane_lesson_school
+
+        type_id = (
+            self.data.get(self.add_prefix("organization_type"))
+            if self.is_bound else self.initial.get("organization_type")
+        )
+        if not self.is_bound and type_id is None:
+            organization_id = self.initial.get(
+                "required_organization",
+                self.instance.required_organization_id,
+            )
+            type_id = Organization.objects.filter(
+                pk=organization_id,
+            ).values_list("organization_type_id", flat=True).first()
+        try:
+            type_id = int(type_id or 0)
+        except (TypeError, ValueError):
+            type_id = 0
+        if not self.is_bound:
+            self.initial["organization_type"] = type_id or None
+        self.fields["required_organization"].queryset = (
+            Organization.objects.filter(organization_type_id=type_id)
+        )
+        widget = self.fields["required_organization"].widget
+        widget = getattr(widget, "widget", widget)
+        widget.attrs["data-options-url"] = reverse(
+            "admin:charsheet_lesson_organizations",
+        )
 
         combat = School.objects.filter(
             Q(type__slug__in=(SCHOOL_COMBAT, "school_combat"))
@@ -4737,6 +4771,30 @@ class LessonRequirementInlineForm(forms.ModelForm):
             _lesson_technique_label
         )
 
+    @property
+    def visible_requirement_fields(self):
+        """Limit the initial inline display to the selected requirement type."""
+        kind = self["requirement_type"].value()
+        return (
+            self._meta.model.TYPE_FIELDS.get(kind, ())
+            + self._meta.model.OPTIONAL_FIELDS.get(kind, ())
+            + (
+                ("organization_type",)
+                if kind == "organization_level" else ()
+            )
+        )
+
+    def clean(self):
+        data = super().clean()
+        if (
+            data.get("requirement_type") == "organization_level"
+            and not data.get("organization_type")
+        ):
+            self.add_error(
+                "organization_type", "Bitte einen Organisationstyp auswählen.",
+            )
+        return data
+
     def clean_requirement_group(self):
         return self.cleaned_data.get("requirement_group") or 1
 
@@ -4752,12 +4810,24 @@ class LessonRequirementInline(admin.TabularInline):
         "specialisation", "magic_school", "druid_circle", "creature",
         "required_skill", "required_lesson", "aspect", "required_trait",
         "required_trait_specification", "minimum_value",
+        "organization_type", "required_organization",
         "requirement_group", "sort_order",
     )
 
-    class Media:
-        js = ("charsheet/js/lesson_requirements.js",)
-        css = {"all": ("charsheet/css/lesson_requirements.css",)}
+    @property
+    def media(self):
+        from django.templatetags.static import static
+
+        return super().media + forms.Media(
+            js=[
+                static("charsheet/js/lesson_requirements.js")
+                + "?v=20261017-org-filter",
+            ],
+            css={"all": [
+                static("charsheet/css/lesson_requirements.css")
+                + "?v=20261017-org-filter",
+            ]},
+        )
 
 
 class LessonAdminForm(forms.ModelForm):
@@ -6947,10 +7017,17 @@ class TraitChoiceEntityOptionInline(admin.TabularInline):
     extra = 0
 
 
+class OrganizationTypeRankInline(admin.TabularInline):
+    model = OrganizationTypeRank
+    fields = ("points", "size_category", "name")
+    extra = 0
+
+
 @admin.register(OrganizationType)
 class OrganizationTypeAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = ("name", "slug")
     search_fields = ("name", "slug")
+    inlines = (OrganizationTypeRankInline,)
 
 
 @admin.register(Organization)
@@ -6980,8 +7057,14 @@ class TraitChoiceDefinitionAdmin(
     search_fields = ("name", "description", "trait__name", "trait__slug")
     list_filter = ("trait__trait_type", "trait", "target_kind", "is_required", "is_active")
     ordering = ("trait__trait_type", "trait__name", "sort_order", "name")
-    autocomplete_fields = ("trait", "allowed_attribute", "allowed_skill_category")
-    list_select_related = ("trait", "allowed_attribute", "allowed_skill_category")
+    autocomplete_fields = (
+        "trait", "allowed_attribute", "allowed_skill_category",
+        "allowed_organization_type",
+    )
+    list_select_related = (
+        "trait", "allowed_attribute", "allowed_skill_category",
+        "allowed_organization_type",
+    )
     readonly_fields = ("linked_semantic_effects",)
     inlines = (TraitChoiceEntityOptionInline,)
     fieldsets = (
@@ -6998,6 +7081,7 @@ class TraitChoiceDefinitionAdmin(
                     "allowed_derived_stat",
                     "allowed_resource",
                     "allowed_proficiency_group",
+                    "allowed_organization_type",
                     ("sort_order", "is_active"),
                 ),
             },
@@ -7664,6 +7748,7 @@ class CharacterTraitChoiceAdmin(
                     ("selected_item", "selected_item_category"),
                     "selected_text",
                     ("selected_content_type", "selected_object_id"),
+                    ("custom_organization_name", "custom_organization_size"),
                 )
             },
         ),
@@ -7798,6 +7883,11 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     def get_urls(self):
         custom_urls = [
             path(
+                "organizations/",
+                self.admin_site.admin_view(self.organizations_view),
+                name="charsheet_lesson_organizations",
+            ),
+            path(
                 "specialisations/",
                 self.admin_site.admin_view(self.specialisations_view),
                 name="charsheet_lesson_specialisations",
@@ -7814,6 +7904,18 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             ),
         ]
         return custom_urls + super().get_urls()
+
+    def organizations_view(self, request):
+        try:
+            type_id = int(request.GET.get("organization_type") or 0)
+        except (TypeError, ValueError):
+            type_id = 0
+        rows = Organization.objects.filter(organization_type_id=type_id)
+        return JsonResponse({
+            "results": [
+                {"id": row.pk, "label": row.name} for row in rows
+            ],
+        })
 
     def techniques_view(self, request):
         try:
@@ -8182,7 +8284,6 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("trait_type", "has_specification")
     ordering = ("trait_type", "name")
-    autocomplete_fields = ("organization",)
     inlines = (
         TraitSpecificationOptionInline,
         TraitExclusionInline,
@@ -8200,7 +8301,6 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
                     "has_specification",
-                    "organization",
                     "points_by_level",
                     ("min_level", "max_level"),
                     "description",

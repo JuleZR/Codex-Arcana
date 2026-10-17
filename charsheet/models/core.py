@@ -24,10 +24,11 @@ from .semantic_effects import SemanticEffectFields
 
 
 class Attribute(models.Model):
-    """A base attribute that can be referenced by skills and character values."""
+    """A base attribute referenced by skills and character values."""
 
     name = models.CharField(max_length=100, unique=True)
-    short_name = models.CharField(max_length=4, unique=True, choices=ATTRIBUTE_CODE_CHOICES)
+    short_name = models.CharField(
+        max_length=4, unique=True, choices=ATTRIBUTE_CODE_CHOICES)
 
     def __str__(self):
         return f"{self.name} ({self.short_name})"
@@ -37,7 +38,8 @@ class SkillCategory(models.Model):
     """A grouping for skills that can also receive shared modifiers."""
 
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True, choices=SKILL_CATEGORY_CHOICES)
+    slug = models.SlugField(max_length=100, unique=True,
+                            choices=SKILL_CATEGORY_CHOICES)
 
     def __str__(self) -> str:
         return self.name
@@ -153,22 +155,31 @@ class Race(models.Model):
     )
     description = models.TextField(blank=True)
 
-    combat_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    march_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    sprint_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    swimming_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
+    combat_speed = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)])
+    march_speed = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)])
+    sprint_speed = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)])
+    swimming_speed = models.FloatField(
+        default=0, validators=[MinValueValidator(0)])
 
     can_fly = models.BooleanField(default=False)
-    combat_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
-    march_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
-    sprint_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+    combat_fly_speed = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+    march_fly_speed = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+    sprint_fly_speed = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)], null=True, blank=True)
 
     phase_1_points = models.PositiveIntegerField(default=40)
     phase_2_points = models.PositiveIntegerField(default=50)
-    phase_3_points = models.PositiveIntegerField(default=20, validators=[MaxValueValidator(20)])
+    phase_3_points = models.PositiveIntegerField(
+        default=20, validators=[MaxValueValidator(20)])
     phase_4_points = models.PositiveIntegerField(default=30)
 
-    size_class = models.CharField("SizeClass", max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
+    size_class = models.CharField(
+        "SizeClass", max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
 
     def __str__(self):
         return self.name
@@ -177,7 +188,8 @@ class Race(models.Model):
 class RaceSemanticEffect(SemanticEffectFields):
     """Persisted semantic effect attached directly to one race."""
 
-    race = models.ForeignKey(Race, on_delete=models.CASCADE, related_name="semantic_effects")
+    race = models.ForeignKey(
+        Race, on_delete=models.CASCADE, related_name="semantic_effects")
     target_race_choice_definition = models.ForeignKey(
         "RaceChoiceDefinition",
         on_delete=models.PROTECT,
@@ -190,7 +202,10 @@ class RaceSemanticEffect(SemanticEffectFields):
         ordering = ["race", "sort_order", "id"]
 
     def __str__(self):
-        return f"{self.race.name}: {self.target_domain}/{self.target_key} ({self.operator})"
+        return (
+            f"{self.race.name}: {self.target_domain}/{self.target_key} "
+            f"({self.operator})"
+        )
 
     def semantic_source_type(self) -> str:
         return "race"
@@ -214,7 +229,8 @@ class RaceSemanticEffect(SemanticEffectFields):
             raise ValidationError(
                 {
                     "target_race_choice_definition": (
-                        "Choice definition must belong to the same race as the semantic effect."
+                        "Choice definition must belong to the same race "
+                        "as the semantic effect."
                     )
                 }
             )
@@ -244,7 +260,8 @@ class RaceAttributeLimit(models.Model):
     class Meta:
         ordering = ["race", "attribute"]
         constraints = [
-            models.UniqueConstraint(fields=["race", "attribute"], name="uniq_race_attribute_limit")
+            models.UniqueConstraint(
+                fields=["race", "attribute"], name="uniq_race_attribute_limit")
         ]
 
     def clean(self):
@@ -253,7 +270,10 @@ class RaceAttributeLimit(models.Model):
             raise ValidationError("min_value must be <= max_value")
 
     def __str__(self):
-        return f"{self.race} - {self.attribute}: {self.min_value} to {self.max_value}"
+        return (
+            f"{self.race} - {self.attribute}: "
+            f"{self.min_value} to {self.max_value}"
+        )
 
 
 class DamageSource(models.Model):
@@ -283,6 +303,11 @@ class OrganizationType(models.Model):
 class Organization(models.Model):
     """Organization identity; membership rules belong to traits."""
 
+    class SizeCategory(models.TextChoices):
+        SMALL = "small", "Klein"
+        MEDIUM = "medium", "Mittel"
+        LARGE = "large", "Groß"
+
     name = models.CharField(max_length=200, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True, default="")
@@ -290,7 +315,9 @@ class Organization(models.Model):
         OrganizationType, on_delete=models.PROTECT, null=True, blank=True,
         related_name="organizations",
     )
-    size_category = models.CharField(max_length=100, blank=True, default="")
+    size_category = models.CharField(
+        max_length=100, choices=SizeCategory.choices,
+    )
     source_reference = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
@@ -298,6 +325,42 @@ class Organization(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class OrganizationTypeRank(models.Model):
+    """An optional rank name for a type, point value, and organization size."""
+
+    organization_type = models.ForeignKey(
+        OrganizationType, on_delete=models.CASCADE, related_name="ranks",
+    )
+    points = models.PositiveIntegerField(
+        "Punkte", validators=[MinValueValidator(1)],
+    )
+    size_category = models.CharField(
+        "Größe", max_length=100, choices=Organization.SizeCategory.choices,
+    )
+    name = models.CharField("Rang", max_length=200)
+
+    class Meta:
+        ordering = ["points", "size_category", "id"]
+        verbose_name = "Rangzuordnung"
+        verbose_name_plural = "Rangzuordnungen"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization_type", "points", "size_category"],
+                name="uniq_org_type_rank_points_size",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(points__gte=1),
+                name="org_type_rank_points_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.organization_type}: {self.points} / "
+            f"{self.get_size_category_display()} – {self.name}"
+        )
 
 
 class Trait(models.Model):
@@ -312,14 +375,6 @@ class Trait(models.Model):
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField()
     has_specification = models.BooleanField(default=False)
-    organization = models.ForeignKey(
-        Organization, on_delete=models.PROTECT, null=True, blank=True,
-        related_name="traits",
-        help_text=(
-            "Fixed affiliation granted by this trait; "
-            "ranks remain trait rules."
-        ),
-    )
 
     min_level = models.PositiveIntegerField(default=1)
     max_level = models.PositiveIntegerField(
@@ -331,7 +386,10 @@ class Trait(models.Model):
         max_length=200,
         blank=True,
         default="",
-        help_text="Optional comma-separated per-level costs such as '1,3' or '2,4,6'. Overrides points_per_level.",
+        help_text=(
+            "Optional comma-separated per-level costs such as '1,3' or "
+            "'2,4,6'. Overrides points_per_level."
+        ),
     )
     excluded_traits = models.ManyToManyField(
         "self",
@@ -344,15 +402,6 @@ class Trait(models.Model):
     def clean(self):
         """Keep configured trait level bounds consistent."""
         super().clean()
-        if self.pk and self.organization_id and self.choice_definitions.filter(
-            entity_options__content_type__app_label="charsheet",
-            entity_options__content_type__model="organization",
-        ).exists():
-            raise ValidationError({
-                "organization": (
-                    "A fixed organization cannot also be selectable."
-                ),
-            })
         if self.max_level is not None and self.max_level < self.min_level:
             raise ValidationError("Max level < min level is prohibited.")
         if self.points_per_level < 0:
@@ -362,7 +411,10 @@ class Trait(models.Model):
         try:
             curve = self.cost_curve()
         except ValueError:
-            raise ValidationError({"points_by_level": "Use a comma-separated list of whole numbers."})
+            raise ValidationError(
+                {"points_by_level": (
+                    "Use a comma-separated list of whole numbers."
+                )})
         if curve and self.max_level is None:
             raise ValidationError({
                 "points_by_level": (
@@ -370,9 +422,13 @@ class Trait(models.Model):
                 ),
             })
         if curve and len(curve) != int(self.max_level):
-            raise ValidationError({"points_by_level": "Provide exactly one cost per level up to max_level."})
+            raise ValidationError(
+                {"points_by_level": (
+                    "Provide exactly one cost per level up to max_level."
+                )})
         if any(value < 0 for value in curve):
-            raise ValidationError({"points_by_level": "Trait costs must be non-negative."})
+            raise ValidationError(
+                {"points_by_level": "Trait costs must be non-negative."})
 
     def cost_curve(self) -> tuple[int, ...]:
         """Return explicit per-level costs when configured."""
@@ -452,10 +508,13 @@ class TraitSpecificationOption(models.Model):
         self.name = str(self.name or "").strip()
         self.normalized_name = self.normalize(self.name)
         if not self.name:
-            raise ValidationError({"name": "A specification name is required."})
+            raise ValidationError(
+                {"name": "A specification name is required."})
         if self.trait_id and not self.trait.has_specification:
             raise ValidationError(
-                {"trait": "Controlled options require a trait with specifications."}
+                {"trait": (
+                    "Controlled options require a trait with specifications."
+                )}
             )
 
     def save(self, *args, **kwargs):
@@ -497,8 +556,10 @@ class TraitSpecificationOption(models.Model):
 class TraitExclusion(models.Model):
     """A symmetric exclusion relation between two traits."""
 
-    trait = models.ForeignKey(Trait, on_delete=models.CASCADE, related_name="exclusions")
-    excluded_trait = models.ForeignKey(Trait, on_delete=models.CASCADE, related_name="excluded_by")
+    trait = models.ForeignKey(
+        Trait, on_delete=models.CASCADE, related_name="exclusions")
+    excluded_trait = models.ForeignKey(
+        Trait, on_delete=models.CASCADE, related_name="excluded_by")
 
     class Meta:
         ordering = ["trait__trait_type", "trait__name", "excluded_trait__name"]
@@ -512,8 +573,12 @@ class TraitExclusion(models.Model):
     def clean(self):
         """Block self-references and mirrored duplicates."""
         super().clean()
-        if self.trait_id and self.excluded_trait_id and self.trait_id == self.excluded_trait_id:
-            raise ValidationError({"excluded_trait": "A trait cannot exclude itself."})
+        if (
+            self.trait_id and self.excluded_trait_id
+            and self.trait_id == self.excluded_trait_id
+        ):
+            raise ValidationError(
+                {"excluded_trait": "A trait cannot exclude itself."})
         if (
             self.trait_id
             and self.excluded_trait_id
@@ -522,7 +587,8 @@ class TraitExclusion(models.Model):
                 excluded_trait_id=self.trait_id,
             ).exists()
         ):
-            raise ValidationError("This exclusion pair already exists in reverse order.")
+            raise ValidationError(
+                "This exclusion pair already exists in reverse order.")
 
     def __str__(self) -> str:
         return f"{self.trait.name} excludes {self.excluded_trait.name}"
@@ -531,7 +597,8 @@ class TraitExclusion(models.Model):
 class TraitSemanticEffect(models.Model):
     """Persisted new-system semantic effect attached directly to one trait."""
 
-    trait = models.ForeignKey(Trait, on_delete=models.CASCADE, related_name="semantic_effects")
+    trait = models.ForeignKey(
+        Trait, on_delete=models.CASCADE, related_name="semantic_effects")
     sort_order = models.PositiveIntegerField(default=0)
     target_choice_definition = models.ForeignKey(
         "TraitChoiceDefinition",
@@ -544,7 +611,10 @@ class TraitSemanticEffect(models.Model):
         "Skill",
         blank=True,
         related_name="trait_semantic_effects",
-        help_text="Optional concrete skill targets. Use this instead of target_key for multi-skill effects.",
+        help_text=(
+            "Optional concrete skill targets. Use this instead of target_key "
+            "for multi-skill effects."
+        ),
     )
 
     target_domain = models.CharField(
@@ -584,14 +654,18 @@ class TraitSemanticEffect(models.Model):
         Race,
         blank=True,
         related_name="trait_semantic_effect_conditions",
-        help_text="Optional race condition. Leave empty to apply to every race.",
+        help_text=(
+            "Optional race condition. Leave empty to apply to every race."
+        ),
     )
 
     condition_schools = models.ManyToManyField(
         "charsheet.School",
         blank=True,
         related_name="+",
-        help_text="Optional school condition. Leave empty to apply to every school.",
+        help_text=(
+            "Optional school condition. Leave empty to apply to every school."
+        ),
     )
 
     active_flag = models.BooleanField(default=True)
@@ -611,11 +685,14 @@ class TraitSemanticEffect(models.Model):
         ordering = ["trait", "sort_order", "id"]
 
     def __str__(self):
-        return f"{self.trait.slug}: {self.target_domain}/{self.target_key} ({self.operator})"
+        return (
+            f"{self.trait.slug}: {self.target_domain}/{self.target_key} "
+            f"({self.operator})"
+        )
 
     @staticmethod
     def _coerce_scalar(raw_value):
-        """Coerce admin-entered text values into bool, int, float, JSON, or plain text."""
+        """Coerce admin text into bool, int, float, JSON, or plain text."""
         text = str(raw_value or "").strip()
         if text == "":
             return None
@@ -650,13 +727,26 @@ class TraitSemanticEffect(models.Model):
                 }
             )
         if self.scaling is not None and not isinstance(self.scaling, dict):
-            raise ValidationError({"scaling": "Scaling must be a JSON object."})
-        if self.condition_set is not None and not isinstance(self.condition_set, dict):
-            raise ValidationError({"condition_set": "Condition set must be a JSON object."})
+            raise ValidationError(
+                {"scaling": "Scaling must be a JSON object."})
+        if (
+            self.condition_set is not None
+            and not isinstance(self.condition_set, dict)
+        ):
+            raise ValidationError(
+                {"condition_set": "Condition set must be a JSON object."})
         if self.metadata is not None and not isinstance(self.metadata, dict):
-            raise ValidationError({"metadata": "Metadata must be a JSON object."})
-        if self.target_choice_definition_id and self.target_choice_definition.trait_id != self.trait_id:
-            raise ValidationError({"target_choice_definition": "The selected trait choice definition must belong to the same trait."})
+            raise ValidationError(
+                {"metadata": "Metadata must be a JSON object."})
+        if (
+            self.target_choice_definition_id
+            and self.target_choice_definition.trait_id != self.trait_id
+        ):
+            raise ValidationError(
+                {"target_choice_definition": (
+                    "The selected trait choice definition must belong "
+                    "to the same trait."
+                )})
         # target_skills is an M2M field and is saved after model.clean().
         # Admin form validation enforces that either target_key, target_skills,
         # or target_choice_definition is provided.
@@ -711,7 +801,8 @@ class TraitSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.trait.name
-            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            condition_race_ids = list(self.condition_races.order_by(
+                "id").values_list("id", flat=True))
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
         if self.target_choice_definition_id:
@@ -720,10 +811,12 @@ class TraitSemanticEffect(models.Model):
                 "id": int(self.target_choice_definition_id),
             }
         if self.pk:
-            selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
+            selected_skill_slugs = list(self.target_skills.order_by(
+                "slug").values_list("slug", flat=True))
             if selected_skill_slugs:
                 metadata["target_skill_slugs"] = selected_skill_slugs
-        resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)
+        resolved_target = TargetResolver.resolve(
+            self.target_domain, self.target_key, metadata)
         for key, values in resolved_target.context_requirements.items():
             if key == "weapon_types":
                 metadata.setdefault("target_weapon_type", list(values))

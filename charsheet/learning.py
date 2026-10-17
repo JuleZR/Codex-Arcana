@@ -498,7 +498,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
                 pk=row["definition_id"]
             )
             choice_payload.update(
-                definition.entity_selection_payload(raw_value)
+                definition.entity_selection_payload(raw_value, specification)
             )
         elif target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
             if raw_value not in allowed_values:

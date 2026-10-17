@@ -162,7 +162,7 @@
                             {% if option.specification_submit_name %}
                               <span class="learn_choice_text_wrap" data-choice-specification-wrap hidden>
                                 <span class="learn_choice_text_label">Bezeichnung</span>
-                                <input type="text" class="learn_inline_text learn_choice_text_input" maxlength="25" autocomplete="off" aria-label="Bezeichnung der Spezifikation" placeholder="Spezifikation eingeben" data-choice-specification-input data-choice-submit-name="{{ option.specification_submit_name }}">
+                                <input type="text" class="learn_inline_text learn_choice_text_input" maxlength="{{ option.specification_max_length }}" autocomplete="off" aria-label="{{ option.specification_label }}" placeholder="{{ option.specification_label }} eingeben" data-choice-specification-input data-choice-submit-name="{{ option.specification_submit_name }}">
                               </span>
                             {% endif %}
                             {% if option.description or option.facts or option.meta or option.badge %}

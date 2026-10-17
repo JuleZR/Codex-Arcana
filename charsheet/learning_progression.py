@@ -132,6 +132,8 @@ def _build_decision_option(
     badge: str = "",
     facts: list[dict[str, str]] | None = None,
     specification_submit_name: str = "",
+    specification_max_length: int = 25,
+    specification_label: str = "Spezifikation",
 ) -> dict[str, object]:
     """Return one serialized option for the choice modal payload."""
     return {
@@ -145,6 +147,8 @@ def _build_decision_option(
         "submit_name": submit_name,
         "submit_value": submit_value,
         "specification_submit_name": specification_submit_name,
+        "specification_max_length": specification_max_length,
+        "specification_label": specification_label,
     }
 
 
@@ -1207,17 +1211,27 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         definition.id, []
                     )
                 }
-                options = [
-                    {
-                        "value": option.pk,
-                        "label": str(option.entity),
-                        "meta": "",
+                if definition.allowed_organization_type_id:
+                    selected_ids = {
+                        f"organization:{object_id}"
+                        for _content_type, object_id in existing_targets
                     }
-                    for option in definition.entity_options.all()
-                    if option.entity is not None
-                    and (option.content_type_id, option.object_id)
-                    not in existing_targets
-                ]
+                    options = [
+                        option for option in definition.entity_choice_options()
+                        if option["value"] not in selected_ids
+                    ]
+                else:
+                    options = [
+                        {
+                            "value": option.pk,
+                            "label": str(option.entity),
+                            "meta": "",
+                        }
+                        for option in definition.entity_options.all()
+                        if option.entity is not None
+                        and (option.content_type_id, option.object_id)
+                        not in existing_targets
+                    ]
             else:
                 resource_options = (
                     [(definition.allowed_resource,
@@ -1384,6 +1398,14 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         specification_submit_name=(
                             f"{row['field_name']}_specification"
                             if option.get("requires_specification") else ""
+                        ),
+                        specification_max_length=option.get(
+                            "specification_max_length", 25,
+                        ),
+                        specification_label=(
+                            "Name der Organisation"
+                            if str(option["value"]).startswith("custom:")
+                            else "Spezifikation"
                         ),
                     )
                     for option in row["options"]

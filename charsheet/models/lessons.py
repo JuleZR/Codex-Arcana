@@ -166,6 +166,7 @@ LESSON_REQUIREMENT_TARGET_FIELDS = (
     "aspect",
     "required_trait",
     "required_trait_specification",
+    "required_organization",
     "minimum_value",
 )
 
@@ -213,6 +214,9 @@ LESSON_REQUIREMENT_VALID_FIELDS = (
         ("required_trait", "minimum_value"),
         ("required_trait_specification",),
     )
+    | _requirement_shape(
+        "organization_level", ("required_organization", "minimum_value"),
+    )
 )
 
 
@@ -234,6 +238,7 @@ class LessonRequirement(models.Model):
         LESSON = "lesson", "Lesson"
         ASPECT_LEVEL = "aspect_level", "Aspect Level"
         TRAIT_LEVEL = "trait_level", "Trait Level"
+        ORGANIZATION_LEVEL = "organization_level", "Organisationsstufe"
 
     TYPE_FIELDS = {
         RequirementType.SCHOOL_TECHNIQUE: (
@@ -253,6 +258,9 @@ class LessonRequirement(models.Model):
         RequirementType.LESSON: ("required_lesson",),
         RequirementType.ASPECT_LEVEL: ("aspect", "minimum_value"),
         RequirementType.TRAIT_LEVEL: ("required_trait", "minimum_value"),
+        RequirementType.ORGANIZATION_LEVEL: (
+            "required_organization", "minimum_value",
+        ),
     }
     OPTIONAL_FIELDS = {
         RequirementType.MAGIC_SCHOOL_LEVEL: ("magic_school",),
@@ -342,6 +350,11 @@ class LessonRequirement(models.Model):
         null=True,
         blank=True,
         related_name="lesson_requirements",
+    )
+    required_organization = models.ForeignKey(
+        "charsheet.Organization", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="lesson_requirements",
+        verbose_name="Organisation",
     )
     minimum_value = models.PositiveSmallIntegerField(
         null=True,
