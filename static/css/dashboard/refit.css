@@ -152,13 +152,19 @@
 .dashboard_register .dashboard_register_row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 7px 0; border-bottom: 1px solid #ddcbb1; }
 .dashboard_register .dashboard_register_row:last-child { border-bottom: 0; }
 .dashboard_register .dashboard_register_character { display: flex; align-items: center; gap: 9px; flex: 1 1 200px; min-width: 0; }
-.dashboard_register .dashboard_register_initial { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 32px; color: #795537; border: 1px solid #c4a57a; background: linear-gradient(#f4e8d3, #d9c29e); font: 700 20px "Cormorant Garamond", Georgia, serif; }
+.dashboard_register .dashboard_register_type { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; flex: 0 0 40px; box-sizing: border-box; width: 40px; height: 40px; padding: 2px 0; color: #795537; border: 1px solid #c4a57a; border-radius: 2px; background: linear-gradient(#f4e8d3, #d9c29e); font: 600 9px/1 "Segoe UI", sans-serif; }
+.dashboard_register .dashboard_register_type svg { width: 24px; height: 24px; }
+.dashboard_register .dashboard_register_type > span { height: 9px; line-height: 9px; }
+.dashboard_register .dashboard_register_type--sc svg { transform: translateY(.25px) scale(1.05); }
+.dashboard_register .dashboard_register_type--npc svg { transform: translateY(-.25px); }
+.dashboard_register .dashboard_register_type--foreign > span { font-size: 8px; }
+.dashboard_register .dashboard_register_type--npc { color: #205f9f; border-color: rgba(45, 111, 184, 0.55); background: linear-gradient(#e6eff8, #b5cde5); }
+.dashboard_register .dashboard_register_type--foreign { color: #8a3029; border-color: rgba(164, 65, 55, 0.5); background: linear-gradient(#f7e7e2, #dfb7ac); }
 .dashboard_register .dashboard_register_character_copy { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr); align-items: center; gap: 20px; flex: 1; min-width: 0; }
 .dashboard_register .dashboard_register_name { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; font: 700 19px/1.15 "Cormorant Garamond", Georgia, serif; overflow-wrap: anywhere; }
 .dashboard_register .dashboard_register_name > a { color: #513724; text-decoration: none; }
 .dashboard_register .dashboard_register_name > a:hover { color: var(--register-wine); text-decoration: underline; }
 .dashboard_register .dashboard_register_name > a, .dashboard_register .dashboard_register_name > span { min-width: 0; max-width: 100%; }
-.dashboard_register .dashboard_foreign_badge, .dashboard_register .dashboard_npc_badge { margin: 0; border-radius: 2px; font: 600 10px/1.3 "Segoe UI", sans-serif; }
 .dashboard_register .dashboard_register_metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 4px 20px; font-size: 14px; line-height: 1.4; color: #6b4b33; overflow-wrap: anywhere; }
 .dashboard_register .dashboard_register_metadata > span { min-width: 0; }
 .dashboard_register .dashboard_register_row > .dashboard_actions_inline { flex: 0 1 auto; max-width: 100%; gap: 5px; }
@@ -189,6 +195,10 @@
   .dashboard_register .dashboard_layout { grid-template-rows: auto minmax(260px, 1fr); }
 }
 @media (max-width: 840px) {
+  .dashboard_register .dashboard_register_race,
+  .dashboard_register .dashboard_register_uninjured,
+  .dashboard_register .dashboard_register_ep_label { display: none; }
+  .dashboard_register .dashboard_register_metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard_register .dashboard_layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
   .dashboard_register .dashboard_panel--sidebar { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: minmax(0, 120px) minmax(0, 1fr); align-items: center; gap: 6px 12px; border-right: 0; padding: 10px 12px; }
   .dashboard_register .dashboard_logo_wrap { grid-column: 1 / -1; grid-row: 1; }

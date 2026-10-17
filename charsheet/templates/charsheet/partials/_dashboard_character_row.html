@@ -1,6 +1,21 @@
 <div class="dashboard_register_row" data-register-character data-character-name="{{ row.character.name }}" data-character-own="{{ is_own|yesno:'1,0' }}" data-character-npc="{{ row.character.is_npc|yesno:'1,0' }}">
   <div class="dashboard_register_character">
-    <span class="dashboard_register_initial" aria-hidden="true">{{ row.character.name|first }}</span>
+    {% if not is_own %}
+      <span class="dashboard_register_type dashboard_register_type--foreign" title="Fremdcharakter" aria-label="Fremdcharakter">
+        {% include "charsheet/partials/_dashboard_icon.html" with icon="chronicles" %}
+        <span aria-hidden="true">Fremd</span>
+      </span>
+    {% elif row.character.is_npc %}
+      <span class="dashboard_register_type dashboard_register_type--npc" title="NPC" aria-label="NPC">
+        {% include "charsheet/partials/_dashboard_icon.html" with icon="masks" %}
+        <span aria-hidden="true">NPC</span>
+      </span>
+    {% else %}
+      <span class="dashboard_register_type dashboard_register_type--sc" title="Spielercharakter" aria-label="Spielercharakter">
+        {% include "charsheet/partials/_dashboard_icon.html" with icon="bust" %}
+        <span aria-hidden="true">SC</span>
+      </span>
+    {% endif %}
     <div class="dashboard_register_character_copy">
       <div class="dashboard_register_name">
         {% if is_own %}
@@ -10,11 +25,13 @@
         {% else %}
           <span>{{ row.character.name }}</span>
         {% endif %}
-        {% if not is_own %}<span class="dashboard_foreign_badge">Fremdcharakter</span>{% endif %}
-        {% if row.character.is_npc %}<span class="dashboard_npc_badge">NPC</span>{% endif %}
       </div>
       {% if is_own %}
-        <div class="dashboard_register_metadata"><span>{{ row.character.race.name }}</span><span>{{ row.status.experience }}</span><span>{{ row.status.condition }}</span></div>
+        <div class="dashboard_register_metadata">
+          <span class="dashboard_register_race">{{ row.character.race.name }}</span>
+          <span>{% if row.character.is_npc %}{{ row.character.used_experience }} EP <span class="dashboard_register_ep_label">verwendet</span>{% else %}{{ row.status.experience }}{% endif %}</span>
+          <span{% if row.status.condition == "Unverletzt" %} class="dashboard_register_uninjured"{% endif %}>{{ row.status.condition }}</span>
+        </div>
       {% endif %}
     </div>
   </div>
