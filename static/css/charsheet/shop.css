@@ -111,10 +111,15 @@ body.market-modal-open #shopItemWindow { z-index: 1101; }
 .market_group { margin: 0; }
 .market_group summary { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 12px; gap: 12px; align-items: center; list-style: none; min-height: 56px; padding: 13px 20px; border-bottom: 1px solid #d6bea0; color: #70462f; background: linear-gradient(90deg, #ead9bd, #f4e9d7); cursor: pointer; font: 700 18px "Cormorant Garamond", Georgia, serif; }
 .market_group summary:hover { background: linear-gradient(90deg, #e5c9a7, #f1dfc4); }
-.market_group[open] summary { color: #673d29; box-shadow: inset 3px 0 var(--market-red); }
+.market_group[open] > summary { color: #673d29; box-shadow: inset 3px 0 var(--market-red); }
 .market_group summary::-webkit-details-marker { display: none; }
 .market_group summary::after { content: "›"; font-size: 1.2rem; transition: transform 100ms; }
-.market_group[open] summary::after { transform: rotate(90deg); }
+.market_group[open] > summary::after { transform: rotate(90deg); }
+.market_group .market_group { margin-left: 20px; border-left: 1px solid #c6a881; }
+.market_group .market_group > summary { min-height: 44px; padding: 9px 20px 9px 12px; font-size: 16px; background: #f4e9d780; }
+.market_group .market_group > summary:hover { background: #ead5b9; }
+.market_group .market_group[open] > summary { box-shadow: inset 2px 0 #b6926e; }
+.market_group .market_group .market_category_icon { width: 17px; height: 17px; }
 .market_category_icon { width: 21px; height: 21px; object-fit: contain; filter: brightness(0) saturate(100%) invert(26%) sepia(29%) saturate(1100%) hue-rotate(318deg) brightness(93%) contrast(85%); }
 .market_group_count { font-size: 0.75rem; color: #84614a; }
 .market_table { width: 100%; border-collapse: collapse; }

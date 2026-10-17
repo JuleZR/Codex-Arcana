@@ -185,6 +185,7 @@ from .models import (
     DruidCultAspect,
     Item,
     ItemType,
+    ItemSubType,
     ItemSemanticEffect,
     ItemOwnershipEvent,
     ItemPermissionGrant,
@@ -6245,6 +6246,19 @@ class ItemTypeAdmin(admin.ModelAdmin):
         return {} if obj else self.prepopulated_fields
 
 
+@admin.register(ItemSubType)
+class ItemSubTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "plural_name", "slug")
+    search_fields = ("name", "plural_name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+
+    def get_readonly_fields(self, request, obj=None):
+        return ("slug",) if obj else ()
+
+    def get_prepopulated_fields(self, request, obj=None):
+        return {} if obj else self.prepopulated_fields
+
+
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
@@ -6255,6 +6269,7 @@ class ItemAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "item_type",
+        "subtype",
         "quality_preview",
         "invested_cp",
         "price",
@@ -6268,7 +6283,10 @@ class ItemAdmin(admin.ModelAdmin):
     search_fields = (
         "name", "description", "item_type__name", "item_type__slug",
     )
-    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "not_buyable", "not_sellable", "size_class")
+    list_filter = (
+        "item_type", "subtype", "default_quality", "stackable",
+        "is_consumable", "not_buyable", "not_sellable", "size_class",
+    )
     ordering = ("item_type__slug", "name")
     inlines = (
         ArmorStatsInline,

@@ -425,6 +425,34 @@ class ItemType(models.Model):
             raise ValidationError({"icon_key": "Unbekannter Icon-Schlüssel."})
 
 
+class ItemSubType(models.Model):
+    """Optional catalog subdivision without equipment capabilities."""
+
+    slug = models.SlugField(max_length=50, primary_key=True)
+    name = models.CharField(max_length=100)
+    plural_name = models.CharField(max_length=100, blank=True)
+    icon = models.FileField(
+        "SVG-Symbol", upload_to="item_subtype_icons/", blank=True,
+        validators=[FileExtensionValidator(["svg"]), validate_item_type_icon],
+    )
+
+    class Meta:
+        ordering = ["name", "slug"]
+        verbose_name = "Item-Untertyp"
+        verbose_name_plural = "Item-Untertypen"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def icon_url(self):
+        if self.icon:
+            return self.icon.url
+        from django.templatetags.static import static
+
+        return static("img/equipment_icons/item.svg")
+
+
 class Item(models.Model):
     """Inventory item that may be owned, stacked, or equipped."""
 
@@ -457,6 +485,10 @@ class Item(models.Model):
         related_name="items",
     )
     description = models.TextField(null=True, blank=True)
+    subtype = models.ForeignKey(
+        "charsheet.ItemSubType", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="items",
+    )
     image = models.ImageField(upload_to="items/", blank=True, null=True)
 
     stackable = models.BooleanField(default=True)

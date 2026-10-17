@@ -8,16 +8,25 @@
         <span>{{ group.label }}</span>
         <span class="market_group_count">{{ group.items|length }}</span>
       </summary>
+      {% for section in group.sections %}
+      {% if section.key %}
+      <details class="market_group" data-shop-group data-collapse-key="sell:{{ group.key }}:{{ section.key }}">
+        <summary>
+          <img class="market_category_icon" src="{{ section.icon_url }}" alt="" width="28" height="28">
+          <span>{{ section.label }}</span>
+          <span class="market_group_count">{{ section.items|length }}</span>
+        </summary>
+      {% endif %}
       <table class="market_table">
         <tbody>
-          {% for item in group.items %}
+          {% for item in section.items %}
             <tr
               data-shop-item
               data-shop-mode="sell"
               class="tooltip_target"
               data-tooltip-title="{{ item.name|escape }}"
               data-tooltip="{{ item.description|default:'Keine Beschreibung'|escape }}"
-              data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}{% if item.shows_quality %} {{ item.quality_label|lower }}{% endif %}"
+              data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ section.label|lower }} {{ item.description|default:''|lower }}{% if item.shows_quality %} {{ item.quality_label|lower }}{% endif %}"
               data-character-item-id="{{ item.character_item_id }}"
               data-shop-name="{{ item.name|escape }}"
               data-shop-item-type="{{ item.item_type }}"
@@ -35,6 +44,8 @@
           {% endfor %}
         </tbody>
       </table>
+      {% if section.key %}</details>{% endif %}
+      {% endfor %}
     </details>
   {% empty %}
     <p class="shop_empty">Keine verkaufbaren Gegenst&auml;nde vorhanden.</p>

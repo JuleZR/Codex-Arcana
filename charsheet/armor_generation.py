@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 
-from charsheet.models import ArmorStats, Item
+from charsheet.models import ArmorStats, Item, ItemSubType
 
 
 @dataclass(frozen=True)
@@ -317,6 +317,10 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
         )
         component_prices[-1] += target_component_price - sum(component_prices)
 
+    component_subtype, _created = ItemSubType.objects.get_or_create(
+        slug="armor_component",
+        defaults={"name": "Rüstungsteil", "plural_name": "Rüstungsteile"},
+    )
     generated_items: list[Item] = []
 
     for index, (blueprint, covered_zones, _weight_share, _price_share) in enumerate(selected):
@@ -345,6 +349,7 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
         component_item.weight = component_weights[index]
         component_item.price = component_prices[index]
         component_item.item_type_id = "armor"
+        component_item.subtype = component_subtype
         component_item.stackable = False
         component_item.is_consumable = False
         component_item.is_magic = False

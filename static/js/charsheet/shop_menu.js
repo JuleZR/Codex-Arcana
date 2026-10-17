@@ -208,7 +208,9 @@ export function initShopMenu() {
       });
       const counter = group.querySelector(".market_group_count");
       if (counter) counter.textContent = String(count);
-      matchCount += count;
+      if (!group.parentElement?.closest("[data-shop-group]")) {
+        matchCount += count;
+      }
       group.hidden = count === 0;
       if (query && count) {
         group.open = true;

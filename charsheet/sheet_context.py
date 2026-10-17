@@ -1421,23 +1421,11 @@ def _build_damage_gauge_data(
     }
 
 
-SHOP_ARMOR_COMPONENT_GROUP = "armor_component"
-
-
 def _shop_type_groups():
-    categories = list(ItemType.objects.all())
-    groups = [
+    return [
         (category.slug, category.plural_name or category.name)
-        for category in categories
+        for category in ItemType.objects.all()
     ]
-    armor_index = next(
-        (index for index, category in enumerate(categories)
-         if category.is_armor),
-        len(groups) - 1,
-    )
-    groups.insert(armor_index + 1,
-                  (SHOP_ARMOR_COMPONENT_GROUP, "R\u00fcstungsteile"))
-    return groups
 
 
 MODIFIER_SOURCE_LABELS = {
@@ -7837,6 +7825,25 @@ def _build_language_rows(character: Character) -> tuple[list[dict], object]:
     return language_rows, language_entries
 
 
+def _shop_item_sections(items: list[dict]) -> list[dict]:
+    """Keep untyped rows together and group subtypes within each category."""
+    sections = {}
+    for item in items:
+        subtype = item["subtype"]
+        key = subtype.pk if subtype else ""
+        section = sections.setdefault(key, {
+            "key": key,
+            "label": (subtype.plural_name or subtype.name) if subtype else "",
+            "icon_url": subtype.icon_url if subtype else "",
+            "items": [],
+        })
+        section["items"].append(item)
+    return sorted(
+        sections.values(),
+        key=lambda section: (not section["key"], section["label"].casefold()),
+    )
+
+
 def _build_shop_item_groups() -> list[dict]:
     """Build grouped shop rows from all buyable items."""
     grouped_items: dict[str, list[dict]] = {}
@@ -7848,6 +7855,7 @@ def _build_shop_item_groups() -> list[dict]:
         .filter(catalog_group__isnull=True)
         .select_related(
             "item_type",
+            "subtype",
             "default_quality",
             "material__quality_overwrite",
             "armorstats",
@@ -7937,11 +7945,7 @@ def _build_shop_item_groups() -> list[dict]:
                     "effect_summary": magic_item_stats.effect_summary,
                 }
             )
-        group_key = (
-            SHOP_ARMOR_COMPONENT_GROUP
-            if armor_stats is not None and armor_stats.parent_set_id
-            else item.item_type_id
-        )
+        group_key = item.item_type_id
         group_icons[group_key] = item.item_type
         quality_prices = {}
         for tier in qualities:
@@ -7965,6 +7969,7 @@ def _build_shop_item_groups() -> list[dict]:
                 ),
                 "item_type": item.item_type_id,
                 "stackable": bool(item.stackable),
+                "subtype": item.subtype,
                 "base_price": int(item.price),
                 "default_price": item_engine.get_price(),
                 "shows_quality": item.item_type.shows_quality,
@@ -7984,6 +7989,7 @@ def _build_shop_item_groups() -> list[dict]:
             "icon_path": group_icons[item_type].icon_path,
             "icon_url": group_icons[item_type].icon_url,
             "items": grouped_items[item_type],
+            "sections": _shop_item_sections(grouped_items[item_type]),
         }
         for item_type, label in _shop_type_groups()
         if grouped_items.get(item_type)
@@ -8000,6 +8006,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         .exclude(item__not_sellable=True)
         .select_related(
             "item__item_type", "item", "item__armorstats",
+            "item__subtype",
             "item__default_quality", "item__material__quality_overwrite",
             "quality",
             "original_owner_character",
@@ -8015,12 +8022,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality_obj())
         effective_unit_price = item_engine.get_price()
-        armor_stats = getattr(item, "armorstats", None)
-        group_key = (
-            SHOP_ARMOR_COMPONENT_GROUP
-            if armor_stats is not None and armor_stats.parent_set_id
-            else item.item_type_id
-        )
+        group_key = item.item_type_id
         group_icons[group_key] = item.item_type
         grouped_items.setdefault(group_key, []).append(
             {
@@ -8030,6 +8032,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
                 "description": character_item.description or item.description or "",
                 "item_type": item.item_type_id,
                 "amount": int(character_item.amount),
+                "subtype": item.subtype,
                 "stackable": bool(item.stackable),
                 "quality": quality["value"],
                 "quality_label": quality["label"],
@@ -8047,6 +8050,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
             "icon_path": group_icons[item_type].icon_path,
             "icon_url": group_icons[item_type].icon_url,
             "items": grouped_items[item_type],
+            "sections": _shop_item_sections(grouped_items[item_type]),
         }
         for item_type, label in _shop_type_groups()
         if grouped_items.get(item_type)
