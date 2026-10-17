@@ -503,7 +503,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  padding: 0 calc(1.4rem + 4px);
+  padding: 0 9px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -609,6 +609,12 @@
 
 .attribute_table tr.is-temporary-pending .attribute_name_controls {
   opacity: 0.55;
+}
+
+@media (max-width: 900px) {
+  .attribute_name_reset {
+    padding: 0 calc(1.4rem + 4px);
+  }
 }
 
 @media (hover: none) {
