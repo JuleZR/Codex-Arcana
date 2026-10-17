@@ -243,11 +243,11 @@
     if (!root || isEmptyTemplate(root)) {
       return;
     }
-    initFilteredSelects(root);
     var area = field(root, "effect_area");
     if (!area || area._ruleSemanticEffectBoundV2) {
       return;
     }
+    initFilteredSelects(root);
     area._ruleSemanticEffectBoundV2 = true;
     area.addEventListener("change", function () {
       syncEffectForm(root);
@@ -262,19 +262,18 @@
   }
 
   function bindAll() {
-    var rows = document.querySelectorAll(".inline-related:not(.empty-form)");
-    Array.prototype.forEach.call(rows, bind);
-    if (!rows.length) {
-      var area = document.querySelector('form [name$="effect_area"]:not([name*="__prefix__"])');
-      if (area) {
-        bind(area.closest("form"));
-      }
-    }
+    var areas = document.querySelectorAll('form [name$="effect_area"]:not([name*="__prefix__"])');
+    Array.prototype.forEach.call(areas, function (area) {
+      bind(area.closest(".inline-related") || area.closest("form"));
+    });
   }
 
-  document.addEventListener("DOMContentLoaded", bindAll);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindAll);
+  } else {
+    bindAll();
+  }
   document.addEventListener("formset:added", function (event) {
-    initFilteredSelects(event.target);
     bind(event.target);
   });
 })();

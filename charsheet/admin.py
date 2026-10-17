@@ -5213,7 +5213,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
         )
 
 
@@ -5231,7 +5231,7 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
         )
 
 
@@ -5286,7 +5286,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
         )
 
 
@@ -5342,7 +5342,7 @@ class SchoolSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
         )
 
 
@@ -5359,7 +5359,7 @@ class RuneSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
         )
 
 
@@ -6991,7 +6991,7 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
 
     class Media:
         js = (
-            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261014-rank",
+            "charsheet/js/rule_semantic_effect_admin_v2.js?v=20261017-init",
         )
 
 
