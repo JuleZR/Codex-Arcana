@@ -33,6 +33,7 @@ from charsheet.constants import (
     RULE_FLAG_CHOICES,
     VAMPIRE_STATE_UI_LABELS,
     WOUND_PENALTY_IGNORE,
+    WOUND_STAGE_DEFINITIONS,
 )
 from charsheet.models.creatures import (
     ATTRIBUTE_FIELD_MAP,
@@ -2453,6 +2454,13 @@ class CreatureEngine:
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
         wound_label = str(wound_zone["label"] or "")
+        wound_names = dict(zip(
+            WOUND_STAGE_LABELS,
+            (name for _key, name, _penalty in WOUND_STAGE_DEFINITIONS),
+        ))
+        for row in wound_rows:
+            row["display_label"] = wound_names.get(row["label"], row["label"])
+        wound_zone["display_label"] = wound_names.get(wound_label, wound_label)
         if wound_label == "Tod":
             wound_state = "dead"
         elif wound_label == "Koma":
@@ -2513,7 +2521,10 @@ class CreatureEngine:
             "name": self.display_name(),
             "custom_name": self.instance.name_override if self.instance else "",
             "original_card_name": self.instance.original_card_name if self.instance else self.creature.display_name,
-            "creature_name": self.creature.display_name,
+            "creature_name": (
+                self.instance.original_card_name
+                if self.instance else self.creature.display_name
+            ),
             "creature_type": creature_type,
             "typebar_label": f"Kreatur - {creature_type}" if creature_type else "Kreatur",
             "image": self.image(),
@@ -2682,7 +2693,9 @@ class CreatureEngine:
         ):
             choice_label = (self.instance.source_binding.choice_label or "Tiergestalt").strip()
             context["creature_kind_label"] = choice_label
-            context["typebar_label"] = f"{choice_label} - {self.creature.display_name}"
+            context["typebar_label"] = (
+                f"{choice_label} - {context['creature_name']}"
+            )
             if choice_label.casefold() == "tiergestalt":
                 context["name_suffix"] = "Tiergestalt"
             if getattr(self.creature, "_kraftbestie", False):

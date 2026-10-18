@@ -6547,7 +6547,9 @@ def adjust_creature_damage(request, pk: int):
         VampireRules(character_creature).evaluate_life_state()
 
     if _is_partial_request(request):
-        payload = _render_creature_training_payload(request, character_creature)
+        payload = _render_creature_training_payload(
+            request, character_creature, include_training=False,
+        )
         payload["current_damage"] = character_creature.current_damage
         payload["current_aggravated_damage"] = character_creature.current_aggravated_damage
         return JsonResponse(payload)
@@ -6810,7 +6812,9 @@ def _commands_with_met_prerequisites(command_ids: set[int]) -> list[CreatureComm
     )
 
 
-def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
+def _render_creature_training_payload(
+    request, card: CharacterCreature, *, include_training=True,
+) -> dict:
     card_context = CreatureEngine(card).card_context()
     inventory_item_name = ""
     if card.source_character_item_id:
@@ -6837,7 +6841,7 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
     mini_context.pop("training_update_url", None)
     mini_context.pop("reset_choice_url", None)
     mini_context.pop("swarm_update_url", None)
-    return {
+    payload = {
         "ok": True,
         "cardKey": f"creature-{card.pk}",
         "cardTitle": card_context["name"],
@@ -6856,12 +6860,18 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
             {"creature_card": mini_context},
             request=request,
         ),
-        "drawerHtml": render_to_string(
+    }
+    if (
+        include_training
+        or str(card_context.get("wound_penalty", 0))
+        != request.POST.get("wound_penalty")
+    ):
+        payload["drawerHtml"] = render_to_string(
             "charsheet/partials/_creature_training_drawer.html",
             {"training": build_creature_card_training_context(card)},
             request=request,
-        ),
-    }
+        )
+    return payload
 
 
 def _render_pending_creature_choice_payload(

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 {% include "charsheet/partials/_viewport.html" %}
 <title>Debug Card Browser</title>
-<link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}?v=20261001i">
+<link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}?v=20261018-image-edges">
 <link rel="stylesheet" href="{% static 'css/charsheet/sheet-secondary.css' %}">
 <style>
     :root {
@@ -458,8 +458,8 @@
     </div>
 
     <script type="module">
-        import { initCreatureCards } from "{% static 'js/charsheet/creature_card.js' %}?v=20260924a";
-        import { initGodCards } from "{% static 'js/charsheet/god_card.js' %}?v=20260702a";
+        import { initCreatureCards } from "{% static 'js/charsheet/creature_card.js' %}?v=20261018-image-edges";
+        import { initGodCards } from "{% static 'js/charsheet/god_card.js' %}?v=20261018-image-edges";
         import { initTooltips } from "{% static 'js/charsheet/tooltip.js' %}?v=20260924b";
 
         (() => {

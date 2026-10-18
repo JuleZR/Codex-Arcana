@@ -1416,6 +1416,9 @@ class CharacterCreature(models.Model):
         default=default_quality_pk,
     )
     name_override = models.CharField(max_length=100, blank=True, default="")
+    creation_name = models.CharField(
+        max_length=100, blank=True, default="", editable=False,
+    )
     image_override = models.ImageField(upload_to="character_creatures/", blank=True, null=True)
     swarm_image_override = models.ImageField(
         "Eigenes Schwarmbild",
@@ -1560,6 +1563,24 @@ class CharacterCreature(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        if not self.creature_id and not self.creation_name:
+            original_name = (self.name_override or "").strip()
+            if not self._state.adding:
+                saved_names = type(self).objects.filter(pk=self.pk).values(
+                    "creation_name", "name_override",
+                ).first()
+                if saved_names:
+                    original_name = (
+                        saved_names["creation_name"]
+                        or saved_names["name_override"]
+                        or original_name
+                    ).strip()
+            if original_name:
+                self.creation_name = original_name
+                if kwargs.get("update_fields"):
+                    kwargs["update_fields"] = {
+                        *kwargs["update_fields"], "creation_name",
+                    }
         if (
             self._state.adding
             and self.creature_id
@@ -1577,7 +1598,13 @@ class CharacterCreature(models.Model):
 
     @property
     def original_card_name(self):
-        return self.creature.display_name if self.creature_id else "Leere Tierform"
+        if self.creature_id:
+            return self.creature.display_name
+        return (
+            self.creation_name
+            or (self.name_override or "").strip()
+            or "Leere Tierform"
+        )
 
     @property
     def display_name(self):

@@ -22,10 +22,7 @@
         {% elif creature_card.default_image %}
             <img src="{{ creature_card.default_image.url }}" alt="{{ creature_card.name }}">
         {% endif %}
-        <span class="creature-card__death-mark" aria-label="Tot">
-            <span aria-hidden="true">†</span>
-            <strong>TOT</strong>
-        </span>
+        <span class="creature-card__death-mark" aria-hidden="true"></span>
     </figure>
 
     <div class="card-shell">
@@ -140,6 +137,9 @@
             {% else %}
                 <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
             {% endif %}
+            <div class="creature-card__wound-caption" data-creature-wound-caption data-wound-grade="{{ creature_card.wound_zone.label }}"{% if not creature_card.wound_zone.label or creature_card.wound_zone.label == '-' or creature_card.wound_zone.label == 'LP' %} hidden{% endif %}>
+                <strong data-creature-wound-caption-label>{% if creature_card.wound_zone.label == 'Tod' %}Tot{% else %}{{ creature_card.wound_zone.display_label }}{% endif %}</strong>
+            </div>
         </section>
 
         <div
@@ -179,11 +179,16 @@
                 <button type="button" data-creature-damage-action="damage" aria-label="Schaden erhoehen">+</button>
             {% endif %}
             {% for wound in creature_card.wounds %}
-                <span hidden data-creature-wound-row data-label="{{ wound.label }}" data-threshold="{{ wound.threshold }}"></span>
+                <span hidden data-creature-wound-row data-label="{{ wound.label }}" data-display-label="{{ wound.display_label }}" data-threshold="{{ wound.threshold }}"></span>
             {% endfor %}
         </div>
 
         <section class="card-rules creature-card__rules" aria-label="Kreaturenwerte">
+            <div class="creature-card__epitaph">
+                <span aria-hidden="true">✦</span>
+                <strong>Jenseits<span>des Schleiers</span></strong>
+                <em>Einst Gefährten.<br>Nun Erinnerung.</em>
+            </div>
             {% if creature_card.creation_choice %}
                 {% include "charsheet/partials/_creature_creation_controls.html" with choice=creature_card.creation_choice %}
             {% endif %}

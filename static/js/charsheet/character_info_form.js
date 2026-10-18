@@ -1,4 +1,4 @@
-import { initGodCards } from "./god_card.js?v=20260702a";
+import { initGodCards } from "./god_card.js?v=20261018-image-edges";
 
 function comparableFormState(form) {
   return JSON.stringify(

@@ -1,4 +1,4 @@
-import { initGodCards } from "./god_card.js?v=20260702a";
+import { initGodCards } from "./god_card.js?v=20261018-image-edges";
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();

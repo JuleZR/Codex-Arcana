@@ -1,121 +1,7 @@
-import { initGodCards } from "./god_card.js?v=20260702a";
+import { applyCardEdgeColors, initGodCards } from "./god_card.js?v=20261018-image-edges";
 import { openCardImageCropper } from "./card_image_cropper.js";
 
 export function initCreatureCards() {
-  const edgeColorSources = new WeakMap();
-
-  const rgbToHsl = (red, green, blue) => {
-    const r = red / 255;
-    const g = green / 255;
-    const b = blue / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const lightness = (max + min) / 2;
-    const delta = max - min;
-    if (delta === 0) {
-      return [0, 0, lightness];
-    }
-    const saturation = delta / (1 - Math.abs((2 * lightness) - 1));
-    let hue = 0;
-    if (max === r) {
-      hue = ((g - b) / delta) % 6;
-    } else if (max === g) {
-      hue = ((b - r) / delta) + 2;
-    } else {
-      hue = ((r - g) / delta) + 4;
-    }
-    return [((hue * 60) + 360) % 360, saturation, lightness];
-  };
-
-  const hslToRgb = (hue, saturation, lightness) => {
-    const chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation;
-    const section = hue / 60;
-    const component = chroma * (1 - Math.abs((section % 2) - 1));
-    let rgb = [0, 0, 0];
-    if (section < 1) rgb = [chroma, component, 0];
-    else if (section < 2) rgb = [component, chroma, 0];
-    else if (section < 3) rgb = [0, chroma, component];
-    else if (section < 4) rgb = [0, component, chroma];
-    else if (section < 5) rgb = [component, 0, chroma];
-    else rgb = [chroma, 0, component];
-    const match = lightness - (chroma / 2);
-    return rgb.map((value) => Math.round((value + match) * 255));
-  };
-
-  const sampleImageEdge = (pixels, width, startX, endX) => {
-    let red = 0;
-    let green = 0;
-    let blue = 0;
-    let totalWeight = 0;
-    for (let y = 0; y < pixels.height; y += 1) {
-      for (let x = startX; x < endX; x += 1) {
-        const offset = ((y * width) + x) * 4;
-        const alpha = pixels.data[offset + 3] / 255;
-        if (alpha < 0.5) continue;
-        const r = pixels.data[offset];
-        const g = pixels.data[offset + 1];
-        const b = pixels.data[offset + 2];
-        const brightness = Math.max(r, g, b) / 255;
-        const saturation = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
-        const weight = alpha * (0.3 + (brightness * 0.45) + (saturation * 0.8));
-        red += r * weight;
-        green += g * weight;
-        blue += b * weight;
-        totalWeight += weight;
-      }
-    }
-    if (!totalWeight) return null;
-    const [hue, saturation, lightness] = rgbToHsl(
-      red / totalWeight,
-      green / totalWeight,
-      blue / totalWeight,
-    );
-    const adjustedSaturation = saturation < 0.06
-      ? saturation
-      : Math.min(0.78, Math.max(0.28, saturation * 1.2));
-    const adjustedLightness = Math.min(0.52, Math.max(0.22, lightness * 1.12));
-    return hslToRgb(hue, adjustedSaturation, adjustedLightness);
-  };
-
-  const applyCreatureCardEdgeColors = (card) => {
-    if (!(card instanceof HTMLElement)) return;
-    const image = card.querySelector(".card-art img");
-    if (!(image instanceof HTMLImageElement)) {
-      card.style.removeProperty("--creature-card-edge-left");
-      card.style.removeProperty("--creature-card-edge-right");
-      return;
-    }
-    if (image.dataset.creatureEdgeColorBound !== "1") {
-      image.dataset.creatureEdgeColorBound = "1";
-      image.addEventListener("load", () => applyCreatureCardEdgeColors(card));
-    }
-    const source = image.currentSrc || image.src;
-    if (!image.complete || !image.naturalWidth || edgeColorSources.get(image) === source) return;
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 64;
-      canvas.height = 96;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-      if (!context) return;
-      const scale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
-      const drawWidth = image.naturalWidth * scale;
-      const drawHeight = image.naturalHeight * scale;
-      const drawX = (canvas.width - drawWidth) * 0.5;
-      const drawY = (canvas.height - drawHeight) * 0.33;
-      context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-      const edgeWidth = Math.ceil(canvas.width * 0.16);
-      const left = sampleImageEdge(pixels, canvas.width, 0, edgeWidth);
-      const right = sampleImageEdge(pixels, canvas.width, canvas.width - edgeWidth, canvas.width);
-      if (left) card.style.setProperty("--creature-card-edge-left", `rgba(${left.join(", ")}, 0.34)`);
-      if (right) card.style.setProperty("--creature-card-edge-right", `rgba(${right.join(", ")}, 0.34)`);
-      edgeColorSources.set(image, source);
-    } catch (_error) {
-      // Cross-origin images can block canvas reads; the CSS fallback remains usable.
-      edgeColorSources.set(image, source);
-    }
-  };
-
   const getCsrfToken = () => {
     const tokenInput = document.querySelector("input[name='csrfmiddlewaretoken']");
     if (tokenInput instanceof HTMLInputElement && tokenInput.value) {
@@ -154,7 +40,7 @@ export function initCreatureCards() {
       return;
     }
     card.style.setProperty("--creature-rules-font-scale", "1");
-    applyCreatureCardEdgeColors(card);
+    applyCardEdgeColors(card);
   };
 
   const setCreatureCardUnlocked = (card, isUnlocked) => {
@@ -1261,6 +1147,10 @@ export function initCreatureCards() {
         const currentCard = container.querySelector(".creature-card");
         if (nextCard instanceof HTMLElement && currentCard instanceof HTMLElement) {
           currentCard.replaceWith(nextCard);
+          if (wasUnlocked) {
+            setCreatureCardUnlocked(nextCard, true);
+          }
+          bindCreatureCardEditor(nextCard);
           fitCreatureRuleText(nextCard);
         }
       }
@@ -1299,8 +1189,8 @@ export function initCreatureCards() {
         }
         bindCreatureCardEditor(nextCard);
         fitCreatureRuleText(nextCard);
-        initGodCards(container);
       }
+      initGodCards(container);
     });
   };
 
@@ -1412,11 +1302,26 @@ export function initCreatureCards() {
       return;
     }
 
+    let state = damageRequestQueues.get(cluster);
+    if (!state) {
+      state = { queue: Promise.resolve(), pending: [], confirmedDamage: readInt(cluster.dataset.creatureCurrentDamage, 0) };
+      damageRequestQueues.set(cluster, state);
+    }
+    const body = new FormData(form);
+    body.set("wound_penalty", cluster.closest(".creature-card")?.dataset.creatureWoundPenalty || "0");
+    const action = String(body.get("action") || "");
+    const requestUrl = form.getAttribute("action") || window.location.href;
+    state.pending.push(action);
+    applyPreviewDamageAction(cluster, action);
+
+    const renderPendingDamage = () => {
+      renderPreviewDamage(cluster, state.confirmedDamage);
+      state.pending.forEach((pendingAction) => applyPreviewDamageAction(cluster, pendingAction));
+    };
     const request = async () => {
-      const requestUrl = form.getAttribute("action") || window.location.href;
       const response = await fetch(requestUrl, {
         method: "POST",
-        body: new FormData(form),
+        body,
         headers: {
           "X-Requested-With": "XMLHttpRequest",
           Accept: "application/json",
@@ -1427,22 +1332,21 @@ export function initCreatureCards() {
         throw new Error("creature damage update failed");
       }
       const payload = await response.json();
-      if (payload?.cardHtml) {
+      state.confirmedDamage = readInt(payload.current_damage, state.confirmedDamage);
+      state.pending.shift();
+      if (!state.pending.length && payload?.cardHtml) {
         replaceCreatureCardFragments(cluster, payload);
         return;
       }
-      renderPreviewDamage(
-        cluster,
-        readInt(payload.current_damage, readInt(cluster.dataset.creatureCurrentDamage, 0)),
-      );
+      renderPendingDamage();
     };
 
-    const queuedRequest = (damageRequestQueues.get(cluster) || Promise.resolve())
+    state.queue = state.queue
       .then(request)
       .catch(() => {
-        // Keep the card on the table; the unchanged value signals a failed update.
+        state.pending.shift();
+        renderPendingDamage();
       });
-    damageRequestQueues.set(cluster, queuedRequest);
   };
 
   const readInt = (value, fallback = 0) => {
@@ -1483,6 +1387,7 @@ export function initCreatureCards() {
     const rows = Array.from(cluster.querySelectorAll("[data-creature-wound-row]"))
       .map((row) => ({
         label: String(row.getAttribute("data-label") || "-"),
+        displayLabel: String(row.getAttribute("data-display-label") || ""),
         threshold: readInt(row.getAttribute("data-threshold"), 0),
       }))
       .sort((a, b) => a.threshold - b.threshold);
@@ -1491,6 +1396,7 @@ export function initCreatureCards() {
       if (damage >= row.threshold) {
         current = {
           label: row.label,
+          displayLabel: row.displayLabel,
           threshold: row.threshold,
           penalty: woundPenaltyForLabel(row.label),
         };
@@ -1524,6 +1430,15 @@ export function initCreatureCards() {
     }
 
     const zone = woundZoneForDamage(cluster, damage);
+    const caption = card?.querySelector("[data-creature-wound-caption]");
+    if (caption instanceof HTMLElement) {
+      caption.dataset.woundGrade = zone.label;
+      caption.hidden = ["-", "LP"].includes(zone.label);
+      const captionLabel = caption.querySelector("[data-creature-wound-caption-label]");
+      if (captionLabel instanceof HTMLElement) {
+        captionLabel.textContent = zone.label === "Tod" ? "Tot" : zone.displayLabel || zone.label;
+      }
+    }
     if (card instanceof HTMLElement) {
       applyPreviewWoundPenalty(card, zone.penalty);
       const canActWhileOutOfAction = card.dataset.creatureCanActWhileOutOfAction === "true";
