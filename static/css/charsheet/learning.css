@@ -226,6 +226,23 @@
 #learnWindow .learn_cart_scroll .shop_cart_remove_btn:hover { color: #f09a87; }
 #learnWindow .learn_cart_scroll .learn_lang_write input { accent-color: #b08a57; }
 #learnWindow .learn_plan_drawer .learn_trait_spec_label, #learnWindow .learn_plan_drawer .learn_lang_write { color: #d6b894; }
+#learnWindow .learn_plan_drawer .learn_trait_cart_row > td { padding-top: 7px; padding-bottom: 7px; vertical-align: middle; }
+#learnWindow .learn_plan_drawer .learn_cart_entry { display: flex; align-items: center; gap: 16px; min-width: 0; }
+#learnWindow .learn_plan_drawer .learn_cart_entry_title { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; color: #f3d7af; font: 600 16px/1.25 "Cormorant Garamond", Georgia, serif; }
+#learnWindow .learn_plan_drawer .learn_cart_entry_level { color: #c6ab8b; font: 12px/1.4 "Segoe UI", sans-serif; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_control { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; width: auto; min-width: 0; margin: 0; text-align: left; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_label { white-space: nowrap; font: 500 12px/1.4 "Segoe UI", sans-serif; font-variant: normal; letter-spacing: .02em; text-transform: none; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_field { display: flex; flex: 0 0 220px; align-items: center; gap: 8px; width: 220px; min-width: 0; color: #ebcaa0; font: 12px/1.4 "Segoe UI", sans-serif; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_select,
+#learnWindow .learn_plan_drawer .learn_trait_spec_input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 30px; margin: 0; padding: 5px 9px; border: 1px solid #a88962; border-radius: 3px; background: #ebdcc4; box-shadow: inset 0 1px 2px #38282215; color: #513c2d; font: 12px/1.4 "Segoe UI", sans-serif; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_select:hover { border-color: #e3c18d; background: #f4e7d2; }
+#learnWindow .learn_plan_drawer .searchable_choice_trigger { padding-right: 26px; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_select:focus-visible,
+#learnWindow .learn_plan_drawer .learn_trait_spec_input:focus-visible { outline: 2px solid #e3c18d; outline-offset: 2px; }
+#learnWindow .learn_plan_drawer .learn_trait_spec_select:disabled,
+#learnWindow .learn_plan_drawer .learn_trait_spec_input:disabled { opacity: .55; cursor: default; }
+#learnWindow .learn_plan_drawer .learn_trait_cart_row .shop_qty_stepper { padding: 3px 2px; border-bottom: 1px solid #a8896280; }
+#learnWindow .learn_plan_drawer .learn_trait_cart_row [data-learn-cost] { white-space: nowrap; font: 500 14px/1.4 "Segoe UI", sans-serif; }
 #learnWindow .learn_plan_account h3 { margin: 0 0 8px; font: 700 24px "Cormorant Garamond", Georgia, serif; }
 #learnWindow .learn_budget_grid { display: grid; grid-template-columns: 1fr; gap: 3px; }
 #learnWindow .learn_budget_grid .shop_cart_total_row { display: flex; align-items: center; justify-content: space-between; min-height: 25px; padding: 4px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font: 12px "Segoe UI", sans-serif; }

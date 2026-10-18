@@ -1,0 +1,103 @@
+.searchable_choice_native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none;
+}
+
+.searchable_choice_trigger {
+  position: relative;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchable_choice_trigger::after {
+  content: '⌄';
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+}
+
+.learn_trait_spec_field:has(> .searchable_choice_trigger)::after {
+  content: none;
+}
+
+.searchable_choice_panel {
+  position: fixed;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid #a38b68;
+  border-radius: 6px;
+  background: #fff5e3;
+  color: #513b2c;
+  box-shadow: 0 6px 18px #0005;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.searchable_choice_panel:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.searchable_choice_panel .searchable_choice_search {
+  box-sizing: border-box;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid #a38b68;
+  border-radius: 3px;
+  background: #fffaf0;
+  color: inherit;
+  font: inherit;
+}
+
+.searchable_choice_list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.searchable_choice_list > [role='option'] {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchable_choice_list > [role='option']:hover,
+.searchable_choice_list > [role='option']:focus-visible,
+.searchable_choice_list > [aria-selected='true'] {
+  background: #e2d9c8;
+}
+
+.searchable_choice_list > [aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.searchable_choice_empty {
+  padding: 6px 9px;
+}
