@@ -955,11 +955,15 @@ class TraitChoiceDefinition(models.Model):
                 for option in self.entity_options.all()
                 if option.entity is not None
             ]
+        church_rank = self.trait.slug == "adv_church_rank"
         options = [
             {
                 "value": f"organization:{organization.pk}",
                 "label": organization.name,
-                "meta": organization.get_size_category_display(),
+                "meta": (
+                    "" if church_rank
+                    else organization.get_size_category_display()
+                ),
             }
             for organization in Organization.objects.filter(
                 organization_type__in=self.allowed_organization_types.all(),
@@ -971,15 +975,20 @@ class TraitChoiceDefinition(models.Model):
                 "value": (f"custom:{size}" if len(types) == 1
                           else f"custom:{organization_type.pk}:{size}"),
                 "label": (
-                    f"Eigene Organisation: {organization_type.name} ({label})"
+                    f"Eigene Organisation: {organization_type.name}"
+                    + (f" ({label})" if label else "")
                     if len(types) > 1 else f"Eigene Organisation ({label})"
+                    if label else "Eigene Organisation"
                 ),
                 "meta": organization_type.name,
                 "requires_specification": True,
                 "specification_max_length": 200,
             }
             for organization_type in types
-            for size, label in Organization.SizeCategory.choices
+            for size, label in (
+                [(Organization.SizeCategory.SMALL, "")]
+                if church_rank else Organization.SizeCategory.choices
+            )
         )
         return options
 

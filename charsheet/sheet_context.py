@@ -5982,10 +5982,24 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 organization.name
                 if isinstance(organization, Organization) else ""
             )
-            if entry.trait.slug == "adv_guild_membership" and guild_name:
+            if entry.trait.slug in {
+                "adv_guild_membership", "adv_church_rank",
+            } and guild_name:
                 rank = choice.organization_rank
+                article = "der"
+                if entry.trait.slug == "adv_church_rank":
+                    organization_type = (
+                        choice.custom_organization_type
+                        if choice.custom_organization_name
+                        else organization.organization_type
+                    )
+                    if organization_type and (
+                        organization_type.name.strip().casefold()
+                        in {"kult", "zirkel"}
+                    ):
+                        article = "des"
                 guild_memberships.append(
-                    f"{rank or 'Mitglied'} der {guild_name}"
+                    f"{rank or 'Mitglied'} {article} {guild_name}"
                 )
                 guild_tooltip_labels.append(
                     f"{guild_name}: {rank}" if rank else guild_name
