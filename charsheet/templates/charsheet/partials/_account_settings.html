@@ -61,8 +61,16 @@
           <section class="dashboard_account_section" data-account-panel id="accountAppearance">
             <div class="dashboard_account_section_header">
               <h4>Darstellung</h4>
-              <p>Lesemodus und visuelle Dichte für längere Spielsitzungen.</p>
+              <p>Charakterblatt-Design und Lesemodus für deine Spielsitzungen.</p>
             </div>
+            <label class="form_row">
+              <span>Charakterblatt-Design</span>
+              <select class="dashboard_input" name="charsheet_design" id="id_charsheet_design">
+                <option value="classic"{% if request.user.settings.charsheet_design != "codex_os_27" %} selected{% endif %}>Codex Klassik · Standard</option>
+                <option value="codex_os_27"{% if request.user.settings.charsheet_design == "codex_os_27" %} selected{% endif %}>CodexOS 27</option>
+              </select>
+            </label>
+            <h5>Lesemodus</h5>
             <div class="dashboard_account_choice_grid">
               <label class="dashboard_account_choice">
                 <input type="radio" name="theme_mode" value="default"{% if request.user.settings.theme_mode == "default" %} checked{% endif %}>

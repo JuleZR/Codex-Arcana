@@ -2,10 +2,10 @@
   <div class="dashboard_announcements_scroll" tabindex="0" aria-label="Nachrichten durchblättern">
     {% for announcement in announcements %}
       <article class="announcement announcement--{{ announcement.kind }}" data-announcement data-sort-order="{{ announcement.sort_order }}" {% if announcement.expires_at %}data-expires="{{ announcement.expires_at|date:'c' }}"{% endif %}>
-        <div class="announcement_metadata">
-          <time datetime="{{ announcement.created_at|date:'c' }}">{{ announcement.created_at|date:'d.m.Y' }}</time>
-        </div>
         <header class="announcement_header">
+          <div class="announcement_metadata">
+            <time datetime="{{ announcement.created_at|date:'c' }}">{{ announcement.created_at|date:'d.m.Y' }}</time>
+          </div>
           <span class="announcement_kind" role="img" aria-label="{{ announcement.get_kind_display }}" title="{{ announcement.get_kind_display }}">{% if announcement.kind == 'update' %}🆕{% elif announcement.kind == 'warning' %}⚠️{% else %}🚨{% endif %}</span>
           {% if can_manage %}
             <form action="{% url 'delete_announcement' announcement.pk %}" method="post" data-delete-announcement>

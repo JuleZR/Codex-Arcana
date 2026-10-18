@@ -1,0 +1,741 @@
+/* CodexOS 27: dark foundation, walnut headers and light reading surfaces.
+   Loaded only for this account choice and only on screen. */
+body.charsheet-page {
+  --ink: #503524;
+  --ink-soft: #7e6853;
+  --line: #73462d;
+  --os-brass: #c5a16a;
+  --os-divider: #c8a983;
+  --os-accent: #813d36;
+  --os-header:
+    radial-gradient(ellipse at 16% 0%, #bb895b14, transparent 60%),
+    linear-gradient(115deg, #3c2a23, #624737 55%, #34271f);
+  --os-foundation:
+    radial-gradient(ellipse at 16% 0%, #bb895b14, transparent 60%),
+    linear-gradient(115deg, #3c2a23a6, #624737a6 55%, #34271fa6);
+  --os-surface: #f4e5c9f2;
+  --os-sidebar: var(--os-foundation);
+  --os-sidebar-button: linear-gradient(110deg, #573d36, #704e42, #594037);
+  font-family: "Segoe UI", sans-serif;
+}
+
+body.charsheet-page .book-spread > .page,
+body.charsheet-page .book-spread .page--secondary,
+body.charsheet-page .book-spread .page--spells {
+  clip-path: none;
+  border: 1px solid var(--os-brass);
+  border-radius: 0;
+  background: var(--os-foundation) !important;
+  background-blend-mode: normal !important;
+  box-shadow: 0 18px 45px #140c0866, 0 0 0 3px #614837eb;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+body.charsheet-page .page::after {
+  background: none;
+}
+
+body.charsheet-page :is(
+  .char_info_box, .attribute_wrapper, .exp_wrapper, .fame_wrapper,
+  .reputation_wrapper, .language_wrapper, .p1_bottom_right,
+  .p2_panel, .p2_core_stats, .skills_wrapper, .traits_wrapper
+) {
+  border-color: var(--os-divider);
+  border-radius: 0;
+  background: var(--os-surface) !important;
+  box-shadow: none;
+}
+
+body.charsheet-page .p1_bottom_right {
+  background: transparent !important;
+}
+
+body.charsheet-page .exp_value {
+  line-height: 1;
+}
+
+/* The identity area takes the same translucent walnut as the market header. */
+body.charsheet-page .char_info_box {
+  color: #f5eddc;
+  border-color: #97714d;
+  background: var(--os-foundation) !important;
+  box-shadow: inset 0 1px #d9bf9b55;
+}
+
+body.charsheet-page .char_info_table .char_title h1 {
+  color: #f7e9ce;
+  letter-spacing: .04em;
+}
+
+body.charsheet-page .char_info_table .label {
+  color: #dfbf8e;
+  font-family: "Segoe UI", sans-serif;
+}
+
+body.charsheet-page .char_info_table .value {
+  color: #f5eddc;
+  border-color: #c5a16a66;
+  background: #21171126;
+}
+
+body.charsheet-page .char_info_table .char_info_row_title td {
+  border-color: #c5a16a80;
+  background: var(--os-header);
+}
+
+body.charsheet-page .char_info_portrait_frame {
+  border-color: var(--os-brass);
+  border-radius: 0;
+  box-shadow: 0 3px 12px #140c0844;
+}
+
+body.charsheet-page .char_info_edit_btn {
+  color: #f2d8a7;
+  border-color: #c5a16a80;
+  border-radius: 2px;
+  background: #31231d80;
+}
+
+/* Flat section bands replace the separate rounded parchment cards. */
+body.charsheet-page :is(
+  .p2_panel_header, .wallet_header, .reputation_header, .fame_header,
+  .language_wrapper > h2, .exp_wrapper > h2, .fame_wrapper > h2,
+  .traits_wrapper > h2, .skills_wrapper > h2
+) {
+  color: #f7e9ce;
+  border-bottom: 1px solid var(--os-brass);
+  background: var(--os-header);
+  padding: 3px 6px;
+}
+
+body.charsheet-page :is(.p2_panel_header, .wallet_header, .reputation_header, .fame_header) h2 {
+  color: #f7e9ce;
+}
+
+body.charsheet-page .attribute_table :is(.a_header, .a_h_value) {
+  color: #f7e9ce;
+  border-color: var(--os-brass);
+  background: var(--os-header);
+}
+
+body.charsheet-page .attribute_table .attribute {
+  color: var(--ink);
+  border-color: #c8a98380;
+  border-radius: 2px;
+  background: #ead9bd66;
+}
+
+body.charsheet-page .attribute_table .value {
+  border-color: #b69a79;
+  border-radius: 2px;
+  background: #fbefd780;
+  box-shadow: inset 0 1px #fff4dc;
+}
+
+body.charsheet-page .panel_tabs__list {
+  border-color: var(--os-brass);
+  background: var(--os-header);
+}
+
+body.charsheet-page .panel_tabs__tab {
+  color: #dfc9aa;
+  border-radius: 0;
+}
+
+body.charsheet-page .panel_tabs__tab:hover {
+  color: #fff0d2;
+  background: #74503a66;
+}
+
+body.charsheet-page .panel_tabs__tab[aria-selected="true"] {
+  color: #ffe5b8;
+  border-bottom-color: #edce96;
+  background: #813d36;
+}
+
+body.charsheet-page :is(.school_group_header, .spell_group_header) {
+  border-color: var(--os-divider);
+  border-radius: 0;
+  background: #ead9bd;
+  box-shadow: inset 3px 0 var(--os-accent);
+}
+
+body.charsheet-page :is(.school_group_title, .spell_group_title) {
+  color: #70462f;
+}
+
+body.charsheet-page :is(.school_group, .spell_group) {
+  border-color: var(--os-divider);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.charsheet-page .weapons_table th {
+  color: #80563b;
+  background: #e8d7bb;
+  border-color: var(--os-divider);
+}
+
+body.charsheet-page :is(.inventory_storage, .inventory_storage_header) {
+  border-color: var(--os-divider);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.charsheet-page .inventory_storage_header {
+  color: #70462f;
+  background: transparent;
+}
+
+body.charsheet-page .wallet_total {
+  color: #69432b;
+  border-color: #b89569;
+  border-radius: 2px;
+  background: #ead9bd;
+  box-shadow: none;
+}
+
+body.charsheet-page .wallet_total__value {
+  color: #69432b;
+}
+
+body.charsheet-page :is(.schools_filter_input, .wallet_delta_input) {
+  color: var(--ink);
+  border-color: #b69a79;
+  border-radius: 3px;
+  background: #fbefd7;
+  box-shadow: inset 0 2px 5px #bda47a22;
+}
+
+body.charsheet-page :is(.inventory_shop_btn, .wallet_apply_btn) {
+  color: #f9e7c7;
+  border-color: #b68661;
+  border-radius: 2px;
+  background: #813d36;
+  box-shadow: inset 0 1px #e6aa8655;
+}
+
+body.charsheet-page .page :is(button, input, select, summary):focus-visible {
+  outline: 2px solid var(--os-accent);
+  outline-offset: 2px;
+}
+
+body.charsheet-page .page :is(.panel_scroll, .spell_scroll, .skills_scroll) {
+  scrollbar-width: thin;
+  scrollbar-color: #b6926e #eee0c9;
+}
+
+body.charsheet-page .page :is(
+  .skills_table td, .skills_table th, .trait_line, .trait_specification,
+  .language_list li, .reputation_list li
+) {
+  border-color: var(--os-divider);
+}
+
+body.charsheet-page .trait_line {
+  font-family: "Segoe UI", sans-serif;
+  font-size: 0.84rem;
+}
+
+body.charsheet-page .char_info_appearance_trigger.is-interactive:is(:hover, :focus-visible) {
+  color: #ffe0a8;
+}
+
+/* Preserve the vampire sheet's deliberately cool presentation. */
+body.charsheet-page.is-vampire-sheet .book-spread .page {
+  background: #262321a6 !important;
+}
+
+/* Section titles meet the container edges, including its top edge. */
+body.charsheet-page :is(
+  .exp_wrapper, .fame_wrapper, .reputation_wrapper, .language_wrapper
+) {
+  --os-panel-x: 8px;
+  --os-panel-y: 6px;
+}
+
+body.charsheet-page .traits_wrapper {
+  --os-panel-x: 7px;
+  --os-panel-y: 7px;
+}
+
+body.charsheet-page .p2_panel {
+  --os-panel-x: 6px;
+  --os-panel-y: 4px;
+}
+
+body.charsheet-page .p2_damage {
+  padding-bottom: calc(var(--os-panel-y) + 4px);
+}
+
+body.charsheet-page :is(
+  .exp_wrapper > h2, .fame_header, .reputation_header,
+  .language_wrapper > h2, .traits_wrapper > h2,
+  .p2_panel > h2, .p2_panel > .p2_panel_header,
+  .p2_panel > .wallet_header, .p2_panel > .panel_tabs__list,
+  .p2_panel > .core_cols
+) {
+  margin: calc(-1 * var(--os-panel-y)) calc(-1 * var(--os-panel-x)) 4px;
+  padding: 4px var(--os-panel-x);
+  color: #f7e9ce;
+  background: var(--os-header);
+  border-bottom: 1px solid var(--os-brass);
+}
+
+body.charsheet-page .core_cols span {
+  color: #f7e9ce;
+}
+
+body.charsheet-page .fame_header .fame_total_label,
+body.charsheet-page .p2_panel_header .inventory_total_weight {
+  color: #dfbf8e;
+}
+
+body.charsheet-page .fame_header .rank_total_input {
+  color: var(--ink);
+}
+
+body.charsheet-page .attribute_wrapper {
+  padding: 0 8px 4px;
+}
+
+body.charsheet-page .attribute_table {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+body.charsheet-page .attribute_table :is(thead, tbody) {
+  display: grid;
+  gap: 5px;
+}
+
+body.charsheet-page .attribute_table tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, var(--stat-cell-size));
+  gap: 6px;
+}
+
+body.charsheet-page .attribute_table tbody tr {
+  height: var(--stat-cell-size);
+}
+
+body.charsheet-page .attribute_table :is(.a_h_value, .value, .mod, .mod-badge) {
+  width: var(--stat-cell-size);
+  min-width: 0;
+}
+
+body.charsheet-page .attribute_table .a_h_value {
+  padding-inline: 0;
+}
+
+body.charsheet-page .attribute_name_controls {
+  height: 100%;
+}
+
+body.charsheet-page .attribute_table :is(.value, .mod-badge) {
+  display: grid;
+  place-items: center;
+  height: var(--stat-cell-size);
+  padding: 0;
+  border: 1px solid #b69a79;
+  border-radius: 3px;
+  background: #fbefd7;
+  box-shadow: inset 0 1px #fff4dc;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+body.charsheet-page .attribute_table .mod-badge {
+  margin-inline: 0;
+}
+
+body.charsheet-page .attribute_table thead {
+  background: var(--os-header);
+  box-shadow: -8px 0 #3c2a23, 8px 0 #34271f;
+}
+
+body.charsheet-page .attribute_table :is(.a_header, .a_h_value) {
+  background: transparent;
+}
+
+body.charsheet-page .skills_wrapper {
+  padding: 0 0 5px;
+}
+
+body.charsheet-page .load_wrapper {
+  color: #f7e9ce;
+  border-color: var(--os-brass);
+  background: transparent;
+}
+
+body.charsheet-page .load_wrapper :is(.load_label, .load_value) {
+  color: #f7e9ce;
+  border-color: #c5a16a80;
+}
+
+body.charsheet-page .load_wrapper .skill_manager_toggle {
+  color: #d0b99a;
+  border: 1px solid #84684e77;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+body.charsheet-page .load_wrapper .skill_manager_toggle:is(:hover, :focus-visible) {
+  color: #fff0d2;
+  background: #74503a66;
+  border-color: var(--os-brass);
+}
+
+body.charsheet-page .skills_table td.skill_name {
+  padding-left: 9px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 0.84rem;
+}
+
+body.charsheet-page .skills_table th.skills_title {
+  padding-left: 9px;
+}
+
+body.charsheet-page .skills_table :is(th, td):last-child {
+  padding-right: 6px;
+}
+
+body.charsheet-page .skills_table td.skill_name--context {
+  padding-left: 36px;
+}
+
+body.charsheet-page .skills_table td.skill_name--context::before,
+body.charsheet-page .skills_table td.skill_name--context::after {
+  left: 20px;
+}
+
+body.charsheet-page .skills_table thead {
+  background: var(--os-header);
+}
+
+body.charsheet-page .skills_table thead th {
+  color: #f7e9ce;
+  background: transparent;
+  border-color: var(--os-brass);
+}
+
+body.charsheet-page .core_main {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The navigation and card tray share the dark sheet foundation. */
+body.charsheet-page .sheet-sidebar.sheet-window,
+body.charsheet-page .card-hand-host--drawer.is-tray-open {
+  clip-path: none;
+  border: 1px solid var(--os-brass);
+  border-radius: 0;
+  background: var(--os-sidebar);
+  box-shadow: 0 12px 22px #140c0840;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+body.charsheet-page .sheet-sidebar.sheet-window::after {
+  display: none;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__panel {
+  border-color: var(--os-divider);
+  border-radius: 0;
+  background: var(--os-surface);
+  box-shadow: none;
+}
+
+body.charsheet-page .sheet-sidebar :is(
+  .left-tools__panel--actions, .left-tools__panel--dice,
+  .left-tools__panel--notice
+) {
+  border-color: #84684e77;
+  background: transparent;
+}
+
+body.charsheet-page .sheet-sidebar :is(
+  .left-tools__panel--actions, .left-tools__panel--notice
+) {
+  width: 100%;
+  padding: 0;
+  border: 0;
+}
+
+body.charsheet-page .sheet-sidebar :is(
+  .left-tools__icon_btn, .left-tools__icon_btn--link,
+  .sheet-dice-dock__btn, .left-tools__notice_trigger
+) {
+  color: #d0b99a;
+  border-color: #84684e77;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__icon_frame {
+  color: inherit;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.charsheet-page .sheet-sidebar :is(
+  .left-tools__icon_symbol, .learn_choice_notice_icon, .learn_choice_notice_text
+) {
+  color: inherit;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__icon_symbol {
+  color: #f5cd8c;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__icon_label {
+  color: inherit;
+  font-family: "Segoe UI", sans-serif;
+  font-weight: 600;
+}
+
+body.charsheet-page .sheet-sidebar :is(
+  .left-tools__icon_btn, .left-tools__icon_btn--link,
+  .sheet-dice-dock__btn, .left-tools__notice_trigger
+):is(:hover, :focus-visible) {
+  color: #fff0d2;
+  background: #74503a66;
+  border-color: #84684e77;
+  box-shadow: none;
+  filter: none;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__panel--actions .left-tools__icon_btn {
+  color: #ead9c0;
+  border-color: #a88664;
+  background: var(--os-sidebar-button);
+  box-shadow: inset 0 1px #d6b18a26;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__panel--actions .left-tools__icon_symbol {
+  color: #d9bf96;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__panel--actions .left-tools__icon_btn:is(:hover, :focus-visible) {
+  color: #ead9c0;
+  border-color: #a88664;
+  background: var(--os-sidebar-button);
+  box-shadow: inset 0 1px #d6b18a26;
+  filter: brightness(1.06);
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__icon_btn--exit {
+  color: #ead9c0;
+  border-color: #a88664;
+  background: var(--os-sidebar-button);
+  box-shadow: inset 0 1px #d6b18a26;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__icon_btn--exit:is(:hover, :focus-visible) {
+  color: #ead9c0;
+  border-color: #a88664;
+  background: var(--os-sidebar-button);
+  box-shadow: inset 0 1px #d6b18a26;
+  filter: brightness(1.06);
+}
+
+body.charsheet-page .sheet-sidebar :is(button, a):focus-visible {
+  outline: 2px solid var(--os-brass);
+  outline-offset: 2px;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__panel--notice .left-tools__notice_trigger {
+  color: #ead9c0;
+  border-color: #a88664;
+  background: linear-gradient(95deg, #6c2e2a, #4b2925);
+  box-shadow: inset 0 1px #e6aa8633;
+  filter: none;
+  animation: none;
+}
+
+body.charsheet-page .sheet-sidebar :is(
+  .learn_choice_notice_icon, .learn_choice_notice_text
+) {
+  --os-notice-rest: #ead9c0;
+  color: var(--os-notice-rest);
+  animation: codex-os-notice-pulse 4.2s ease-in-out infinite;
+  text-shadow: none;
+}
+
+body.charsheet-page .sheet-sidebar .learn_choice_notice_icon {
+  --os-notice-rest: #f5cd8c;
+  font-size: 1.1rem;
+}
+
+body.charsheet-page .sheet-sidebar .learn_choice_notice_text {
+  font-family: "Segoe UI", sans-serif;
+  font-weight: 600;
+}
+
+@keyframes codex-os-notice-pulse {
+  0%, 100% {
+    color: var(--os-notice-rest);
+  }
+  50% {
+    color: #ff0000;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.charsheet-page .sheet-sidebar :is(
+    .learn_choice_notice_icon, .learn_choice_notice_text
+  ) {
+    animation: none;
+  }
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__group--resource {
+  padding: 0;
+  overflow: visible;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__panel--resources {
+  padding: 0;
+  background: transparent;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__group--resource + .left-tools__group--resource {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px solid var(--os-divider);
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__group--resource .left-tools__form {
+  margin: 0 8px 8px;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__group h3 {
+  margin: 0 0 4px;
+  padding: 5px 8px;
+  color: #f7e9ce;
+  background: var(--os-header);
+  border-bottom: 1px solid var(--os-brass);
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__apply {
+  color: #ead9c0;
+  border-color: #a88664;
+  border-radius: 3px;
+  background: var(--os-sidebar-button);
+  box-shadow: inset 0 1px #d6b18a26;
+}
+
+body.charsheet-page .sheet-sidebar .left-tools__apply:not(:disabled):is(:hover, :focus-visible) {
+  filter: brightness(1.06);
+}
+
+body.charsheet-page .sheet-sidebar .wallet_delta_input.left-tools__delta_input {
+  color: var(--ink);
+  border-color: var(--os-divider);
+  border-radius: 2px;
+  background: #fbefd7e6;
+  box-shadow: none;
+}
+
+/* Skill management follows the same window and action-button palette. */
+body.charsheet-page .skill_manager_menu {
+  color: var(--ink);
+  border-color: var(--os-brass);
+  border-radius: 0;
+  background: var(--os-sidebar);
+  box-shadow: 0 12px 24px #140c0866, 0 0 0 3px #614837eb;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+body.charsheet-page .skill_manager_menu_header {
+  color: #f7e9ce;
+  border-color: var(--os-brass);
+  background: var(--os-header);
+}
+
+body.charsheet-page .skill_manager_search_wrap {
+  border-color: var(--os-divider);
+  background: var(--os-surface);
+}
+
+body.charsheet-page .skill_manager_search {
+  color: var(--ink);
+  border-color: #b69a79;
+  border-radius: 3px;
+  background: #fbefd7;
+  box-shadow: inset 0 2px 5px #bda47a22;
+}
+
+body.charsheet-page .skill_manager_filter_button,
+body.charsheet-page .skill_manager_filter[open] .skill_manager_filter_button,
+body.charsheet-page .skill_manager_action:not(.skill_manager_action--locked) {
+  color: #f9e7c7;
+  border-color: #b68661;
+  border-radius: 3px;
+  background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c);
+  box-shadow: inset 0 1px #e6aa8655;
+  text-shadow: none;
+}
+
+body.charsheet-page .skill_manager_filter_button:hover,
+body.charsheet-page button.skill_manager_action:hover {
+  filter: brightness(1.12);
+}
+
+body.charsheet-page .skill_manager_filter_menu {
+  border-color: var(--os-brass);
+  border-radius: 0;
+  background: var(--os-sidebar);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+body.charsheet-page .skill_manager_filter_option {
+  color: #d0b99a;
+  border-radius: 3px;
+}
+
+body.charsheet-page .skill_manager_filter_option:is(:hover, :focus-visible) {
+  color: #fff0d2;
+  background: #74503a66;
+}
+
+body.charsheet-page .skill_manager_filter_option.is-active {
+  color: #ffe5b8;
+  background: #813d36;
+}
+
+body.charsheet-page .skill_manager_menu_list {
+  background: var(--os-surface);
+  scrollbar-width: thin;
+  scrollbar-color: #b6926e #eee0c9;
+}
+
+body.charsheet-page .skill_manager_item {
+  border-bottom: 1px solid #c8a98366;
+  border-radius: 0;
+}
+
+body.charsheet-page .skill_manager_item:nth-child(odd) {
+  background: #ead9bd40;
+}
+
+body.charsheet-page .skill_manager_action--locked {
+  color: var(--ink-soft);
+  border-color: var(--os-divider);
+  border-radius: 3px;
+  background: #ead9bd66;
+  box-shadow: none;
+  text-shadow: none;
+}

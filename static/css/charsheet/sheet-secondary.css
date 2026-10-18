@@ -3727,28 +3727,31 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
   width: 100%;
   min-height: 0;
   max-height: var(--tooltip-card-max-height);
-  padding: 16px 16px 18px;
+  padding: 0;
   box-sizing: border-box;
-  border: 1px solid rgba(95, 69, 42, 0.92);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(38, 27, 17, 0.96), rgba(20, 15, 11, 0.98));
+  border: 6px solid #614837eb;
+  border-radius: 0;
+  background: transparent;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   box-shadow:
-    0 24px 54px rgba(0, 0, 0, 0.42),
-    inset 0 0 0 1px rgba(196, 159, 107, 0.18);
-  color: #ead9b1;
+    0 24px 54px #140c0877,
+    inset 0 0 0 1px #c5a16a;
+  color: #503524;
   overflow: hidden;
 }
 
 .floating-tooltip-card__frame::before {
   content: "";
   position: absolute;
-  inset: 8px;
-  border: 1px solid rgba(180, 143, 91, 0.3);
-  border-radius: 8px;
+  inset: 0;
+  border: 1px solid #c5a16a80;
+  border-radius: 0;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -3758,7 +3761,10 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 2px 30px 0 2px;
+  padding: 12px 44px 12px 18px;
+  border-bottom: 2px solid #b7976b;
+  background: radial-gradient(ellipse at 16% 0%, #bb895b25, transparent 60%), linear-gradient(115deg, #3c2a23e6, #624737e6 55%, #34271fe6);
+  color: #f5eddc;
   cursor: grab;
   user-select: none;
 }
@@ -3778,10 +3784,10 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   line-height: 1.12;
   letter-spacing: 0.03em;
   text-transform: none;
-  font-weight: 600;
-  font-variant: small-caps;
-  font-variant-caps: small-caps;
-  color: #e7d2a3;
+  font-weight: 700;
+  font-variant: normal;
+  font-variant-caps: normal;
+  color: #f7e9ce;
 }
 
 .floating-tooltip-card__subtitle {
@@ -3798,8 +3804,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .floating-tooltip-card__close {
   position: absolute;
-  top: -2px;
-  right: 0;
+  top: 3px;
+  right: 3px;
   z-index: 1;
   width: 24px;
   height: 24px;
@@ -3837,7 +3843,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   position: absolute;
   inset: 4px;
   border: 1px solid rgba(173, 131, 79, 0.34);
-  border-radius: 999px;
+  border-radius: 50%;
   opacity: 0.7;
   transition:
     opacity 140ms ease,
@@ -3862,29 +3868,26 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   flex: 0 0 auto;
-  gap: 14px;
+  gap: 0;
   min-height: 0;
   overflow: hidden;
+  background: linear-gradient(135deg, #fcf7ed, #f1e5d1);
 }
 
 .floating-tooltip-card__content.has-media {
   grid-template-columns: minmax(130px, var(--tooltip-card-media-width)) minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
 }
 
 .floating-tooltip-card__details,
 .floating-tooltip-card__lore {
   box-sizing: border-box;
   max-width: 100%;
-  border: 1px solid rgba(145, 111, 67, 0.72);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(230, 214, 183, 0.97), rgba(197, 173, 132, 0.95)),
-    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
-  color: rgba(50, 34, 20, 0.96);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 243, 214, 0.5),
-    inset 0 0 0 1px rgba(111, 83, 50, 0.18);
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(135deg, #fcf7ed, #f1e5d1);
+  color: #503524;
+  box-shadow: none;
 }
 
 .floating-tooltip-card__media {
@@ -3894,15 +3897,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   height: var(--tooltip-card-media-height);
   min-height: 0;
   max-height: var(--tooltip-card-media-height);
-  margin-top: 4px;
-  background:
-    linear-gradient(180deg, rgba(230, 214, 183, 0.97), rgba(197, 173, 132, 0.95)),
-    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  margin-top: 0;
+  background: #f1e5d1;
   border: 0;
   border-radius: 0;
   box-shadow: none;
   position: relative;
-  clip-path: polygon(10% 2%, 90% 0%, 98% 12%, 100% 88%, 90% 100%, 12% 98%, 0% 88%, 2% 10%);
   isolation: isolate;
 }
 
@@ -3919,22 +3919,16 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card__media::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  border: 8px solid rgba(221, 194, 146, 0.9);
-  border-image: linear-gradient(180deg, rgba(245, 228, 197, 0.96), rgba(178, 142, 95, 0.92)) 1;
-  clip-path: inherit;
-  box-shadow:
-    inset 0 0 0 1px rgba(101, 68, 34, 0.22),
-    0 8px 18px rgba(0, 0, 0, 0.16);
+  content: none;
 }
 
 .floating-tooltip-card--spell .floating-tooltip-card__frame,
 .floating-tooltip-card--technique .floating-tooltip-card__frame {
-  border-color: color-mix(in srgb, var(--tooltip-card-accent) 58%, rgba(95, 69, 42, 0.92) 42%);
+  border-color: color-mix(in srgb, var(--tooltip-card-accent) 24%, #614837 76%);
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__header,
+.floating-tooltip-card--technique .floating-tooltip-card__header {
   background:
     radial-gradient(
       circle at 12% 10%,
@@ -3943,13 +3937,10 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--tooltip-card-accent) 18%, rgba(38, 27, 17, 0.96) 82%),
-      color-mix(in srgb, var(--tooltip-card-accent) 10%, rgba(20, 15, 11, 0.98) 90%)
+      color-mix(in srgb, var(--tooltip-card-accent) 18%, #3c2a23e6 82%),
+      color-mix(in srgb, var(--tooltip-card-accent) 10%, #624737e6 90%)
     );
-  box-shadow:
-    0 24px 54px rgba(0, 0, 0, 0.42),
-    0 0 22px color-mix(in srgb, var(--tooltip-card-accent) 28%, transparent 72%),
-    inset 0 0 0 1px color-mix(in srgb, var(--tooltip-card-accent) 30%, rgba(196, 159, 107, 0.18) 70%);
+  border-bottom-color: color-mix(in srgb, var(--tooltip-card-accent) 30%, #b7976b 70%);
 }
 
 .floating-tooltip-card--spell .floating-tooltip-card__header {
@@ -4088,6 +4079,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   overflow: visible;
   flex: 0 0 auto;
   padding: 12px 14px;
+  border-bottom: 1px solid #c8a983;
 }
 
 .floating-tooltip-card__details,
@@ -4161,19 +4153,19 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card--skill .floating-tooltip-card__frame {
   width: 100%;
   max-height: min(560px, calc(100vh - 28px));
-  gap: 6px;
-  padding: 12px 12px 14px;
-  border-radius: 10px;
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__frame::before {
-  inset: 6px;
-  border-radius: 7px;
+  inset: 0;
+  border-radius: 0;
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__header {
   gap: 8px;
-  padding: 0;
+  padding: 10px 40px 10px 12px;
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__title {
@@ -4193,7 +4185,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__content {
-  gap: 10px;
+  gap: 0;
   min-height: 0;
   overflow: hidden;
 }

@@ -37,10 +37,17 @@ from .religion_rules import (
 
 
 class UserSettingsForm(forms.ModelForm):
+    charsheet_design = forms.ChoiceField(
+        choices=UserSettings.CharsheetDesign.choices,
+        required=False,
+        label="Charakterblatt-Design",
+    )
+
     class Meta:
         model = UserSettings
         fields = [
             "theme_mode",
+            "charsheet_design",
             "print_include_inventory",
             "print_include_notes",
             "print_compact",
@@ -62,6 +69,13 @@ class UserSettingsForm(forms.ModelForm):
         widgets = {
             "dddice_room_password": forms.PasswordInput(render_value=True),
         }
+
+    def clean_charsheet_design(self):
+        return (
+            self.cleaned_data.get("charsheet_design")
+            or self.instance.charsheet_design
+            or UserSettings.CharsheetDesign.CLASSIC
+        )
 
     def clean(self):
         cleaned_data = super().clean()

@@ -749,7 +749,7 @@ body.sheet-feedback--error::after {
 }
 
 /* Compact character windows share the bronze and paper treatment of the slot editor. */
-.character-info-window.sheet-window:is(#charInfoWindow, #appearanceDetailWindow) {
+.character-info-window.sheet-window:is(#charInfoWindow, #appearanceDetailWindow, .specification-window) {
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -817,7 +817,7 @@ body.sheet-feedback--error::after {
   letter-spacing: 0;
 }
 
-.character-info-window .payday-window__close {
+.character-info-window:not(.specification-window) .payday-window__close {
   position: relative;
   flex: 0 0 30px;
   width: 30px;
@@ -831,12 +831,12 @@ body.sheet-feedback--error::after {
   text-indent: 0;
 }
 
-.character-info-window .payday-window__close::before,
-.character-info-window .payday-window__close::after {
+.character-info-window:not(.specification-window) .payday-window__close::before,
+.character-info-window:not(.specification-window) .payday-window__close::after {
   display: none;
 }
 
-.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__body {
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow, .specification-window) .sheet-window__body {
   padding: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -845,25 +845,116 @@ body.sheet-feedback--error::after {
   background: linear-gradient(135deg, #fcf7ed, #f1e5d1);
 }
 
-.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__editor-shell {
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow, .specification-window) .sheet-window__editor-shell {
   padding: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__editor-pane {
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow, .specification-window) .sheet-window__editor-pane {
   padding: 20px;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.character-info-window:is(#charInfoWindow, #appearanceDetailWindow) .sheet-window__surface--form {
+.character-info-window:is(#charInfoWindow, #appearanceDetailWindow, .specification-window) .sheet-window__surface--form {
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.specification-window.sheet-window {
+  width: min(480px, calc(100vw - 32px));
+  box-sizing: border-box;
+}
+
+.specification-window.character-info-window .sheet-window__header {
+  padding-right: 32px;
+}
+
+.specification-window .sheet-window__close.payday-window__close {
+  position: absolute;
+  inset: 2px 2px auto auto;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+}
+
+.specification-window .sheet-window__close.payday-window__close::before {
+  font: 16px/1 Arial, sans-serif;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.specification-window .sheet-window__close.payday-window__close::after {
+  inset: 0;
+}
+
+.specification-window.character-info-window .sheet-window__body {
+  background: linear-gradient(135deg, #fcf7edf2, #f1e5d1e6);
+}
+
+.specification-window.character-info-window .sheet-window__title {
+  overflow-wrap: anywhere;
+}
+
+.specification-window.character-info-window .sheet-window__editor-form {
+  gap: 20px;
+}
+
+.specification-window.character-info-window .shop_item_form_row > span:first-child {
+  color: #674a35;
+  font: 12px/1.4 "Segoe UI", sans-serif;
+}
+
+.specification-window.character-info-window .shop_item_form_row :is(input, select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #d0bda0;
+  border-radius: 2px;
+  color: #503524;
+  background: linear-gradient(#fffaf2, #f8eddb);
+  box-shadow: inset 0 1px 3px #6147290c;
+  font: 14px "Segoe UI", sans-serif;
+}
+
+.specification-window.character-info-window .shop_item_form_actions {
+  gap: 10px;
+  padding: 14px 0 0;
+  border-top: 1px solid #d5c3a7;
+}
+
+.specification-window.character-info-window :is(.shop_item_cancel_btn, .shop_item_save_btn) {
+  min-height: 34px;
+  padding: 7px 16px;
+  border: 1px solid #cbb292;
+  border-radius: 2px;
+  color: #79573c;
+  background: #eee0ca;
+  box-shadow: none;
+  font: 12px "Segoe UI", sans-serif;
+}
+
+.specification-window.character-info-window .shop_item_save_btn {
+  border-color: #ae7955;
+  color: #ffe9c7;
+  background: linear-gradient(155deg, #984a39, #713529);
+}
+
+.specification-window.character-info-window button:hover {
+  filter: brightness(1.08);
+}
+
+.specification-window.character-info-window :focus-visible {
+  outline: 2px solid #c5a16a;
+  outline-offset: 2px;
 }
 
 #charInfoWindow.character-info-window .sheet-window__editor-form {

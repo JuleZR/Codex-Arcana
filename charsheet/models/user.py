@@ -3,6 +3,10 @@ from django.db import models
 
 
 class UserSettings(models.Model):
+    class CharsheetDesign(models.TextChoices):
+        CLASSIC = "classic", "Codex Klassik"
+        CODEX_OS_27 = "codex_os_27", "CodexOS 27"
+
     class ThemeMode(models.TextChoices):
         DEFAULT = "default", "Standard"
         COMPACT = "compact", "Kompakt"
@@ -19,6 +23,11 @@ class UserSettings(models.Model):
         max_length=24,
         choices=ThemeMode.choices,
         default=ThemeMode.DEFAULT,
+    )
+    charsheet_design = models.CharField(
+        max_length=24,
+        choices=CharsheetDesign.choices,
+        default=CharsheetDesign.CLASSIC,
     )
     print_include_inventory = models.BooleanField(default=True)
     print_include_notes = models.BooleanField(default=True)

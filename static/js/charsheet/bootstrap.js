@@ -6,12 +6,12 @@ import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-i
 import { initFireflies } from "./fireflies.js";
 import { initItemForm } from "./item_form.js?v=20261017-multi-skills";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
-import { initTechniqueSpecModal } from "./technique_spec_modal.js";
+import { initTechniqueSpecModal } from "./technique_spec_modal.js?v=20261018-specification-title";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20261017-subtypes";
 import { initLearningMenu } from "./learning_menu.js?v=20261017-detail-tables";
 import { initTooltips } from "./tooltip.js?v=20261017-trait-heading";
-import { initInventoryMenu } from "./inventory_menu.js?v=20261017-multi-skills";
+import { initInventoryMenu } from "./inventory_menu.js?v=20261018-popup-top-layer";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";

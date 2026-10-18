@@ -3408,7 +3408,7 @@
 }
 
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_cart_actions,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_actions,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_form_actions,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .sheet-window__footer {
   position: relative;
   padding-top: 18px;
@@ -3416,7 +3416,7 @@
 }
 
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_cart_actions::before,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_actions::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_form_actions::before,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .sheet-window__footer::before {
   content: "";
   position: absolute;
@@ -3428,7 +3428,7 @@
   background: linear-gradient(180deg, rgba(173, 136, 85, 0), rgba(173, 136, 85, 0.03) 30%, rgba(173, 136, 85, 0.08) 100%);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_save_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_save_btn,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) #shopActionBtn {
   border-color: rgba(124, 82, 48, 0.84);
   background:
@@ -3441,7 +3441,7 @@
     0 8px 18px rgba(78, 43, 20, 0.12);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_cancel_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_cancel_btn,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_pick_btn,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_step_btn,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_add_btn {
@@ -3453,8 +3453,8 @@
     0 2px 8px rgba(74, 51, 27, 0.06);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_row input,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_row select,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_form_row input,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_form_row select,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_row textarea,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_multi_select_trigger,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .rune_dropdown_trigger {
@@ -3466,8 +3466,8 @@
     0 1px 1px rgba(108, 76, 44, 0.05);
 }
 
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_row input:focus,
-.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_row select:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_form_row input:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow, .specification-window)) .shop_item_form_row select:focus,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_form_row textarea:focus,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .shop_item_multi_select_trigger:focus-visible,
 .sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow):not(#learnChoiceWindow):not(:where(#runeRetrofitWindow)) .rune_dropdown_trigger:focus-visible {

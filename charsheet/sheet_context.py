@@ -9413,6 +9413,32 @@ def _build_movement_ground(engine, race) -> dict[str, str]:
     }
 
 
+def build_skill_visibility_context(character: Character) -> dict[str, object]:
+    """Build the skill list and manager without unrelated sheet windows."""
+    engine = character.engine
+    load_penalty = engine.load_penalty()
+    skill_rows, _character_skills, manager_rows = _build_skill_rows(
+        character, engine, load_penalty=load_penalty,
+    )
+    carry_state = ItemEngine.carry_state_for_character(character)
+    return {
+        "character": character,
+        "skill_rows": skill_rows,
+        "skill_manager_rows": manager_rows,
+        "core_stats": {
+            "load_value": load_penalty + engine.carry_penalty("load"),
+            "load_carry_base": load_penalty,
+            "load_tooltip": _build_combined_load_tooltip(
+                engine, carry_state,
+                carry_enabled=character.carry_load_enabled,
+            ),
+            "load_tooltip_with_carry": _build_combined_load_tooltip(
+                engine, carry_state, carry_enabled=True,
+            ),
+        },
+    }
+
+
 def build_inventory_partial_context(character: Character) -> dict[str, object]:
     """Build the minimal context needed to redraw the inventory panel."""
     inventory_rows = _build_inventory_rows(character)

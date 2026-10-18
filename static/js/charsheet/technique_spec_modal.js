@@ -41,7 +41,8 @@ export function initTechniqueSpecModal() {
     if (!(trigger instanceof HTMLElement)) {
       return;
     }
-    techniqueSpecWindowTitle.textContent = `${trigger.dataset.techniqueName || "Technik"} bearbeiten`;
+    const techniqueName = (trigger.dataset.techniqueName || "Technik").replace(/\s*:?\s*\*\s*$/, "");
+    techniqueSpecWindowTitle.textContent = `${techniqueName} bearbeiten`;
     techniqueSpecForm.action = trigger.dataset.action || "";
     techniqueSpecInput.value = trigger.dataset.specificationValue || "";
     controller.open();

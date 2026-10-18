@@ -209,6 +209,7 @@ from .sheet_context import (
     build_fame_partial_context,
     build_inventory_partial_context,
     build_item_semantic_effect_partial_context,
+    build_skill_visibility_context,
     build_temporary_attribute_context,
 )
 from .shop import (
@@ -1901,6 +1902,28 @@ def _sheet_partials_response(request, character: Character, *partial_keys: str) 
     )
 
 
+def _skill_visibility_response(request, character: Character) -> JsonResponse:
+    """Refresh only the skill list and visibility manager after a toggle."""
+    character.get_engine(
+        refresh=True,
+        runtime_attribute_adjustments=_temporary_attribute_adjustments(
+            request, character.pk,
+        ),
+    )
+    context = build_skill_visibility_context(character)
+    context["request"] = request
+    return JsonResponse({
+        "ok": True,
+        "characterId": character.pk,
+        "partials": _render_sheet_partials(
+            request, context, ("skills_panel", "load_panel"),
+        ),
+        "openItemTransferCount": ItemTransfer.objects.filter(
+            recipient=character, status=ItemTransfer.Status.PENDING,
+        ).count(),
+    })
+
+
 def _inventory_panel_response(request, character: Character) -> JsonResponse:
     """Render only the inventory panel after local inventory-list mutations."""
     context = build_inventory_partial_context(character)
@@ -2967,7 +2990,7 @@ def add_visible_skill(request, character_id: int, skill_id: int):
     else:
         messages.info(request, f"{skill.name} ist bereits in der Liste vorhanden.")
     if _is_partial_request(request):
-        return _sheet_partials_response(request, character, "character_header")
+        return _skill_visibility_response(request, character)
     return redirect("character_sheet", character_id=character.id)
 
 
@@ -2990,7 +3013,7 @@ def remove_visible_skill(request, character_id: int, skill_id: int):
         character_skill.delete()
         messages.success(request, f"{skill.name} wurde aus der Liste entfernt.")
     if _is_partial_request(request):
-        return _sheet_partials_response(request, character, "character_header")
+        return _skill_visibility_response(request, character)
     return redirect("character_sheet", character_id=character.id)
 
 

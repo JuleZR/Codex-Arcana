@@ -162,6 +162,9 @@ function closeMenu(menu) {
   if (!(trigger instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) {
     return;
   }
+  if (panel.hasAttribute("popover") && typeof panel.hidePopover === "function") {
+    panel.hidePopover();
+  }
   panel.hidden = true;
   panel.style.left = "";
   panel.style.top = "";
@@ -189,6 +192,25 @@ function positionMenuPanel(menu) {
   );
   panel.style.left = `${left}px`;
   panel.style.top = `${top}px`;
+}
+
+function openMenu(menu) {
+  const trigger = menu.querySelector(".inv_menu_trigger");
+  const panel = menu.querySelector(".inv_menu_panel");
+  if (!(trigger instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) {
+    return;
+  }
+  panel.hidden = false;
+  if (typeof panel.showPopover === "function") {
+    panel.setAttribute("popover", "manual");
+    panel.style.inset = "auto";
+    panel.style.margin = "0";
+    panel.showPopover();
+  }
+  trigger.setAttribute("aria-expanded", "true");
+  menu.classList.add("is-open");
+  menu.closest(".inv_row")?.classList.add("is-menu-open");
+  positionMenuPanel(menu);
 }
 
 export function initInventoryMenu({ warningWindowController = null, modifyWindowController = null } = {}) {
@@ -1131,11 +1153,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       event.stopPropagation();
       const panel = menu.querySelector(".inv_menu_panel");
       if (panel instanceof HTMLElement && panel.hidden) {
-        panel.hidden = false;
-        trigger.setAttribute("aria-expanded", "true");
-        menu.classList.add("is-open");
-        menu.closest(".inv_row")?.classList.add("is-menu-open");
-        positionMenuPanel(menu);
+        openMenu(menu);
       } else {
         closeMenu(menu);
       }

@@ -140,10 +140,13 @@
   </div>
 </section>
 
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="skillSpecWindow" aria-hidden="true">
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal character-info-window specification-window" id="skillSpecWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="skillSpecWindowHandle">
-    <h3 class="payday-window__title sheet-window__title" id="skillSpecWindowTitle">Fertigkeit bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="skillSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+    <div class="character-info-window__heading">
+      <span class="character-info-window__eyebrow">Spezifikation · Fertigkeit</span>
+      <h3 class="payday-window__title sheet-window__title" id="skillSpecWindowTitle">Fertigkeit bearbeiten</h3>
+    </div>
+    <button type="button" class="payday-window__close sheet-window__close" id="skillSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">
@@ -167,10 +170,13 @@
   </div>
 </section>
 
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="traitSpecWindow" aria-hidden="true">
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal character-info-window specification-window" id="traitSpecWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="traitSpecWindowHandle">
-    <h3 class="payday-window__title sheet-window__title" id="traitSpecWindowTitle">Trait bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="traitSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+    <div class="character-info-window__heading">
+      <span class="character-info-window__eyebrow">Spezifikation · Vor- / Nachteil</span>
+      <h3 class="payday-window__title sheet-window__title" id="traitSpecWindowTitle">Trait bearbeiten</h3>
+    </div>
+    <button type="button" class="payday-window__close sheet-window__close" id="traitSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">
@@ -198,10 +204,13 @@
   </div>
 </section>
 
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="techniqueSpecWindow" aria-hidden="true">
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal character-info-window specification-window" id="techniqueSpecWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="techniqueSpecWindowHandle">
-    <h3 class="payday-window__title sheet-window__title" id="techniqueSpecWindowTitle">Technik bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="techniqueSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+    <div class="character-info-window__heading">
+      <span class="character-info-window__eyebrow">Spezifikation · Technik</span>
+      <h3 class="payday-window__title sheet-window__title" id="techniqueSpecWindowTitle">Technik bearbeiten</h3>
+    </div>
+    <button type="button" class="payday-window__close sheet-window__close" id="techniqueSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">
@@ -216,7 +225,7 @@
             <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. eine konkrete Auspr&auml;gung der Technik.</p>
           </div>
           <div class="shop_item_form_actions">
-            <button type="submit" class="wax_seal_btn" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+            <button type="submit" class="shop_item_save_btn">Speichern</button>
           </div>
         </form>
       </div>
