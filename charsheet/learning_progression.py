@@ -1211,7 +1211,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         definition.id, []
                     )
                 }
-                if definition.allowed_organization_type_id:
+                if definition.has_organization_types:
                     selected_ids = {
                         f"organization:{object_id}"
                         for _content_type, object_id in existing_targets

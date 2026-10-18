@@ -3267,12 +3267,35 @@ class RaceChoiceDefinitionInline(
     )
 
 
+class TraitChoiceDefinitionAdminForm(forms.ModelForm):
+    class Meta:
+        model = TraitChoiceDefinition
+        fields = "__all__"
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("allowed_organization_types"):
+            if cleaned.get("target_kind") != "entity":
+                self.add_error(
+                    "allowed_organization_types",
+                    "Organisationstypen erfordern eine Entitätsauswahl.",
+                )
+            if self.instance.pk and self.instance.entity_options.exists():
+                self.add_error(
+                    "allowed_organization_types",
+                    "Einzelne Entitätsoptionen zuerst entfernen.",
+                )
+        return cleaned
+
+
 class TraitChoiceDefinitionInline(
     SemanticTargetChoiceAdminMixin, admin.TabularInline,
 ):
     """Inline editor for persistent trait choice definitions."""
 
     model = TraitChoiceDefinition
+    form = TraitChoiceDefinitionAdminForm
+    autocomplete_fields = ("allowed_organization_types",)
     verbose_name_plural = "Trait Choice Definitions"
     fk_name = "trait"
     extra = 0
@@ -3289,7 +3312,7 @@ class TraitChoiceDefinitionInline(
         "allowed_derived_stat",
         "allowed_resource",
         "allowed_proficiency_group",
-        "allowed_organization_type",
+        "allowed_organization_types",
         "sort_order",
         "is_active",
         "description",
@@ -7044,6 +7067,7 @@ class TraitChoiceDefinitionAdmin(
 ):
     """Admin configuration for persistent trait choice definitions."""
 
+    form = TraitChoiceDefinitionAdminForm
     list_display = (
         "name",
         "trait",
@@ -7059,11 +7083,10 @@ class TraitChoiceDefinitionAdmin(
     ordering = ("trait__trait_type", "trait__name", "sort_order", "name")
     autocomplete_fields = (
         "trait", "allowed_attribute", "allowed_skill_category",
-        "allowed_organization_type",
+        "allowed_organization_types",
     )
     list_select_related = (
         "trait", "allowed_attribute", "allowed_skill_category",
-        "allowed_organization_type",
     )
     readonly_fields = ("linked_semantic_effects",)
     inlines = (TraitChoiceEntityOptionInline,)
@@ -7081,7 +7104,7 @@ class TraitChoiceDefinitionAdmin(
                     "allowed_derived_stat",
                     "allowed_resource",
                     "allowed_proficiency_group",
-                    "allowed_organization_type",
+                    "allowed_organization_types",
                     ("sort_order", "is_active"),
                 ),
             },
@@ -7749,6 +7772,7 @@ class CharacterTraitChoiceAdmin(
                     "selected_text",
                     ("selected_content_type", "selected_object_id"),
                     ("custom_organization_name", "custom_organization_size"),
+                    "custom_organization_type",
                 )
             },
         ),

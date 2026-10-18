@@ -892,12 +892,12 @@ class TraitChoiceDefinition(models.Model):
     allowed_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
     allowed_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
     allowed_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
-    allowed_organization_type = models.ForeignKey(
-        OrganizationType, on_delete=models.PROTECT, null=True, blank=True,
+    allowed_organization_types = models.ManyToManyField(
+        OrganizationType, blank=True,
         related_name="trait_choice_definitions",
-        verbose_name="Erlaubter Organisationstyp",
+        verbose_name="Erlaubte Organisationstypen",
         help_text=(
-            "Bietet vorhandene oder eigene Organisationen dieses Typs an. "
+            "Bietet vorhandene oder eigene Organisationen dieser Typen an. "
             "Ränge ergeben sich aus Punkten und Organisationsgröße."
         ),
     )
@@ -910,15 +910,15 @@ class TraitChoiceDefinition(models.Model):
     def clean(self):
         """Prevent contradictory trait choice filters."""
         super().clean()
-        if self.allowed_organization_type_id:
+        if self.has_organization_types:
             if self.target_kind != self.TargetKind.ENTITY:
                 raise ValidationError({
-                    "allowed_organization_type":
+                    "allowed_organization_types":
                         "Organisationstypen erfordern eine Entitätsauswahl.",
                 })
             if self.pk and self.entity_options.exists():
                 raise ValidationError({
-                    "allowed_organization_type":
+                    "allowed_organization_types":
                         "Einzelne Entitätsoptionen zuerst entfernen.",
                 })
         if self.max_choices < self.min_choices:
@@ -942,9 +942,13 @@ class TraitChoiceDefinition(models.Model):
     def __str__(self) -> str:
         return f"{self.trait.name}: {self.name}"
 
+    @property
+    def has_organization_types(self):
+        return bool(self.pk and self.allowed_organization_types.exists())
+
     def entity_choice_options(self):
         """Offer catalog and private organizations of the configured type."""
-        if not self.allowed_organization_type_id:
+        if not self.has_organization_types:
             return [
                 {"value": str(option.pk), "label": str(option.entity),
                  "meta": ""}
@@ -958,17 +962,23 @@ class TraitChoiceDefinition(models.Model):
                 "meta": organization.get_size_category_display(),
             }
             for organization in Organization.objects.filter(
-                organization_type_id=self.allowed_organization_type_id,
+                organization_type__in=self.allowed_organization_types.all(),
             )
         ]
+        types = list(self.allowed_organization_types.all())
         options.extend(
             {
-                "value": f"custom:{size}",
-                "label": f"Eigene Organisation ({label})",
-                "meta": self.allowed_organization_type.name,
+                "value": (f"custom:{size}" if len(types) == 1
+                          else f"custom:{organization_type.pk}:{size}"),
+                "label": (
+                    f"Eigene Organisation: {organization_type.name} ({label})"
+                    if len(types) > 1 else f"Eigene Organisation ({label})"
+                ),
+                "meta": organization_type.name,
                 "requires_specification": True,
                 "specification_max_length": 200,
             }
+            for organization_type in types
             for size, label in Organization.SizeCategory.choices
         )
         return options
@@ -978,8 +988,12 @@ class TraitChoiceDefinition(models.Model):
         """Keep a private organization's name and size in the draft."""
         value = str(value).strip()
         if value.startswith("custom:") and not value.startswith("custom:{"):
+            selection = value.removeprefix("custom:").split(":")
             return "custom:" + json.dumps({
-                "size_category": value.removeprefix("custom:"),
+                "size_category": selection[-1],
+                "organization_type": (
+                    selection[0] if len(selection) == 2 else None
+                ),
                 "name": str(specification).strip(),
             }, ensure_ascii=False)
         return value
@@ -988,17 +1002,23 @@ class TraitChoiceDefinition(models.Model):
         """Resolve a configured option into the entity binding fields."""
         if self.target_kind != self.TargetKind.ENTITY or not self.is_active:
             raise ValidationError("This is not an active entity choice.")
-        if self.allowed_organization_type_id:
+        if self.has_organization_types:
             value = self.serialize_entity_selection(option_id, specification)
             if value.startswith("custom:"):
                 try:
                     data = json.loads(value.removeprefix("custom:"))
                     name = data["name"]
                     size = data["size_category"]
+                    types = self.allowed_organization_types.all()
+                    type_id = data.get("organization_type")
+                    if type_id is None and types.count() == 1:
+                        type_id = types.get().pk
+                    type_id = int(type_id)
                     if (
                         not isinstance(name, str) or not name.strip()
                         or len(name.strip()) > 200
                         or size not in Organization.SizeCategory.values
+                        or not types.filter(pk=type_id).exists()
                     ):
                         raise ValueError
                 except (ValueError, KeyError, TypeError):
@@ -1008,13 +1028,16 @@ class TraitChoiceDefinition(models.Model):
                 return {
                     "custom_organization_name": name.strip(),
                     "custom_organization_size": size,
+                    "custom_organization_type_id": type_id,
                 }
             try:
                 if not value.startswith("organization:"):
                     raise ValueError
                 organization = Organization.objects.get(
                     pk=int(value.removeprefix("organization:")),
-                    organization_type_id=self.allowed_organization_type_id,
+                    organization_type__in=(
+                        self.allowed_organization_types.all()
+                    ),
                 )
             except (ValueError, Organization.DoesNotExist):
                 raise ValidationError(
@@ -1062,7 +1085,7 @@ class TraitChoiceEntityOption(models.Model):
         super().clean()
         if (
             self.definition_id
-            and self.definition.allowed_organization_type_id
+            and self.definition.has_organization_types
         ):
             raise ValidationError(
                 "Ein Organisationstyp ersetzt einzelne Entitätsoptionen."
@@ -1151,6 +1174,11 @@ class CharacterTraitChoice(models.Model):
         "Organisationsgröße", max_length=100, blank=True, default="",
         choices=Organization.SizeCategory.choices,
     )
+    custom_organization_type = models.ForeignKey(
+        OrganizationType, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="private_trait_choices",
+        verbose_name="Typ der eigenen Organisation",
+    )
 
     class Meta:
         ordering = ["character_trait__owner__name", "character_trait__trait__name", "definition__sort_order", "id"]
@@ -1222,17 +1250,29 @@ class CharacterTraitChoice(models.Model):
             raise ValidationError({"definition": "The selected trait choice definition must belong to the same trait."})
         self._validate_target_kind(self.definition.target_kind if self.definition_id else "")
         if self.definition_id and self.definition.target_kind == "entity":
-            if self.definition.allowed_organization_type_id:
+            if self.definition.has_organization_types:
+                types = self.definition.allowed_organization_types.all()
                 if self.custom_organization_name:
+                    if (
+                        not self.custom_organization_type_id
+                        and types.count() == 1
+                    ):
+                        self.custom_organization_type = types.get()
                     if (
                         self.custom_organization_size
                         not in Organization.SizeCategory.values
+                        or not types.filter(
+                            pk=self.custom_organization_type_id,
+                        ).exists()
                     ):
-                        raise ValidationError("Organisationsgröße auswählen.")
+                        raise ValidationError(
+                            "Organisationstyp und Größe auswählen."
+                        )
                 elif (
                     not isinstance(self.selected_entity, Organization)
-                    or self.selected_entity.organization_type_id
-                    != self.definition.allowed_organization_type_id
+                    or not types.filter(
+                        pk=self.selected_entity.organization_type_id,
+                    ).exists()
                 ):
                     raise ValidationError(
                         "Eine Organisation des erlaubten Typs auswählen."
@@ -1242,6 +1282,11 @@ class CharacterTraitChoice(models.Model):
                     "Eigene Organisationen erfordern einen Organisationstyp."
                 )
         if self.custom_organization_size and not self.custom_organization_name:
+            raise ValidationError("Name der eigenen Organisation angeben.")
+        if (
+            self.custom_organization_type_id
+            and not self.custom_organization_name
+        ):
             raise ValidationError("Name der eigenen Organisation angeben.")
         if (
             self.definition_id and self.definition.target_kind == "entity"
@@ -1365,11 +1410,13 @@ class CharacterTraitChoice(models.Model):
             "selected_object_id",
             "custom_organization_name",
             "custom_organization_size",
+            "custom_organization_type",
         } - {required_field}
         if expected_kind == TraitChoiceDefinition.TargetKind.ENTITY:
             disallowed_fields -= {
                 "selected_object_id", "custom_organization_name",
                 "custom_organization_size",
+                "custom_organization_type",
             }
         for field_name in disallowed_fields:
             value = getattr(self, field_name)
@@ -1427,7 +1474,7 @@ class CharacterTraitChoice(models.Model):
     def organization_rank(self):
         """Resolve reached rank thresholds, falling back to the first rank."""
         if self.custom_organization_name:
-            type_id = self.definition.allowed_organization_type_id
+            type_id = self.custom_organization_type_id
             size = self.custom_organization_size
         elif isinstance(self.selected_entity, Organization):
             type_id = self.selected_entity.organization_type_id

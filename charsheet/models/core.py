@@ -480,7 +480,7 @@ class Trait(models.Model):
         """Organization choices replace legacy membership specifications."""
         return bool(self.pk) and any(
             definition.is_active and definition.target_kind == "entity"
-            and definition.allowed_organization_type_id
+            and definition.has_organization_types
             for definition in self.choice_definitions.all()
         )
 

@@ -4144,6 +4144,14 @@ def _creation_entity_choices(trait, choice_map):
             try:
                 custom = json.loads(selected.removeprefix("custom:"))
                 selected = f"custom:{custom['size_category']}"
+                if (
+                    definition.allowed_organization_types.count() > 1
+                    and custom.get("organization_type")
+                ):
+                    selected = (
+                        f"custom:{custom['organization_type']}:"
+                        f"{custom['size_category']}"
+                    )
                 custom_name = custom["name"]
             except (ValueError, KeyError, TypeError):
                 selected = ""
@@ -4153,7 +4161,7 @@ def _creation_entity_choices(trait, choice_map):
             "selected": selected,
             "custom_name": custom_name,
             "organization_choice": bool(
-                definition.allowed_organization_type_id,
+                definition.has_organization_types,
             ),
             "options": definition.entity_choice_options(),
         })
