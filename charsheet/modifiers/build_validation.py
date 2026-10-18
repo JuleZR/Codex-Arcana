@@ -62,7 +62,15 @@ class CharacterBuildValidator:
     def validate(self, selected_ranks: dict[str, int]) -> list[BuildValidationIssue]:
         """Return all detected issues for one build selection."""
         issues: list[BuildValidationIssue] = []
-        normalized = {str(slug): int(level) for slug, level in selected_ranks.items() if int(level) > 0}
+        normalized = {
+            str(slug): int(level)
+            for slug, level in selected_ranks.items()
+            if int(level) > 0 or (
+                int(level) == 0
+                and str(slug) in self.rules
+                and self.rules[str(slug)].min_rank == 0
+            )
+        }
         seen_mutual_pairs: set[tuple[str, str]] = set()
 
         total_refund = 0

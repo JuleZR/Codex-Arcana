@@ -4636,8 +4636,9 @@ def create_character(request):
             trait_choices: dict[str, dict[str, list[str]]] = {}
             trait_specifications: dict[str, dict[str, object]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
-                level = int(request.POST.get(f"dis_{trait.slug}", "0") or 0)
-                if level > 0:
+                raw_level = request.POST.get(f"dis_{trait.slug}", "")
+                level = int(raw_level or 0)
+                if level > 0 or (raw_level == "0" and trait.min_level == 0):
                     disadvantages[trait.slug] = level
                     option_id = _parse_positive_int(
                         request.POST.get(f"dis_spec_option_{trait.slug}", "0")
@@ -4684,8 +4685,9 @@ def create_character(request):
             trait_choices: dict[str, dict[str, list[str]]] = {}
             trait_specifications: dict[str, dict[str, object]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
-                level = int(request.POST.get(f"adv_{trait.slug}", "0") or 0)
-                if level > 0:
+                raw_level = request.POST.get(f"adv_{trait.slug}", "")
+                level = int(raw_level or 0)
+                if level > 0 or (raw_level == "0" and trait.min_level == 0):
                     advantages[trait.slug] = level
                     option_id = _parse_positive_int(
                         request.POST.get(f"adv_spec_option_{trait.slug}", "0")
@@ -5102,7 +5104,9 @@ def create_character(request):
                 "points_display": trait.cost_display(),
                 "points_by_level": list(trait.cost_curve()),
                 "description": description,
-                "value": phase_3_values.get(trait.slug, 0),
+                "value": phase_3_values.get(
+                    trait.slug, "" if trait.min_level == 0 else 0,
+                ),
                 "attribute_choice_definitions": attribute_choice_definitions,
                 "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
                 "has_specification": trait.has_specification,
@@ -5141,7 +5145,9 @@ def create_character(request):
     ).prefetch_related("specification_options").order_by("name")
     for trait in advantage_traits:
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
-        selected_level = phase_4_values.get(trait.slug, 0)
+        selected_level = phase_4_values.get(
+            trait.slug, "" if trait.min_level == 0 else 0,
+        )
         specification_options = sorted(
             trait.specification_options.all(),
             key=lambda option: (option.sort_order, option.name, option.id),
@@ -5206,7 +5212,7 @@ def create_character(request):
                 "value": selected_level,
                 "effective_value": (
                     engine.calc_advantage_cost(trait.slug, selected_level)
-                    if selected_level > 0
+                    if selected_level != ""
                     else 0
                 ),
             }

@@ -45,7 +45,7 @@ def trait_rank_cost(engine, trait: Trait, level: int) -> int:
 
 
 def validate_trait_target_level(engine, trait: Trait, target_level: int) -> str | None:
-    """Validate one post-learning trait level where level 0 means unlearned."""
+    """Validate one post-learning trait level or legacy zero-level removal."""
     level = int(target_level)
     if level < 0:
         return f"{trait.name}: Zielwert ist unter 0."
@@ -88,8 +88,18 @@ def validate_cross_type_trait_selection(
     selected_disadvantages: dict[str, int],
 ) -> list[str]:
     """Validate exclusions between advantages and disadvantages."""
-    active_advantages = {slug for slug, level in selected_advantages.items() if int(level) > 0}
-    active_disadvantages = {slug for slug, level in selected_disadvantages.items() if int(level) > 0}
+    zero_level_slugs = set(Trait.objects.filter(
+        slug__in=set(selected_advantages) | set(selected_disadvantages),
+        min_level=0,
+    ).values_list("slug", flat=True))
+    active_advantages = {
+        slug for slug, level in selected_advantages.items()
+        if int(level) > 0 or (int(level) == 0 and slug in zero_level_slugs)
+    }
+    active_disadvantages = {
+        slug for slug, level in selected_disadvantages.items()
+        if int(level) > 0 or (int(level) == 0 and slug in zero_level_slugs)
+    }
     if not active_advantages or not active_disadvantages:
         return []
     selected_slugs = active_advantages | active_disadvantages

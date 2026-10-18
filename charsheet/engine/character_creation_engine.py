@@ -195,7 +195,7 @@ class CharacterCreationEngine:
                 "sort_order", "id"
             )
         )
-        if level <= 0:
+        if level < trait.min_level:
             return []
         if len(definitions) > level:
             ranked_definitions = [
@@ -280,7 +280,7 @@ class CharacterCreationEngine:
             trait = Trait.objects.filter(
                 slug=slug, trait_type=Trait.TraitType.ADV
             ).first()
-            if trait is None or level <= 0:
+            if trait is None or level < trait.min_level:
                 continue
             modifiers = build_trait_semantic_modifiers(
                 trait_slug=slug, level=level, trait=trait
@@ -369,8 +369,6 @@ class CharacterCreationEngine:
             else self.phase_4_trait_choices()
         )
         for slug, level in selected_traits.items():
-            if level <= 0:
-                continue
             trait = Trait.objects.filter(
                 slug=slug, trait_type=trait_type
             ).first()
@@ -513,12 +511,10 @@ class CharacterCreationEngine:
         selected_advantages = {
             slug
             for slug, level in self.phase_4_advantages().items()
-            if int(level) > 0
         }
         selected_disadvantages = {
             slug
             for slug, level in self.phase_3_disadvantages().items()
-            if int(level) > 0
         }
         if not selected_advantages or not selected_disadvantages:
             return False
@@ -857,9 +853,9 @@ class CharacterCreationEngine:
         from charsheet.models import TraitSpecificationOption
 
         for slug, level in selected.items():
-            if level <= 0:
-                continue
-            trait = Trait.objects.filter(slug=slug, trait_type=trait_type).first()
+            trait = Trait.objects.filter(
+                slug=slug, trait_type=trait_type,
+            ).first()
             if trait is None:
                 return False
             has_options = trait.specification_options.exists()
@@ -1597,7 +1593,7 @@ class CharacterCreationEngine:
         """
         modifiers: list = []
         for slug, level in self.phase_3_disadvantages().items():
-            if level > 0:
+            if level >= 0:
                 trait = Trait.objects.filter(
                     slug=slug, trait_type=Trait.TraitType.DIS
                 ).first()
@@ -1610,7 +1606,7 @@ class CharacterCreationEngine:
                     )
                 )
         for slug, level in self.phase_4_advantages().items():
-            if level > 0:
+            if level >= 0:
                 trait = Trait.objects.filter(
                     slug=slug, trait_type=Trait.TraitType.ADV
                 ).first()
@@ -1645,7 +1641,7 @@ class CharacterCreationEngine:
             ("school", "CharacterSchool", "character", "school",
              {"level__gt": 0}),
             ("trait", "CharacterTrait", "owner", "trait",
-             {"trait_level__gt": 0}),
+             {"trait_level__gte": 0}),
             ("divine_entity", "CharacterDivineEntity", "character",
              "entity", {}),
             ("shaman_patron", "CharacterShamanPatron", "character",
@@ -1814,8 +1810,10 @@ class CharacterCreationEngine:
                 trait = Trait.objects.filter(
                     slug=slug, trait_type=Trait.TraitType.DIS
                 ).first()
-                if trait and level > 0:
-                    spec = self.phase_3_trait_specifications().get(slug, {}) or {}
+                if trait and level >= trait.min_level:
+                    spec = (
+                        self.phase_3_trait_specifications().get(slug, {}) or {}
+                    )
                     character_trait = CharacterTrait.objects.create(
                         owner=character,
                         trait=trait,
@@ -1888,8 +1886,10 @@ class CharacterCreationEngine:
                 trait = Trait.objects.filter(
                     slug=slug, trait_type=Trait.TraitType.ADV
                 ).first()
-                if trait and level > 0:
-                    spec = self.phase_4_trait_specifications().get(slug, {}) or {}
+                if trait and level >= trait.min_level:
+                    spec = (
+                        self.phase_4_trait_specifications().get(slug, {}) or {}
+                    )
                     character_trait = CharacterTrait.objects.create(
                         owner=character,
                         trait=trait,

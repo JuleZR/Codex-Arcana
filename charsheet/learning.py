@@ -969,12 +969,12 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
     planned_advantages = {
         slug: int(row.trait_level)
         for slug, row in trait_rows.items()
-        if row.trait.trait_type == Trait.TraitType.ADV and int(row.trait_level) > 0
+        if row.trait.trait_type == Trait.TraitType.ADV
     }
     planned_disadvantages = {
         slug: int(row.trait_level)
         for slug, row in trait_rows.items()
-        if row.trait.trait_type == Trait.TraitType.DIS and int(row.trait_level) > 0
+        if row.trait.trait_type == Trait.TraitType.DIS
     }
 
     for slug, trait in trait_defs.items():
@@ -999,10 +999,13 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                 "error",
                 "Vampirismus kann im Spiel nur im Rahmen einer bestätigten Bluttaufe bei genau 0 LP erworben werden.",
             )
-        error = engine.validate_trait_target_level(trait, target_level)
+        removing = target_level == (-1 if trait.min_level == 0 else 0)
+        error = engine.validate_trait_target_level(
+            trait, 0 if removing else target_level,
+        )
         if error:
             return "error", error
-        if add == 0:
+        if add == 0 and (slug in trait_rows or trait.min_level != 0):
             continue
         option_id = _read_int(
             post_data, f"learn_trait_spec_option_{slug}", 0
@@ -1019,7 +1022,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             option_id = trait_rows[slug].specification_option_id
             specification = trait_rows[slug].specification
         has_options = trait.specification_options.exists()
-        if target_level == 0:
+        if removing:
             option_id, specification = None, ""
         elif has_options and not organization_choices:
             if option_id is None or not trait.specification_options.filter(
@@ -1037,7 +1040,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         trait_plan[slug] = target_level
         trait_spec_plan[slug] = (option_id, specification)
         target_map = planned_advantages if trait.trait_type == Trait.TraitType.ADV else planned_disadvantages
-        if target_level > 0:
+        if not removing:
             target_map[slug] = target_level
         else:
             target_map.pop(slug, None)
@@ -1531,7 +1534,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                     slug, (None, "")
                 )
                 if trait_row is None:
-                    if target_level <= 0:
+                    if target_level < trait.min_level:
                         continue
                     trait_row = CharacterTrait.objects.create(
                         owner=character,
@@ -1552,7 +1555,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                             ],
                             ignore_conflicts=True,
                         )
-                elif target_level <= 0:
+                elif target_level < trait.min_level:
                     trait_row.delete()
                     trait_rows.pop(slug, None)
                 else:

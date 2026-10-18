@@ -187,21 +187,24 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const max = readInt(row.getAttribute("data-max"), Infinity);
       const pointsPerLevel = readInt(row.getAttribute("data-ppl"), 0);
       const traitType = row.getAttribute("data-trait-type") || "";
-      const minAdd = -base;
+      const minLevel = readInt(row.getAttribute("data-min"), 1);
+      const minAdd = -base - (minLevel === 0 ? 1 : 0);
       const maxAdd = Math.max(0, max - base);
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
-      cost = calcTraitDeltaCost(base, value, pointsPerLevel, traitType);
+      cost = calcTraitDeltaCost(
+        base, Math.max(0, base + value) - base, pointsPerLevel, traitType
+      );
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
       if (infoEl) {
-        infoEl.textContent = `(${base + value})`;
+        infoEl.textContent = base + value < minLevel ? "(nicht gewählt)" : `(${base + value})`;
       }
       valueInput.min = String(minAdd);
       valueInput.max = Number.isFinite(maxAdd) ? String(maxAdd) : "";
       row.querySelectorAll("[data-learn-entity-choice]").forEach((select) => {
-        const active = base + value > 0;
+        const active = base + value >= minLevel;
         select.disabled = !active;
         select.required = active && select.dataset.choiceRequired === "1";
         const nameInput = select.closest("label").querySelector("[data-learn-entity-name]");
@@ -815,12 +818,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const max = readInt(source.getAttribute("data-max"), Infinity);
       const pointsPerLevel = readInt(source.getAttribute("data-ppl"), 0);
       const traitType = source.getAttribute("data-trait-type") || "";
-      const minAdd = -base;
+      const minLevel = readInt(source.getAttribute("data-min"), 1);
+      const minAdd = -base - (minLevel === 0 ? 1 : 0);
       const maxAdd = Math.max(0, max - base);
       if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
-      const startAdd = maxAdd > 0 ? 1 : 0;
+      const startAdd = minLevel === 0 ? 0 : (maxAdd > 0 ? 1 : 0);
       let specificationOptions = [];
       try {
         specificationOptions = JSON.parse(
@@ -875,6 +879,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           </label>`;
       }
       row.classList.add("learn_trait_cart_row");
+      row.setAttribute("data-min", String(minLevel));
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-max", Number.isFinite(max) ? String(max) : "");
       row.setAttribute("data-ppl", String(pointsPerLevel));
