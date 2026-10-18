@@ -27,7 +27,7 @@ import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260919b";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20261001-mobile-tray3";
 import { initGodCards } from "./god_card.js?v=20261018-image-edges";
-import { initCreatureCards } from "./creature_card.js?v=20261018-image-edges";
+import { initCreatureCards } from "./creature_card.js?v=20261018-wound-transitions";
 import { initItemTransfers } from "./item_transfers.js?v=20261015-post1";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20261015-post1";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20261014-attribute-flavor";

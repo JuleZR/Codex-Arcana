@@ -1078,6 +1078,52 @@ export function initCreatureCards() {
     }
   };
 
+  const woundMotionEnabled = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const fadeWoundText = (element) => {
+    if (!(element instanceof HTMLElement) || !woundMotionEnabled()) {
+      return;
+    }
+    element.getAnimations().filter((animation) => animation.id === "creature-wound-text")
+      .forEach((animation) => animation.cancel());
+    element.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: 400, easing: "ease-out", id: "creature-wound-text",
+    });
+  };
+
+  const captureWoundTransition = (card) => {
+    const properties = ["filter", "opacity", "color", "border-color", "box-shadow"];
+    const active = woundMotionEnabled() && card.getAnimations({ subtree: true }).some(
+      (animation) => properties.includes(animation.transitionProperty)
+        || animation.transitionProperty?.startsWith("--creature-panel-")
+        || animation.id === "creature-wound-text",
+    );
+    if (!active) {
+      return () => {};
+    }
+    const snapshots = [
+      ["", ["--creature-panel-light", "--creature-panel-tone"]],
+      [".card-art img", ["filter"]],
+      [".creature-card__death-mark", ["opacity"]],
+      [".creature-card__wound-caption", ["color"]],
+      ["[data-creature-wound-caption-label]", ["opacity"]],
+      [".creature-card__epitaph", ["opacity"]],
+      ...[".card-typebar", ".creature-card__rules", ".creature-card__damage-cluster", ".creature-card__damage-badge"]
+        .map((selector) => [selector, ["color", "border-color", "box-shadow"]]),
+    ].flatMap(([selector, keys]) => {
+      const element = selector ? card.querySelector(selector) : card;
+      if (!(element instanceof HTMLElement)) {
+        return [];
+      }
+      const style = getComputedStyle(element);
+      return [[selector, Object.fromEntries(keys.map((key) => [key, style.getPropertyValue(key)]))]];
+    });
+    return (nextCard) => snapshots.forEach(([selector, frame]) => {
+      const element = selector ? nextCard.querySelector(selector) : nextCard;
+      element?.animate([frame, {}], { duration: 600, easing: "ease-out", id: "creature-wound-text" });
+    });
+  };
+
   const replaceCreatureCardFragments = (drawer, payload) => {
     const floating = drawer.closest("[data-card-hand-floating]");
     const hand = floating?.closest("[data-card-hand]")
@@ -1146,7 +1192,9 @@ export function initCreatureCards() {
         const nextCard = wrapper.querySelector(".creature-card");
         const currentCard = container.querySelector(".creature-card");
         if (nextCard instanceof HTMLElement && currentCard instanceof HTMLElement) {
+          const continueTransition = captureWoundTransition(currentCard);
           currentCard.replaceWith(nextCard);
+          continueTransition(nextCard);
           if (wasUnlocked) {
             setCreatureCardUnlocked(nextCard, true);
           }
@@ -1436,10 +1484,15 @@ export function initCreatureCards() {
       caption.hidden = ["-", "LP"].includes(zone.label);
       const captionLabel = caption.querySelector("[data-creature-wound-caption-label]");
       if (captionLabel instanceof HTMLElement) {
-        captionLabel.textContent = zone.label === "Tod" ? "Tot" : zone.displayLabel || zone.label;
+        const nextLabel = zone.label === "Tod" ? "Tot" : zone.displayLabel || zone.label;
+        if (captionLabel.textContent !== nextLabel) {
+          captionLabel.textContent = nextLabel;
+          fadeWoundText(captionLabel);
+        }
       }
     }
     if (card instanceof HTMLElement) {
+      const previousState = card.dataset.creatureWoundState;
       applyPreviewWoundPenalty(card, zone.penalty);
       const canActWhileOutOfAction = card.dataset.creatureCanActWhileOutOfAction === "true";
       card.dataset.creatureWoundState = zone.label === "Tod"
@@ -1449,6 +1502,13 @@ export function initCreatureCards() {
           : zone.label === "Ausser Gefecht" || zone.label === "Außer Gefecht"
             ? (canActWhileOutOfAction ? "active" : "incapacitated")
             : "active";
+      if (previousState !== card.dataset.creatureWoundState) {
+        fadeWoundText(card.querySelector(".creature-card__epitaph"));
+        if (previousState === "dead") {
+          card.querySelectorAll(".creature-card__oracle-line, .creature-card__core-grid")
+            .forEach(fadeWoundText);
+        }
+      }
     }
     const status = card?.querySelector("[data-creature-wound-status]");
     if (!(status instanceof HTMLElement)) {
