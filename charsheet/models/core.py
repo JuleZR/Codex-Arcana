@@ -338,6 +338,7 @@ class OrganizationTypeRank(models.Model):
     )
     size_category = models.CharField(
         "Größe", max_length=100, choices=Organization.SizeCategory.choices,
+        blank=True, default="",
     )
     name = models.CharField("Rang", max_length=200)
 

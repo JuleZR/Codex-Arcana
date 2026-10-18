@@ -1434,10 +1434,21 @@ class CharacterTraitChoice(models.Model):
             size = self.selected_entity.size_category
         else:
             return ""
+        sizes = list(Organization.SizeCategory.values)
+        eligible_sizes = (
+            list(reversed(sizes[:sizes.index(size) + 1])) if size in sizes else []
+        )
+        eligible_sizes.append("")
         ranks = OrganizationTypeRank.objects.filter(
             organization_type_id=type_id,
-            size_category=size,
+            size_category__in=eligible_sizes,
         )
+        available_sizes = set(ranks.values_list("size_category", flat=True))
+        selected_size = next(
+            (value for value in eligible_sizes if value in available_sizes),
+            "",
+        )
+        ranks = ranks.filter(size_category=selected_size)
         points = self.trait.cost_for_level(self.character_trait.trait_level)
         return (
             ranks.filter(points__lte=points).order_by("-points")
