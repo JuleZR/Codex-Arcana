@@ -422,7 +422,10 @@ class Trait(models.Model):
                     "Unbounded traits require linear per-level costs."
                 ),
             })
-        if curve and len(curve) != int(self.max_level):
+        lengths = {self.max_level}
+        if self.min_level == 0 and self.max_level is not None:
+            lengths.add(self.max_level + 1)
+        if curve and len(curve) not in lengths:
             raise ValidationError(
                 {"points_by_level": (
                     "Provide exactly one cost per level up to max_level."
@@ -430,6 +433,16 @@ class Trait(models.Model):
         if any(value < 0 for value in curve):
             raise ValidationError(
                 {"points_by_level": "Trait costs must be non-negative."})
+        if curve and self.min_level == 0 and (
+            curve[0] != 0
+            or any(right < left for left, right in zip(curve, curve[1:]))
+        ):
+            raise ValidationError({
+                "points_by_level": (
+                    "Zero-based traits require increasing total costs "
+                    "starting with 0 for level 0."
+                ),
+            })
 
     def cost_curve(self) -> tuple[int, ...]:
         """Return explicit per-level costs when configured."""
@@ -448,12 +461,32 @@ class Trait(models.Model):
         """Return whether this trait uses explicit per-level costs."""
         return bool(self.cost_curve())
 
+    def progression_cost_curve(self) -> tuple[int, ...]:
+        """Return paid step costs, excluding the free level-zero entry."""
+        curve = self.cost_curve()
+        if curve and self.min_level == 0:
+            return tuple(
+                right - left for left, right in zip(curve, curve[1:])
+            )
+        return curve
+
+    @property
+    def effective_max_level(self):
+        """Limit zero-based curves to their configured paid ranks."""
+        if self.min_level == 0 and self.cost_curve():
+            maximum = len(self.cost_curve()) - 1
+            return (
+                maximum if self.max_level is None
+                else min(self.max_level, maximum)
+            )
+        return self.max_level
+
     def cost_for_level(self, level: int) -> int:
         """Return the cumulative cost/refund for the selected level."""
         rank = int(level)
         if rank <= 0:
             return 0
-        curve = self.cost_curve()
+        curve = self.progression_cost_curve()
         if curve:
             return int(sum(curve[:rank]))
         return rank * int(self.points_per_level)
@@ -463,7 +496,7 @@ class Trait(models.Model):
         rank = int(level)
         if rank <= 0:
             return 0
-        curve = self.cost_curve()
+        curve = self.progression_cost_curve()
         if curve:
             return int(curve[rank - 1])
         return int(self.points_per_level)

@@ -36,6 +36,7 @@ export function initLearningChronicle(form, cartBody, controller) {
   form.querySelectorAll("[data-tab-panel]").forEach((panel) => {
     const known = sources.filter((source) => panel.contains(source) && (
       (knownKinds.has(source.dataset.kind) && readInt(source.dataset.base, 0) > 0)
+      || (source.dataset.kind === "trait" && source.dataset.owned === "1")
       || ["advanced-remove", "vampire-power-remove", "vampire-buyoff"].includes(source.dataset.kind)
       || (source.dataset.kind === "advanced-weapon" && source.dataset.new === "0")
     ));
@@ -106,9 +107,11 @@ export function initLearningChronicle(form, cartBody, controller) {
       const base = readInt(source.dataset.base, 0);
       const delta = readInt(row?.querySelector("[data-learn-value]")?.value, 0);
       const target = base + delta;
+      const hasZeroRank = source.dataset.kind === "trait" && source.dataset.min === "0";
+      const ownedZero = hasZeroRank && source.dataset.owned === "1";
       const unbounded = source.dataset.kind === "trait" && !source.dataset.max?.trim();
       const max = unbounded ? Math.max(0, base, target) + 1 : readInt(source.dataset.max, 0);
-      if (max < 1 || (!unbounded && max > 30)) return;
+      if ((!hasZeroRank && max < 1) || (!unbounded && max > 30)) return;
       let track = source.querySelector(".learn_rank_track");
       if (!track) {
         track = document.createElement("span");
@@ -121,14 +124,23 @@ export function initLearningChronicle(form, cartBody, controller) {
         || readInt(source.dataset.min, 0) > 0
       );
       const paidLevel = readInt(source.dataset.paidBase, base);
+      const pointCurve = (source.dataset.pointCurve || "").split(",")
+        .filter((value) => value.trim() !== "").map(Number);
       track.setAttribute("aria-label", `Aktuell ${base}, geplant ${target}, ${unbounded ? "ohne Maximum" : `Maximum ${max}`}`);
       track.innerHTML = Array.from({ length: max }, (_, index) => {
         const level = index + 1;
+        if (source.dataset.kind === "trait" && pointCurve[index] === 0) return "";
         const state = level <= Math.min(base, target) ? "owned"
           : level <= target ? "next" : level <= base ? "removed" : "";
         const free = freeLanguage && level > paidLevel && level <= Math.min(3, target);
         return `<span class="learn_rank ${state}${free ? " free" : ""}"${free ? ' title="Kostenlose Sprachstufe (INT-Mod)"' : ""} aria-hidden="true"></span>`;
       }).join("");
+      if (hasZeroRank) {
+        const state = ownedZero ? (target < 0 ? "removed" : "owned") : row && target >= 0 ? "next" : "";
+        const label = ownedZero ? "Stufe 0 vorhanden" : row && target >= 0 ? "Stufe 0 geplant" : "Kostenlose Stufe 0";
+        track.insertAdjacentHTML("afterbegin", `<span class="learn_rank ${state} learn_rank--zero" title="${label}" aria-label="${label}"></span>`);
+        track.setAttribute("aria-label", `${track.getAttribute("aria-label")}, ${label}`);
+      }
       if (source.dataset.kind === "lang") {
         const owned = source.dataset.write === "1";
         const planned = row?.querySelector("[data-learn-lang-write]")?.checked ?? owned;
@@ -191,6 +203,11 @@ export function initLearningChronicle(form, cartBody, controller) {
       Array.from(row.cells).slice(0, 2).reverse().forEach((cell) => {
         const copy = document.createElement("div");
         copy.innerHTML = cell.innerHTML;
+        copy.querySelectorAll(".searchable_choice_trigger, .searchable_choice_panel").forEach((element) => element.remove());
+        copy.querySelectorAll("select.searchable_choice_native").forEach((select) => {
+          select.classList.remove("searchable_choice_native");
+          select.removeAttribute("tabindex");
+        });
         copy.querySelectorAll(".learn_trait_spec_label").forEach((label) => label.remove());
         const language = copy.querySelector(".learn_lang_name_wrap");
         if (language) {
@@ -201,7 +218,8 @@ export function initLearningChronicle(form, cartBody, controller) {
             writing.append(" Lesen & Schreiben");
           }
         }
-        const originals = Array.from(cell.querySelectorAll("input, select, textarea, button"));
+        const originals = Array.from(cell.querySelectorAll("input, select, textarea, button"))
+          .filter((control) => !control.matches(".searchable_choice_trigger") && !control.closest(".searchable_choice_panel"));
         Array.from(copy.querySelectorAll("input, select, textarea, button")).forEach((proxy, index) => {
           const original = originals[index];
           if (proxy.type === "hidden") { proxy.remove(); return; }

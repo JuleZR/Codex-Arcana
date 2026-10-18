@@ -53,10 +53,10 @@
           event.preventDefault();
           if (disabled) return;
           select.value = option.value;
-          select.dispatchEvent(new Event('input', { bubbles: true }));
-          select.dispatchEvent(new Event('change', { bubbles: true }));
           panel.hidePopover();
           trigger.focus();
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          select.dispatchEvent(new Event('input', { bubbles: true }));
         });
         list.append(entry);
       });

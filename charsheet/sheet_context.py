@@ -8564,6 +8564,15 @@ def _build_learning_rows(
                 "selected_label": (
                     choice.selected_target_display() if choice else ""
                 ),
+                "organization_name": (
+                    choice.custom_organization_name
+                    or getattr(choice.selected_entity, "name", "")
+                ) if choice else "",
+                "organization_ranks": list(
+                    choice.organization_ranks.order_by("points").values(
+                        "points", "name",
+                    )
+                ) if choice else [],
                 "options": (
                     [] if choice else definition.entity_choice_options()
                 ),
@@ -8576,10 +8585,11 @@ def _build_learning_rows(
                 "description": (trait.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                 "base_level": base_level,
                 "min_level": int(trait.min_level),
-                "max_level": trait.max_level,
+                "is_owned": entry is not None,
+                "max_level": trait.effective_max_level,
                 "points_per_level": int(trait.points_per_level),
                 "points_display": trait.cost_display(),
-                "points_by_level": list(trait.cost_curve()),
+                "points_by_level": list(trait.progression_cost_curve()),
                 "entity_choices_json": json.dumps(entity_choices),
                 "has_specification": (
                     trait.has_specification and not organization_choices

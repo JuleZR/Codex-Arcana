@@ -140,6 +140,7 @@
 #learnWindow .learn_rank { flex: 1; height: 6px; min-width: 0; border: 1px solid #73604d; background: #514339; }
 #learnWindow .learn_rank_track--unbounded { flex-wrap: wrap; }
 #learnWindow .learn_rank_track--unbounded .learn_rank { flex-basis: 12px; flex-shrink: 0; }
+#learnWindow .learn_rank_track .learn_rank--zero { flex: 0 0 6px; }
 #learnWindow .learn_rank.owned { background: #b0926b; border-color: #c3a276; }
 #learnWindow .learn_rank.next { background: #b85e47; border-color: #da8768; }
 #learnWindow .learn_rank.removed { background: repeating-linear-gradient(45deg, #a16964 0 3px, #392c2c 3px 6px); }

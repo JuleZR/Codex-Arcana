@@ -753,11 +753,12 @@ def _trait_build_rule_preview(trait):
     """Render the current creation/build rule interpretation for one trait."""
     if trait is None:
         return format_html('<span style="color:#666;">{}</span>', "-")
-    maximum = trait.max_level if trait.max_level is not None else "unbounded"
+    level_limit = trait.effective_max_level
+    maximum = level_limit if level_limit is not None else "unbounded"
     if getattr(trait, "pk", None) is None:
         rank_mode = (
             "repeatable"
-            if trait.max_level is None or trait.max_level > 1
+            if level_limit is None or level_limit > 1
             else "single pick"
         )
         if trait.trait_type == Trait.TraitType.ADV:
@@ -775,7 +776,7 @@ def _trait_build_rule_preview(trait):
         )
     rank_mode = (
         "repeatable"
-        if trait.max_level is None or trait.max_level > 1
+        if level_limit is None or level_limit > 1
         else "single pick"
     )
     excluded_traits = {relation.excluded_trait.name for relation in trait.exclusions.all()}
@@ -3498,7 +3499,7 @@ class CharacterTraitInline(admin.TabularInline):
         """Show the trait maximum level for quick reference."""
         if not obj or not obj.trait_id:
             return "-"
-        return obj.trait.max_level
+        return obj.trait.effective_max_level
 
     @admin.display(description="Points/Level")
     def trait_points_per_level(self, obj):

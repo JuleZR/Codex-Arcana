@@ -794,7 +794,8 @@ class CharacterCreationEngine:
         if trait is None:
             return 0
         if level < trait.min_level or (
-            trait.max_level is not None and level > trait.max_level
+            trait.effective_max_level is not None
+            and level > trait.effective_max_level
         ):
             return 0
         return trait.cost_for_level(level)
@@ -813,7 +814,8 @@ class CharacterCreationEngine:
             if trait is None:
                 return False
             if level < trait.min_level or (
-                trait.max_level is not None and level > trait.max_level
+                trait.effective_max_level is not None
+                and level > trait.effective_max_level
             ):
                 return False
         validator = self._build_trait_validator(
@@ -977,7 +979,8 @@ class CharacterCreationEngine:
         if trait is None:
             return 0
         if level < trait.min_level or (
-            trait.max_level is not None and level > trait.max_level
+            trait.effective_max_level is not None
+            and level > trait.effective_max_level
         ):
             return 0
         return trait.cost_for_level(level)
@@ -1444,7 +1447,8 @@ class CharacterCreationEngine:
             if trait is None:
                 return False
             if level < trait.min_level or (
-                trait.max_level is not None and level > trait.max_level
+                trait.effective_max_level is not None
+                and level > trait.effective_max_level
             ):
                 return False
 
@@ -1568,18 +1572,21 @@ class CharacterCreationEngine:
                     else 0
                 ),
                 cp_cost_by_rank=(
-                    tuple(trait.cost_curve())
+                    trait.progression_cost_curve()
                     if trait_type == Trait.TraitType.ADV
                     else ()
                 ),
                 cp_refund_by_rank=(
-                    tuple(trait.cost_curve())
+                    trait.progression_cost_curve()
                     if trait_type == Trait.TraitType.DIS
                     else ()
                 ),
                 min_rank=int(trait.min_level),
-                max_rank=trait.max_level,
-                repeatable=(trait.max_level is None or trait.max_level > 1),
+                max_rank=trait.effective_max_level,
+                repeatable=(
+                    trait.effective_max_level is None
+                    or trait.effective_max_level > 1
+                ),
                 mutually_exclusive_with=tuple(sorted(mutually_exclusive)),
             )
         return CharacterBuildValidator(

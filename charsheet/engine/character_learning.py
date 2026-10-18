@@ -28,11 +28,20 @@ def build_trait_validator(engine, trait_type: str, *, max_disadvantage_cp: int |
             slug=trait.slug,
             cp_cost=int(trait.points_per_level) if trait_type == Trait.TraitType.ADV else 0,
             cp_refund=int(trait.points_per_level) if trait_type == Trait.TraitType.DIS else 0,
-            cp_cost_by_rank=tuple(trait.cost_curve()) if trait_type == Trait.TraitType.ADV else (),
-            cp_refund_by_rank=tuple(trait.cost_curve()) if trait_type == Trait.TraitType.DIS else (),
+            cp_cost_by_rank=(
+                trait.progression_cost_curve()
+                if trait_type == Trait.TraitType.ADV else ()
+            ),
+            cp_refund_by_rank=(
+                trait.progression_cost_curve()
+                if trait_type == Trait.TraitType.DIS else ()
+            ),
             min_rank=int(trait.min_level),
-            max_rank=trait.max_level,
-            repeatable=trait.max_level is None or trait.max_level > 1,
+            max_rank=trait.effective_max_level,
+            repeatable=(
+                trait.effective_max_level is None
+                or trait.effective_max_level > 1
+            ),
             mutually_exclusive_with=tuple(sorted(mutually_exclusive)),
         )
     cap = int(max_disadvantage_cp) if max_disadvantage_cp is not None else 10**9
@@ -53,7 +62,10 @@ def validate_trait_target_level(engine, trait: Trait, target_level: int) -> str 
         return None
     if level < int(trait.min_level):
         return f"{trait.name}: Zielwert ist unter dem Minimum."
-    if trait.max_level is not None and level > trait.max_level:
+    if (
+        trait.effective_max_level is not None
+        and level > trait.effective_max_level
+    ):
         return f"{trait.name}: Zielwert ist ueber dem Maximum."
     return None
 

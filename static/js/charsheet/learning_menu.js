@@ -1,6 +1,6 @@
 import { createChoiceModalController } from "./choice_modal.js?v=20261017-decisions";
 import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
-import { initLearningChronicle } from "./learning_chronicle.js?v=20261017-detail-tables";
+import { initLearningChronicle } from "./learning_chronicle.js?v=20261018-choice-sync";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
 const renderOpenSpellSlotMarkup = (remaining) => {
@@ -52,12 +52,14 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     return regularCost + Math.max(0, rank - 10) * Math.max(0, aboveBaseCost);
   };
   const calcLanguageCost = (level, write, mother) => (mother ? 0 : Math.max(0, level)) + (write ? 1 : 0);
-  const calcTraitCost = (level, pointsPerLevel, traitType) => {
+  const calcTraitCost = (level, pointsPerLevel, pointCurve = "") => {
     const rank = Math.max(0, level);
+    const curve = pointCurve.split(",").filter((entry) => entry.trim() !== "").map(Number);
+    if (curve.length) return curve.slice(0, rank).reduce((sum, entry) => sum + entry, 0);
     return rank * Math.max(0, pointsPerLevel);
   };
-  const calcTraitDeltaCost = (base, value, pointsPerLevel, traitType) => (
-    Math.abs(value) * Math.max(0, pointsPerLevel)
+  const calcTraitDeltaCost = (base, value, pointsPerLevel, traitType, pointCurve = "") => (
+    Math.abs(calcTraitCost(base + value, pointsPerLevel, pointCurve) - calcTraitCost(base, pointsPerLevel, pointCurve))
   );
   const calcAttributeTotalCost = (targetLevel, maxValue, premiumThreshold = null) => {
     const level = Math.max(0, targetLevel);
@@ -193,7 +195,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
       cost = calcTraitDeltaCost(
-        base, Math.max(0, base + value) - base, pointsPerLevel, traitType
+        base, Math.max(0, base + value) - base, pointsPerLevel, traitType,
+        row.dataset.pointCurve || ""
       );
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
@@ -203,6 +206,18 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = Number.isFinite(maxAdd) ? String(maxAdd) : "";
+      const pointCurve = (row.dataset.pointCurve || "").split(",")
+        .filter((entry) => entry.trim() !== "").map(Number);
+      const target = Math.max(0, base + value);
+      const points = pointCurve.length
+        ? pointCurve.slice(0, target).reduce((sum, entry) => sum + entry, 0)
+        : target * pointsPerLevel;
+      row.querySelectorAll("[data-organization-ranks]").forEach((label) => {
+        const ranks = JSON.parse(label.dataset.organizationRanks);
+        const rank = ranks.filter((entry) => entry.points <= points).at(-1) || ranks[0];
+        label.textContent = rank && base + value >= minLevel
+          ? `${label.dataset.organizationName} (${rank.name})` : label.dataset.organizationName;
+      });
       row.querySelectorAll("[data-learn-entity-choice]").forEach((select) => {
         const active = base + value >= minLevel;
         select.disabled = !active;
@@ -835,6 +850,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       const currentOption = source.getAttribute("data-specification-option") || "";
       const currentSpecification = source.getAttribute("data-specification") || "";
+      const ownedZero = source.dataset.owned === "1" && base === 0;
       let specificationInput = "";
       let entityChoices = [];
       try {
@@ -843,8 +859,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         entityChoices = [];
       }
       const entityInputs = entityChoices.map((choice) => {
-        if (choice.selected_label) {
-          return `<label class="learn_trait_spec_control"><span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span><span class="learn_trait_spec_field">${escapeHtml(choice.selected_label)}</span></label>`;
+        if (choice.selected_label || ownedZero) {
+          const rankData = choice.organization_ranks?.length
+            ? ` data-organization-name="${escapeHtml(choice.organization_name)}" data-organization-ranks="${escapeHtml(JSON.stringify(choice.organization_ranks))}"` : "";
+          return `<label class="learn_trait_spec_control"><span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span><span class="learn_trait_spec_field"${rankData}>${escapeHtml(choice.selected_label || "Auswahl noch offen")}</span></label>`;
         }
         const options = ['<option value="">Bitte wählen</option>'].concat(
           choice.options.map((option) => `<option value="${escapeHtml(option.value)}" data-requires-specification="${option.requires_specification ? "1" : "0"}">${escapeHtml(option.label)}${option.meta ? ` – ${escapeHtml(option.meta)}` : ""}</option>`),
@@ -857,7 +875,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           </span>
         </label>`;
       }).join("");
-      if (Array.isArray(specificationOptions) && specificationOptions.length) {
+      if (ownedZero) {
+        const option = specificationOptions.find((entry) => String(entry.id) === currentOption);
+        specificationInput = `
+          <span class="learn_trait_spec_field">${escapeHtml(option?.name || currentSpecification)}</span>
+          <input type="hidden" name="learn_trait_spec_option_${slug}" value="${escapeHtml(currentOption)}">
+          <input type="hidden" name="learn_trait_spec_text_${slug}" value="${escapeHtml(currentSpecification)}">`;
+      } else if (Array.isArray(specificationOptions) && specificationOptions.length) {
         const optionMarkup = ['<option value="">Bitte wählen</option>'].concat(
           specificationOptions.map((entry) => {
             const selected = String(entry.id) === currentOption ? " selected" : "";
@@ -884,6 +908,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-max", Number.isFinite(max) ? String(max) : "");
       row.setAttribute("data-ppl", String(pointsPerLevel));
       row.setAttribute("data-trait-type", traitType);
+      row.dataset.pointCurve = source.dataset.pointCurve || "";
       row.innerHTML = `
         <td>
           <div class="learn_cart_entry">

@@ -765,8 +765,8 @@ class CharacterTrait(models.Model):
         """Validate the chosen trait level against its allowed range."""
         super().clean()
         if (
-            self.trait.max_level is not None
-            and self.trait_level > self.trait.max_level
+            self.trait.effective_max_level is not None
+            and self.trait_level > self.trait.effective_max_level
         ):
             raise ValidationError({"trait_level": "You can't purchase more levels of a trait than max level"})
         if self.trait_level < self.trait.min_level:
@@ -1480,8 +1480,8 @@ class CharacterTraitChoice(models.Model):
         return "-"
 
     @property
-    def organization_rank(self):
-        """Resolve reached rank thresholds, falling back to the first rank."""
+    def organization_ranks(self):
+        """Return rank thresholds using the organization's size fallback."""
         if self.custom_organization_name:
             type_id = self.custom_organization_type_id
             size = self.custom_organization_size
@@ -1489,7 +1489,7 @@ class CharacterTraitChoice(models.Model):
             type_id = self.selected_entity.organization_type_id
             size = self.selected_entity.size_category
         else:
-            return ""
+            return OrganizationTypeRank.objects.none()
         sizes = list(Organization.SizeCategory.values)
         eligible_sizes = (
             list(reversed(sizes[:sizes.index(size) + 1])) if size in sizes else []
@@ -1504,7 +1504,12 @@ class CharacterTraitChoice(models.Model):
             (value for value in eligible_sizes if value in available_sizes),
             "",
         )
-        ranks = ranks.filter(size_category=selected_size)
+        return ranks.filter(size_category=selected_size)
+
+    @property
+    def organization_rank(self):
+        """Resolve reached rank thresholds, falling back to the first rank."""
+        ranks = self.organization_ranks
         points = self.trait.cost_for_level(self.character_trait.trait_level)
         return (
             ranks.filter(points__lte=points).order_by("-points")
