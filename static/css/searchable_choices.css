@@ -28,6 +28,37 @@
   transform: translateY(-50%);
 }
 
+.searchable_choice_size {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.45em;
+  height: 1.45em;
+  margin-right: 0.5em;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.searchable_choice_size[data-size='K'] {
+  color: #366244;
+  background: #e4ecdc;
+}
+
+.searchable_choice_size[data-size='M'] {
+  color: #335e7a;
+  background: #e2edf2;
+}
+
+.searchable_choice_size[data-size='G'] {
+  color: #704776;
+  background: #eee2ee;
+}
+
 .learn_trait_spec_field:has(> .searchable_choice_trigger)::after {
   content: none;
 }

@@ -126,6 +126,7 @@ from .models import (
     Country,
     Language,
     Lesson,
+    Organization,
     Rune,
     School,
     ShamanPatron,
@@ -2960,6 +2961,30 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
 def update_trait_specification(request, character_id: int, character_trait_id: int):
     """Persist the specification text for one character-owned trait."""
     character, character_trait = _owned_character_trait_or_404(request, character_id, character_trait_id)
+    if "organization_choice" in request.POST:
+        choice = get_object_or_404(
+            character_trait.choices, pk=request.POST["organization_choice"],
+        )
+        rank = request.POST.get("organization_rank", "").strip()
+        connector = " ".join(request.POST.get(
+            "organization_connector", choice.organization_connector,
+        ).split())
+        rank_options = choice.organization_rank_options
+        is_organization = bool(choice.custom_organization_name) or isinstance(
+            choice.selected_entity, Organization,
+        )
+        if is_organization and len(connector) <= 50 and (
+            rank in rank_options or (not rank and not rank_options)
+        ):
+            choice.selected_organization_rank = rank
+            choice.organization_connector = connector
+            choice.save(update_fields=[
+                "selected_organization_rank", "organization_connector",
+            ])
+            messages.success(request, "Zugehörigkeit wurde aktualisiert.")
+        else:
+            messages.error(request, "Bitte einen gültigen Rang auswählen.")
+        return redirect("character_sheet", character_id=character.id)
     if not character_trait.trait.has_specification:
         messages.error(request, "Dieser Trait besitzt keine Spezifikation.")
         return redirect("character_sheet", character_id=character.id)

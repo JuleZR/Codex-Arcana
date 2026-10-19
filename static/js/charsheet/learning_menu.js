@@ -215,8 +215,17 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.querySelectorAll("[data-organization-ranks]").forEach((label) => {
         const ranks = JSON.parse(label.dataset.organizationRanks);
         const rank = ranks.filter((entry) => entry.points <= points).at(-1) || ranks[0];
+        const select = label.parentElement.querySelector("[data-organization-rank-choice]");
+        const options = [...new Set((rank?.name || "").split(";").map((name) => name.trim()).filter(Boolean))];
+        const selected = options.includes(select?.value) ? select.value
+          : options.includes(select?.dataset.selectedRank) ? select.dataset.selectedRank : options[0];
+        if (select) {
+          select.innerHTML = options.map((name) => `<option value="${escapeHtml(name)}"${name === selected ? " selected" : ""}>${escapeHtml(name)}</option>`).join("");
+          select.hidden = options.length <= 1 || base + value < minLevel;
+          select.disabled = base + value < minLevel || !options.length;
+        }
         label.textContent = rank && base + value >= minLevel
-          ? `${label.dataset.organizationName} (${rank.name})` : label.dataset.organizationName;
+          ? `${label.dataset.organizationName} (${selected || ""})` : label.dataset.organizationName;
       });
       row.querySelectorAll("[data-learn-entity-choice]").forEach((select) => {
         const active = base + value >= minLevel;
@@ -620,7 +629,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   };
 
   const bindRow = (row) => {
-    row.querySelectorAll("[data-learn-entity-choice]").forEach((select) => {
+    row.querySelectorAll("[data-learn-entity-choice], [data-organization-rank-choice]").forEach((select) => {
       select.addEventListener("change", refreshTotals);
     });
     const valueInput = row.querySelector("[data-learn-value]");
@@ -862,7 +871,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         if (choice.selected_label || ownedZero) {
           const rankData = choice.organization_ranks?.length
             ? ` data-organization-name="${escapeHtml(choice.organization_name)}" data-organization-ranks="${escapeHtml(JSON.stringify(choice.organization_ranks))}"` : "";
-          return `<label class="learn_trait_spec_control"><span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span><span class="learn_trait_spec_field"${rankData}>${escapeHtml(choice.selected_label || "Auswahl noch offen")}</span></label>`;
+          const rankInput = rankData && choice.rank_field_name
+            ? `<select class="learn_trait_spec_select" name="${escapeHtml(choice.rank_field_name)}" data-organization-rank-choice data-selected-rank="${escapeHtml(choice.selected_rank)}" aria-label="Rang"></select>` : "";
+          return `<label class="learn_trait_spec_control"><span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span><span class="learn_trait_spec_field"${rankData}>${escapeHtml(choice.selected_label || "Auswahl noch offen")}</span>${rankInput}</label>`;
         }
         const options = ['<option value="">Bitte wählen</option>'].concat(
           choice.options.map((option) => `<option value="${escapeHtml(option.value)}" data-requires-specification="${option.requires_specification ? "1" : "0"}">${escapeHtml(option.label)}${option.meta ? ` – ${escapeHtml(option.meta)}` : ""}</option>`),

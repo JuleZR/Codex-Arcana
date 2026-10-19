@@ -28,6 +28,16 @@ export function initTraitSpecModal() {
     return;
   }
   traitSpecWindow.dataset.modalBound = "1";
+  const organizationChoice = document.createElement("input");
+  organizationChoice.type = "hidden";
+  organizationChoice.name = "organization_choice";
+  const organizationRank = document.createElement("input");
+  organizationRank.type = "hidden";
+  organizationRank.name = "organization_rank";
+  traitSpecForm.append(organizationChoice, organizationRank);
+  organizationChoice.disabled = true;
+  organizationRank.disabled = true;
+  const specificationMaxLength = traitSpecInput.maxLength;
 
   const controller = createFloatingWindowController({
     windowEl: traitSpecWindow,
@@ -43,15 +53,52 @@ export function initTraitSpecModal() {
   }
 
   document.addEventListener("click", (event) => {
+    const bubbleTrigger = event.target instanceof Element
+      ? event.target.closest("[data-organization-bubble-trigger]") : null;
+    if (bubbleTrigger instanceof HTMLElement) {
+      const bubble = document.getElementById(bubbleTrigger.getAttribute("popovertarget"));
+      if (!(bubble instanceof HTMLElement)) return;
+      event.preventDefault();
+      if (bubble.matches(":popover-open")) {
+        bubble.hidePopover();
+        return;
+      }
+      bubble.showPopover();
+      const rect = bubbleTrigger.getBoundingClientRect();
+      const size = bubble.getBoundingClientRect();
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - size.width - 8));
+      const above = rect.bottom + size.height + 10 > window.innerHeight - 8;
+      bubble.style.left = `${left}px`;
+      bubble.style.top = `${Math.max(8, above ? rect.top - size.height - 10 : rect.bottom + 10)}px`;
+      bubble.dataset.placement = above ? "above" : "below";
+      bubble.style.setProperty("--arrow-left", `${Math.max(12, Math.min(size.width - 20, rect.left + rect.width / 2 - left))}px`);
+      return;
+    }
     const trigger = event.target instanceof Element ? event.target.closest("[data-trait-spec-trigger]") : null;
     if (!(trigger instanceof HTMLElement)) {
       return;
     }
-    traitSpecWindowTitle.textContent = `${trigger.dataset.traitName || "Trait"} bearbeiten`;
-    traitSpecForm.action = trigger.dataset.action || "";
+    trigger.closest(".char_rank_bubble")?.hidePopover();
+    const organization = trigger.closest("[data-organization-choice]");
+    const source = organization || trigger;
+    const field = organization ? trigger.dataset.organizationField : "";
+    const connector = field === "organization_connector";
+    const label = organization ? (connector ? "Verbindungswort" : "Rang") : "Spezifikation";
+    traitSpecWindowTitle.textContent = `${source.dataset.traitName || "Trait"} bearbeiten`;
+    traitSpecForm.action = source.dataset.action || "";
+    organizationChoice.disabled = !organization;
+    organizationChoice.value = organization?.dataset.organizationChoice || "";
+    organizationRank.disabled = !connector;
+    organizationRank.value = source.dataset.specificationOption || "";
+    traitSpecInput.name = connector ? field : "specification";
+    traitSpecOption.name = organization && !connector ? field : "specification_option";
+    traitSpecInput.maxLength = connector ? 50 : specificationMaxLength;
+    freeRow.querySelector("span").textContent = label;
+    controlledRow.querySelector("span").textContent = label;
+    traitSpecForm.querySelector(".skill_spec_hint").hidden = Boolean(organization);
     let options = [];
     try {
-      options = JSON.parse(trigger.dataset.specificationOptions || "[]");
+      options = connector ? [] : JSON.parse(source.dataset.specificationOptions || "[]");
     } catch (_error) {
       options = [];
     }
@@ -65,7 +112,7 @@ export function initTraitSpecModal() {
     options.forEach((option) => {
       traitSpecOption.add(new Option(option.name, String(option.id)));
     });
-    traitSpecOption.value = trigger.dataset.specificationOption || "";
+    traitSpecOption.value = source.dataset.specificationOption || "";
     controller.open();
     window.setTimeout(() => {
       const target = controlled ? traitSpecOption : traitSpecInput;

@@ -67,6 +67,7 @@ from charsheet.models import (
     DaemonicPower,
     DruidCultAspect,
     Language,
+    Organization,
     School,
     ShamanPatron,
     Spell,
@@ -131,6 +132,8 @@ def _has_progression_inputs(post_data) -> bool:
         "learn_weapon_mastery_side_",
         "learn_weapon_mastery_arcana_",
         "learn_choice_",
+        "learn_organization_rank_",
+        "learn_organization_connector_",
         "learn_divine_arcane_spell_",
     )
     return any(str(key).startswith(prefixes) for key in post_data.keys())
@@ -1517,6 +1520,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
 
     lesson_summary = {"learned": 0, "unlearned": 0}
     unlearned_brew_count = 0
+    rank_changes = 0
 
     try:
         with transaction.atomic():
@@ -1985,6 +1989,48 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             progression_summary = _apply_progression_choices(
                 character, post_data, magic_engine=magic_engine,
             )
+            for field_name in post_data:
+                prefixes = {
+                    "learn_organization_rank_": "selected_organization_rank",
+                    "learn_organization_connector_": "organization_connector",
+                }
+                prefix = next((
+                    value for value in prefixes
+                    if str(field_name).startswith(value)
+                ), None)
+                if prefix is None:
+                    continue
+                choice = CharacterTraitChoice.objects.filter(
+                    pk=_read_int(
+                        {"id": str(field_name).removeprefix(prefix)}, "id", 0,
+                    ),
+                    character_trait__owner=character,
+                ).first()
+                if choice is None:
+                    raise LearningSubmissionError("Ungültige Rang-Auswahl.")
+                field = prefixes[prefix]
+                value = str(post_data[field_name]).strip()
+                if field == "organization_connector":
+                    value = " ".join(value.split())
+                if field == "selected_organization_rank" and (
+                    value not in choice.organization_rank_options
+                ):
+                    raise LearningSubmissionError(
+                        "Ungültiger Rang für diese Stufe.",
+                    )
+                if field == "organization_connector" and (
+                    len(value) > 50 or not (
+                        choice.custom_organization_name
+                        or isinstance(choice.selected_entity, Organization)
+                    )
+                ):
+                    raise LearningSubmissionError(
+                        "Ungültiges Verbindungswort zur Organisation.",
+                    )
+                if getattr(choice, field) != value:
+                    setattr(choice, field, value)
+                    choice.save(update_fields=[field])
+                    rank_changes += 1
 
             direct_removals = {
                 lesson_id for lesson_id, delta in lesson_plan.items() if delta < 0
@@ -2061,6 +2107,8 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         return "error", str(exc)
 
     parts: list[str] = []
+    if rank_changes:
+        parts.append("Rang-Auswahl gespeichert")
     if total_cost + career_cost > 0:
         parts.append(f"{total_cost + career_cost} EP ausgegeben")
     elif total_cost < 0:

@@ -1,0 +1,12 @@
+<span data-organization-choice="{{ affiliation.choice_id }}" data-action="{% url 'update_trait_specification' character.id affiliation.trait_id %}" data-trait-name="{{ affiliation.name }}" data-specification-options="{{ affiliation.rank_options_json|escape }}" data-specification-option="{{ affiliation.selected_rank }}">
+  {% if affiliation.is_guild %}
+    {% if affiliation.rank_options|length > 1 %}<button type="button" class="char_name_word" data-trait-spec-trigger data-organization-field="organization_rank" title="Rang ändern">{{ affiliation.rank }}</button>{% else %}{{ affiliation.rank }}{% endif %}
+    der {{ affiliation.name }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} &amp;{% else %},{% endif %}{% endif %}
+  {% else %}
+    <button type="button" class="char_name_word" data-organization-bubble-trigger popovertarget="organizationBubble-{{ affiliation.choice_id }}" aria-label="Zugehörigkeit zu {{ affiliation.rank|default:'diesem Rang' }} anzeigen">{{ affiliation.rank|default:"Zugehörigkeit" }}</button>{% if not forloop.last %}{% if forloop.revcounter == 2 %} &amp;{% else %},{% endif %}{% endif %}
+    <span popover="auto" class="char_rank_bubble" id="organizationBubble-{{ affiliation.choice_id }}" role="dialog" aria-label="Zugehörigkeit">
+      <strong>{{ affiliation.name }}</strong>
+      {% if affiliation.rank_options|length > 1 %}<button type="button" class="char_rank_bubble_edit" data-trait-spec-trigger data-organization-field="organization_rank">Rang ändern</button>{% endif %}
+    </span>
+  {% endif %}
+</span>

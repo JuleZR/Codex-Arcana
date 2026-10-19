@@ -28,7 +28,13 @@
               </tr>
               <tr>
                 <td class="label">Name</td>
-                <td class="value" colspan="5">{{ character.name }}</td>
+                <td class="value" colspan="5">
+                  <strong class="char_name">{{ character.name }}</strong>{% if character_name_affiliations %}<span class="char_name_affiliations">,
+                    {% for affiliation in character_name_affiliations %}
+                      {% include "charsheet/partials/_organization_rank_choices.html" %}
+                    {% endfor %}
+                  </span>{% endif %}
+                </td>
               </tr>
               <tr>
                 <td class="label">Geschlecht</td>

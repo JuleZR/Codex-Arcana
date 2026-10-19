@@ -956,14 +956,20 @@ class TraitChoiceDefinition(models.Model):
                 if option.entity is not None
             ]
         church_rank = self.trait.slug == "adv_church_rank"
+        size_prefixes = {
+            Organization.SizeCategory.SMALL: "K",
+            Organization.SizeCategory.MEDIUM: "M",
+            Organization.SizeCategory.LARGE: "G",
+        }
         options = [
             {
                 "value": f"organization:{organization.pk}",
-                "label": organization.name,
-                "meta": (
-                    "" if church_rank
-                    else organization.get_size_category_display()
+                "label": (
+                    organization.name if church_rank else
+                    f"{size_prefixes.get(organization.size_category, '')} "
+                    f"{organization.name}"
                 ),
+                "meta": "",
             }
             for organization in Organization.objects.filter(
                 organization_type__in=self.allowed_organization_types.all(),
@@ -975,10 +981,11 @@ class TraitChoiceDefinition(models.Model):
                 "value": (f"custom:{size}" if len(types) == 1
                           else f"custom:{organization_type.pk}:{size}"),
                 "label": (
-                    f"Eigene Organisation: {organization_type.name}"
-                    + (f" ({label})" if label else "")
-                    if len(types) > 1 else f"Eigene Organisation ({label})"
-                    if label else "Eigene Organisation"
+                    (f"{size_prefixes[size]} " if label else "")
+                    + (
+                        f"Eigene Organisation: {organization_type.name}"
+                        if len(types) > 1 else "Eigene Organisation"
+                    )
                 ),
                 "meta": organization_type.name,
                 "requires_specification": True,
@@ -1178,6 +1185,13 @@ class CharacterTraitChoice(models.Model):
     selected_entity = GenericForeignKey("selected_content_type", "selected_object_id")
     custom_organization_name = models.CharField(
         "Eigene Organisation", max_length=200, blank=True, default="",
+    )
+    selected_organization_rank = models.CharField(
+        "Gewählter Rang", max_length=200, blank=True, default="",
+    )
+    organization_connector = models.CharField(
+        "Verbindungswort zur Organisation", max_length=50,
+        blank=True, default="",
     )
     custom_organization_size = models.CharField(
         "Organisationsgröße", max_length=100, blank=True, default="",
@@ -1507,16 +1521,34 @@ class CharacterTraitChoice(models.Model):
         return ranks.filter(size_category=selected_size)
 
     @property
-    def organization_rank(self):
-        """Resolve reached rank thresholds, falling back to the first rank."""
+    def organization_name_connector(self):
+        """Return the stored legacy connector or its default."""
+        if self.organization_connector.strip():
+            return self.organization_connector.strip()
+        return "der"
+
+    @property
+    def organization_rank_options(self):
+        """Return individual names at the current rank threshold."""
         ranks = self.organization_ranks
         points = self.trait.cost_for_level(self.character_trait.trait_level)
-        return (
+        names = (
             ranks.filter(points__lte=points).order_by("-points")
             .values_list("name", flat=True).first()
             or ranks.order_by("points").values_list("name", flat=True).first()
             or ""
         )
+        return list(dict.fromkeys(
+            name.strip() for name in names.split(";") if name.strip()
+        ))
+
+    @property
+    def organization_rank(self):
+        """Use the player's selection while it belongs to the current tier."""
+        options = self.organization_rank_options
+        if self.selected_organization_rank in options:
+            return self.selected_organization_rank
+        return next(iter(options), "")
 
     def resolved_modifier_target(self) -> tuple[str, str] | None:
         """Return the concrete modifier target tuple derived from this stored choice."""

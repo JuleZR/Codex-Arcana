@@ -5938,6 +5938,8 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             "description": entry.trait.description,
             "points": entry.trait.cost_for_level(entry.trait_level),
             "can_edit_specification": bool(entry.trait.has_specification),
+            "organization_rank_choices": [],
+            "name_affiliations": [],
             "specification": specification,
             "specification_option_id": entry.specification_option_id,
             "specification_options_json": json.dumps(
@@ -5969,7 +5971,6 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             row["display_name"] = entry.trait.name
             row["tooltip"] = row["description"]
         affiliations = []
-        guild_memberships = []
         guild_tooltip_labels = []
         for choice in entry.choices.all():
             if (
@@ -5978,36 +5979,54 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             ):
                 continue
             organization = choice.selected_entity
+            rank_options = choice.organization_rank_options
             guild_name = choice.custom_organization_name or (
                 organization.name
                 if isinstance(organization, Organization) else ""
             )
+            if guild_name:
+                row["organization_rank_choices"].append({
+                    "id": choice.pk,
+                    "name": guild_name,
+                    "options": rank_options,
+                    "selected": choice.organization_rank,
+                    "connector": choice.organization_name_connector,
+                })
             if entry.trait.slug in {
-                "adv_guild_membership", "adv_church_rank",
+                "adv_guild_membership", "adv_church_rank", "adv_military_rank",
             } and guild_name:
                 rank = choice.organization_rank
-                article = "der"
-                if entry.trait.slug == "adv_church_rank":
-                    organization_type = (
-                        choice.custom_organization_type
-                        if choice.custom_organization_name
-                        else organization.organization_type
-                    )
-                    if organization_type and (
-                        organization_type.name.strip().casefold()
-                        in {"kult", "zirkel"}
-                    ):
-                        article = "des"
-                guild_memberships.append(
-                    f"{rank or 'Mitglied'} {article} {guild_name}"
-                )
+                row["name_affiliations"].append({
+                    "is_guild": entry.trait.slug == "adv_guild_membership",
+                    "trait_id": entry.pk,
+                    "choice_id": choice.pk,
+                    "selected_rank": rank,
+                    "rank_options": rank_options,
+                    "rank_options_json": json.dumps([
+                        {"id": name, "name": name} for name in rank_options
+                    ]),
+                    "priority": {
+                        "adv_church_rank": 0,
+                        "adv_military_rank": 1,
+                        "adv_guild_membership": 2,
+                    }[entry.trait.slug],
+                    "rank": rank or (
+                        "Mitglied"
+                        if entry.trait.slug == "adv_guild_membership"
+                        else ""
+                    ),
+                    "connector": choice.organization_name_connector,
+                    "name": guild_name,
+                })
                 guild_tooltip_labels.append(
                     f"{guild_name}: {rank}" if rank else guild_name
                 )
             else:
                 affiliations.append(choice.selected_target_display())
-        if guild_memberships:
-            row["display_name"] = ", ".join(dict.fromkeys(guild_memberships))
+        if entry.trait.slug in {
+            "adv_guild_membership", "adv_church_rank", "adv_military_rank",
+        }:
+            row["display_name"] = entry.trait.name
             row["specification_hidden"] = False
             row["can_edit_specification"] = False
             row["tooltip_title"] = entry.trait.name
@@ -6015,7 +6034,7 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 dict.fromkeys(guild_tooltip_labels)
             )
             row["tooltip"] = row["description"] or "Keine Beschreibung"
-        if affiliations:
+        elif affiliations:
             row["display_name"] += ": " + ", ".join(
                 dict.fromkeys(affiliations)
             )
@@ -6024,6 +6043,46 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         else:
             disadvantage_rows.append(row)
     return advantage_rows, disadvantage_rows
+
+
+def _ranked_character_affiliations(trait_rows):
+    """Return the unique affiliations in title priority order."""
+    affiliations = sorted(
+        (affiliation for row in trait_rows
+         for affiliation in row["name_affiliations"]),
+        key=lambda affiliation: affiliation["priority"],
+    )
+    result = []
+    seen = set()
+    for affiliation in affiliations:
+        parts = (
+            affiliation["rank"], affiliation["name"],
+        )
+        if parts in seen:
+            continue
+        seen.add(parts)
+        result.append(affiliation)
+    return result
+
+
+def _build_ranked_character_name(character_name, trait_rows):
+    """Append all ranks and affiliations after the character's name."""
+    titles = []
+    for affiliation in _ranked_character_affiliations(trait_rows):
+        rank, name = (
+            affiliation["rank"], affiliation["name"],
+        )
+        if affiliation["is_guild"]:
+            titles.append(f"{rank} der {name}")
+        else:
+            titles.append(rank or "Zugehörigkeit")
+    if not titles:
+        return character_name
+    suffix = (
+        ", ".join(titles[:-1]) + " & " + titles[-1]
+        if len(titles) > 1 else titles[0]
+    )
+    return f"{character_name}, {suffix}"
 
 
 def _race_item_ids() -> set[int]:
@@ -8573,6 +8632,10 @@ def _build_learning_rows(
                         "points", "name",
                     )
                 ) if choice else [],
+                "rank_field_name": (
+                    f"learn_organization_rank_{choice.pk}" if choice else ""
+                ),
+                "selected_rank": choice.organization_rank if choice else "",
                 "options": (
                     [] if choice else definition.entity_choice_options()
                 ),
@@ -10281,6 +10344,12 @@ def build_character_sheet_context(
         "skill_rows": skill_rows,
         "skill_manager_rows": skill_manager_rows,
         "advantage_rows": advantage_rows,
+        "ranked_character_name": _build_ranked_character_name(
+            character.name, advantage_rows + disadvantage_rows,
+        ),
+        "character_name_affiliations": _ranked_character_affiliations(
+            advantage_rows + disadvantage_rows,
+        ),
         "disadvantage_rows": disadvantage_rows,
         "inventory_rows": carried_inventory_rows,
         "stored_inventory_rows": stored_inventory_rows,

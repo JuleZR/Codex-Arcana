@@ -3,6 +3,26 @@
   const enhanced = new WeakSet();
   let nextId = 0;
 
+  function renderOptionLabel(target, option) {
+    const text = option?.textContent.trim() || 'Bitte wählen';
+    const organization = /^(organization|custom):/.test(option?.value || '');
+    const marker = organization ? /^([KMG])\s+/.exec(text) : null;
+    if (!marker) {
+      target.textContent = text;
+      return text;
+    }
+    const sizes = { K: 'Klein', M: 'Mittel', G: 'Groß' };
+    const badge = document.createElement('span');
+    badge.className = 'searchable_choice_size';
+    badge.setAttribute('data-size', marker[1]);
+    badge.textContent = marker[1];
+    badge.title = sizes[marker[1]];
+    badge.setAttribute('aria-hidden', 'true');
+    const name = text.slice(marker[0].length);
+    target.replaceChildren(badge, document.createTextNode(name));
+    return `${sizes[marker[1]]}: ${name}`;
+  }
+
   function enhance(select) {
     if (enhanced.has(select) || !HTMLElement.prototype.showPopover) return;
     enhanced.add(select);
@@ -48,7 +68,7 @@
         entry.setAttribute('aria-selected', String(option.selected));
         entry.setAttribute('aria-disabled', String(disabled));
         entry.tabIndex = -1;
-        entry.textContent = option.textContent.trim() || 'Bitte wählen';
+        entry.setAttribute('aria-label', renderOptionLabel(entry, option));
         entry.addEventListener('click', (event) => {
           event.preventDefault();
           if (disabled) return;
@@ -64,8 +84,7 @@
     };
     const sync = () => {
       trigger.disabled = select.disabled;
-      const text = select.selectedOptions[0]?.textContent.trim() || 'Bitte wählen';
-      trigger.textContent = text;
+      const text = renderOptionLabel(trigger, select.selectedOptions[0]);
       trigger.setAttribute('aria-label', `${label}: ${text}`);
       if (select.disabled && panel.matches(':popover-open')) panel.hidePopover();
     };
