@@ -1,0 +1,336 @@
+/* Shared CodexOS 27 surfaces for authentication and legal documents. */
+:root {
+  --public-os-brass: #c5a16a;
+  --public-os-divider: #c8a983;
+  --public-os-ink: #503524;
+  --public-os-header: linear-gradient(115deg, #3c2a23, #624737 55%, #34271f);
+  --public-os-foundation:
+    radial-gradient(ellipse at 16% 0%, #bb895b14, transparent 60%),
+    linear-gradient(115deg, #3c2a23e6, #624737d9 55%, #34271fe6);
+  --public-os-surface: #f4e5c9f2;
+}
+
+.login_scene {
+  width: min(100%, 460px);
+  gap: 16px;
+  transform: none;
+}
+
+.login_scene .login_graphic {
+  width: 100%;
+  max-width: 460px;
+  max-height: 180px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.login_scene .login_box {
+  margin-top: 0;
+  padding: 28px;
+  flex-shrink: 0;
+}
+
+.login_box,
+.book-spread--legal > .page.page--legal {
+  color: #f5eddc;
+  border: 1px solid var(--public-os-brass);
+  border-radius: 0;
+  background: var(--public-os-foundation);
+  background-blend-mode: normal;
+  clip-path: none;
+  box-shadow: 0 18px 45px #140c0866, 0 0 0 3px #614837eb;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-family: "Segoe UI", sans-serif;
+}
+
+.login_box h1,
+.legal_doc h1 {
+  color: #f7e9ce;
+  font-family: "Segoe UI", sans-serif;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+.auth_switch {
+  gap: 0;
+  padding: 0;
+  border-color: var(--public-os-brass);
+  border-radius: 0;
+  background: var(--public-os-header);
+}
+
+.auth_switch_link {
+  color: #dfc9aa;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+
+.auth_switch_link:hover {
+  color: #fff0d2;
+  background: #74503a66;
+}
+
+.auth_switch_link.is-active {
+  color: #ffe5b8;
+  border-bottom-color: #edce96;
+  background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c);
+  box-shadow: none;
+}
+
+.login_label,
+.auth_help {
+  color: #f5eddc;
+}
+
+.login_box .l_field,
+.login_form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]) {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #b69a79;
+  border-radius: 2px;
+  background: var(--public-os-surface);
+  color: var(--public-os-ink);
+  box-shadow: inset 0 1px #fff4dc;
+  font: inherit;
+}
+
+.login_box :is(input, button, a):focus-visible,
+.login_box .login_form input:focus,
+.legal_doc a:focus-visible {
+  outline: 2px solid #edce96;
+  outline-offset: 3px;
+}
+
+.login_btn {
+  border-color: #b68661;
+  border-radius: 3px;
+  background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c);
+  color: #f9e7c7;
+  box-shadow: inset 0 1px #e6aa8655;
+  text-shadow: none;
+  font-family: inherit;
+}
+
+.login_btn:hover {
+  filter: brightness(1.12);
+}
+
+.login_btn--secondary {
+  border-color: #718eae;
+  background: linear-gradient(110deg, #2b4160, #4d729a, #2c456c);
+  box-shadow: inset 0 1px #aac5e655;
+}
+
+.login_box :is(.forgot_password_link, .auth_back_link, .legal_links) a {
+  color: #f2d8a7;
+}
+
+.legal_links,
+.passkey_divider,
+.passkey_hint,
+.login_version {
+  color: #dfc9aa;
+  font-family: inherit;
+}
+
+.passkey_divider::before,
+.passkey_divider::after {
+  background: #c5a16a66;
+}
+
+.legal_links {
+  padding-top: 12px;
+  border-top: 1px solid #c5a16a66;
+}
+
+.password_guidance,
+.auth_confirmation,
+.login_notice {
+  color: var(--public-os-ink);
+  border-color: var(--public-os-divider);
+  border-radius: 2px;
+  background: var(--public-os-surface);
+  box-shadow: none;
+}
+
+.password_policy_item {
+  border-radius: 2px;
+}
+
+.login_errors,
+.field_error {
+  color: #ffc2b9;
+}
+
+.auth_invalid_link {
+  color: #ffc2b9;
+  border-color: #d7948580;
+  border-radius: 2px;
+  background: #813d3644;
+}
+
+.book-spread.book-spread--legal {
+  padding: 24px clamp(12px, 4vw, 64px) 40px;
+}
+
+.book-spread--legal > .page.page--legal {
+  min-width: 0;
+  min-height: 0;
+  /* The shared parchment module marks these properties as important. */
+  background: var(--public-os-foundation) !important;
+  background-blend-mode: normal !important;
+}
+
+.page.page--legal::after {
+  content: none;
+}
+
+.legal_doc {
+  width: 100%;
+  color: #f5eddc;
+  font-family: "Segoe UI", sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.legal_doc > h1 {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--public-os-brass);
+}
+
+.legal_block {
+  color: var(--public-os-ink);
+  border-color: var(--public-os-divider);
+  border-radius: 0;
+  background: var(--public-os-surface);
+  box-shadow: none;
+}
+
+.legal_block h2 {
+  margin: -10px -12px 10px;
+  padding: 8px 12px;
+  color: #f7e9ce;
+  border-bottom: 1px solid var(--public-os-brass);
+  background: var(--public-os-header);
+  font-weight: 600;
+}
+
+.legal_block--warning {
+  border-left: 3px solid #c5a16a;
+  background: #f1dbafef;
+}
+
+.legal_doc a {
+  color: #813d36;
+  text-underline-offset: 3px;
+}
+
+.legal_doc .legal_actions a {
+  display: inline-block;
+  padding: 8px 14px;
+  color: #f2d8a7;
+  border: 1px solid #c5a16a80;
+  border-radius: 2px;
+  background: #31231d80;
+  text-decoration: none;
+}
+
+.legal_doc .legal_actions a:hover {
+  background: #74503a66;
+}
+
+.legal_privacy_page .book-spread.book-spread--legal {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+.legal_back_to_top {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #b68661;
+  border-radius: 3px;
+  background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c);
+  color: #f9e7c7;
+  box-shadow: 0 4px 12px #140c0866, inset 0 1px #e6aa8655;
+  font: 1.5rem/1 "Segoe UI", sans-serif;
+  text-decoration: none;
+}
+
+.legal_back_to_top[hidden] {
+  display: none;
+}
+
+.legal_back_to_top:hover {
+  filter: brightness(1.12);
+}
+
+.legal_back_to_top:focus-visible {
+  outline: 2px solid #edce96;
+  outline-offset: 3px;
+}
+
+@media print {
+  .legal_back_to_top {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .login_scene {
+    width: min(100%, 380px);
+    gap: 12px;
+  }
+
+  .login_scene .login_graphic {
+    max-height: 140px;
+  }
+
+  .login_scene .login_box {
+    padding: 22px 16px;
+  }
+
+  .auth_switch_link {
+    padding: 10px 6px;
+  }
+
+  .login_box h1 {
+    overflow-wrap: anywhere;
+  }
+
+  .book-spread.book-spread--legal {
+    padding: 12px 10px 24px;
+  }
+
+  .book-spread--legal > .page.page--legal {
+    width: 100%;
+    padding: 16px 12px;
+  }
+
+  .legal_doc {
+    font-size: .95rem;
+  }
+
+  .legal_doc h1 {
+    font-size: clamp(1.35rem, 5vw, 1.8rem);
+  }
+}
+
+@media (max-height: 560px) {
+  .login_scene {
+    gap: 8px;
+  }
+
+  .login_scene .login_graphic {
+    width: min(65%, 220px);
+    max-height: 100px;
+  }
+
+  .login_scene .login_box {
+    padding: 18px 16px;
+  }
+}

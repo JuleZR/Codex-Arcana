@@ -25,10 +25,17 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 def _load_dotenv(path: Path) -> None:
     """Load simple KEY=VALUE pairs from a .env file into os.environ."""
+    # Legal facts belong exclusively to this installation's .env. Inherited
+    # values (including an autoreloader parent's old values) must not survive
+    # a changed, removed or missing local entry. Other settings keep their
+    # existing process-environment precedence.
+    for key in tuple(os.environ):
+        if key.startswith("LEGAL_"):
+            del os.environ[key]
     if not path.exists():
         return
 
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -38,7 +45,10 @@ def _load_dotenv(path: Path) -> None:
         value = value.strip().strip("'").strip('"')
 
         if key:
-            os.environ.setdefault(key, value)
+            if key.startswith("LEGAL_"):
+                os.environ[key] = value
+            else:
+                os.environ.setdefault(key, value)
 
 
 _load_dotenv(BASE_DIR / ".env")
@@ -343,16 +353,40 @@ LOGIN_REDIRECT_URL = "dashboard"
 LOGIN_URL = "login"
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-# Legal/contact data displayed in public legal pages.
-# Override via environment variables for each self-hosted deployment.
+
+# Public legal facts have one source: the deployment environment (.env).
+def _legal_text(name, default=""):
+    return os.getenv(name, default).replace("\\n", "\n").strip()
+
+
 LEGAL_INFO = {
-    "site_name": os.getenv("LEGAL_SITE_NAME", "Codex Arcana"),
-    "operator_name": os.getenv("LEGAL_OPERATOR_NAME", ""),
-    "address": os.getenv("LEGAL_ADDRESS", "").replace("\\n", "\n"),
-    "email": os.getenv("LEGAL_EMAIL", ""),
-    "phone": os.getenv("LEGAL_PHONE", ""),
-    "responsible_person": os.getenv("LEGAL_RESPONSIBLE_PERSON", ""),
-    "vat_id": os.getenv("LEGAL_VAT_ID", ""),
-    "register_entry": os.getenv("LEGAL_REGISTER_ENTRY", ""),
-    "supervisory_authority": os.getenv("LEGAL_SUPERVISORY_AUTHORITY", ""),
+    "site_name": _legal_text("LEGAL_SITE_NAME", "Codex Arcana"),
+    "operator_name": _legal_text("LEGAL_OPERATOR_NAME"),
+    "address": _legal_text("LEGAL_ADDRESS"),
+    "email": _legal_text("LEGAL_EMAIL"),
+    "phone": _legal_text("LEGAL_PHONE"),
+    "responsible_person": _legal_text("LEGAL_RESPONSIBLE_PERSON"),
+    "responsible_address": _legal_text("LEGAL_RESPONSIBLE_ADDRESS"),
+    "vat_id": _legal_text("LEGAL_VAT_ID"),
+    "register_entry": _legal_text("LEGAL_REGISTER_ENTRY"),
+    "supervisory_authority": _legal_text("LEGAL_SUPERVISORY_AUTHORITY"),
+    "data_protection_officer": _legal_text("LEGAL_DATA_PROTECTION_OFFICER"),
+    "reviewed_on": _legal_text("LEGAL_REVIEWED_ON"),
+    "hosting_provider": _legal_text("LEGAL_HOSTING_PROVIDER"),
+    "hosting_location": _legal_text("LEGAL_HOSTING_LOCATION"),
+    "server_log_retention": _legal_text("LEGAL_SERVER_LOG_RETENTION"),
+    "backup_policy": _legal_text("LEGAL_BACKUP_POLICY"),
+    "email_provider": _legal_text("LEGAL_EMAIL_PROVIDER"),
+    "email_location": _legal_text("LEGAL_EMAIL_LOCATION"),
+    "email_retention": _legal_text("LEGAL_EMAIL_RETENTION"),
+    "email_tracking": _legal_text("LEGAL_EMAIL_TRACKING"),
+    "contact_retention": _legal_text("LEGAL_CONTACT_RETENTION"),
+    "security_cleanup": _legal_text("LEGAL_SECURITY_CLEANUP"),
+    "auth_log_retention": _legal_text("LEGAL_AUTH_LOG_RETENTION"),
+    "processor_contracts": _legal_text("LEGAL_PROCESSOR_CONTRACTS"),
+    "transfer_safeguards": _legal_text("LEGAL_TRANSFER_SAFEGUARDS"),
+    "test_data_policy": _legal_text("LEGAL_TEST_DATA_POLICY"),
+    "turnstile_details": _legal_text("LEGAL_TURNSTILE_DETAILS"),
+    "additional_processing": _legal_text("LEGAL_ADDITIONAL_PROCESSING"),
+    "administrative_services": _legal_text("LEGAL_ADMINISTRATIVE_SERVICES"),
 }

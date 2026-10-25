@@ -2,9 +2,12 @@
 
 from dataclasses import dataclass
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import ImageField, Q
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 
 from .models import (
     CharacterItem,
@@ -26,6 +29,49 @@ class AccountDeletionBlocker:
     code: str
     label: str
     count: int
+
+
+def _delete_account_image(storage, name):
+    if storage.exists(name):
+        storage.delete(name)
+
+
+@receiver(pre_delete, sender=get_user_model(),
+          dispatch_uid="charsheet.delete_account_images")
+def schedule_account_image_deletion(sender, instance, using, **kwargs):
+    """Remove private uploads after a successful account deletion commits."""
+    owned_models = (
+        ("Character", "owner_id"),
+        ("CharacterItem", "owner__owner_id"),
+        ("CharacterItemDisclosure", "character_item__owner__owner_id"),
+        ("CharacterCreature", "owner__owner_id"),
+        ("CharacterDivineEntity", "character__owner_id"),
+        ("CharacterDruidCult", "character__owner_id"),
+        ("CharacterShamanPatron", "character__owner_id"),
+    )
+    images = {}
+    for model_name, owner_path in owned_models:
+        model = apps.get_model("charsheet", model_name)
+        fields = [
+            field for field in model._meta.concrete_fields
+            if isinstance(field, ImageField)
+        ]
+        for record in model._default_manager.using(using).filter(
+            **{owner_path: instance.pk}
+        ).only(*(field.name for field in fields)):
+            for field in fields:
+                picture = getattr(record, field.name)
+                if picture:
+                    images[(id(picture.storage), picture.name)] = (
+                        picture.storage, picture.name
+                    )
+    for storage, name in images.values():
+        transaction.on_commit(
+            lambda storage=storage, name=name: _delete_account_image(
+                storage, name
+            ),
+            using=using,
+        )
 
 
 def account_deletion_blockers(user):
@@ -137,6 +183,9 @@ def delete_account_permanently(user):
     if blockers:
         return blockers
 
+    schedule_account_image_deletion(
+        sender=type(user), instance=user, using=user._state.db
+    )
     characters = user.character_set.all()
     CharacterLanguage.objects.filter(owner__in=characters).delete()
     CharacterItem.objects.filter(owner__in=characters).delete()

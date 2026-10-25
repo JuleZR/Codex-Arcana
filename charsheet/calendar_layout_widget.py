@@ -18,8 +18,8 @@ class CalendarLayoutWidget(forms.HiddenInput):
             js=(static("charsheet/js/calendar-layout.js")
                 + "?v=20261009-layout-5",),
             css={"all": (
-                "https://fonts.googleapis.com/css2?family=Noto+Serif:"
-                "wght@400;500&family=Noto+Serif+JP:wght@400;500&display=swap",
+                static("css/calendar-fonts.css")
+                + "?v=20261025-local-fonts",
                 "charsheet/css/character-date.css",
                 static("charsheet/css/calendar-layout.css")
                 + "?v=20261009-layout-5",

@@ -1,0 +1,33 @@
+{% load static legal_info %}
+{% public_legal_info as legal %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    {% include "charsheet/partials/_viewport.html" %}
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <title>{% block title %}{% endblock %} | {{ legal.site_name|default:"Codex Arcana" }}</title>
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
+    <link rel="stylesheet" href="{% static 'css/public-os-27.css' %}?v=20261025-legal-back-to-top2">
+  </head>
+  <body class="{% block body_class %}{% endblock %}">
+    <main class="book-spread book-spread--legal">
+      <article class="page page--legal" aria-labelledby="legal-title">
+        <section class="legal_doc">
+          <h1 id="legal-title" tabindex="-1">{% block heading %}{% endblock %}</h1>
+          {% block content %}{% endblock %}
+          <nav class="legal_actions" aria-label="Rechtliche Seiten und Anmeldung">
+            {% if request.resolver_match.url_name != 'impressum' %}
+              <a href="{% url 'impressum' %}">Impressum</a>
+            {% endif %}
+            {% if request.resolver_match.url_name != 'datenschutz' %}
+              <a href="{% url 'datenschutz' %}">Datenschutz</a>
+            {% endif %}
+            <a href="{% url 'login' %}">Zurück zum Login</a>
+          </nav>
+        </section>
+      </article>
+    </main>
+    {% block floating_actions %}{% endblock %}
+  </body>
+</html>

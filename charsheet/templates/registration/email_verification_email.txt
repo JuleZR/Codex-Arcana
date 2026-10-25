@@ -8,3 +8,6 @@ Bitte bestätige die Adresse über diesen Link:
 Der Link ist zeitlich begrenzt und kann nur einmal verwendet werden.
 
 Falls du diese Aktion nicht angestoßen hast, kannst du diese Nachricht ignorieren.
+
+Impressum: {{ protocol }}://{{ domain }}{% url 'impressum' %}
+Datenschutz: {{ protocol }}://{{ domain }}{% url 'datenschutz' %}

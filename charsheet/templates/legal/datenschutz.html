@@ -1,134 +1,221 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="de">
-  <head>
-    <meta charset="UTF-8">
-    {% include "charsheet/partials/_viewport.html" %}
-    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
-    <title>Datenschutz | {{ legal.site_name|default:"Codex Arcana" }}</title>
-    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261001i">
-  </head>
-  <body>
-    <main class="book-spread book-spread--legal">
-      <article class="page page--legal" aria-label="Datenschutz">
-        <section class="legal_doc">
-          <h1>Datenschutzerklärung</h1>
+{% extends "legal/base.html" %}
+{% load legal_info %}
 
-          <section class="legal_block">
-            <h2>1. Verantwortlicher</h2>
-            {% if legal.operator_name %}<p>{{ legal.operator_name }}</p>{% endif %}
-            {% if legal.address %}<p>{{ legal.address|linebreaksbr }}</p>{% endif %}
-            {% if legal.email %}<p>E-Mail: <a href="mailto:{{ legal.email }}">{{ legal.email }}</a></p>{% endif %}
-          </section>
+{% block title %}Datenschutz{% endblock %}
+{% block heading %}Datenschutzerklärung{% endblock %}
+{% block body_class %}legal_privacy_page{% endblock %}
 
-          <section class="legal_block">
-            <h2>2. Umfang der Datenverarbeitung</h2>
-            <ul>
-              <li>Kontodaten für die Anmeldung (Benutzername, Passwort-Hash, optional E-Mail, Zeitstempel für Login/Account)</li>
-              <li>Charakter- und Spielstandsdaten, die Nutzer selbst anlegen (z. B. Name, Attribute, Skills, Inventar, Sprachen, Traits, Geld, Erfahrung, Schadensstand, Freitexte)</li>
-              <li>Sitzungs- und Sicherheitsdaten (Session-Cookie, CSRF-Cookie sowie bei optionaler Passkey-Nutzung öffentliche WebAuthn-Anmeldedaten und technische Metadaten; private Passkey-Schlüssel werden nicht gespeichert)</li>
-              <li>Technische Verbindungs- und Logdaten des Hostings (z. B. IP-Adresse, Zeitstempel, Request-URL, User-Agent)</li>
-            </ul>
-          </section>
+{% block floating_actions %}
+  <a class="legal_back_to_top" href="#legal-title" aria-label="Zurück zum Seitenanfang" title="Nach oben" hidden>
+    <span aria-hidden="true">↑</span>
+  </a>
+  <script>
+    (() => {
+      const button = document.querySelector(".legal_back_to_top");
+      const page = document.querySelector(".page--legal");
+      const updateVisibility = () => {
+        button.hidden = window.scrollY < 240;
+      };
+      const updatePosition = () => {
+        const bounds = page.getBoundingClientRect();
+        const viewportWidth = document.documentElement.clientWidth;
+        const buttonWidth = 44;
+        const outsideLeft = bounds.right + 10;
+        const left = outsideLeft + buttonWidth + 12 <= viewportWidth
+          ? outsideLeft
+          : bounds.right - buttonWidth - 12;
+        button.style.left = Math.max(12, left) + "px";
+      };
+      window.addEventListener("scroll", updateVisibility, { passive: true });
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("pageshow", updateVisibility);
+      updatePosition();
+      updateVisibility();
+    })();
+  </script>
+{% endblock %}
 
-          <section class="legal_block">
-            <h2>3. Zwecke und Rechtsgrundlagen (Art. 6 DSGVO)</h2>
-            <ul>
-              <li>Bereitstellung von Login, Benutzerkonto und Charakterverwaltung (Art. 6 Abs. 1 lit. b DSGVO)</li>
-              <li>Betriebssicherheit, Missbrauchserkennung und technische Stabilität (Art. 6 Abs. 1 lit. f DSGVO)</li>
-              <li>Erfüllung gesetzlicher Pflichten (Art. 6 Abs. 1 lit. c DSGVO), soweit einschlägig</li>
-            </ul>
-          </section>
+{% block content %}
+  {% if legal.reviewed_on %}
+    <p>Stand: <time datetime="{{ legal.reviewed_on }}">{{ legal.reviewed_date|date:"d.m.Y" }}</time></p>
+  {% endif %}
+  <p>Diese Datenschutzerklärung informiert darüber, wie wir personenbezogene Daten beim Besuch dieser Website und bei der Nutzung von Codex Arcana verarbeiten.</p>
 
-          <section class="legal_block">
-            <h2>4. Cookies</h2>
-            <p>Diese Anwendung verwendet ausschließlich technisch notwendige Cookies:</p>
-            <ul>
-              <li>`sessionid` für die Login-Session</li>
-              <li>`csrftoken` für den CSRF-Schutz bei Formularen und AJAX-Requests</li>
-            </ul>
-            <p>Es werden keine Tracking- oder Marketing-Cookies eingesetzt.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-contact">
+    <h2 id="privacy-contact">Verantwortlicher und Kontakt</h2>
+    {% if legal.operator_name %}<p>{{ legal.operator_name }}</p>{% endif %}
+    {% if legal.address %}<p>{{ legal.address|linebreaksbr }}</p>{% endif %}
+    {% if legal.email %}<p>E-Mail: {{ legal.email|legal_email }}</p>{% endif %}
+    {% if legal.data_protection_officer %}<p>Datenschutzbeauftragter: {{ legal.data_protection_officer|linebreaksbr }}</p>{% endif %}
+  </section>
 
-          <section class="legal_block">
-            <h2>5. Lokale Speicherung im Browser (LocalStorage)</h2>
-            <p>Für Komfortfunktionen der Benutzeroberfläche werden im Browser Positions- und Sichtbarkeitszustände einzelner Fenster lokal gespeichert (z. B. `charsheet.paydayWindow`, `charsheet.xpWindow`, `charsheet.shopWindow`, `charsheet.shopItemWindow`, `charsheet.learnWindow`).</p>
-            <p>Diese Daten verbleiben lokal im Browser des Endgeräts und werden nicht als eigener Datensatz an den Betreiber übertragen.</p>
-          </section>
+  <nav class="legal_block" aria-label="Inhaltsverzeichnis Datenschutz">
+    <h2>Inhalt</h2>
+    <ul>
+      <li><a href="#privacy-hosting">Website und Hosting</a></li>
+      <li><a href="#privacy-account">Benutzerkonto und Anmeldung</a></li>
+      <li><a href="#privacy-auth">Passkeys und Zwei-Faktor-Anmeldung</a></li>
+      <li><a href="#privacy-content">Spielinhalte und gemeinsame Nutzung</a></li>
+      <li><a href="#privacy-security">Sicherheit</a></li>
+      <li><a href="#privacy-browser">Cookies und Browserspeicher</a></li>
+      <li><a href="#privacy-fonts">Schriftarten</a></li>
+      <li><a href="#privacy-mail">E-Mail und Kontaktanfragen</a></li>
+      {% if auth_turnstile_enabled %}<li><a href="#privacy-turnstile">Bot-Schutz</a></li>{% endif %}
+      <li><a href="#privacy-dddice">Freiwillige DDDice-Anbindung</a></li>
+      <li><a href="#privacy-transfer">Dienstleister und internationale Übermittlungen</a></li>
+      <li><a href="#privacy-delete">Speicherung, Löschung und Export</a></li>
+      <li><a href="#privacy-rights">Deine Rechte</a></li>
+    </ul>
+  </nav>
 
-          <section class="legal_block">
-            <h2>6. Lokal gehostete Schriftarten</h2>
-            <p>Die verwendeten Schriftarten werden lokal als statische Dateien auf dem eigenen Server ausgeliefert. Beim Laden der Seite wird dafür keine Verbindung zu externen Font-CDNs hergestellt.</p>
-            <p>Hinweis für Betreiber: Werden stattdessen externe Font-Dienste eingebunden, ist die Datenschutzerklärung entsprechend zu ergänzen.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-hosting">
+    <h2 id="privacy-hosting">Website und Hosting</h2>
+    <p>Beim Besuch der Website verarbeiten wir deine IP-Adresse, den Zeitpunkt des Zugriffs, die angefragte Seite, den Antwortstatus und technische Browserinformationen. Diese Daten benötigen wir, um die Website auszuliefern, Störungen zu beheben und Angriffe zu erkennen.</p>
+    <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt in der sicheren und zuverlässigen Bereitstellung des Angebots.</p>
+    {% if legal.hosting_provider %}<p><strong>Hostinganbieter:</strong> {{ legal.hosting_provider|linebreaksbr }}</p>{% endif %}
+    {% if legal.hosting_location %}<p><strong>Verarbeitungsorte:</strong> {{ legal.hosting_location|linebreaksbr }}</p>{% endif %}
+    <p>Der Hostinganbieter und die mit Betrieb und Wartung betrauten Personen erhalten im erforderlichen Umfang Zugang zu Verbindungsdaten und gespeicherten Anwendungsdaten.</p>
+    {% if legal.server_log_retention %}<p><strong>Aufbewahrung der Serverprotokolle:</strong> {{ legal.server_log_retention|linebreaksbr }}</p>{% endif %}
+  </section>
 
-          <section class="legal_block">
-            <h2>7. Empfänger</h2>
-            <p>Personenbezogene Daten werden nur an Stellen weitergegeben, soweit dies für den Betrieb erforderlich ist:</p>
-            <ul>
-              <li>Hosting- und Infrastrukturanbieter (Server, Datenbank, Logging)</li>
-              <li>Technische Dienstleister im Rahmen von Auftragsverarbeitung, sofern eingesetzt</li>
-            </ul>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-account">
+    <h2 id="privacy-account">Benutzerkonto und Anmeldung</h2>
+    <p>Für ein neues Konto benötigen wir einen Benutzernamen, eine E-Mail-Adresse und ein Passwort. Wir speichern das Passwort als Prüfwert (Hash), außerdem deine Kontokennung, den Aktivierungs- und Berechtigungsstatus, Anmeldezeitpunkte sowie deine persönlichen Einstellungen. Diese Angaben dienen der Kontoverwaltung und der Zuordnung deiner Spielinhalte.</p>
+    <p>Zur Bestätigung deiner E-Mail-Adresse verarbeiten wir die Adresse, den Bestätigungsstatus, einen einmaligen Prüfbezug und den Versandzeitpunkt. Der Bestätigungslink ist {{ privacy.verification_timeout|legal_duration:"hours" }} gültig. {% if privacy.email_verification_required %}Bei Konten mit hinterlegter E-Mail-Adresse ist die Bestätigung Voraussetzung für die Anmeldung. Bestehende Konten ohne E-Mail-Adresse sind davon ausgenommen.{% else %}Du kannst dich auch ohne vorherige Bestätigung deiner E-Mail-Adresse anmelden.{% endif %}</p>
+    <p>Wenn du dein Passwort zurücksetzt, verarbeiten wir deine E-Mail-Adresse und einen einmalig verwendbaren Wiederherstellungslink. Dieser ist {{ privacy.password_reset_timeout|legal_duration:"hours" }} gültig. Eingegebene Passwörter werden auch zur Prüfung der Passwortanforderungen verarbeitet.</p>
+    <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO: Wir verarbeiten die Angaben zur Bereitstellung des von dir angeforderten Benutzerkontos einschließlich seiner Wiederherstellung. Ohne die bei der Registrierung erforderlichen Angaben kannst du kein neues Konto anlegen.</p>
+  </section>
 
-          <section class="legal_block">
-            <h2>8. Speicherdauer</h2>
-            <ul>
-              <li>Kontodaten und Charakterdaten: bis zur Löschung des Kontos bzw. bis zur Löschung durch den Betreiber</li>
-              <li>Server-Logs: nach den technischen Vorgaben des jeweiligen Hosters (rotierend, zeitlich begrenzt)</li>
-              <li>Cookies: gemäß Cookie-Laufzeit bzw. bis zur Browser-Löschung</li>
-              <li>LocalStorage-Daten: bis zur Löschung im Browser durch den Nutzer</li>
-            </ul>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-auth">
+    <h2 id="privacy-auth">Passkeys und Zwei-Faktor-Anmeldung</h2>
+    <p><strong>Passkeys:</strong> Wenn du einen Passkey einrichtest, speichern wir dessen Bezeichnung, öffentliche Anmeldedaten und Kennung, Geräte- und Transportmerkmale, Sicherungsstatus, Nutzungszähler sowie Erstellungs- und letzte Nutzungszeit. Bei der Einrichtung werden dein Benutzername, gegebenenfalls dein Anzeigename und eine Kontokennung an den von dir gewählten Authenticator oder Passwortmanager übergeben. Private Schlüssel und biometrische Merkmale erhalten wir nicht.</p>
+    <p><strong>Zwei-Faktor-Anmeldung:</strong> Bei Aktivierung speichern wir ein verschlüsseltes Authentifizierungsgeheimnis, den Aktivierungsstatus und -zeitpunkt sowie Prüfwerte deiner Wiederherstellungscodes mit Erstellungs- und Verbrauchszeitpunkten. Der Einrichtungs-QR-Code enthält das Geheimnis und deine E-Mail-Adresse oder deinen Benutzernamen als Kontobezeichnung. Du überträgst diese Angaben an deine gewählte Authenticator-App.</p>
+    <p>Beide Anmeldeoptionen sind freiwillig. Rechtsgrundlagen sind Art. 6 Abs. 1 lit. b DSGVO für die gewünschte Funktion und Art. 6 Abs. 1 lit. f DSGVO für unser berechtigtes Interesse am Schutz deines Kontos. Die serverseitigen Angaben verarbeiten wir im Rahmen des Hostingbetriebs. Eine Synchronisation durch deinen Geräte-, Authenticator- oder Passwortmanageranbieter richtet sich nach dem von dir gewählten Dienst.</p>
+    <p>Passkey-Daten bleiben bis zur Entfernung des Passkeys oder zur Kontolöschung gespeichert. Daten zur Zwei-Faktor-Anmeldung werden bei deren Deaktivierung oder bei Kontolöschung entfernt. Wiederherstellungscodes bleiben bis zu ihrer Erneuerung, der Deaktivierung oder der Kontolöschung gespeichert; ihr Verbrauch allein löscht den Prüfwert nicht.</p>
+  </section>
 
-          <section class="legal_block">
-            <h2>9. Datensicherheit</h2>
-            <p>Die Anwendung verwendet Standard-Sicherheitsmechanismen von Django (insbesondere Authentifizierung, Session-Verwaltung und CSRF-Schutz). Charakterdaten werden in der Anwendung benutzerbezogen verarbeitet. Für Transportverschlüsselung (TLS/HTTPS), Hoster-Logging und Server-Härtung ist der jeweilige Betreiber verantwortlich.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-content">
+    <h2 id="privacy-content">Spielinhalte und gemeinsame Nutzung</h2>
+    <p>Wir speichern die von dir eingegebenen Charakterwerte, Inventare, Gegenstandsübergaben, Lern- und Spielhistorien, Kalenderdaten, Tagebucheinträge, Freitexte, Vorlagen und Bilder. Bei der Nutzung von Spielgruppen kommen Gruppen, Rollen, Einladungen, Nachrichten, Tabellen, Spielleiternotizen und gemeinsam verwendete Karten hinzu. Diese Inhalte sind deinem Konto zugeordnet; Freitexte und Bilder können auch Angaben über andere Personen enthalten.</p>
+    <p>Die eigene Charakterverwaltung steht dir über dein Konto zur Verfügung. Bei der Suche nach Übergabeempfängern und bei Gruppeneinladungen sehen andere angemeldete Nutzer Charakternamen, Rasse und den zugehörigen Benutzernamen. Berechtigte Gruppenmitglieder, Gruppenleitungen, Spielleiter und Übergabebeteiligte erhalten Zugang zu den jeweils gemeinsam genutzten Inhalten und Historien. Inhalte können dabei auch von anderen Spielbeteiligten stammen.</p>
+    <p>Hochgeladene Bilder sind über ihre Dateiadresse auch ohne Anmeldung abrufbar. Verwende deshalb keine vertraulichen Bilder oder personenbezogenen Inhalte, zu deren Veröffentlichung du nicht berechtigt bist.</p>
+    <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO für die von dir gewünschten Verwaltungs- und Zusammenarbeitsfunktionen. Freitexte, Bilder und gemeinsame Spielfunktionen nutzt du freiwillig. Für die Charakterverwaltung benötigen wir keine sensiblen Angaben über die Gesundheit, Religion oder andere persönliche Lebensbereiche realer Personen.</p>
+  </section>
 
-          <section class="legal_block">
-            <h2>10. Rechte betroffener Personen</h2>
-            <p>Betroffene Personen haben nach Maßgabe der DSGVO insbesondere folgende Rechte: Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-security">
+    <h2 id="privacy-security">Schutz vor unberechtigten Zugriffen</h2>
+    <p>Zum Schutz deiner Daten protokollieren wir sicherheitsrelevante Vorgänge: Anmeldungen und zuordenbare Fehlversuche, Änderungen von Passwort und E-Mail-Adresse, Änderungen an Passkeys und Zwei-Faktor-Anmeldung, Sitzungsbeendigungen sowie Deaktivierungs- und Löschanfragen. Die Einträge enthalten Kontobezug, Ereignisart, Zeitpunkt, IP-Adresse, eine grobe Browser- und Betriebssystemangabe sowie ergänzende Angaben wie eine Passkey-Bezeichnung oder die Zahl beendeter Sitzungen.</p>
+    <p>Zur Begrenzung missbräuchlicher Anmeldeversuche verarbeiten wir außerdem Benutzernamen, IP-Adressen, Browser- und Anfrageinformationen, Zeitpunkte, Versuchszähler und Sperrzeiten. Dabei verwenden wir auch aus IP- und Kontobezügen abgeleitete Kennungen. Auffällige Zugriffe werden in Sicherheitsprotokollen festgehalten. Automatische Prüfungen können weitere Versuche vorübergehend sperren; bei einer unzutreffenden Sperre kannst du uns um Prüfung bitten.</p>
+    <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse besteht darin, Kontoübernahmen und automatisierten Missbrauch zu verhindern und die Sicherheit des Angebots zu erhalten. Zugriff haben die zuständigen Administratoren; deine angezeigte Kontoaktivität kannst du selbst einsehen.</p>
+    {% if legal.security_cleanup %}<p>{{ legal.security_cleanup|linebreaksbr }}</p>{% endif %}
+    {% if legal.auth_log_retention %}<p><strong>Weitere Anmelde- und Schutzprotokolle:</strong> {{ legal.auth_log_retention|linebreaksbr }}</p>{% endif %}
+  </section>
 
-          <section class="legal_block">
-            <h2>11. Beschwerderecht</h2>
-            <p>Es besteht ein Beschwerderecht bei einer Datenschutzaufsichtsbehörde.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-browser">
+    <h2 id="privacy-browser">Cookies und Browserspeicher</h2>
+    <p><strong>Anmeldung:</strong> Das Cookie <code>{{ privacy.session_cookie_name }}</code> ordnet deinen Browser einer Sitzung zu. Darin verwalten wir deine Anmeldung, laufende Sicherheitsprüfungen und vorübergehende Spielwerte. {% if privacy.session_browser_close %}Es handelt sich um ein Sitzungscookie, dessen Laufzeit mit der Browsersitzung endet.{% else %}Die Laufzeit beträgt {{ privacy.session_age_seconds|legal_duration }} und kann bei Änderungen der Sitzung erneuert werden.{% endif %} Durch Abmeldung oder Beendigung einer Sitzung wird deren Zugang ungültig.</p>
+    {% if privacy.csrf_use_sessions %}
+      <p><strong>Formularschutz:</strong> Ein Prüfwert innerhalb der Sitzung schützt deine Formulareingaben vor unbefugten Anfragen.</p>
+    {% else %}
+      <p><strong>Formularschutz:</strong> Das Cookie <code>{{ privacy.csrf_cookie_name }}</code> schützt Formulare und Änderungsanfragen vor unbefugten Zugriffen. Seine Laufzeit beträgt {{ privacy.csrf_age_seconds|legal_duration }} und kann bei Nutzung erneuert werden.</p>
+    {% endif %}
+    <p><strong>Dauerhafte lokale Speicherung (LocalStorage):</strong> Dein Browser speichert Fensterpositionen, Größen, Sichtbarkeit, Kartenanordnung, Auswahlzustände, Einstellungen des Kampfberechners, Würfelmodifikatoren und die letzten bis zu zehn Schnellslot-Würfe einschließlich Bezeichnungen und Ergebnissen. Auf dem Gerät gespeicherte Tagebuchinhalte werden bei ihrer Übernahme in das Benutzerkonto an uns übertragen. Schnellslot-Anordnungen werden auch in deinem Konto gespeichert. Lokale Daten bleiben bis zum Überschreiben oder Löschen der Websitedaten erhalten, auch nach Abmeldung oder Kontolöschung.</p>
+    <p><strong>Speicherung für einen Browser-Tab (SessionStorage):</strong> Aktive Ansichten, Zauberfilter, Zwischenauswahlen im Spielleiterschirm und Schadensanzeigen bleiben für die jeweilige Tab-Sitzung erhalten. Eine Wiederherstellung von Tabs durch den Browser kann diese Speicherung verlängern.</p>
+    <p>Die Cookies für Anmeldung und Formularschutz sind für die angeforderten Funktionen technisch erforderlich; diese Speicherzugriffe beruhen auf § 25 Abs. 2 Nr. 2 TDDDG. Personenbezogene Daten zur Bereitstellung deines Kontos verarbeiten wir nach Art. 6 Abs. 1 lit. b DSGVO, zum Schutz vor unberechtigten Zugriffen nach Art. 6 Abs. 1 lit. f DSGVO.</p>
+    <p>Die beschriebenen lokalen Anzeigeeinstellungen und Spielzustände werden beim Aufrufen oder Bedienen der jeweiligen Funktion automatisch gelesen beziehungsweise gespeichert. Die dauerhafte Wurfhistorie und reine Anzeigepräferenzen sind für einzelne Würfe und die aktuelle Darstellung nicht technisch erforderlich und benötigen grundsätzlich eine vorherige Einwilligung. Eine solche Einwilligungsabfrage gibt es derzeit nicht. Diese Speicherzugriffe dienen der Wiederherstellung deiner Oberfläche und Spielbedienung; Werbe- oder Reichweitenmessung findet dadurch nicht statt.</p>
+    <p>Du kannst Cookies und Websitedaten in deinen Browsereinstellungen löschen oder blockieren. Dabei gehen lokale Einstellungen verloren; ohne erforderliche Cookies sind Anmeldung und Formulare nicht nutzbar. Andere Personen mit Zugriff auf dasselbe Browserprofil können dort gespeicherte Daten einsehen.</p>
+  </section>
 
-          <section class="legal_block">
-            <h2>12. Pflicht zur Bereitstellung von Daten</h2>
-            <p>Die Bereitstellung von Login-Daten ist für die Nutzung geschützter Bereiche erforderlich. Die Eingabe von Charakterdaten erfolgt freiwillig, ist aber notwendig, um die jeweiligen Funktionen der Charakterverwaltung zu nutzen.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-fonts">
+    <h2 id="privacy-fonts">Schriftarten</h2>
+    <p>Diese Website verwendet lokal bereitgestellte Schriftarten. Beim Laden dieser Schriftarten wird keine Verbindung zu externen Schriftartenanbietern hergestellt.</p>
+  </section>
 
-          <section class="legal_block">
-            <h2>13. Keine automatisierte Entscheidungsfindung</h2>
-            <p>Es findet keine automatisierte Entscheidungsfindung einschließlich Profiling im Sinne von Art. 22 DSGVO statt.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-mail">
+    <h2 id="privacy-mail">E-Mail und Kontaktanfragen</h2>
+    <p>Wir verwenden deine E-Mail-Adresse, um dir Bestätigungslinks und von dir angeforderte Links zur Passwortwiederherstellung zu senden. Dabei werden Empfängeradresse, Absender, Betreff, Nachrichteninhalt und Zustellinformationen verarbeitet. Rechtsgrundlage ausschließlich für den erforderlichen Versand und die Zustellung dieser Kontomails ist Art. 6 Abs. 1 lit. b DSGVO. Diese Angabe gilt nicht für zusätzliche Öffnungs- oder Klickauswertungen.</p>
+    {% if privacy.local_mail_backend %}
+      <p>Kontomails werden hier nur lokal ausgegeben; eine Zustellung an externe Postfächer erfolgt nicht.</p>
+    {% endif %}
+    {% if legal.email_provider %}<p><strong>E-Mail-Dienst:</strong> {{ legal.email_provider|linebreaksbr }}</p>{% endif %}
+    {% if legal.email_location %}<p><strong>Empfänger und Verarbeitungsorte:</strong> {{ legal.email_location|linebreaksbr }}</p>{% endif %}
+    {% if legal.email_retention %}<p><strong>Speicherdauer:</strong> {{ legal.email_retention|linebreaksbr }}</p>{% endif %}
+    {% if legal.email_tracking %}<p><strong>Öffnungs- und Klickauswertung:</strong> {{ legal.email_tracking|linebreaksbr }}</p>{% endif %}
+    <p>Beim Laden des Logos einer Kontomail stellt dein E-Mail-Programm oder dessen Bildproxy eine Verbindung zu unserem Server her. Dabei fallen die im Abschnitt <a href="#privacy-hosting">Website und Hosting</a> beschriebenen Verbindungsdaten an.</p>
+    <p>Wenn du uns kontaktierst, verarbeiten wir deine Absender- und Kontaktdaten sowie den Inhalt und etwaige Anlagen zur Bearbeitung deiner Anfrage. Grundlage ist Art. 6 Abs. 1 lit. b DSGVO bei Anfragen zur Kontonutzung; bei anderen Anliegen Art. 6 Abs. 1 lit. f DSGVO aufgrund unseres berechtigten Interesses an deren Beantwortung. Zugang erhalten die zuständigen Ansprechpartner und beteiligten E-Mail-Dienstleister.</p>
+    {% if legal.contact_retention %}<p><strong>Kontaktpostfach und Aufbewahrung:</strong> {{ legal.contact_retention|linebreaksbr }}</p>{% endif %}
+  </section>
 
-          <section class="legal_block">
-            <h2>14. Kontakt Datenschutz</h2>
-            {% if legal.email %}
-              <p>Bei Fragen zum Datenschutz: <a href="mailto:{{ legal.email }}">{{ legal.email }}</a></p>
-            {% else %}
-              <p>Es ist keine Datenschutz-Kontaktadresse hinterlegt.</p>
-            {% endif %}
-          </section>
+  {% if auth_turnstile_enabled %}
+    <section class="legal_block" aria-labelledby="privacy-turnstile">
+      <h2 id="privacy-turnstile">Bot-Schutz mit Cloudflare Turnstile</h2>
+      <p>Zum Schutz vor automatisiertem Missbrauch verwenden wir Cloudflare Turnstile von Cloudflare, Inc. Der Dienst wird auf den Seiten zur Anmeldung, Registrierung, Passwortwiederherstellung und E-Mail-Bestätigung geladen und verarbeitet IP-Adresse, technische Browser- und Verbindungsmerkmale sowie Angaben zur aufgerufenen Website. Für die Prüfung werden eine Prüfantwort und die IP-Adresse an Cloudflare übermittelt.</p>
+      <p>Zusätzliche Formularprüfungen erfolgen bei:</p>
+      <ul>
+        {% if 'login' in auth_turnstile_categories %}<li>Anmeldung</li>{% endif %}
+        {% if 'registration' in auth_turnstile_categories %}<li>Registrierung</li>{% endif %}
+        {% if 'password_reset' in auth_turnstile_categories %}<li>Reset-Link anfordern</li>{% endif %}
+        {% if 'password_reset_confirm' in auth_turnstile_categories %}<li>Neues Passwort festlegen</li>{% endif %}
+        {% if 'verification_resend' in auth_turnstile_categories %}<li>Bestätigungslink erneut anfordern</li>{% endif %}
+      </ul>
+      <p>Die Verarbeitung zum Schutz der Website beruht auf Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist die Abwehr automatisierter Angriffe auf Nutzerkonten und Formulare. Cloudflare verarbeitet die Schutzsignale in unserem Auftrag und zur Verbesserung seiner Bot-Erkennung auch in eigener Verantwortung. Einzelheiten erläutert der <a href="https://www.cloudflare.com/turnstile-privacy-policy/">Datenschutzhinweis zu Turnstile</a>.</p>
+      {% if legal.turnstile_details %}<p>{{ legal.turnstile_details|linebreaksbr }}</p>{% endif %}
+    </section>
+  {% endif %}
 
-          <section class="legal_block">
-            <h2>15. Aktualität dieser Erklärung</h2>
-            <p>Stand: {% now "d.m.Y" %}. Diese Erklärung wird bei technischen oder rechtlichen Änderungen angepasst.</p>
-          </section>
+  <section class="legal_block" aria-labelledby="privacy-dddice">
+    <h2 id="privacy-dddice">Freiwillige DDDice-Anbindung</h2>
+    <p>Du kannst DDDice für die externe Darstellung deiner Würfe freiwillig aktivieren und mit deinen eigenen Zugangsdaten einrichten. Wir speichern dafür deinen API-Schlüssel, die Raumkennung, gegebenenfalls das Raumpasswort und das gewählte Würfelset in deinem Konto. Bei aktiver und vollständig eingerichteter Anbindung baut dein Browser bereits beim Öffnen des Charakterbogens eine Verbindung zu DDDice auf. Auch das Abrufen von Würfelsets in den Einstellungen verbindet dich mit dem Dienst.</p>
+    <p>DDDice erhält Verbindungs- und Browserdaten, die Authentifizierung und Rauminformationen sowie bei Würfen Würfelwerte, Würfelset und Ergebnisbezeichnung. Über deinen API-Schlüssel kann DDDice die Vorgänge deinem dortigen Konto zuordnen. Andere Raumteilnehmer können die Würfe sehen. Wir verarbeiten diese Angaben zur Bereitstellung der von dir gewünschten Würfeldarstellung nach Art. 6 Abs. 1 lit. b DSGVO.</p>
+    <p>Die für diese Anbindung geladene Software greift außerdem auf lokale Diagnoseeinstellungen zu und kann die zuletzt erfolgreiche Verbindungsart mit Zeitpunkt und Verbindungsdauer im Browser speichern. Diese Angaben dienen der Diagnose und dem erneuten Verbindungsaufbau.</p>
+    <p>Anbieter ist The 3D Dice Company LLC. Wir verantworten die Speicherung deiner Anbindungseinstellungen und die durch unsere Anwendung ausgelöste Übermittlung. Für dein dortiges Konto und die Verarbeitung innerhalb seines Dienstes ist DDDice selbst verantwortlich. DDDice verarbeitet personenbezogene Daten nach seiner <a href="https://dddice.com/privacy">Datenschutzerklärung</a> in den USA. Dort findest du auch Kontaktmöglichkeiten zur Ausübung deiner Rechte gegenüber DDDice und Informationen zur Verarbeitung durch diesen Dienst.</p>
+    <p>Du kannst die Anbindung ausschalten und die gespeicherten Zugangsdaten entfernen. Die Zugangsdaten bleiben bis zu ihrer Entfernung oder Kontolöschung gespeichert; Ausschalten allein löscht sie nicht. Externe Räume und Wurfdaten bei DDDice werden dadurch nicht gelöscht. Die lokale Würfelfunktion kannst du ohne DDDice verwenden.</p>
+  </section>
 
-          {% if legal.missing_required %}
-            <section class="legal_block legal_block--warning">
-              <p><strong>Hinweis für Self-Hosting:</strong> Pflichtangaben fehlen. Bitte mindestens `LEGAL_OPERATOR_NAME`, `LEGAL_ADDRESS` und `LEGAL_EMAIL` in der Hosting-Umgebung setzen.</p>
-            </section>
-          {% endif %}
+  <section class="legal_block" aria-labelledby="privacy-transfer">
+    <h2 id="privacy-transfer">Dienstleister und internationale Übermittlungen</h2>
+    {% if legal.processor_contracts %}<p><strong>Empfänger und Auftragsverarbeitung:</strong> {{ legal.processor_contracts|linebreaksbr }}</p>{% endif %}
+    {% if legal.transfer_safeguards %}<p><strong>Übermittlungen außerhalb des Europäischen Wirtschaftsraums und Schutzmaßnahmen:</strong> {{ legal.transfer_safeguards|linebreaksbr }}</p>{% endif %}
+    <p>Informationen zu den dich betreffenden Empfängern und gegebenenfalls eine Kopie anwendbarer Übermittlungsgarantien kannst du über die oben angegebenen Kontaktwege anfordern.</p>
+  </section>
 
-          <p class="legal_actions"><a href="{% url 'login' %}">Zurück zum Login</a></p>
-        </section>
-      </article>
-    </main>
-  </body>
-</html>
+  <section class="legal_block" aria-labelledby="privacy-delete">
+    <h2 id="privacy-delete">Speicherung, Löschung und Export</h2>
+    <p>Kontodaten bleiben für die Dauer der Kontonutzung gespeichert, Spielinhalte bis zu ihrer Löschung. Eine Deaktivierung sperrt die Anmeldung und beendet aktive Sitzungen, erhält aber die gespeicherten Daten. Auch archivierte Charaktere und Gruppen bleiben gespeichert.</p>
+    <p>Du kannst die dauerhafte Kontolöschung in deinen Kontoeinstellungen mit deinem aktuellen Passwort und einer ausdrücklichen Bestätigung anfordern. Nach erfolgreicher Kontolöschung werden auch die zu deinem Konto gehörenden hochgeladenen Bilder vollständig aus dem aktiven Speicher gelöscht. Gemeinsame Gruppenrollen, Einladungen, Übergaben oder Eigentumshistorien können eine gesonderte Bearbeitung erfordern. Für diese Fälle kannst du uns über die Kontaktadresse um Löschung oder Anonymisierung bitten.</p>
+    <p>Unbestätigte und inaktive Konten sowie gemeinsame Spielhistorien werden nicht allein wegen ausbleibender Nutzung automatisch gelöscht. Soweit eine weitere Speicherung zur Erfüllung einer gesetzlichen Pflicht oder zur Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen erforderlich ist, erfolgt die Löschung nach Wegfall dieses Grundes.</p>
+    <p>Über den Datenexport kannst du Kontobasisdaten und eigene Charakterdaten herunterladen. Lokale Browserdaten und Daten bei selbst gewählten externen Diensten löschst du zusätzlich dort.</p>
+    {% if legal.backup_policy %}
+      <h3>Sicherungskopien</h3>
+      <p>Sicherungskopien dienen der Wiederherstellung nach Datenverlust oder Störungen. Die Verarbeitung beruht auf Art. 6 Abs. 1 lit. f DSGVO und unserem berechtigten Interesse an der Verfügbarkeit und Wiederherstellbarkeit deiner Daten.</p>
+      <p>{{ legal.backup_policy|linebreaksbr }}</p>
+    {% endif %}
+    {% if legal.test_data_policy %}
+      <h3>Entwicklungs- und Testumgebungen</h3>
+      <p>{{ legal.test_data_policy|linebreaksbr }}</p>
+    {% endif %}
+  </section>
+
+  {% if legal.administrative_services %}
+    <section class="legal_block" aria-labelledby="privacy-administrative">
+      <h2 id="privacy-administrative">Administrative Betriebsdienste</h2>
+      <p>{{ legal.administrative_services|legal_bold|linebreaksbr }}</p>
+    </section>
+  {% endif %}
+
+  {% if legal.additional_processing %}
+    <section class="legal_block" aria-labelledby="privacy-additional">
+      <h2 id="privacy-additional">Weitere Datenverarbeitungen</h2>
+      <p>{{ legal.additional_processing|linebreaksbr }}</p>
+    </section>
+  {% endif %}
+
+  <section class="legal_block" aria-labelledby="privacy-rights">
+    <h2 id="privacy-rights">Deine Rechte</h2>
+    <p>Unter den gesetzlichen Voraussetzungen kannst du Auskunft und eine Kopie deiner personenbezogenen Daten, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit verlangen (Art. 15–20 DSGVO). Nutze dafür die oben angegebenen Kontaktwege. Zur sicheren Zuordnung einer Anfrage können wir erforderliche Angaben zur Identitätsbestätigung erbitten. Wir beantworten Anfragen grundsätzlich innerhalb eines Monats; über eine gesetzlich zulässige Verlängerung informieren wir dich mit Begründung.</p>
+    <p><strong>Widerspruchsrecht:</strong> Wenn wir Daten aufgrund berechtigter Interessen nach Art. 6 Abs. 1 lit. f DSGVO verarbeiten, kannst du aus Gründen deiner besonderen Situation jederzeit widersprechen. Wir beenden die Verarbeitung, sofern keine zwingenden schutzwürdigen Gründe überwiegen oder die Verarbeitung der Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen dient (Art. 21 DSGVO).</p>
+    <p>Eine erteilte Einwilligung kannst du jederzeit für die Zukunft widerrufen. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt unberührt.</p>
+    <p>Du kannst dich bei einer Datenschutzaufsichtsbehörde beschweren, insbesondere an deinem Aufenthaltsort, Arbeitsplatz oder am Ort des vermuteten Verstoßes (Art. 77 DSGVO). Eine Übersicht bietet die <a href="https://www.datenschutzkonferenz-online.de/datenschutzaufsichtsbehoerden.html">Liste der deutschen Datenschutzaufsichtsbehörden</a>.</p>
+    <p>Bei der Kontoverwaltung treffen wir keine ausschließlich automatisierten Entscheidungen mit rechtlicher oder ähnlich erheblicher Wirkung im Sinne von Art. 22 DSGVO.</p>
+  </section>
+{% endblock %}

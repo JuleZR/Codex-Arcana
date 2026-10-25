@@ -1,0 +1,16 @@
+# Copy outside the repository, replace all CHANGE_ME paths and the service user.
+[Unit]
+Description=Remove expired Codex Arcana account security events
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+User=CHANGE_ME
+WorkingDirectory=/CHANGE_ME/Codex_Arcana
+ExecStart=/CHANGE_ME/Codex_Arcana/.venv/bin/python manage.py purge_security_activity
+TimeoutStartSec=30min
+Restart=on-failure
+RestartSec=5min
+UMask=0077

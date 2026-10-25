@@ -36,7 +36,16 @@
             </td>
           </tr>
           <tr>
-            <td bgcolor="#f1e5d1" style="padding:18px 28px; border-top:1px solid #c8a983; background-color:#f1e5d1; color:#503524; font-size:13px; line-height:1.5;">Dein Codex-Arcana-Team</td>
+            <td bgcolor="#f1e5d1" style="padding:18px 28px; border-top:1px solid #c8a983; background-color:#f1e5d1; color:#503524; font-size:13px; line-height:1.5;">
+              Dein Codex-Arcana-Team
+              {% if protocol and domain %}
+                <p style="margin:10px 0 0;">
+                  <a href="{{ protocol }}://{{ domain }}{% url 'impressum' %}" style="color:#813d36; text-decoration:underline;">Impressum</a>
+                  &middot;
+                  <a href="{{ protocol }}://{{ domain }}{% url 'datenschutz' %}" style="color:#813d36; text-decoration:underline;">Datenschutz</a>
+                </p>
+              {% endif %}
+            </td>
           </tr>
         </table>
         <!--[if mso]></td></tr></table><![endif]-->

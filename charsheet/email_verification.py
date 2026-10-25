@@ -83,6 +83,8 @@ def request_email_verification(request, user):
         reverse("verify_email", kwargs={"token": token})
     )
     context = {
+        "protocol": request.scheme,
+        "domain": request.get_host(),
         "email_logo_url": request.build_absolute_uri(
             static("img/codexarcana.png")
         ),

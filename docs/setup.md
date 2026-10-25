@@ -43,7 +43,7 @@ docker compose up -d db
 
 ## `.env`-Datei
 
-`settings.py` lädt eine einfache `.env`-Datei aus dem Projektwurzelverzeichnis. Unterstützt werden einfache `KEY=VALUE`-Zeilen. Aktuell ist das vor allem für die rechtlichen Angaben relevant.
+`settings.py` lädt eine einfache `.env`-Datei aus dem Projektwurzelverzeichnis. Unterstützt werden einfache `KEY=VALUE`-Zeilen, unter anderem für Datenbank, E-Mail, Sicherheitskonfiguration und öffentliche Betreiberangaben. Zugangsdaten und private Betreiberangaben nicht ins Repository übernehmen.
 
 ## Django initialisieren
 
@@ -65,19 +65,56 @@ Hinweis: `Dashboard` und `Character-Erstellung` sind technische Routen, aber nic
 
 ## Rechtliche Angaben für Self-Hosting
 
-Die Seiten `Impressum` und `Datenschutz` lesen Betreiberinformationen aus `LEGAL_INFO` in `codex_arcana/settings.py`. Diese Werte können per Umgebungsvariable oder `.env` gesetzt werden:
+Alle installationsabhängigen Rechtshinweise werden ausschließlich über die
+bestehenden `LEGAL_*`-Variablen in der lokalen `.env` gepflegt.
+Die vollständige, bewusst ohne echte Betreiberangaben ausgefüllte Vorlage
+steht in [`.env.example`](../.env.example). Eine vorhandene `.env` nicht
+überschreiben, sondern die benötigten Zeilen ergänzen.
 
-- `LEGAL_SITE_NAME`
-- `LEGAL_OPERATOR_NAME`
-- `LEGAL_ADDRESS`
-- `LEGAL_EMAIL`
-- `LEGAL_PHONE`
-- `LEGAL_RESPONSIBLE_PERSON`
-- `LEGAL_REGISTER_ENTRY`
-- `LEGAL_VAT_ID`
-- `LEGAL_SUPERVISORY_AUTHORITY`
+`LEGAL_INFO` wird daraus in `codex_arcana/settings.py` aufgebaut.
+Es gibt keine weitere lokale Legal-Konfigurationsdatei. Für `LEGAL_*` ist
+die lokale `.env` maßgeblich: alte Prozesswerte werden entfernt und ausschließlich
+die lokalen Einträge geladen. Andere Django-Einstellungen behalten ihre
+bestehende Prozesspriorität. UTF-8 mit oder ohne BOM wird unterstützt.
 
-Die Felder Betreibername, Adresse und E-Mail gelten im Code als erforderlich; fehlen sie, markiert die View das im Template.
+Neben Betreibername, ladungsfähiger Anschrift und Kontaktadresse werden
+tatsächliche Hosting-/Mailanbieter und Länder, Log-/Mail-/Backupfristen,
+Vertrags-/Übermittlungsangaben, Bereinigungsverfahren und das lokale Datum
+der tatsächlichen Inhaltsprüfung benötigt. Keine Anbieter oder Fristen
+werden aus einer fremden Produktionsinstallation übernommen.
+Optionale Register-, Steuer-, Telefon- und redaktionelle Angaben nur setzen,
+wenn sie tatsächlich vorliegen und einschlägig sind.
+
+Turnstile-Status/Formularauswahl, E-Mail-Verifizierung, bekannte lokale
+Mailbackends und technische Sicherheits-/Cookiefristen werden aus den
+vorhandenen Django-Einstellungen abgeleitet. Weitere betriebliche Tatsachen
+und Dienstleister sind über die dokumentierten Legal-Textfelder eintragbar;
+Templates und Anwendungscode müssen dafür nicht geändert werden.
+
+Nach dem Ergänzen produktive Worker neu starten; der normale Entwicklungsserver
+überwacht Änderungen der vorhandenen `.env`. Vor Veröffentlichung prüfen:
+
+```powershell
+.venv\Scripts\python.exe manage.py check --tag legal --fail-level WARNING
+```
+
+Fehlende Angaben erzeugen `legal.W001`, nicht plausible Angaben entsprechende
+`legal.E00*`-Fehler. Ungültige Werte werden öffentlich nicht ausgegeben.
+Warnungen und Hinweise auf fehlende Angaben erscheinen ausschließlich intern;
+vor Freigabe ist deshalb der strenge Systemcheck erforderlich.
+Vollständigkeit und Plausibilität ersetzen keine inhaltliche Rechtsprüfung.
+
+Ausführliche Bedeutung **sämtlicher Variablen**, Prüfkriterien, Beispiele und
+Übergabeschritte: [Installationsabhängige Legal-Konfiguration](legal.md).
+Die echte `.env` bleibt lokal und darf vom Webserver nicht ausgeliefert werden.
+Geheimnisse und Webhook-Zugangsadressen gehören nicht in öffentliche
+Legal-Felder.
+
+Die Kalender-Schriftarten werden lokal mitgeliefert. Beim regulären
+Staticfiles-Deployment `css/calendar-fonts.css`, beide Noto-Dateien und deren
+OFL-Lizenzen übernehmen; Herkunft und Umfang stehen in
+[der Fontdokumentation](../static/fonts/README.md).
+Die Legal-Architektur benötigt keine Datenbankmigration.
 
 ## Typische Entwicklerbefehle
 
@@ -86,7 +123,7 @@ python manage.py makemigrations
 python manage.py migrate
 python manage.py check
 python manage.py shell
-python manage.py test
+.venv\Scripts\python.exe manage.py test charsheet.tests.test_legal charsheet.tests.test_local_fonts --keepdb
 ```
 
 ## Hinweise für lokale Entwicklung

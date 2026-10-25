@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily cleanup of expired Codex Arcana account security events
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15min
+Unit=codex-security-cleanup.service
+
+[Install]
+WantedBy=timers.target
