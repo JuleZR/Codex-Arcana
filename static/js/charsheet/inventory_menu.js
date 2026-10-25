@@ -664,8 +664,15 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
     const isRuleFlag = selectedKind === "rule_flag";
+    const operator = row.querySelector("[data-magic-operator]");
+    const canSet = !isTextOnly && !isRuleFlag && selectedKind !== "wound_stage";
+    if (operator) {
+      operator.disabled = !canSet;
+      operator.closest("label").hidden = !canSet;
+      if (!canSet) operator.value = "";
+    }
     const valueLabel = row.querySelector("[data-magic-value-label]");
-    if (valueLabel) valueLabel.textContent = selectedKind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
+    if (valueLabel) valueLabel.textContent = selectedKind === "wound_stage" ? "Anzahl" : "Wert";
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
       if (!(targetRow instanceof HTMLElement)) {
         return;
@@ -731,6 +738,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const isRuleFlag = targetKind === "rule_flag";
       const payload = {
         target_kind: targetKind,
+        operator: String(row.querySelector("[data-magic-operator]")?.value || ""),
         value: isTextOnly || isRuleFlag ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
         rules_text: String(row.querySelector("[data-magic-rules-text]")?.value || "").trim(),
@@ -919,8 +927,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     magicEffectsList.append(row);
     selectedEffect = row;
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
-    const valueRow = row.querySelector("[data-magic-value-row]");
-    if (valueRow) targetKindSelect?.closest("label")?.after(valueRow);
     if (targetKindSelect instanceof HTMLSelectElement) {
       WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
         const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
@@ -958,6 +964,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       if (valueInput instanceof HTMLInputElement) {
         valueInput.value = String(initialPayload.value ?? "0");
       }
+      const operator = row.querySelector("[data-magic-operator]");
+      if (operator) operator.value = initialPayload.operator === "override" ? "override" : "";
       if (descriptionInput instanceof HTMLInputElement) {
         descriptionInput.value = String(initialPayload.effect_description || "");
       }
@@ -1026,6 +1034,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       serializeMagicEffects();
     });
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-operator]")?.addEventListener("change", () => {
+      syncMagicEffectRow(row);
+      serializeMagicEffects();
+    });
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);

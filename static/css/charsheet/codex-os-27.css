@@ -326,8 +326,13 @@ body.charsheet-page .attribute_table :is(.a_h_value, .value, .mod, .mod-badge) {
   min-width: 0;
 }
 
-body.charsheet-page .attribute_table .a_h_value {
+body.charsheet-page .attribute_table .a_h_value,
+body.charsheet-page .attribute_table .a_h_value.bm {
   padding-inline: 0;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 body.charsheet-page .attribute_name_controls {
@@ -354,11 +359,16 @@ body.charsheet-page .attribute_table .mod-badge {
 }
 
 body.charsheet-page .attribute_table thead {
+  box-sizing: border-box;
+  width: calc(100% + 16px);
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-bottom: 1px solid var(--os-brass);
   background: var(--os-header);
-  box-shadow: -8px 0 #3c2a23, 8px 0 #34271f;
 }
 
 body.charsheet-page .attribute_table :is(.a_header, .a_h_value) {
+  border-bottom: 0;
   background: transparent;
 }
 

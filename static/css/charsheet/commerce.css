@@ -3677,6 +3677,7 @@
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_card_header .shop_magic_effect_remove { display: grid; place-items: center; width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; font-size: 20px; line-height: 1; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target,
 :is(#runeRetrofitWindow, .sl-workshop-window) .sl-editor-row--effect { display: grid; grid-template-columns: minmax(0, 1fr) minmax(96px, .32fr); gap: 10px 12px; width: 100%; margin: 0; padding: 0; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target { grid-template-columns: minmax(0, 1fr) 76px minmax(80px, .32fr); }
 :is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target > .shop_item_form_row,
 :is(#runeRetrofitWindow, .sl-workshop-window) .sl-editor-row--effect > .shop_item_form_row { margin: 0; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .magic-effect-target > [data-magic-target-row] { grid-column: 1 / -1; }

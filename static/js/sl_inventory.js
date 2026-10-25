@@ -209,6 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const targetKind = row.querySelector("[data-effect-kind]")?.value || "";
         const payload = {
           target_kind: targetKind,
+          operator: row.querySelector("[data-effect-operator]")?.value || "",
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
@@ -283,7 +284,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const valueRow = row.querySelector("[data-effect-value-row]");
       const valueLabel = row.querySelector("[data-effect-value-label]");
-      if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
+      const operator = row.querySelector("[data-effect-operator]");
+      if (operator) {
+        operator.disabled = ["text", "rule_flag", "wound_stage"].includes(kind);
+        operator.closest("label").hidden = operator.disabled;
+        if (operator.disabled) operator.value = "";
+      }
+      if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Wert";
       const hasCalculation = !["text", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !hasCalculation;
       const valueInput = row.querySelector("[data-effect-value]");
@@ -318,6 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = effectTemplate.content.firstElementChild.cloneNode(true);
       effectsList.append(row);
       row.querySelector("[data-effect-kind]")?.addEventListener("change", () => syncEffectRow(row));
+      row.querySelector("[data-effect-operator]")?.addEventListener("change", () => syncEffectRow(row));
       row.querySelector("[data-effect-scale-source]")?.addEventListener("change", () => syncEffectRow(row));
       row.querySelectorAll("input, select").forEach((field) => {
         field.addEventListener("input", serializeEffects);
@@ -425,6 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const kind = row.querySelector("[data-effect-kind]")?.value || "";
         const payload = {
           target_kind: kind,
+          operator: row.querySelector("[data-effect-operator]")?.value || "",
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
@@ -509,7 +518,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const valueRow = row.querySelector("[data-effect-value-row]");
       const valueLabel = row.querySelector("[data-effect-value-label]");
-      if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Bonus / Malus";
+      const operator = row.querySelector("[data-effect-operator]");
+      if (operator) {
+        operator.disabled = ["text", "rule_flag", "wound_stage"].includes(kind);
+        operator.closest("label").hidden = operator.disabled;
+        if (operator.disabled) operator.value = "";
+      }
+      if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Wert";
       const calculated = !["text", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !calculated;
       const value = row.querySelector("[data-effect-value]");
@@ -563,6 +578,8 @@ document.addEventListener("DOMContentLoaded", () => {
       row.dataset.displayGroupAppend = payload.display_group_append ? "1" : "0";
       if (kind && payload.target_kind) kind.value = payload.target_kind;
       if (value) value.value = String(payload.value ?? 0);
+      const operator = row.querySelector("[data-effect-operator]");
+      if (operator) operator.value = payload.operator === "override" ? "override" : "";
       if (description) description.value = payload.effect_description || "";
       if (rulesText) rulesText.value = payload.rules_text || "";
       if (displayGroup) displayGroup.value = payload.display_group == null ? "" : String(payload.display_group);
@@ -614,6 +631,7 @@ document.addEventListener("DOMContentLoaded", () => {
         field.addEventListener("change", serialize);
       });
       kind?.addEventListener("change", () => sync(row));
+      row.querySelector("[data-effect-operator]")?.addEventListener("change", () => sync(row));
       row.querySelector("[data-effect-scale-source]")?.addEventListener("change", () => sync(row));
       row.querySelector("[data-remove-sl-magic-effect]")?.addEventListener("click", () => {
         row.remove();

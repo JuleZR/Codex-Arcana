@@ -244,6 +244,9 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
 
     payload: dict[str, object] = {
         "target_kind": target_kind,
+        "operator": (
+            "override" if row_data.get("operator") == "override" else ""
+        ),
         "value": value,
         "effect_description": str(row_data.get("effect_description") or "").strip(),
         "display_order": int(row_data.get("display_order") or 0),
@@ -521,6 +524,9 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                     for key in ("condition_races", "condition_schools")
                     if key in payload
                 }
+                shared_condition_payload["operator"] = payload.get(
+                    "operator", "",
+                )
                 first_effect_payload.update(shared_condition_payload)
                 second_effect_payload.update(shared_condition_payload)
                 if payload.get("semantic_effect_source"):
@@ -682,6 +688,9 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     target_key = target_slug
     operator = ModifierOperator.FLAT_SUB if int(payload.get("value") or 0) < 0 else ModifierOperator.FLAT_ADD
     value = abs(int(payload.get("value") or 0))
+    if payload.get("operator") == "override":
+        operator = ModifierOperator.OVERRIDE
+        value = int(payload.get("value") or 0)
 
     if target_kind == TARGET_KIND_ATTRIBUTE:
         target_domain = TargetDomain.ATTRIBUTE
