@@ -128,7 +128,7 @@ def download(payload, files, options):
         patch_cache_control(response, no_store=True, private=True)
         response["X-Content-Type-Options"] = "nosniff"
         response["X-Accel-Buffering"] = "no"
-        response["Referrer-Policy"] = "no-referrer"
+        response["Referrer-Policy"] = "same-origin"
         return response
     except Exception:
         output.close()
