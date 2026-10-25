@@ -242,7 +242,7 @@ def privacy_export_view(request):
         request, "admin/privacy_export.html", context, status=status,
     )
     patch_cache_control(response, no_store=True, private=True)
-    response["Referrer-Policy"] = "no-referrer"
+    response["Referrer-Policy"] = "same-origin"
     return response
 
 
