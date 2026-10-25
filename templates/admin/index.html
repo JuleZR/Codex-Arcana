@@ -22,6 +22,9 @@
       <h1>Administration</h1>
     </div>
     <div class="ca-admin-home__hero-actions">
+      {% if request.user.is_superuser %}
+        <a class="button" href="{% url 'admin:privacy_export' %}">DSGVO-Auskunft</a>
+      {% endif %}
       <a class="button" href="{% url 'admin:password_change' %}">Passwort aendern</a>
       <a class="button" href="{% url 'admin:logout' %}">Abmelden</a>
     </div>

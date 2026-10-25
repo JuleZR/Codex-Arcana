@@ -114,6 +114,19 @@ class RegistrationForm(UserCreationForm):
             attrs={"class": "l_field", "autocomplete": "email"}
         ),
     )
+    terms_read = forms.BooleanField(
+        label="Nutzungsbedingungen gelesen und akzeptiert",
+        error_messages={
+            "required": "Bitte lies und akzeptiere die Nutzungsbedingungen.",
+        },
+    )
+    privacy_read = forms.BooleanField(
+        label="Datenschutzerklärung gelesen",
+        error_messages={
+            "required": "Bitte bestätige, dass du die Datenschutzerklärung "
+            "gelesen hast.",
+        },
+    )
 
     class Meta(UserCreationForm.Meta):
         model = get_user_model()

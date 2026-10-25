@@ -22,6 +22,7 @@ from charsheet.calendar_views import character_date
 from charsheet.attribute_flavor import attribute_flavor_card
 from charsheet.item_workshop import preview_item_effects
 from django.views.static import serve
+from django.views.generic import TemplateView
 from django.conf import settings
 from charsheet.quickslots import (
     quickslot_actions, quickslot_debug_result, quickslot_layout,
@@ -47,6 +48,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("impressum/", views.impressum, name="impressum"),
     path("datenschutz/", views.datenschutz, name="datenschutz"),
+    path(
+        "nutzungsbedingungen/",
+        TemplateView.as_view(template_name="legal/nutzungsbedingungen.html"),
+        name="nutzungsbedingungen",
+    ),
     path("dashboard/", views.dashboard, name="dashboard"),
     path(
         "groups/create/",

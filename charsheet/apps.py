@@ -16,4 +16,7 @@ class CharsheetConfig(AppConfig):
         from . import auth_security  # noqa: F401
         from . import image_conversion  # noqa: F401
         from . import legal  # noqa: F401
+        from .privacy_admin import install_privacy_admin
         from . import session_management  # noqa: F401
+
+        install_privacy_admin()

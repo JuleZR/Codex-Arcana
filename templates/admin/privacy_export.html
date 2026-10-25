@@ -1,0 +1,82 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Administration</a> &rsaquo; DSGVO-Auskunft
+</div>
+{% endblock %}
+
+{% block content %}
+<p>Benutzerkonto suchen, Kategorien prüfen und die Auskunft lokal speichern. Nur für Superuser.</p>
+<p>Die Exportdatei entsteht ausschließlich im Arbeitsspeicher. Es wird keine Exportkopie auf dem Server gespeichert.</p>
+{% if error %}<p class="errornote" role="alert">{{ error }}</p>{% endif %}
+
+<div class="module">
+  <h2>1. Benutzerkonto suchen</h2>
+  <form method="post" autocomplete="off">
+    {% csrf_token %}
+    {{ search_form.as_p }}
+    <p><button type="submit" name="action" value="search">Suchen</button></p>
+  </form>
+  {% if searched %}
+    {% if results %}
+      <table>
+        <thead><tr><th>Konto-ID</th><th>Benutzername</th><th>E-Mail</th><th>Charaktertreffer (Auszug)</th><th>Status</th><th>Auswahl</th></tr></thead>
+        <tbody>
+          {% for user in results %}
+            <tr>
+              <td>{{ user.pk }}</td><td>{{ user.username }}</td><td>{{ user.email|default:"–" }}</td>
+              <td>{% for character in user.characters %}{{ character.name }}{% if character.is_archived %} (archiviert){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}–{% endfor %}</td>
+              <td>{% if user.is_active %}Aktiv{% else %}Deaktiviert{% endif %}</td>
+              <td><form method="post">{% csrf_token %}<input type="hidden" name="user_id" value="{{ user.pk }}"><button type="submit" name="action" value="select">Konto auswählen</button></form></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if more_results %}<p>Mehr als 25 Konten gefunden. Bitte die Suche genauer eingrenzen.</p>{% endif %}
+    {% else %}<p>Keine passenden Benutzerkonten gefunden.</p>{% endif %}
+  {% endif %}
+</div>
+
+{% if export_form %}
+<div class="module">
+  <h2>2. Vorschau und Download</h2>
+  {% if selected_user %}<p><strong>{{ selected_user.username }}</strong> · Konto-ID {{ selected_user.pk }} · {{ selected_user.email|default:"Keine E-Mail hinterlegt" }}{% if not selected_user.is_active %} · Deaktiviert{% endif %}</p>{% endif %}
+  <p>Die Auskunft umfasst das ausgewählte Benutzerkonto mit allen zugeordneten Charakteren, einschließlich archivierter Daten.</p>
+  <form method="post" id="privacy-export-form" autocomplete="off">
+    {% csrf_token %}
+    {{ export_form.non_field_errors }}
+    {{ export_form.user_id }}{{ export_form.user_id.errors }}
+    {% for field in export_form.visible_fields %}
+      {% if field.name != 'review_json' %}
+        <p>{{ field.errors }}{{ field.label_tag }} {{ field }}{% if field.help_text %}<span class="help">{{ field.help_text }}</span>{% endif %}</p>
+      {% endif %}
+    {% endfor %}
+    <details{% if export_form.review_json.errors %} open{% endif %}>
+      <summary>Erweiterte Prüfangaben und Abschlussfreigabe</summary>
+      <p>{{ export_form.review_json.errors }}{{ export_form.review_json.label_tag }}<br>{{ export_form.review_json }}<br><span class="help">{{ export_form.review_json.help_text }}</span></p>
+    </details>
+    <p>Freitexte, Drittinformationen und Verarbeitungsangaben vor Weitergabe prüfen. Ohne Abschlussfreigabe wird ein Entwurf heruntergeladen.</p>
+    <p>Unterstützt dein Browser den Dateidialog, kannst du den lokalen Speicherort auswählen. Sonst gelten die Download-Einstellungen deines Browsers.</p>
+    <div class="submit-row">
+      <button type="submit" name="action" value="preview">Kategorienvorschau</button>
+      <button type="submit" name="action" value="download">Speichern unter …</button>
+    </div>
+    <p id="privacy-download-status" role="status" aria-live="polite"></p>
+  </form>
+</div>
+{% endif %}
+
+{% if preview %}
+<div class="module">
+  <h2>Ermittelte Datenkategorien</h2>
+  <p>{{ attachment_count }} zugeordnete Dateien · {{ omission_count }} dokumentierte Auslassungen. Die Vorschau erstellt keine Datei.</p>
+  <table>
+    <thead><tr><th>Kategorie</th><th>Datensätze</th></tr></thead>
+    <tbody>{% for label, count in preview %}<tr><td>{{ label }}</td><td>{{ count }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
+<script src="{% static 'charsheet/js/privacy_export_admin.js' %}" defer></script>
+{% endblock %}

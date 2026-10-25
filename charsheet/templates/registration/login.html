@@ -20,7 +20,7 @@
       <link rel="canonical" href="https://codexarcana.de/">
     {% endif %}
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
-    <link rel="stylesheet" href="{% static 'css/login.css' %}?v=20261025-public-os27-layout2">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}?v=20261025-consent-colors">
     {% if auth_turnstile_enabled %}
       <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     {% endif %}
@@ -54,8 +54,20 @@
               {% endif %}
 
               {% for field in registration_form %}
-                <label class="login_label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
+                {% if field.name == 'terms_read' %}
+                  <label class="login_consent" for="{{ field.id_for_label }}">
+                    {{ field }}
+                    <span>Ich habe die <a href="{% url 'nutzungsbedingungen' %}" target="_blank" rel="noopener">Nutzungsbedingungen</a> gelesen und akzeptiere sie.</span>
+                  </label>
+                {% elif field.name == 'privacy_read' %}
+                  <label class="login_consent" for="{{ field.id_for_label }}">
+                    {{ field }}
+                    <span>Ich habe die <a href="{% url 'datenschutz' %}" target="_blank" rel="noopener">Datenschutzerklärung</a> gelesen.</span>
+                  </label>
+                {% else %}
+                  <label class="login_label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                  {{ field }}
+                {% endif %}
                 {% if field.name == 'password1' %}
                   {% include 'registration/_password_guidance.html' %}
                 {% endif %}
@@ -65,7 +77,7 @@
               {% endfor %}
 
               {% include 'registration/_turnstile.html' with turnstile_category='registration' %}
-              <button class="login_btn" type="submit">Registrieren</button>
+              <button class="login_btn" type="submit" data-registration-submit disabled>Registrieren</button>
             </form>
           </section>
         {% else %}
@@ -114,7 +126,6 @@
                  data-next="{{ next|default:'' }}">
               <div class="passkey_divider"><span>oder</span></div>
               <button class="login_btn login_btn--secondary" type="button" data-passkey-login-button>Mit Passkey anmelden</button>
-              <p class="passkey_hint">Funktioniert auch mit synchronisierten Passkeys aus Passwortmanagern wie Bitwarden.</p>
               <div class="login_errors" role="alert" data-passkey-error hidden></div>
             </div>
             {% if email_verification_blocked %}
@@ -137,6 +148,23 @@
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
     <script>
+      const registrationSubmit = document.querySelector("[data-registration-submit]");
+      if (registrationSubmit) {
+        const registrationForm = registrationSubmit.form;
+        const termsRead = registrationForm.elements.namedItem("terms_read");
+        const privacyRead = registrationForm.elements.namedItem("privacy_read");
+        const updateRegistrationSubmit = () => {
+          registrationSubmit.disabled = !(termsRead.checked && privacyRead.checked);
+        };
+        termsRead.addEventListener("change", updateRegistrationSubmit);
+        privacyRead.addEventListener("change", updateRegistrationSubmit);
+        window.addEventListener("pageshow", updateRegistrationSubmit);
+        registrationForm.addEventListener("submit", (event) => {
+          updateRegistrationSubmit();
+          if (registrationSubmit.disabled) event.preventDefault();
+        });
+        updateRegistrationSubmit();
+      }
       document.querySelectorAll("[data-autohide-message]").forEach(function (message) {
         setTimeout(function () {
           message.classList.add("is-hidden");

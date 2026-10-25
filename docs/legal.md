@@ -353,7 +353,7 @@ Herkunftsdaten sind keine Betreiberangaben.
 
 Das [technische Verarbeitungsinventar](legal-data-processing.md) enthält
 generische Codebelege und Primärquellen ohne Produktionsangaben.
-[Nutzungsbedingungen](nutzungsbedingungen-entwurf.md) bleiben ein nicht
+[Nutzungsbedingungen](nutzungsbedingungen.md) bleiben ein nicht
 veröffentlichter Entwurf ohne Zustimmungszwang.
 
 Vor Veröffentlichung mindestens die lokalen Anbieter-/Vertragsnachweise,
