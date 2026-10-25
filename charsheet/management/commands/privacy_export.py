@@ -15,12 +15,13 @@ from django.core.files.storage import FileSystemStorage
 from django.core.management.base import BaseCommand, CommandError
 
 from charsheet.privacy_export import (
-    apply_approval, build_snapshot, review_digest, snapshot_digest,
+    apply_approval, build_snapshot, missing_information,
 )
+from charsheet.privacy_content import json_document
 
 
 MARKER = ".codex-privacy-export.json"
-ARTIFACTS = {"report.pdf", "data.json", "export.zip", MARKER}
+ARTIFACTS = {"report.pdf", "data.json", "audit.json", "export.zip", MARKER}
 
 
 def private_directory(path):
@@ -66,7 +67,8 @@ def restrict_directory(path):
 
 
 def write_json(path, payload):
-    with path.open("x", encoding="utf-8") as stream:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         json.dump(payload, stream, ensure_ascii=False, indent=2)
         stream.write("\n")
     if os.name != "nt":
@@ -151,6 +153,7 @@ class Command(BaseCommand):
         parser.add_argument("--format", choices=["pdf", "json", "zip"],
                             default="zip")
         parser.add_argument("--preview", action="store_true")
+        parser.add_argument("--internal-review", action="store_true")
         parser.add_argument("--request-verified", action="store_true")
         parser.add_argument("--output-dir")
         parser.add_argument("--review-file")
@@ -173,6 +176,10 @@ class Command(BaseCommand):
                 return
             if options["user_id"] is None:
                 raise ValueError("--user-id ist erforderlich.")
+            if options["format"] == "pdf" and (
+                options["internal_review"] or options["mode"] == "portability"
+            ):
+                raise ValueError("JSON oder ZIP auswählen.")
             if options["include_files"] and (
                 options["format"] != "zip" or not options["files_reviewed"]
             ):
@@ -198,6 +205,8 @@ class Command(BaseCommand):
                     f"Auslassungen: {len(payload['omissions'])}. "
                     "Keine Exportdateien erstellt. Manuelle Prüfung nötig."
                 )
+                for missing in missing_information(payload):
+                    self.stdout.write("Freigabesperre: " + missing)
                 return
             if not options["output_dir"]:
                 raise ValueError("--output-dir ist erforderlich.")
@@ -210,6 +219,9 @@ class Command(BaseCommand):
             write_json(output / MARKER, {
                 "tool": "codex-privacy-export", "version": 1,
             })
+            from charsheet.privacy_jobs import check_space
+
+            check_space(output)
             # Validate before writing reports, even without attachment copies.
             attachments(files)
             if options["format"] == "zip":
@@ -217,19 +229,31 @@ class Command(BaseCommand):
                     output / "export.zip", "x", zipfile.ZIP_DEFLATED,
                     allowZip64=True,
                 ) as archive:
+                    if os.name != "nt":
+                        (output / "export.zip").chmod(0o600)
                     if options["include_files"]:
-                        attachments(files, archive)
+                        decisions = review.get("file_decisions", {})
+                        attachments([entry for entry in files
+                                     if entry[1]["member"] not in decisions],
+                                    archive)
                     apply_approval(payload, review)
-                    self.reports(payload, output, pdf=True, json_data=True)
+                    self.reports(
+                        payload, output, pdf=True, json_data=True,
+                        internal=options["internal_review"],
+                    )
                     archive.write(output / "report.pdf", "report.pdf")
                     archive.write(output / "data.json", "data.json")
+                    if options["internal_review"]:
+                        archive.write(output / "audit.json", "audit.json")
                 (output / "report.pdf").unlink()
                 (output / "data.json").unlink()
+                (output / "audit.json").unlink(missing_ok=True)
             else:
                 apply_approval(payload, review)
                 self.reports(
                     payload, output, pdf=options["format"] == "pdf",
                     json_data=options["format"] == "json",
+                    internal=options["internal_review"],
                 )
             if os.name != "nt":
                 for child in output.iterdir():
@@ -266,14 +290,15 @@ class Command(BaseCommand):
             ) from None
 
     @staticmethod
-    def reports(payload, output, pdf, json_data):
+    def reports(payload, output, pdf, json_data, internal=False):
         if pdf:
             from charsheet.privacy_pdf import write_pdf
 
-            write_pdf(payload, output / "report.pdf")
+            destination = output / "report.pdf"
+            destination.touch(mode=0o600, exist_ok=False)
+            write_pdf(payload, destination)
         if json_data:
-            write_json(output / "data.json", {
-                "snapshot_sha256": snapshot_digest(payload),
-                "review_sha256": review_digest(payload),
-                "data": payload,
-            })
+            if pdf or not internal:
+                write_json(output / "data.json", json_document(payload))
+            if internal:
+                write_json(output / "audit.json", json_document(payload, True))

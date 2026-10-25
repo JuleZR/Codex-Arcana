@@ -4,8 +4,10 @@ Das Werkzeug ist über eine interne Superuser-Maske im Django-Admin und über da
 Management-Command `privacy_export` verfügbar. Es gibt keinen öffentlichen
 Export-Endpunkt, öffentlichen Downloadlink oder E-Mail-Versand.
 Eine technische Zusammenstellung ersetzt keine Prüfung durch den Verantwortlichen.
+Die inhaltliche Modellzuordnung, neue Prüfabschnitte, bekannte Datenflüsse und
+rechtliche Aussagegrenzen stehen in [der Inhaltsprüfung](privacy_content_audit.md).
 
-## Admin-Maske: lokal speichern ohne Exportdateien auf dem Server
+## Admin-Maske: Hintergrundexport und einmaliger Download
 
 Auf der Admin-Startseite führt **DSGVO-Auskunft** zu `/admin/privacy-export/`.
 Zugriff haben ausschließlich aktive Superuser mit Admin-Zugang. Normale
@@ -15,46 +17,157 @@ Staff-Berechtigungen reichen nicht. Auch hier ist `DEBUG=False` erforderlich.
    reichen aus; archivierte Charaktere und deaktivierte Konten sind enthalten.
 2. Das anhand von Konto-ID, Benutzername und E-Mail eindeutig bestimmte Konto
    auswählen. Die Suche zeigt höchstens 25 Konten; bei mehr Treffern eingrenzen.
-3. Art. 15 oder Art. 20 und PDF, JSON oder ZIP auswählen. Auf Wunsch geprüfte
-   hochgeladene Dateien ins ZIP aufnehmen. **Kategorienvorschau** zeigt den Umfang.
-4. Die außerhalb des Werkzeugs erfolgte Anfragenprüfung bestätigen und
-   **Speichern unter …** wählen. Die Auskunft umfasst das vollständige gewählte
-   Benutzerkonto, auch wenn es über einen einzelnen Charakter gefunden wurde.
-5. Den lokalen Speicherort auswählen und die heruntergeladene Datei prüfen.
+3. Art. 15 oder Art. 20 wählen, die außerhalb des Werkzeugs erfolgte
+   Anfragenprüfung bestätigen und **Prüfung starten** wählen. Die Auskunft
+   betrifft das gewählte Konto, auch wenn es über einen Charakter gefunden wurde.
+4. **Daten prüfen:** Kategorien öffnen, Inhalte durchsuchen und ungeprüfte
+   Felder filtern. Standardwerte lassen sich kategorieweise bestätigen;
+   besonders prüfpflichtige Inhalte erfordern eine Einzelentscheidung.
+   Art. 20 bietet je Kategorie Checkboxen für Felder, Bereitstellung und
+   Rechtsgrundlage. Art. 15 verlangt begründete Einschränkungen am einzelnen Feld.
+5. **Verarbeitung:** Betreiberangaben, Zwecke, Empfänger, Speicherdauer,
+   Dienstprüfungen und Rechercheergebnisse in beschrifteten Formularen prüfen.
+   Ergänzende Daten etwa aus E-Mails werden als bezeichnete Werte erfasst.
+6. **Vorschau und Freigabe:** PDF, JSON oder ZIP sowie Benutzerkopie oder
+   interne Prüfgrundlage wählen. Für Art. 20 sind JSON und ZIP verfügbar.
+   Dateianhänge einzeln prüfen; beigefügte Dateien erfordern ZIP und die
+   Dateiprüfbestätigung. Die tatsächliche Ausgabe wird im Hintergrund erzeugt
+   und seitenweise angezeigt. Offene Pflichtprüfungen sperren die Freigabe.
+   Nach abschließender Bestätigung wird der aktuelle Stand freigegeben.
+7. **Export:** Hintergrundexport starten und die fertige Datei einmalig mit
+   **Auskunft herunterladen** abrufen. Die Statusseite aktualisiert sich selbst.
 
-Der Admin-Download erzeugt PDF, JSON und ZIP ausschließlich in Speicherpuffern.
-Es werden **keine Exportdateien, temporären Exportdateien, serverseitigen
-Prüfdateien oder Exportarchive** geschrieben. Die geöffneten Speicherpuffer
-werden beim Ende bzw. Abbruch des Downloads geschlossen. Die Bereinigung erfolgt
-ohne separaten Löschschritt. Vorhandene Original-Uploads werden nur gelesen.
-Der Arbeitsspeicherbedarf wächst entsprechend der Größe des Pakets.
+Jedes Datenfeld bietet Übernehmen, Schwärzen, teilweise Schwärzen, begründete
+Ausnahme und Rückgängigmachen. Im Texteditor schwärzt **Auswahl schwärzen**
+den markierten Text; die Vorschau reagiert sofort. Strukturierte Werte werden
+einzeln mit verständlichen Bezeichnungen bearbeitet; unveränderte Unterwerte
+behalten ihren Datentyp. Alternativ kann ein geprüfter Textauszug eingesetzt
+werden. Schwärzungen entfernen keine ganzen Datensätze und ändern keine
+Originaldaten. Ohne JavaScript bleiben die serverseitigen Formulare bedienbar.
+Es gibt keinen JSON-Editor und keine manuell einzugebenden Feldpfade oder Hashes.
 
-Unterstützt der Browser die File System Access API, öffnet **Speichern unter …**
-vor der Erstellung den lokalen Dateidialog und überträgt die Antwort direkt in
-die gewählte Datei. In anderen Browsern oder ohne JavaScript wird ein normaler
-Dateidownload ausgelöst; der Speicherort richtet sich dann nach den lokalen
-Browser-Einstellungen. Ein Speicherortdialog lässt sich dort gegebenenfalls
-über „Vor jedem Download nach dem Speicherort fragen“ aktivieren.
+Die Datensammlung und PDF-/ZIP-Erstellung laufen in einem separaten Prozess,
+außerhalb des synchronen Gunicorn-Requests. Jede Anfrage erhält ein isoliertes,
+privates Verzeichnis. JSON, PDF und ZIP werden dateibasiert geschrieben; auch
+Anhänge werden blockweise kopiert. Der HTTP-Download verwendet `FileResponse`.
+Der Speicherort auf dem Client richtet sich nach den Browser-Einstellungen.
+
+Ein grafischer Prüfvorgang läuft höchstens **60 Minuten ab Beginn**; der Rest
+wird angezeigt. Ein fertiger Export läuft spätestens **15 Minuten nach
+Fertigstellung**, begrenzt durch die ursprüngliche Prüffrist, ab. Die ältere
+direkte Exportschnittstelle bleibt auf 15 Minuten ab Beauftragung begrenzt.
+Nach Ablauf darf kein neuer Download beginnen. Ein laufender Download hält
+die Dateisperre bis zum Schließen der Response; ein eigener Zeitgeber beendet
+auch einen festhängenden Download spätestens mit der verbleibenden Jobfrist.
+Dann werden Datei, Prüfangaben, Jobmetadaten und das ganze Jobverzeichnis entfernt.
+Das gilt auch für den WSGI-Abbruchpfad bei getrennten Browser-Verbindungen.
+Fehler bei Sammlung, Vorschauerstellung oder Export entfernen den gesamten
+Prüfvorgang einschließlich Teilausgaben sofort. Normale Formularfehler werden
+vorher angezeigt und lassen sich direkt korrigieren.
+**Prüfung beenden und löschen** entfernt den Vorgang sofort.
+
+Ein unabhängiger Monitorprozess überlebt den Renderer oder Gunicorn-Worker,
+beendet überlange Renderer und bereinigt abgelaufene Jobs. Zusätzlich ist der
+unten beschriebene systemd-Timer zwingend einzurichten: Er beseitigt Rückstände
+auch nach Ausfall sämtlicher beteiligter Prozesse oder einem Serverneustart.
+Vorhandene Original-Uploads werden ausschließlich gelesen.
 
 Suche, Kontowahl und Export erfolgen per CSRF-geschütztem POST. Suchbegriffe
 stehen nicht in der URL. Antworten sind mit `Cache-Control: private, no-store`
-versehen; die Anwendung legt keine Download-URL oder Exportdatenbankeinträge an.
+versehen. Status-URLs enthalten nur eine zufällige Kennung, keine Kontodaten.
+Status und späterer Abruf erfordern erneut einen aktiven Superuser und die
+Übereinstimmung mit dem beauftragenden Administrator. Der Abruf ist ein
+CSRF-geschützter POST und nur einmal möglich. Es gibt keine Export-DB-Einträge.
 Die Webserver-/Proxykonfiguration muss diese Vorgaben beachten und darf keine
 Antwortinhalte oder Formulardaten in Logs, Caches oder temporären Dateien
 persistieren. Für den Download wird zusätzlich `X-Accel-Buffering: no` gesetzt.
 
-Der Abschnitt **Erweiterte Prüfangaben und Abschlussfreigabe** nimmt das weiter
-unten beschriebene Prüf-JSON direkt entgegen. Es bleibt im Arbeitsspeicher der
-Anfrage. Für Art. 20 ist eine geprüfte Feldauswahl notwendig. Ohne dokumentierte
-Abschlussfreigabe wird ein ausdrücklich gekennzeichneter Entwurf heruntergeladen.
-Zur Freigabe den `review_sha256` des lokal geprüften Entwurfs mit Konto-ID und
-Prüfzeitpunkt in die Prüfangaben übernehmen und mit denselben Optionen erneut
-herunterladen. Konto-/Datenänderungen machen eine erneute Prüfung erforderlich.
+Prüfstruktur, Prüfwert, Konto-ID und Zeitpunkt erzeugt die Oberfläche automatisch.
+Jede Änderung an Entscheidungen, Angaben oder Ausgabeoptionen entwertet Vorschau
+und Freigabe. Veraltete Formulare und manipulierte Feld-/Unterwertreferenzen
+werden serverseitig abgewiesen. Vor Vorschau und Export wird der aktuelle
+Datenbestand erneut geprüft; auch Änderungen hinter einer Schwärzung entwerten
+die Freigabe. Die Prüfung bleibt ausschließlich in privaten temporären Dateien.
 
 Die folgenden Aufruf-/Pfadangaben betreffen ausschließlich das weiterhin
 verfügbare Server-Command. Dessen ausdrücklich angeforderte Dateien werden im
-angegebenen privaten Verzeichnis gespeichert und separat entfernt. Für rein
-lokale Speicherung die oben beschriebene Admin-Maske verwenden.
+angegebenen privaten Verzeichnis gespeichert und separat entfernt.
+
+### Servereinrichtung und automatische Restebereinigung
+
+Unter Linux ist die Standardablage `/var/lib/codex-arcana/privacy-exports`.
+Alternativ `PRIVACY_EXPORT_TEMP_ROOT` als absolute Umgebungsvariable setzen
+(auch in der `.env` möglich). Unter Windows wird standardmäßig ein privates
+Unterverzeichnis des System-Tempverzeichnisses verwendet. Keine Webserver-Aliase,
+Backups oder öffentliche Freigaben für diese Ablage konfigurieren. Repository,
+`MEDIA_ROOT`, `STATIC_ROOT`, Static-Verzeichnisse und Pfadverknüpfungen werden
+abgewiesen. Verzeichnisrechte: `0700`, Dateirechte: `0600`; unter Windows private
+DACL für Prozesskonto und SYSTEM. Die Ablage muss dem Dienstkonto gehören.
+
+Beispiel für Linux (Dienstkonto und Installationspfad anpassen):
+
+```sh
+sudo install -d -o codex -g codex -m 0700 /var/lib/codex-arcana/privacy-exports
+```
+
+`/etc/systemd/system/codex-privacy-cleanup.service`:
+
+```ini
+[Unit]
+Description=Codex Arcana private export cleanup
+
+[Service]
+Type=oneshot
+User=codex
+Group=codex
+WorkingDirectory=/srv/codex-arcana
+Environment=PRIVACY_EXPORT_TEMP_ROOT=/var/lib/codex-arcana/privacy-exports
+ExecStart=/srv/codex-arcana/.venv/bin/python manage.py privacy_export_job --cleanup
+UMask=0077
+```
+
+`/etc/systemd/system/codex-privacy-cleanup.timer`:
+
+```ini
+[Unit]
+Description=Remove expired Codex Arcana exports every minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=codex-privacy-cleanup.service
+
+[Install]
+WantedBy=timers.target
+```
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now codex-privacy-cleanup.timer
+sudo systemctl start codex-privacy-cleanup.service
+systemctl list-timers codex-privacy-cleanup.timer
+```
+
+Unter Windows denselben Befehl `manage.py privacy_export_job --cleanup` jede
+Minute und beim Systemstart unter dem Dienstkonto über die Aufgabenplanung
+ausführen. Ein kompletter Systemausfall verzögert die physische Löschung bis
+zum nächsten Start; abgelaufene Dateien bleiben bereits für Downloads gesperrt.
+Die effektive Restefrist beträgt die jeweilige Jobfrist zuzüglich des
+Timerintervalls. Aktive OS-Dateisperren schützen laufende Downloads bis zum
+Responseende oder zum begrenzenden Download-Zeitgeber.
+Nach Prozessende gibt das Betriebssystem diese Sperren automatisch frei.
+
+Der Bereiniger löscht ausschließlich mit passendem Marker gekennzeichnete
+Jobverzeichnisse und bekannte Arbeitsdateien. Fremde Dateien, Verknüpfungen und
+unmarkierte Verzeichnisse bleiben erhalten. Schreibfehler und weniger als
+256 MiB freier Speicher brechen kontrolliert ab. Es gelten höchstens vier
+offene Jobs insgesamt und ein offener Job pro Administrator. In eigenen Django-
+Settings sind `PRIVACY_EXPORT_MAX_JOBS` und `PRIVACY_EXPORT_MIN_FREE_BYTES`
+anpassbar. Für Betrieb mit mehreren Hosts muss Erstellung, Status und Download
+auf dasselbe private Dateisystem zugreifen. Keine Erhöhung des Gunicorn-Timeouts
+ist für die Hintergrundgenerierung nötig. Auch die grafische Ausgangssammlung
+und die tatsächliche Vorschau laufen im Hintergrund.
 
 ## Ablauf und Fristen
 
@@ -108,6 +221,7 @@ Alle Beispiele verwenden die fiktive Konto-ID `123`; diese ersetzen.
 .venv\Scripts\python.exe manage.py privacy_export --user-id 123 --request-verified --format zip --output-dir C:\Private\CodexExports
 .venv\Scripts\python.exe manage.py privacy_export --user-id 123 --request-verified --format pdf --output-dir C:\Private\CodexExports
 .venv\Scripts\python.exe manage.py privacy_export --user-id 123 --request-verified --format json --output-dir C:\Private\CodexExports
+.venv\Scripts\python.exe manage.py privacy_export --user-id 123 --request-verified --format zip --internal-review --output-dir C:\Private\CodexExports
 ```
 
 `--request-verified` bestätigt die bereits außerhalb des Werkzeugs erfolgte
@@ -118,7 +232,10 @@ Art. 15 ist der Standardmodus `--mode access`.
 Jeder Aufruf erstellt ein neues, zufällig benanntes Unterverzeichnis
 `privacy-export-…`. Eine PDF-Ausgabe enthält den A4-Bericht; JSON enthält den
 strukturierten Export; ZIP enthält `report.pdf` und `data.json`. Auch leere
-Datenkategorien werden in der Übersicht ausgewiesen.
+Datenkategorien bleiben im JSON ausgewiesen.
+`--internal-review` erzeugt bei JSON stattdessen `audit.json`; bei ZIP wird
+`audit.json` zusätzlich aufgenommen. Die interne Ausgabe enthält Prüfkandidaten
+und Bearbeitungsangaben und darf nicht als Benutzerkopie weitergegeben werden.
 
 Für zuvor administrativ geprüfte Anhänge:
 
@@ -127,8 +244,9 @@ Für zuvor administrativ geprüfte Anhänge:
 ```
 
 Ohne diese beiden Dateischalter enthält das Paket ein Dateiverzeichnis, jedoch
-keine hochgeladenen Dateiinhalte. Das steht ausdrücklich als `not_included` im
-Bericht und JSON. Auch ohne Dateikopien werden lokale Dateizuordnungen validiert.
+keine hochgeladenen Dateiinhalte. Das steht als „Nicht beigefügt“ im Bericht
+und als `not_included` im JSON. Auch ohne Dateikopien werden lokale
+Dateizuordnungen validiert.
 Fehlende Dateien, nichtlokaler Storage, unzulässige Pfade oder verknüpfte Anhänge
 führen zum Abbruch. Das Werkzeug kontaktiert keinen Remote-Storage. Fehlende
 Dateien müssen untersucht und separat erklärt werden; ein abgebrochener Lauf ist
@@ -141,8 +259,10 @@ ein Fehlschlag der Bereinigung wird ausdrücklich gemeldet.
 Die Sammlung findet genau einmal innerhalb einer konsistenten Transaktion statt.
 Unter PostgreSQL wird sie ausdrücklich `REPEATABLE READ READ ONLY` ausgeführt.
 Es werden weder Geschäftsdatensätze geändert noch Exporte in der DB archiviert.
-PDF und JSON verwenden denselben normalisierten Snapshot und denselben SHA-256-
-Prüfwert. Im ZIP werden Dateigröße und SHA-256 der tatsächlich kopierten Bytes
+PDF und Benutzer-JSON verwenden dieselben persönlichen Datensätze und geprüften
+Ergänzungen. Administrative Prüfwerte und die vollständige Prüfstruktur stehen
+ausschließlich in der gesonderten internen `audit.json`.
+Im ZIP werden Dateigröße und SHA-256 der tatsächlich kopierten Bytes
 vor der Erstellung beider Berichte ergänzt. Anhänge stammen aus dem lokalen
 Dateisystem; für gleichzeitig veränderte Uploads sollte der Betreiber eine
 ruhige Betriebsphase wählen. Die DB-Transaktion sperrt das Dateisystem nicht.
@@ -152,7 +272,7 @@ Erfasst werden über geprüfte Eigentumsbeziehungen insbesondere:
 | Bereich | Automatisch zusammengestellte Informationen |
 | --- | --- |
 | Konto | ID, Benutzername, E-Mail, Name, Aktiv-/Adminstatus, Registrierung und letzter Login |
-| Einstellungen | Darstellung, Druck, Spiel-/Würfeloptionen, Verifizierungs- und 2FA-Status ohne Geheimnisse |
+| Einstellungen | Darstellung, Druck, Spiel-/Würfeloptionen, Kalender und Schnellzugriffe, Verifizierungs- und 2FA-Status ohne Geheimnisse |
 | Entwürfe | Charaktererstellungsentwürfe und eigene Erstellungsvorlagen |
 | Charaktere | Alle gespeicherten Charakterfelder, einschließlich archivierter Charaktere |
 | Regelzuordnungen | Attribute, Fertigkeiten, Spezifikationen, Sprachen, Eigenschaften und Entscheidungen |
@@ -161,27 +281,31 @@ Erfasst werden über geprüfte Eigentumsbeziehungen insbesondere:
 | Inventar | Eigene Gegenstände, Beschreibungen, Overrides, Runen, semantische Effekte, Offenlegungs- und Identifikationszustände |
 | Kreaturen | Eigene Kreaturen samt Ausrüstung, Fertigkeiten, Angriffen, Eigenschaften, Befehlen und Unterdatensätzen |
 | Chronik und Kalender | Tagebucheinträge, Reihenfolge, gespeicherte Zeiten/Spieldaten, Kalenderlayout und Charakterdatum |
-| Gruppen | Rollen, Mitgliedschaften und Einladungen einschließlich beendeter/widerrufener Beziehungen sowie archivierte Gruppenbezüge |
+| Gruppen | Rollen, Mitgliedschaften, Einladungen, eigene Gruppenkreaturen und zugeordnete Unterdaten; gemeinsame Inhalte werden zur Einzelfallprüfung ermittelt |
 | Transfers | Eigene Sender-/Empfänger-/Akteurbezüge, Zustände, Mengen, Zeiten, Eigentumsereignisse, Berechtigungen und Benachrichtigungen |
-| Sicherheit | Eigene AccountSecurityEvents, Passkey-Metadaten und Recovery-Code-Erstellungs-/Verbrauchszeiten |
-| Sitzungen | Gespeicherte Ablaufzeiten eindeutig zugeordneter Datenbanksitzungen, auch noch gespeicherter abgelaufener Sitzungen |
+| Sicherheit | Eigene AccountSecurityEvents samt zugelassenen Zusatzangaben, Passkey-Metadaten, Recovery-Code-Zeiten und rekonstruierbare kontogebundene Zugriffszähler |
+| Sitzungen | Ablauf-/Anmeldestatus und zugeordnete persönliche Zustände ohne Schlüssel oder Challenges; auch noch gespeicherte abgelaufene Sitzungen |
 | Weitere Anmeldeinformationen | Axes-Zeilen zum aktuellen Benutzernamen; Zuordnung administrativ prüfen |
-| Verwaltung | Zeit und Aktionsart eigener Django-Admin-Aktionen ohne fremde Objektinhalte |
+| Verwaltung | Eigene Admin-Aktivitäten sowie Änderungen über das Konto und eigene Datensätze durch andere Administratoren; gemischte Inhalte gesondert prüfen |
 | Dateien | Direkte Dateifelder der exportierten eigenen Datensätze; optional geprüfte lokale Bytes im ZIP |
 
-Alle 60 derzeitigen Konto-/Charakterkategorien werden anhand der tatsächlichen
+Die Konto-/Charakterkategorien werden anhand der tatsächlichen
 Modellbeziehungen aufgelöst. Zusätzliche gemeinsam genutzte Kategorien werden
 gesondert und eingeschränkt erfasst. Neue direkt personenbezogene Modelle ohne
 geprüfte Zuordnung lassen die Sammlung abbrechen. Dies ersetzt bei einer
 Modellerweiterung keine erneute Prüfung von Feldern, JSON und indirekten Bezügen.
 
-Das JSON enthält unter `data.categories` je Modell ein Feldverzeichnis und die
-Datensätze. Das Verzeichnis nennt Feldbedeutung, Django-Typ, verfügbare Choices und
+Die interne `audit.json` enthält unter `data.categories` je Modell ein
+Feldverzeichnis und die Datensätze. Das Verzeichnis nennt Feldbedeutung, Django-Typ, verfügbare Choices und
 Zielmodell von Beziehungen. IDs sind interne Datenbankkennungen; unter
 `data.references` stehen Namen referenzierter allgemeiner Katalogdaten. Private
 Gruppenkataloge werden dafür nicht aufgelöst. Fehlende Werte sind `null`, leere
 Texte `""`, Zeiten ISO 8601 mit Zeitzone, reine Datumswerte Kalenderdaten.
 Dezimal-/UUID-Werte werden verlustfrei als Zeichenfolge serialisiert.
+Die Benutzerkopie `data.json` enthält die persönlichen Datensätze mit passenden
+Feldbezeichnungen und minimalen Zuordnungsangaben. Sie enthält keine Legal-
+Konfiguration, Prüfkandidaten, Prüfnotizen oder Freigabe-Hashes. Das vollständige
+interne Modellinventar steht in `audit.json` unter `data.category_mapping`.
 
 Der öffentliche, bisherige Kontoexport bleibt unverändert. Sein schmales Format
 enthält nur einige Charakter-, Inventar- und Tagebuchfelder und eignet sich
@@ -190,18 +314,30 @@ deshalb nicht als Grundlage dieser umfassenden internen Auskunft.
 ## Grenzen, Schwärzungen und manuelle Ergänzungen
 
 Passwort-Hashes, TOTP-Secrets, Recovery-Code-Hashes, Verifizierungstoken,
-Passkey-Credential-IDs/-Schlüsselmaterial, API-Schlüssel, Raum-Passwörter,
-Session-Schlüssel/-Inhalte und Drosselungs-Digests verlassen den Snapshot nicht.
-Sicherheitsereignis-Metadaten und freie Quickslot-JSON-Inhalte werden vorsorglich
-zurückgehalten. Verdächtige Schlüssel in eigenen JSON-Daten werden rekursiv
+private Schlüssel, API-Schlüssel, Raum-Passwörter,
+Geheime Sitzungs-/Challenge-Inhalte und Drosselungs-Digests verlassen den
+Snapshot nicht.
+Öffentliche Passkey-Registrierungskennungen und öffentliche Schlüssel sind
+gesonderte Base64-Prüfkandidaten. Nach konkreter Entscheidung können sie als
+öffentliche Registrierungsdaten bereitgestellt werden; sie werden nicht pauschal
+als Geheimnisse behandelt. Persönliche Sitzungszustände sind von den geheimen
+Sitzungsschlüsseln und Challenges zu unterscheiden.
+Die zugelassenen Sicherheitszusatzangaben `label` und `session_count` sowie
+bereinigte persönliche Quickslot-JSON-Inhalte werden ausgegeben. Weitere
+Sicherheitsmetadaten benötigen eine explizite Einzelfallentscheidung; ihre
+unbekannten Werte werden nicht ungeprüft in die Prüfgrundlage kopiert.
+Verdächtige Schlüssel und Zugangsdatenmuster in eigenen JSON-Daten werden rekursiv
 geschützt; beliebige Freitexte können technisch nicht zuverlässig anonymisiert
-werden und bleiben prüfpflichtig. Berechtigungsgruppen werden nicht exportiert.
+werden und bleiben prüfpflichtig. Eigene Berechtigungsgruppen und wirksame
+Zugriffsrechte werden ohne die Mitgliederdaten anderer Konten ausgegeben.
 
 Fremde Konto-/Charakterzuordnungen, Gruppennamen, gemeinsame Nachrichten,
-Transfer-Snapshots/-Details und Gruppennotizen werden geschützt. Das gilt auch
+Transfer-Snapshots/-Details und Gruppennotizen werden im Entwurf geschützt. Das gilt auch
 für eigene Nachrichten in gemeinsam genutzten Datensätzen, weil sie Angaben
-über Dritte enthalten können. Generische freie Objektzuordnungen werden nicht
-ungeprüft aufgelöst. Jede automatische oder administrative Schwärzung wird in
+über Dritte enthalten können. Diese Inhalte bleiben als interne Prüfkandidaten
+nachvollziehbar; über `resolutions` sind geprüfte persönliche Auszüge freigebbar.
+Generische Objektzuordnungen werden nicht ungeprüft aufgelöst, sondern erzeugen
+offene Prüfungen. Jede automatische oder administrative Schwärzung wird intern in
 `data.omissions` mit Modell, Datensatz, Feld und Grund dokumentiert, soweit sie
 einen konkreten ausgegebenen Datensatz betrifft.
 
@@ -209,7 +345,9 @@ Gesondert zu prüfen sind insbesondere Gruppen-SL-Notizen, Tabellen samt Zellen,
 SL-Kreaturenkarten, Gruppenkataloge, gemeinsame Inventare, Text-/Bild-Erwähnungen
 in fremden Charakteren und Datensätze ohne verbleibende Eigentumszuordnung.
 Die Erstellerschaft einer Gruppe oder Tabelle beweist keine alleinige
-Dateneigentümerschaft. Diese Inhalte werden nicht pauschal exportiert. Nach
+Dateneigentümerschaft. Gruppennotizen und zugeordnete Tabellen werden als
+Prüfkandidaten erfasst; andere Inhalte ohne sichere Zuordnung sind ergänzend zu
+recherchieren. Sie werden nicht pauschal exportiert. Nach
 Prüfung berechtigte personenbezogene Auszüge zur Auskunft ergänzen und jede
 verbleibende Auslassung begründen. Ein Export nur der automatisch freigegebenen
 Felder darf nicht ungeprüft als vollständige Antwort bezeichnet werden.
@@ -228,8 +366,10 @@ Auftragsverarbeiter, Drittlandtransfers, Garantien, Herkunft und Aufbewahrung
 betreiberspezifisch ermitteln. Eine konfigurierte Löschfrist ist kein Nachweis,
 dass ein Bereinigungsjob tatsächlich ausgeführt wurde.
 
-## Prüfdatei und finale Freigabe
+## Prüfdatei und finale Freigabe beim Server-Command
 
+Nur das optionale Server-Command verwendet eine manuelle Prüfdatei; die
+reguläre Adminoberfläche erzeugt diese Struktur vollständig aus Formularen.
 Eine private UTF-8-JSON-Prüfdatei kann Schwärzungen und recherchierte Angaben
 enthalten. Die Originaldaten werden nicht verändert. Feldschlüssel haben die
 Form `app.Model:Datensatz-ID:Feldname`. Nicht passende oder veraltete Schlüssel
@@ -256,12 +396,22 @@ Textauszug als Ersatzwert eingesetzt werden; keine Geheimnisse freigeben.
 Das Beispiel ist **keine** fertige rechtliche Auskunft. Beispielwerte ersetzen,
 unbenötigte Schwärzungsschlüssel entfernen und dann etwa
 `--review-file C:\Private\review.json` an den Exportaufruf anhängen. Bestehende
-`LEGAL_INFO`-Werte erscheinen zusätzlich im Bericht. Fehlende Konfiguration wird
-sichtbar markiert; die tatsächlichen Informationen müssen vor Weitergabe ergänzt
-sein. Die Legal-Konfiguration oder Datenschutzerklärung wird nicht verändert.
+Die zusätzlich erforderlichen Bereiche `coverage`, `services`, `resolutions`,
+`supplements`, `controller` und `file_decisions` sind in
+[der Inhaltsprüfung](privacy_content_audit.md) beschrieben. Dieses kurze Beispiel
+allein erlaubt keine endgültige Freigabe.
+Validierte `LEGAL_INFO`-Werte bleiben als interne Recherchegrundlage erhalten.
+Geprüfte Kontakt- und Dienstangaben erscheinen verständlich im Bericht.
+Redaktionelle Verantwortung und Berufsaufsicht werden nicht als Datenschutz-
+Verantwortlicher oder Datenschutzaufsicht umetikettiert. Interne Schalter, Prüffelder und
+Dienstekonfigurationen werden nicht ausgegeben. Tatsächliche Verarbeitung durch
+Turnstile oder administrative Dienste muss in den geprüften Zwecken, Empfängern,
+Fristen und Drittlandangaben enthalten sein. Fehlende Pflichtangaben stehen in
+einem Entwurfshinweis; Konfigurationsplatzhalter werden nicht als Auskunftstext
+ausgegeben. Eine Freigabe wird bei fehlenden Angaben abgewiesen.
 
 Nach vollständiger Prüfung des so erzeugten Entwurfs den Wert `review_sha256`
-aus `data.json` zusammen mit der geprüften Konto-ID und dem realen Prüfzeitpunkt
+aus der internen `audit.json` zusammen mit der geprüften Konto-ID und dem realen Prüfzeitpunkt
 in der Prüfdatei ergänzen:
 
 ```json
@@ -274,15 +424,20 @@ in der Prüfdatei ergänzen:
 
 Dieser Abschnitt gehört auf die oberste Ebene desselben JSON-Objekts. Erneut mit
 denselben Optionen, Schwärzungen und Verarbeitungsinformationen exportieren.
-Alle sieben Verarbeitungsfelder müssen ausgefüllt sein. Stimmen Daten, Dateien
+Bei Art. 15 müssen Zwecke, Empfänger, Speicherdauer, Herkunft, Drittland-/
+Garantieangaben, Angaben zu Art.-22-Entscheidungen sowie Verantwortlicher,
+Anschrift und Kontakt vollständig sein. Die Rechtsgrundlagen sind ergänzend.
+Prüfbereiche, Dienste, Einzelfallkandidaten und fehlende Dateikopien ohne
+Zustellungs-/Ausnahmeentscheidung sperren ebenfalls die Freigabe. Stimmen Daten, Dateien
 oder Konto nicht mehr mit der Prüfung überein, wird die Freigabe abgelehnt.
 Ein neues Erstellungsdatum allein invalidiert die Freigabe nicht. Das fertige
-PDF und JSON dokumentieren dann den Freigabestatus, den Prüfzeitpunkt und den
-gemeinsamen Datenprüfwert. Die technische Freigabe ist eine dokumentierte
+PDF dokumentiert den Freigabestatus; Prüfzeitpunkt und Datenprüfwerte stehen im
+internen JSON. Die technische Freigabe ist eine dokumentierte
 administrative Erklärung, keine elektronische Signatur oder Rechtsprüfung.
 
-Für gesonderte PDF-Ausgaben lässt sich der Freigabeprüfwert auch aus dem Entwurf
-ablesen. Dateischalter und Ausgabeumfang müssen zwischen Prüfung und Freigabe
+Für die Freigabe daher zuerst eine interne JSON-/ZIP-Prüfgrundlage erstellen.
+Dateischalter und
+Ausgabeumfang müssen zwischen Prüfung und Freigabe
 identisch bleiben. Bei laufender Kontoaktivität kann eine erneute Prüfung nötig
 werden. Bereits vorhandene Entwürfe werden nicht überschrieben.
 
@@ -332,8 +487,9 @@ brechen vor dem Schreiben von Berichtsdaten ab. Administratoren und privilegiert
 Backup-/Systemdienste können weiterhin Zugriff haben. Den ausführenden Prozess,
 Datenträger, Swap, Backups und Übertragungsweg entsprechend schützen.
 
-Das Werkzeug archiviert keine Exporte automatisch und plant keine Löschung.
-Der Betreiber ist für die zeitnahe Entfernung nach Bearbeitung verantwortlich:
+Für ausdrücklich mit dem Server-Command erstellte Ausgaben ist der Betreiber
+für die zeitnahe Entfernung nach Bearbeitung verantwortlich. Diese sind keine
+HTTP-Jobdateien und werden nicht vom HTTP-Bereiniger gelöscht:
 
 ```powershell
 .venv\Scripts\python.exe manage.py privacy_export --delete C:\Private\CodexExports\privacy-export-TATSAECHLICHE_KENNUNG
@@ -363,7 +519,10 @@ Gezielte Tests mit synthetischen Konten:
 ```powershell
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_export --keepdb
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_admin --keepdb
-node charsheet/tests/test_privacy_admin_download.js
+.venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_jobs --keepdb
+.venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_content --keepdb
+.venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_review --keepdb
+node charsheet/tests/test_privacy_review_ui.js
 ```
 
 Geprüft werden Eigentumsbeziehungen, archivierte Daten, geschützte gemeinsame
@@ -375,20 +534,34 @@ Browser, Screenshots und visuelle Tests werden nicht verwendet.
 
 Die Admin-Tests prüfen zusätzlich Benutzer-/E-Mail-/Charaktersuche, archivierte
 Charaktere und deaktivierte Zielkonten, Superuser-Zugriff, CSRF, Vorschau,
-Art.-20-Prüfangaben und PDF-/JSON-/ZIP-Antworten aus Speicherpuffern. Versuche,
-temporäre Dateien oder dateibasierte Ausgaben anzulegen, werden dabei blockiert.
-Die JavaScript-Unit-Tests prüfen die Reihenfolge Dateidialog vor Exportanfrage,
-Abbruch ohne Anfrage, direktes lokales Schreiben, Browser-Fallback und Fehler.
-Sie verwenden simulierte APIs und stellen keinen visuellen Browsertest dar.
+Art.-20-Prüfangaben, asynchrone Erstellung, PDF-/JSON-/ZIP-Antworten und die
+erneute Berechtigungs-/CSRF-Prüfung beim Abruf. Lifecycle-Tests weisen die
+vollständige Bereinigung nach Erfolg, Abbruch, Schreib-/Rendererfehlern und
+Fristablauf nach. Ein realer separater Prozess wird absichtlich beendet; danach
+muss der Bereiniger dessen verwaiste Dateien entfernen. Unbekannte Dateien
+bleiben erhalten. Ein festhängender Download wird innerhalb der definierten
+Frist geschlossen und vollständig bereinigt. Die grafischen Tests prüfen
+zusätzlich strukturierte Teilschwärzungen mit Typerhalt, Rückgängigmachen,
+Formulargenerierung, Pflichtangaben, signierte Feldreferenzen, veraltete
+Formulare/Freigaben, Ergänzungen, tatsächliche PDF-/JSON-/ZIP-Ausgaben und
+die Löschung sämtlicher neuer Prüf- und Zwischenstandsdateien.
 
-Lange Texte werden ohne Kürzung in kleine, über Seiten fortsetzbare Tabellenzeilen
-aufgeteilt. A4-Ränder, Seitenzahlen, internes verlinktes Inhaltsverzeichnis,
-PDF-Lesezeichen und Feldverzeichnisse sind Bestandteil des Berichts. HTML aus
+Lange Texte werden ohne Kürzung als über Seiten fortsetzbare Absätze gesetzt.
+Das HTML pro Layoutblock ist auf 16.000 Zeichen begrenzt. Jeder Block wird einmal
+in eine private Arbeitsdatei gerendert. Inhaltsverzeichnis und Links entstehen
+nach dem Bericht; endgültige Seitenzahlen und Lesezeichen nach dem Zusammenfügen.
+A4-Ränder, Seitenzahlen, Verweisziele und Textvollständigkeit werden automatisch
+geprüft. Interne Feldverzeichnisse bleiben in `audit.json`. HTML aus
 gespeicherten Daten wird als Text behandelt und nicht ausgeführt oder nachgeladen.
 
 ORM-Ergebnisse werden blockweise gelesen; Dateiinhalt wird blockweise ins ZIP
 geschrieben und ZIP64 unterstützt. Der normalisierte Snapshot sowie das PDF-
-Layout liegen im Arbeitsspeicher, dessen Bedarf mit dem Konto wächst. Bei sehr
+Seitenstrukturen liegen im Arbeitsspeicher, dessen Bedarf mit dem Konto wächst.
+Große PDF-/ZIP-Bytepuffer werden vermieden; Python-Speicherspitze, Laufzeit und
+die vom Betriebssystem gemeldete Prozessspeicherspitze einschließlich nativer
+MuPDF-Allokationen werden am synthetischen großen PDF-Test gemessen.
+Laufzeiten der Sammlung, Layoutblöcke und
+Dateierstellung werden ohne Kontodaten protokolliert. Bei sehr
 großen Konten ausreichend RAM und privaten Speicher bereitstellen; es gibt keine
 stille Kürzung oder Datensatzobergrenze. Der Test mit langer Historie ist kein
 Nachweis für beliebig große Produktivkonten. Vor Weitergabe bleibt die konkrete

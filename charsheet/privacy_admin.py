@@ -1,8 +1,6 @@
-"""Superuser-only privacy search and memory-only export downloads."""
+"""Superuser-only privacy search and private export jobs."""
 
-import io
 import json
-import zipfile
 from functools import wraps
 
 from django import forms
@@ -11,29 +9,22 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.http import FileResponse
 from django.template.response import TemplateResponse
+from django.http import HttpResponseRedirect
 from django.urls import path
 from django.utils.cache import patch_cache_control
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
-from .management.commands.privacy_export import attachments
 from .models import Character
+from .privacy_jobs import (
+    cleanup_expired, job_download, owned_job, start_job,
+)
 from .privacy_export import (
-    apply_approval,
     build_snapshot,
-    review_digest,
-    snapshot_digest,
+    missing_information,
     validate_review,
 )
-
-
-FORMATS = {
-    "pdf": "application/pdf",
-    "json": "application/json",
-    "zip": "application/zip",
-}
 
 
 class SearchForm(forms.Form):
@@ -42,6 +33,16 @@ class SearchForm(forms.Form):
         max_length=200,
         widget=forms.TextInput(attrs={"size": 48, "autocomplete": "off"}),
     )
+
+
+class ReviewStartForm(forms.Form):
+    user_id = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
+    mode = forms.ChoiceField(label="Auskunftsart", choices=[
+        ("access", "Art. 15 – Auskunft und Datenkopie"),
+        ("portability", "Art. 20 – Datenübertragbarkeit"),
+    ])
+    request_verified = forms.BooleanField(
+        label="Anfrage und Berechtigung der anfragenden Person geprüft")
 
 
 class ExportForm(forms.Form):
@@ -53,6 +54,13 @@ class ExportForm(forms.Form):
     format = forms.ChoiceField(label="Dateiformat", initial="zip", choices=[
         ("zip", "ZIP mit PDF und JSON"), ("pdf", "PDF"), ("json", "JSON"),
     ])
+    audience = forms.ChoiceField(
+        label="Verwendungszweck", required=False, initial="recipient",
+        choices=[("recipient", "Datenkopie für die betroffene Person"),
+                 ("internal", "Interne Prüfgrundlage – nicht weitergeben")],
+        help_text="Die interne JSON-/ZIP-Ausgabe enthält zusätzliche "
+        "Prüfkandidaten und Freigabeprüfwerte.",
+    )
     request_verified = forms.BooleanField(
         required=False,
         label="Anfrage und Berechtigung der anfragenden Person geprüft",
@@ -74,6 +82,13 @@ class ExportForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        cleaned["audience"] = cleaned.get("audience") or "recipient"
+        if cleaned.get("format") == "pdf" and (
+            cleaned.get("mode") == "portability"
+            or cleaned["audience"] == "internal"
+        ):
+            self.add_error("format", "Hier JSON oder ZIP wählen; das ZIP "
+                           "enthält zusätzlich den PDF-Begleitbericht.")
         try:
             review = json.loads(cleaned.get("review_json") or "{}")
             validate_review(review, cleaned.get("mode", "access"))
@@ -93,56 +108,6 @@ class ExportForm(forms.Form):
         return cleaned
 
 
-def download(payload, files, options):
-    """Never use temporary files, spools, storage or export directories."""
-    kind = options["format"]
-    output = io.BytesIO()
-    try:
-        attachments(files)
-        if kind == "zip":
-            with zipfile.ZipFile(
-                output, "w", zipfile.ZIP_DEFLATED, allowZip64=True,
-            ) as archive:
-                if options["include_files"]:
-                    attachments(files, archive)
-                apply_approval(payload, options["review"])
-                with io.BytesIO() as pdf:
-                    from .privacy_pdf import write_pdf
-
-                    write_pdf(payload, pdf)
-                    archive.writestr("report.pdf", pdf.getvalue())
-                archive.writestr("data.json", json_bytes(payload))
-        else:
-            apply_approval(payload, options["review"])
-            if kind == "pdf":
-                from .privacy_pdf import write_pdf
-
-                write_pdf(payload, output)
-            else:
-                output.write(json_bytes(payload))
-        output.seek(0)
-        response = FileResponse(
-            output, as_attachment=True, content_type=FORMATS[kind],
-            filename=f"codex-arcana-auskunft.{kind}",
-        )
-        patch_cache_control(response, no_store=True, private=True)
-        response["X-Content-Type-Options"] = "nosniff"
-        response["X-Accel-Buffering"] = "no"
-        response["Referrer-Policy"] = "same-origin"
-        return response
-    except Exception:
-        output.close()
-        raise
-
-
-def json_bytes(payload):
-    return json.dumps({
-        "snapshot_sha256": snapshot_digest(payload),
-        "review_sha256": review_digest(payload),
-        "data": payload,
-    }, ensure_ascii=False, indent=2).encode("utf-8")
-
-
 @sensitive_post_parameters()
 @require_http_methods(["GET", "POST"])
 def privacy_export_view(request):
@@ -160,9 +125,64 @@ def privacy_export_view(request):
     if settings.DEBUG:
         context["error"] = "DSGVO-Werkzeug nur mit DEBUG=False verwenden."
         status = 503
+    elif request.GET.get("review") or request.POST.get("workspace"):
+        from .privacy_review_ui import workspace_view
+
+        try:
+            return workspace_view(request, request.GET.get("review")
+                                  or request.POST["workspace"], context)
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            context["error"] = (
+                "Prüfstand oder Eingabe nicht verfügbar. Die Prüfung erneut "
+                "öffnen oder mit der Benutzerauswahl neu beginnen.")
+            status = 400
+    elif request.method == "GET" and request.GET.get("job"):
+        token = request.GET["job"]
+        try:
+            cleanup_expired()
+            job = owned_job(token, request.user.pk)
+            context["job_token"] = token
+            context["job_ready"] = (job / "ready.json").is_file()
+            if context["job_ready"]:
+                metadata = json.loads((job / "ready.json").read_text(
+                    encoding="utf-8"))
+                context["job_internal"] = (
+                    metadata.get("audience") == "internal")
+        except (OSError, ValueError):
+            context["error"] = (
+                "Export fehlgeschlagen, abgelaufen oder bereits abgerufen.")
+            status = 410
     elif request.method == "POST":
         action = request.POST.get("action")
-        if action == "search":
+        if action == "begin_review":
+            form = context["export_form"] = ReviewStartForm(request.POST)
+            if form.is_valid():
+                try:
+                    selected = get_user_model()._base_manager.get(
+                        pk=form.cleaned_data["user_id"])
+                    token = start_job(request.user.pk, {
+                        "operation": "workspace", "user_id": selected.pk,
+                        "mode": form.cleaned_data["mode"], "format": "json",
+                        "audience": "internal", "review": {},
+                        "include_files": False,
+                    })
+                    from .privacy_review_ui import url
+
+                    return HttpResponseRedirect(url(token))
+                except (OSError, ValueError, get_user_model().DoesNotExist):
+                    context["error"] = (
+                        "Prüfung nicht gestartet. Eine laufende Prüfung "
+                        "zuerst beenden; private Ablage prüfen.")
+            status = 400
+        elif action == "fetch":
+            try:
+                return job_download(request.POST.get("job_token", ""),
+                                    request.user.pk)
+            except (OSError, ValueError, KeyError):
+                context["error"] = (
+                    "Export nicht bereit, abgelaufen oder bereits abgerufen.")
+                status = 410
+        elif action == "search":
             form = context["search_form"] = SearchForm(request.POST)
             if form.is_valid():
                 query = form.cleaned_data["query"]
@@ -195,7 +215,7 @@ def privacy_export_view(request):
                     pk=int(request.POST.get("user_id", "")),
                 )
                 context["selected_user"] = selected
-                context["export_form"] = ExportForm(initial={
+                context["export_form"] = ReviewStartForm(initial={
                     "user_id": selected.pk,
                 })
             except (ValueError, get_user_model().DoesNotExist):
@@ -215,17 +235,30 @@ def privacy_export_view(request):
                         form.add_error("request_verified",
                                        "Anfragenprüfung bestätigen.")
                     else:
-                        payload, files = build_snapshot(
-                            selected.pk, options["mode"], options["review"],
-                        )
                         if action == "download":
-                            return download(payload, files, options)
-                        context["preview"] = [
-                            (key, len(category["records"]))
-                            for key, category in payload["categories"].items()
-                        ]
-                        context["attachment_count"] = len(files)
-                        context["omission_count"] = len(payload["omissions"])
+                            token = start_job(request.user.pk, options)
+                            context["job_token"] = token
+                            context["job_ready"] = False
+                            context["job_internal"] = (
+                                options["audience"] == "internal")
+                            status = 202
+                            payload = None
+                        else:
+                            payload, files = build_snapshot(
+                                selected.pk, options["mode"],
+                                options["review"],
+                            )
+                        if payload is not None:
+                            context["preview"] = [
+                                (key, len(category["records"]))
+                                for key, category in
+                                payload["categories"].items()
+                            ]
+                            context["attachment_count"] = len(files)
+                            context["omission_count"] = len(
+                                payload["omissions"])
+                            context["missing_information"] = (
+                                missing_information(payload))
                 except Exception:
                     # Neither record contents nor exception details in logs.
                     context["error"] = (
@@ -238,6 +271,10 @@ def privacy_export_view(request):
         else:
             context["error"] = "Unbekannte Aktion."
             status = 400
+    if not settings.DEBUG:
+        from .privacy_review_ui import resume_review
+
+        context["resume_review"] = resume_review(request.user.pk)
     response = TemplateResponse(
         request, "admin/privacy_export.html", context, status=status,
     )
