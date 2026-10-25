@@ -9,6 +9,7 @@ from django.core import signing
 from django.core.mail import send_mail
 from django.db import transaction
 from django.template.loader import render_to_string
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 
@@ -82,6 +83,9 @@ def request_email_verification(request, user):
         reverse("verify_email", kwargs={"token": token})
     )
     context = {
+        "email_logo_url": request.build_absolute_uri(
+            static("img/codexarcana.png")
+        ),
         "verification_url": verification_url,
         "timeout_seconds": settings.EMAIL_VERIFICATION_TIMEOUT,
     }
@@ -95,8 +99,15 @@ def request_email_verification(request, user):
         "registration/email_verification_email.txt",
         context,
     )
+    html_body = render_to_string(
+        "registration/email_verification_email.html",
+        context,
+    )
     try:
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [email])
+        send_mail(
+            subject, body, settings.DEFAULT_FROM_EMAIL, [email],
+            html_message=html_body,
+        )
     except (OSError, SMTPException):
         return "delivery_failed"
     return "sent"

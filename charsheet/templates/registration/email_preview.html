@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>E-Mail-Vorschau · Codex Arcana</title>
+  <style>
+    body { margin:0; background:#281f1a; color:#f7e9ce; font:16px 'Segoe UI',Arial,sans-serif; }
+    header { padding:20px; border-bottom:1px solid #c5a16a; }
+    h1 { margin:0 0 12px; font:28px Georgia,serif; }
+    nav { display:flex; flex-wrap:wrap; gap:16px; }
+    a { color:#dfbf8e; }
+    a[aria-current="page"] { color:#fff; font-weight:bold; }
+    p { margin-bottom:0; font-size:14px; }
+    iframe { display:block; width:100%; height:80vh; border:0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>E-Mail-Vorschau</h1>
+    <nav aria-label="E-Mail-Typ und Format">
+      <a href="{% url 'email_preview_type' email_type='verification' %}"{% if email_type == 'verification' %} aria-current="page"{% endif %}>E-Mail-Verifizierung</a>
+      <a href="{% url 'email_preview_type' email_type='password-reset' %}"{% if email_type == 'password-reset' %} aria-current="page"{% endif %}>Passwort zurücksetzen</a>
+      <a href="?format=html">HTML direkt öffnen</a>
+      <a href="?format=text">Plaintext öffnen</a>
+    </nav>
+    <p>Lokale Testdaten · kein Versand · ungültige Beispiellinks auf example.invalid</p>
+  </header>
+  <iframe title="HTML-E-Mail" src="?format=html" sandbox></iframe>
+</body>
+</html>

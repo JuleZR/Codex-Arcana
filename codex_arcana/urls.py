@@ -570,3 +570,12 @@ urlpatterns = [
     path("media/<path:path>", serve, {"document_root": settings.MEDIA_ROOT}),
     path("encyclopedia/", views.encyclopedia, name="encyclopedia"),
 ]
+
+if settings.DEBUG:
+    from charsheet.email_preview import email_preview
+
+    urlpatterns += [
+        path("__preview__/emails/", email_preview, name="email_preview"),
+        path("__preview__/emails/<slug:email_type>/", email_preview,
+             name="email_preview_type"),
+    ]

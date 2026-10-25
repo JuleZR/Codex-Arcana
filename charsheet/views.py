@@ -44,6 +44,7 @@ from django.db.models import F, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.template.loader import render_to_string
+from django.templatetags.static import static
 from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from webauthn import base64url_to_bytes
@@ -3858,6 +3859,7 @@ class AppPasswordResetView(PasswordResetView):
     template_name = "registration/codex_password_reset_form.html"
     form_class = AppPasswordResetForm
     email_template_name = "registration/codex_password_reset_email.txt"
+    html_email_template_name = "registration/codex_password_reset_email.html"
     subject_template_name = "registration/codex_password_reset_subject.txt"
     success_url = reverse_lazy("forgot_password_done")
 
@@ -3890,6 +3892,12 @@ class AppPasswordResetView(PasswordResetView):
 
     def form_valid(self, form):
         self.request.session.pop(PASSWORD_RESET_USER_SESSION_KEY, None)
+        self.extra_email_context = {
+            **(self.extra_email_context or {}),
+            "email_logo_url": self.request.build_absolute_uri(
+                static("img/codexarcana.png")
+            ),
+        }
         try:
             return super().form_valid(form)
         except (OSError, SMTPException):

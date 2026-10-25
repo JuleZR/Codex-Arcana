@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Codex Arcana{% endblock %}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#281f1a; color:#503524; font-family:'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#281f1a" style="width:100%; background-color:#281f1a;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <!-- Outlook needs an explicit width; other clients use the fluid table. -->
+        <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fcf7ed" style="width:100%; max-width:600px; border:1px solid #c5a16a; background-color:#fcf7ed;">
+          <tr>
+            <td align="center" bgcolor="#3c2a23" style="padding:8px 28px; border-bottom:2px solid #b7976b; background-color:#3c2a23; text-align:center;">
+              <img src="{{ email_logo_url }}" width="240" alt="Codex Arcana" border="0" style="display:block; width:100%; max-width:240px; height:auto; margin:0 auto; color:#f7e9ce; font-family:Georgia,serif; font-size:24px;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px; color:#503524; font-size:16px; line-height:1.6;">
+              <h1 style="margin:0 0 22px; color:#73462d; font-family:'Cormorant Garamond',Georgia,serif; font-size:28px; line-height:1.2;">{% block heading %}{% endblock %}</h1>
+              <p style="margin:0 0 16px;">Hallo,</p>
+              {% block introduction %}{% endblock %}
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto;">
+                <tr>
+                  <td align="center" bgcolor="#813d36" style="border:1px solid #b68661; background-color:#813d36; mso-padding-alt:14px 22px;">
+                    <a href="{% block action_url %}{% endblock %}" style="display:inline-block; padding:14px 22px; color:#f9e7c7; font-family:'Segoe UI',Arial,sans-serif; font-size:16px; font-weight:bold; line-height:1.4; text-decoration:none;">{% block action_label %}{% endblock %}</a>
+                  </td>
+                </tr>
+              </table>
+              {% block instructions %}{% endblock %}
+              <p style="margin:20px 0 8px; font-size:13px;">Falls die Schaltfläche nicht funktioniert, kopiere diesen Link in deinen Browser:</p>
+              <p style="margin:0 0 24px; font-size:13px; word-break:break-all; overflow-wrap:anywhere;"><a href="{% block fallback_url %}{% endblock %}" style="color:#813d36; text-decoration:underline;">{% block link_text %}{% endblock %}</a></p>
+              <p style="margin:0; padding-top:18px; border-top:1px solid #c8a983; font-size:13px;">{% block security_note %}{% endblock %}</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#f1e5d1" style="padding:18px 28px; border-top:1px solid #c8a983; background-color:#f1e5d1; color:#503524; font-size:13px; line-height:1.5;">Dein Codex-Arcana-Team</td>
+          </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
