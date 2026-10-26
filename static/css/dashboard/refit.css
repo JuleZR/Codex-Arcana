@@ -47,7 +47,7 @@
   backdrop-filter: blur(8px);
 }
 .dashboard_register .dashboard_logo_wrap { text-align: center; }
-.dashboard_register .dashboard_version { color: #c7aa82; }
+.dashboard_register .dashboard_version { position: static; grid-column: 1 / -1; align-self: flex-end; margin: 8px 0 0; text-align: right; color: #c7aa82; }
 .dashboard_register .dashboard_panel--sidebar .dashboard_title_wrap h1 { color: #ead2ac; font: 600 18px/1.2 "Cormorant Garamond", Georgia, serif; }
 .dashboard_register .dashboard_user_actions { border: 0; padding: 0; background: transparent; }
 .dashboard_register .dashboard_user_actions .dashboard_side_title { display: none; }

@@ -16,7 +16,7 @@
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=11"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
     <link rel="stylesheet" href="{% static 'css/dashboard/glass-table.css' %}?v=8">
-    <link rel="stylesheet" href="{% static 'css/dashboard/refit.css' %}?v=20261017-type-balance">
+    <link rel="stylesheet" href="{% static 'css/dashboard/refit.css' %}?v=20261026-version-position">
     <script defer src="{% static 'js/dashboard_register.js' %}?v=20261016a"></script>
     <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-single-result"></script>
 
@@ -28,8 +28,8 @@
           <aside class="dashboard_panel dashboard_panel--sidebar" aria-label="Benutzerbereich">
             <div class="dashboard_logo_wrap">
               <img class="dashboard_logo" src="{% static 'img/codexarcana.png' %}" alt="Logo">
-              <p class="dashboard_version" aria-label="Anwendungsversion">CodexOS {{ app_version }}</p>
             </div>
+            <p class="dashboard_version" aria-label="Anwendungsversion">CodexOS {{ app_version }}</p>
             <div class="dashboard_title_wrap">
               <h1>Willkommen, {{ request.user.get_username }}.</h1>
             </div>
@@ -46,10 +46,6 @@
               </div>
             </div>
 
-            <nav class="dashboard_user_actions_row" aria-label="Rechtliche Hinweise">
-              <a class="dashboard_button dashboard_button--sidebar" href="{% url 'impressum' %}">Impressum</a>
-              <a class="dashboard_button dashboard_button--sidebar" href="{% url 'datenschutz' %}">Datenschutz</a>
-            </nav>
           </aside>
 
           <section class="dashboard_botenbrett" aria-labelledby="dashboardNewsTitle">
@@ -125,13 +121,7 @@
                     </section>
                   {% endfor %}
                   {% if ungrouped_character_rows %}
-                    <section class="dashboard_register_group" data-register-group data-group-name="Ohne Spielgruppe" aria-labelledby="dashboardUngroupedTitle">
-                      <header class="dashboard_register_group_header">
-                        <div class="dashboard_register_group_summary">
-                          <h3 id="dashboardUngroupedTitle">Ohne Spielgruppe</h3>
-                          <small>{{ ungrouped_character_rows|length }} Charaktere</small>
-                        </div>
-                      </header>
+                    <section class="dashboard_register_group" data-register-group data-group-name="Ohne Spielgruppe" aria-label="Charaktere ohne Spielgruppe">
                       <div class="dashboard_register_rows">
                         {% for row in ungrouped_character_rows %}
                           {% include "charsheet/partials/_dashboard_character_row.html" with is_own=True %}

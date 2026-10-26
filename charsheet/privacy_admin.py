@@ -160,6 +160,7 @@ def privacy_export_view(request):
                 try:
                     selected = get_user_model()._base_manager.get(
                         pk=form.cleaned_data["user_id"])
+                    context["selected_user"] = selected
                     token = start_job(request.user.pk, {
                         "operation": "workspace", "user_id": selected.pk,
                         "mode": form.cleaned_data["mode"], "format": "json",
@@ -169,10 +170,22 @@ def privacy_export_view(request):
                     from .privacy_review_ui import url
 
                     return HttpResponseRedirect(url(token))
-                except (OSError, ValueError, get_user_model().DoesNotExist):
-                    context["error"] = (
+                except get_user_model().DoesNotExist:
+                    form.add_error(
+                        None, "Benutzerkonto nicht gefunden. "
+                        "Bitte das Konto erneut auswählen.")
+                except PermissionError:
+                    form.add_error(
+                        None, "Die private Exportablage ist nicht "
+                        "beschreibbar. Die Schreibrechte der Ablage "
+                        "müssen für das Anwendungskonto eingerichtet sein.")
+                except (OSError, ValueError):
+                    form.add_error(None, (
                         "Prüfung nicht gestartet. Eine laufende Prüfung "
-                        "zuerst beenden; private Ablage prüfen.")
+                        "zuerst beenden; private Ablage prüfen."))
+            elif "user_id" in form.errors:
+                form.add_error(None, "Bitte zuerst ein Benutzerkonto "
+                               "auswählen; die Kontozuordnung fehlt.")
             status = 400
         elif action == "fetch":
             try:

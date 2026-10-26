@@ -7,8 +7,11 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{% if edit_mode %}Charakter bearbeiten{% else %}Geburt einer Legende – Charaktererschaffung{% endif %}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261017-tooltip-table-layout">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261006-template-delete-dialog">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261026-budget-rail-position">
     <link rel="stylesheet" href="{% static 'css/searchable_choices.css' %}?v=20261019-size-colors">
+    {% if request.user.settings.charsheet_design == "codex_os_27" %}
+    <link rel="stylesheet" href="{% static 'css/charsheet/codex-os-27.css' %}?v=20261026-creation-colors" media="screen">
+    {% endif %}
     <script defer src="{% static 'js/searchable_choices.js' %}?v=20261019-size-colors"></script>
   </head>
   <body class="charsheet-page {% if edit_mode %}character_edit_page{% else %}character_creation_page{% endif %}">
@@ -1079,6 +1082,22 @@
           }
           window.setTimeout(dismiss, 15000);
         });
+
+        const creationRail = document.querySelector(".creation_budget_rail");
+        const creationFirstPage = document.getElementById("sheetCharacterHeader");
+        if (creationRail && creationFirstPage) {
+          const positionCreationRail = function () {
+            const pageBounds = creationFirstPage.getBoundingClientRect();
+            creationRail.style.left = `${pageBounds.left - creationRail.offsetWidth - 10}px`;
+            creationRail.style.top = `${pageBounds.top}px`;
+          };
+          positionCreationRail();
+          window.addEventListener("resize", positionCreationRail);
+          window.addEventListener("scroll", positionCreationRail, { passive: true });
+          const creationRailObserver = new ResizeObserver(positionCreationRail);
+          creationRailObserver.observe(creationFirstPage);
+          creationRailObserver.observe(creationRail);
+        }
 
         const creationBudgetRailBody = document.getElementById("creationBudgetRailBody");
         const activeBudgetGrid = document.querySelector(

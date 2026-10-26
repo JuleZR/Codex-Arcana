@@ -1,5 +1,31 @@
 /* CodexOS 27: dark foundation, walnut headers and light reading surfaces.
    Loaded only for this account choice and only on screen. */
+body.character_creation_page .char_info_table .value .dashboard_input {
+  color: #f5eddc;
+  border-color: #c5a16a80;
+  background: #21171126;
+  color-scheme: dark;
+}
+
+body.character_creation_page .char_info_table .dashboard_input option {
+  color: #503524;
+  background: #f4e5c9;
+}
+
+body.character_creation_page .creation_sheet_section--locked {
+  opacity: 1;
+  border-color: var(--os-brass);
+  background: var(--os-header);
+}
+
+body.character_creation_page .creation_sheet_section--locked .creation_section_heading h2 {
+  color: #f7e9ce;
+}
+
+body.character_creation_page .creation_sheet_section--locked .creation_section_heading span {
+  color: #dfc9aa;
+}
+
 body.charsheet-page {
   --ink: #503524;
   --ink-soft: #7e6853;
