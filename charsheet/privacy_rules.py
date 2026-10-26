@@ -8,12 +8,29 @@ from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
+from django.apps import apps
+from django.contrib.admin.models import ADDITION, CHANGE, DELETION
+from django.contrib.auth import get_user_model
 
 from .calendar_layout import validate_layout
 from .privacy_content import PROTECTED
+from .privacy_mentions import (
+    INVITATION_CHECK_VERSION, INVITATION_MODEL, TRANSFER_MODELS,
+    ITEM_CONTENT_MODELS,
+    USERNAME_CHECK_VERSION, words,
+)
 
-RULESET = "privacy-standard-v3"
+RULESET = "privacy-standard-v11"
 RULES = {
+    "owned.item_content.v1": (
+        True, "Eigene Charaktergegenstandsdaten",
+    ),
+    "invitation.content.v1": (True, "Einladung ohne fremde Benutzerkennung"),
+    "review.invitation_account.v1": (
+        False, "Fremde Benutzerkennung in einer Einladung prüfen",
+    ),
+    "owned.creature_attack.v1": (True, "Eigene Kreaturenangriffe"),
+    "owned.login_log.v1": (True, "Anmeldeprotokoll des ausgewählten Kontos"),
     "owned.empty.v1": (True, "Leerer Wert ohne Inhaltsangaben"),
     "owned.scalar.v1": (True, "Typgeprüfter eigener Standardwert"),
     "owned.choice.v1": (True, "Eigener Wert aus festgelegter Auswahlliste"),
@@ -22,6 +39,17 @@ RULES = {
     "owned.layout.v1": (True, "Validierte Kalenderanordnung ohne Freitext"),
     "owned.technical.v1": (True, "Geschlossene technische Angabe"),
     "owned.default.v1": (True, "Unveränderter Standardtext der Anwendung"),
+    "owned.dice.v1": (True, "Eigene Würfeleinstellungen und Ergebnistexte"),
+    "owned.hotbar.v1": (True, "Eigene MMO-Toolbar und Slotbelegung"),
+    "transfer.content.v1": (True, "Eigentumsübertragung ohne Benutzernamen"),
+    "transfer.protected_account.v1": (
+        True,
+        "Geschützten fremden Benutzerbezug beibehalten",
+    ),
+    "review.username.v1": (
+        False,
+        "Eigentumsübertragung auf Benutzernamen prüfen",
+    ),
     "related.scalar.v1": (True, "Typgeprüfte Metadaten eines Kontobezugs"),
     "related.reference.v1": (
         True,
@@ -30,6 +58,15 @@ RULES = {
     "related.schema_message.v1": (
         True,
         "Änderungsprotokoll mit reinen Schemaangaben",
+    ),
+    "admin.activity.v1": (True, "Verwaltungsvorgang ohne Benutzeranlage"),
+    "admin.protected_actor.v1": (
+        True,
+        "Geschützten fremden Verwaltungsakteur beibehalten",
+    ),
+    "review.account_creation.v1": (
+        False,
+        "Administrative Anlage eines Benutzers",
     ),
     "review.calendar_text.v1": (False, "Freier Zusatztext im Kalender"),
     "review.protected.v1": (False, "Geschützter Inhalt oder Sicherheitsfeld"),
@@ -44,6 +81,22 @@ RULES = {
     "review.unknown.v1": (False, "Keine passende sichere Standardregel"),
 }
 AUTOMATIC_RULES = {key for key, (safe, _) in RULES.items() if safe}
+AUTOMATIC_ACTIONS = {
+    "transfer.protected_account.v1": "withhold",
+    "admin.protected_actor.v1": "withhold",
+}
+DICE_SETTINGS_FIELDS = frozenset(
+    {
+        "critical_success_text",
+        "critical_failure_text",
+        "mw_success_text",
+        "mw_failure_text",
+        "special_failure_text",
+        "dddice_room_id",
+        "dddice_dice_box",
+        "dddice_theme_id",
+    }
+)
 INTEGER_TYPES = {
     "AutoField",
     "BigAutoField",
@@ -103,6 +156,26 @@ class Classifier:
             }
         )
         self.audit = source.get("review_context", {}).get("admin.LogEntry", {})
+        self.transfer_check = source.get("review_context", {}).get(
+            "transfer_usernames", {}
+        )
+        self.invitation_check = source.get("review_context", {}).get(
+            "invitation_accounts", {}
+        )
+        own_names = {
+            row.get("username") for row in source["categories"].get(
+                "auth.User", {}).get("records", [])
+            if str(row.get("id")) == self.subject and row.get("username")
+        }
+        self.login_rows = {
+            (label, str(row["id"]))
+            for label in (
+                "axes.AccessLog", "axes.AccessAttempt",
+                "axes.AccessFailureLog",
+            )
+            for row in source["categories"].get(label, {}).get("records", [])
+            if row.get("username") in own_names
+        }
         self.log_rows = {
             str(row["id"]): row
             for row in source["categories"]
@@ -116,6 +189,7 @@ class Classifier:
             and item["field"] == "object_id"
             and isinstance(item["candidate"], dict)
         }
+        self.admin_actions = self.classify_admin_actions(source)
         self.references = {
             label: {
                 str(record["id"])
@@ -158,10 +232,46 @@ class Classifier:
         if self.secret.search(name) or self.has_protected(value):
             return "review.protected.v1"
         if category == "admin.LogEntry":
-            proof = self.audit_rule(pk, name, value)
+            proof = self.audit_rule(pk, name, value, candidate)
             if proof:
                 return proof
         target = metadata.get("relation")
+        if (
+            category in ITEM_CONTENT_MODELS and category in self.owned
+            and not target and metadata.get("type") not in {
+                "FileField", "ImageField", "BinaryField",
+            }
+        ):
+            return "owned.item_content.v1"
+        if (
+            category == INVITATION_MODEL and category in self.related
+            and self.invitation_check.get("version")
+            == INVITATION_CHECK_VERSION
+        ):
+            matched = self.invitation_check.get("checked", {}).get(
+                f"{category}:{pk}:{name}")
+            if matched is True or (
+                target == "auth.User"
+                and not self.proven_reference(target, value)
+            ):
+                return "review.invitation_account.v1"
+            if matched is False and metadata.get("type") not in {
+                "FileField", "ImageField", "BinaryField",
+            }:
+                return "invitation.content.v1"
+        if (
+            (category, str(pk)) in self.login_rows and not candidate
+            and name in {
+                "id", "username", "user_agent", "ip_address", "attempt_time",
+                "logout_time", "failures_since_start", "locked_out",
+            }
+        ):
+            return "owned.login_log.v1"
+        transfer_rule = self.transfer_rule(
+            category, pk, name, metadata, value, candidate
+        )
+        if transfer_rule:
+            return transfer_rule
         if (
             candidate
             and category in self.related
@@ -180,10 +290,31 @@ class Classifier:
         kind = metadata.get("type")
         if kind in {"FileField", "ImageField"}:
             return "review.file.v1"
+        if (
+            category == "charsheet.CharacterCreatureAttack"
+            and category in self.owned and not target
+            and kind != "BinaryField"
+        ):
+            return "owned.creature_attack.v1"
         if category == "charsheet.UserCalendarLayout" and name == "layout":
             return self.calendar_rule(value)
+        if (
+            category == "charsheet.CharacterQuickslotLayout"
+            and name == "slots"
+        ):
+            return (
+                "owned.hotbar.v1"
+                if self.hotbar_layout(value)
+                else "review.structure.v1"
+            )
         if self.technical(category, name, value):
             return "owned.technical.v1"
+        if (
+            category == "charsheet.UserSettings"
+            and name in DICE_SETTINGS_FIELDS
+            and isinstance(value, str)
+        ):
+            return "owned.dice.v1"
         if target:
             if self.proven_reference(target, value):
                 return (
@@ -245,7 +376,109 @@ class Classifier:
             str(item) in self.references.get(target, set()) for item in values
         )
 
-    def audit_rule(self, pk, name, value):
+    def transfer_rule(self, category, pk, name, metadata, value, candidate):
+        if (
+            category not in TRANSFER_MODELS
+            or category not in self.related
+            or self.transfer_check.get("version") != USERNAME_CHECK_VERSION
+        ):
+            return None
+        matched = self.transfer_check.get("checked", {}).get(
+            f"{category}:{pk}:{name}"
+        )
+        if matched is True:
+            if self.technical(category, name, value):
+                return None
+            return "review.username.v1"
+        if matched is not False:
+            return None
+        if metadata.get("type") in {"FileField", "ImageField", "BinaryField"}:
+            return None
+        if metadata.get(
+            "relation"
+        ) == "auth.User" and not self.proven_reference("auth.User", value):
+            if candidate:
+                return "transfer.protected_account.v1"
+            return None
+        return "transfer.content.v1"
+
+    def classify_admin_actions(self, source):
+        if not self.log_rows:
+            return {}
+        user_model = get_user_model()._meta.concrete_model
+        models = list(apps.get_models())
+        known_models = {model._meta.label for model in models}
+        user_models = [
+            model
+            for model in models
+            if model._meta.concrete_model is user_model
+        ]
+        user_labels = {
+            tuple(words(label))
+            for model in user_models
+            for label in (
+                str(model._meta.verbose_name),
+                str(model._meta.verbose_name_plural),
+            )
+        }
+        user_labels.update(
+            {("user",), ("users",), ("benutzer",), ("benutzerkonto",)}
+        )
+        user_model_labels = {model._meta.label for model in user_models}
+        messages = {
+            str(item["record"]): item["candidate"]
+            for item in source["review_candidates"]
+            if item["model"] == "admin.LogEntry"
+            and item["field"] == "change_message"
+        }
+        result = {}
+        for pk, row in self.log_rows.items():
+            target = self.audit.get("targets", {}).get(
+                str(row.get("content_type")), {}
+            )
+            action = row.get("action_flag")
+            if (
+                type(action) is not int
+                or action not in {ADDITION, CHANGE, DELETION}
+                or target.get("model") not in known_models
+            ):
+                continue
+            user_target = target["model"] in user_model_labels
+            created = user_target and action == ADDITION
+            message = messages.get(pk, row.get("change_message", ""))
+            if not isinstance(message, str) or message in self.protected:
+                if created:
+                    result[pk] = "creation"
+                continue
+            try:
+                entries = json.loads(message)
+            except (ValueError, RecursionError):
+                entries = []
+            if isinstance(entries, dict):
+                entries = [entries]
+            for entry in entries if isinstance(entries, list) else []:
+                added = entry.get("added") if isinstance(entry, dict) else None
+                if not isinstance(added, dict):
+                    continue
+                if (user_target and not added) or tuple(
+                    words(str(added.get("name", "")))
+                ) in user_labels:
+                    created = True
+            result[pk] = "creation" if created else "routine"
+        return result
+
+    def audit_rule(self, pk, name, value, candidate):
+        action = self.admin_actions.get(str(pk))
+        if action == "creation":
+            return "review.account_creation.v1"
+        if action == "routine":
+            if (
+                name == "user"
+                and candidate
+                and not self.proven_reference("auth.User", value)
+            ):
+                return "admin.protected_actor.v1"
+            return "admin.activity.v1"
         row = self.log_rows.get(str(pk), {})
         type_id = str(row.get("content_type"))
         target = self.audit.get("targets", {}).get(type_id, {})
@@ -311,7 +544,50 @@ class Classifier:
         return "owned.layout.v1"
 
     @staticmethod
+    def hotbar_layout(value):
+        from .quickslots import _validated_layout
+
+        if isinstance(value, list):
+            payload = {"slots": value, "collapsed": False}
+            banks = [value]
+        elif isinstance(value, dict) and set(value) == {
+            "base",
+            "ctrl",
+            "shift",
+        }:
+            payload = {
+                "slots": value["base"],
+                "collapsed": False,
+                "bars": {key: value[key] for key in ("ctrl", "shift")},
+            }
+            banks = [value["base"]] + [
+                value[key].get("slots")
+                for key in ("ctrl", "shift")
+                if isinstance(value[key], dict)
+            ]
+        else:
+            return False
+        try:
+            # The save validator strips unknown action keys. Equality ensures
+            # the export never silently loses such data during prechecking.
+            if _validated_layout(payload)["slots"] != value:
+                return False
+            return all(
+                set(modifier) <= {"name", "value"}
+                for bank in banks
+                for action in bank
+                if action
+                for modifier in action.get("modifiers", [])
+            )
+        except (ValueError, TypeError, KeyError):
+            return False
+
+    @staticmethod
     def technical(category, name, value):
+        if category == "charsheet.AccountSecurityEvent" and name == "device":
+            from .auth_security import DEVICE_SUMMARIES
+
+            return isinstance(value, str) and value in DEVICE_SUMMARIES
         # Closed machine codes emitted by item_transfers.py, not the message.
         if category == "charsheet.ItemTransferNotification" and name == "kind":
             return isinstance(value, str) and value in {

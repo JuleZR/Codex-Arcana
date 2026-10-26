@@ -43,6 +43,7 @@ from .privacy_review import (
     progress,
 )
 from .privacy_rules import category_label, field_label
+from .privacy_mentions import needs_username_check
 from .privacy_review_forms import (
     ApprovalForm,
     ControllerForm,
@@ -627,6 +628,12 @@ def workspace_view(request, token, context):
             lease.close()
             remove_job(path)
             return HttpResponseRedirect(reverse("admin:privacy_export"))
+        if needs_username_check(source):
+            state.update(busy=True, step=3)
+            atomic_json(path / "options.json", {"operation": "refresh"})
+            atomic_json(path / "state.json", state)
+            context.update(review_busy=True, refresh_url=url(token))
+            return render(request, context, 202)
         changed = False
         target_step = step
         if action == "save_mode":

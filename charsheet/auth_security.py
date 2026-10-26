@@ -20,6 +20,30 @@ from .models import AccountSecurityEvent, AuthenticationThrottle
 
 logger = logging.getLogger("django.security.auth")
 
+DEVICE_BROWSERS = (
+    ("Edg/", "Edge"),
+    ("Firefox/", "Firefox"),
+    ("Chrome/", "Chrome"),
+    ("Safari/", "Safari"),
+)
+DEVICE_OPERATING_SYSTEMS = (
+    ("Windows", "Windows"),
+    ("Android", "Android"),
+    ("iPhone", "iPhone"),
+    ("iPad", "iPad"),
+    ("Mac OS X", "macOS"),
+    ("Linux", "Linux"),
+)
+DEVICE_SUMMARIES = frozenset(
+    f"{browser} on {system}"
+    for browser in (
+        "Unknown browser", *(label for _, label in DEVICE_BROWSERS),
+    )
+    for system in (
+        "Unknown device", *(label for _, label in DEVICE_OPERATING_SYSTEMS),
+    )
+)
+
 
 def _device_summary(user_agent: str) -> str:
     """Return a deliberately coarse browser and operating-system summary."""
@@ -29,25 +53,13 @@ def _device_summary(user_agent: str) -> str:
         return ""
 
     browser = "Unknown browser"
-    for marker, label in (
-        ("Edg/", "Edge"),
-        ("Firefox/", "Firefox"),
-        ("Chrome/", "Chrome"),
-        ("Safari/", "Safari"),
-    ):
+    for marker, label in DEVICE_BROWSERS:
         if marker in value:
             browser = label
             break
 
     operating_system = "Unknown device"
-    for marker, label in (
-        ("Windows", "Windows"),
-        ("Android", "Android"),
-        ("iPhone", "iPhone"),
-        ("iPad", "iPad"),
-        ("Mac OS X", "macOS"),
-        ("Linux", "Linux"),
-    ):
+    for marker, label in DEVICE_OPERATING_SYSTEMS:
         if marker in value:
             operating_system = label
             break

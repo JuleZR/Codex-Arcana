@@ -15,6 +15,7 @@ from .privacy_content import (
 from .privacy_export import ownership_paths, validate_review, SHARED
 from .privacy_labels import PHRASES, german_label
 from .privacy_rules import (
+    AUTOMATIC_ACTIONS,
     Classifier,
     RULES,
     RULESET,
@@ -253,7 +254,7 @@ def decision_for(field, state):
         in accepted.get("categories", {}).get(field.category, [])
     ):
         return {
-            "action": "include",
+            "action": AUTOMATIC_ACTIONS.get(field.rule, "include"),
             "reason": field.rule_label,
             "automatic": True,
             "rule": field.rule,

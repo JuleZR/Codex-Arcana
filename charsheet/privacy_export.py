@@ -21,6 +21,10 @@ from .privacy_content import (
     REQUIRED_PROCESSING, category_policy, meaningful, missing_items, sanitize,
     validate_content_review,
 )
+from .privacy_mentions import (
+    INVITATION_CHECK_VERSION, INVITATION_MODEL, TRANSFER_MODELS,
+    USERNAME_CHECK_VERSION, ForeignAccountMatcher, UsernameMatcher,
+)
 
 
 REDACTED = "[geschützt; administrative Prüfung erforderlich]"
@@ -118,6 +122,10 @@ PUBLIC_LEGAL_LABELS = {
     "transfer_safeguards": "Garantien bei Drittlandübermittlungen",
     "additional_processing": "Weitere Verarbeitung personenbezogener Daten",
 }
+
+
+class StaleAutomaticReview(ValueError):
+    """A once valid rule proof no longer matches the current snapshot."""
 
 
 def information_present(value):
@@ -437,6 +445,12 @@ class Collector:
                     if isinstance(field, models.FileField):
                         original = original.name or ""
                     self.observe(label, obj.pk, name, original)
+                    self.check_transfer_usernames(
+                        label, obj.pk, field, original,
+                    )
+                    self.check_invitation_accounts(
+                        label, obj.pk, field, original,
+                    )
                 if model.__name__ == "PasskeyCredential" and name in {
                     "credential_id", "public_key",
                 }:
@@ -593,7 +607,64 @@ class Collector:
         self.payload["files"].append(info)
         return {"attachment": member}
 
+    def account_directory(self):
+        if self._account_directory is None:
+            user_model = get_user_model()
+            self._account_directory = list(
+                user_model._base_manager.values_list(
+                    user_model.USERNAME_FIELD, "pk",
+                ).iterator(chunk_size=500)
+            )
+        return self._account_directory
+
+    def check_transfer_usernames(self, model, pk, field, value):
+        if model not in TRANSFER_MODELS:
+            return
+        if self.username_matcher is None:
+            self.username_matcher = UsernameMatcher(
+                username for username, _ in self.account_directory()
+            )
+            self.payload.setdefault("review_context", {})[
+                "transfer_usernames"] = {
+                    "version": USERNAME_CHECK_VERSION, "checked": {},
+                }
+            self.observe("privacy.Transfer", self.user.pk,
+                         "username_policy", USERNAME_CHECK_VERSION)
+        matched = (not field.choices and self.username_matcher.contains(value))
+        proof = self.payload["review_context"]["transfer_usernames"]["checked"]
+        proof[f"{model}:{pk}:{field.name}"] = bool(matched)
+        self.observe(model, pk, "username_mention." + field.name,
+                     bool(matched))
+
+    def check_invitation_accounts(self, model, pk, field, value):
+        if model != INVITATION_MODEL:
+            return
+        if self.invitation_matcher is None:
+            self.invitation_matcher = ForeignAccountMatcher(
+                ((pk, name) for name, pk in self.account_directory()),
+                self.user.pk, self.user.get_username(),
+            )
+            self.payload.setdefault("review_context", {})[
+                "invitation_accounts"] = {
+                    "version": INVITATION_CHECK_VERSION, "checked": {},
+                }
+            self.observe("privacy.GroupInvitation", self.user.pk,
+                         "account_policy", INVITATION_CHECK_VERSION)
+        if field.is_relation and field.related_model is get_user_model():
+            matched = self.invitation_matcher.foreign_id(value)
+        else:
+            matched = (not field.choices and
+                       self.invitation_matcher.contains(value))
+        proof = self.payload["review_context"]["invitation_accounts"][
+            "checked"]
+        proof[f"{model}:{pk}:{field.name}"] = bool(matched)
+        self.observe(model, pk, "foreign_account_mention." + field.name,
+                     bool(matched))
+
     def collect(self):
+        self.username_matcher = None
+        self.invitation_matcher = None
+        self._account_directory = None
         paths = ownership_paths()
         self.paths = paths
         self.payload["category_mapping"] = category_inventory(paths)
@@ -649,11 +720,13 @@ class Collector:
         automatic = self.review.get("automatic_review")
         if automatic:
             if (automatic["subject_id"] != self.user.pk
-                    or set(automatic["categories"]) - known
-                    or (self.mode == "access" and
-                        automatic["source_fingerprint"] !=
-                        self.payload["source_fingerprint"])):
+                    or set(automatic["categories"]) - known):
                 raise ValueError("Standardprüfung passt nicht zum Bestand.")
+            if (self.mode == "access" and
+                    automatic["source_fingerprint"] !=
+                    self.payload["source_fingerprint"]):
+                raise StaleAutomaticReview(
+                    "Standardprüfung passt nicht zum aktuellen Bestand.")
             self.payload["automatic_review"] = automatic
         if set(self.review.get("resolutions", {})) - self.used_resolutions:
             raise ValueError("Einzelfallentscheidung passt nicht zum Bestand.")

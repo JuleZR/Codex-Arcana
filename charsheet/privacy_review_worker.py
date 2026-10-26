@@ -9,7 +9,13 @@ import time
 from django.core import signing
 from django.db import close_old_connections
 
-from .privacy_export import build_snapshot, missing_information, review_digest
+from .privacy_export import (
+    StaleAutomaticReview,
+    build_snapshot,
+    missing_information,
+    review_digest,
+    snapshot_digest,
+)
 from .privacy_jobs import (
     create_artifacts,
     job_path,
@@ -89,9 +95,43 @@ def clear_artifacts(path):
         (path / name).unlink(missing_ok=True)
 
 
+def refresh_workspace(path):
+    previous = read_json(path / "state.json")
+    old_source = read_json(path / "source.json")
+    signatures = {
+        field.key: snapshot_digest([field.value, field.candidate])
+        for field in fields(old_source)
+        if field.key in previous["decisions"]
+    }
+    source, _ = build_snapshot(previous["subject_id"])
+    catalog = load_catalog(path, source)
+    state = initial_state(source, previous["mode"], catalog)
+    for key in ("subject_id", "information", "supplements", "portability"):
+        state[key] = previous[key]
+    state["output"] = {**previous["output"], "files_reviewed": False}
+    if old_source["files"] == source["files"]:
+        for key in ("file_decisions", "file_choices"):
+            if key in previous:
+                state[key] = previous[key]
+    for field in catalog:
+        decision = previous["decisions"].get(field.key)
+        if decision and (
+            decision["action"] == "redact"
+            or signatures.get(field.key)
+            == snapshot_digest([field.value, field.candidate])
+        ):
+            state["decisions"][field.key] = decision
+    state["version"] = previous["version"] + 1
+    clear_artifacts(path)
+    atomic_json(path / "source.json", source)
+    atomic_json(path / "state.json", state)
+
+
 def perform(path, options):
     operation = options["operation"]
-    if operation == "workspace":
+    if operation == "refresh":
+        refresh_workspace(path)
+    elif operation == "workspace":
         source, _ = build_snapshot(options["user_id"])
         catalog = load_catalog(path, source)
         state = initial_state(source, options["mode"], catalog)
@@ -110,11 +150,16 @@ def perform(path, options):
                 current, _ = build_snapshot(state["subject_id"])
             else:
                 current = None
-            payload, files = build_snapshot(
-                state["subject_id"], state["mode"], review
-            )
+            stale = False
+            try:
+                payload, files = build_snapshot(
+                    state["subject_id"], state["mode"], review
+                )
+            except StaleAutomaticReview:
+                current, _ = build_snapshot(state["subject_id"])
+                payload, files, stale = current, [], True
             original = current or payload
-            if original.get("source_fingerprint") != source.get(
+            if stale or original.get("source_fingerprint") != source.get(
                 "source_fingerprint"
             ):
                 if current is None:

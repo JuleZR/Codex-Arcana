@@ -53,18 +53,77 @@ Automatisch übernommen werden typgeprüfte Zahlen, Wahrheitswerte, Zeitangaben,
 geschlossene Auswahlwerte sowie nachgewiesene eigene oder öffentliche Bezüge.
 Auch Metadaten eines sicher ermittelten gemeinsamen Datensatzes brauchen keine
 Einzelbestätigung; daraus folgt keine automatische Übernahme seiner Freitexte.
+Die automatisch erzeugten groben Browser-/Gerätebezeichnungen bei
+Sicherheitsereignissen (etwa „Firefox on Windows“ oder „Safari on iPhone“)
+gelten ebenfalls als unkritische technische Angaben.
+Auch die fünf frei wählbaren Würfel-Ergebnistexte sowie DDDice-Raum-ID,
+Würfelbox und Darstellungs-ID werden ohne zusätzliche Inhaltsprüfung
+übernommen. API-Schlüssel, Raum-Passwörter und erkannte Zugangsdaten bleiben
+unter dem bestehenden Geheimnisschutz; manuelle Schwärzungen haben Vorrang.
+Die gespeicherte MMO-Toolbar einschließlich Basis-, Ctrl- und Shift-Leiste,
+Slotbelegung, Beschriftungen und Würfelmodifikatoren wird anhand des bestehenden
+Hotbar-Speicherformats automatisch übernommen. Die Vorprüfung verändert oder
+kürzt die gespeicherten Einstellungen nicht.
+Auch das persönliche Wurfprotokoll dieser Toolbar gilt als unkritisch.
+Aktuell hält `quickslot_history.js` höchstens zehn Einträge ausschließlich im
+Browser-LocalStorage; diese Einträge werden serverseitig nicht gespeichert
+und sind deshalb nicht Bestandteil des DSGVO-Serverexports. Sie erzeugen dort
+keine zusätzlichen Einzelprüfpunkte.
 Unbekannte Zuordnungen, persönliche Freitexte, Dateien, unklare Strukturen und
 geschützte Inhalte bleiben zur Prüfung vorgemerkt und werden nicht entfernt.
+
+Für Eigentumsübertragungen, Eigentumshistorien und ihre Benachrichtigungen
+werden Texte und Snapshots automatisch übernommen, sofern darin kein
+Benutzername erkannt wird. Charakternamen sind ausdrücklich zulässig.
+Geprüft werden die vorhandenen Benutzernamen einschließlich inaktiver Konten
+sowie explizite Benutzername-Angaben in strukturierten Daten oder beschriftetem
+Text. Groß-/Kleinschreibung, Unicode, HTML und verschachtelte Inhalte werden
+berücksichtigt; eine Namensgleichheit zwischen Charakter und Konto bleibt
+mehrdeutig und damit prüfpflichtig. Historische, nicht mehr gespeicherte
+Kontobezeichnungen bleiben Teil der abschließenden Rechercheprüfung.
+Die Namensliste wird nur im Arbeitsspeicher verwendet. Gespeichert werden
+ausschließlich Trefferkennzeichen für die bereits erfassten Übertragungsfelder.
+Geheimnisse bleiben geschützt; bestehende Maskierungen fremder Benutzerbezüge
+werden automatisch beibehalten. Ein neu hinzukommender Benutzername, der im
+Text vorkommt, entwertet den alten Prüfnachweis und eine darauf beruhende
+Freigabe. Eine endgültige Freigabe bleibt immer ausdrücklich erforderlich.
 
 Eine nach dem bestehenden Kalenderschema validierte Anordnung einschließlich
 reiner Trennzeichen wird vollständig automatisch übernommen. Enthält sie freien
 Zusatztext, konzentriert sich der Editor auf diesen Text; Positionen, Größen
 und Ausrichtung werden nicht zur Einzelprüfung vorgelegt.
-Bei Admin-Protokollen sind reine Schemaänderungen (z. B. die Namen geänderter
-Modellfelder) automatisch übernehmbar. Objektbezeichnungen nur dann, wenn sie
-exakt mit dem aktuellen öffentlichen Katalogeintrag desselben Objekts
-übereinstimmen. Historische abweichende Namen, freie Protokolltexte, private
-Kataloge und nicht nachweisbare Objektbezüge bleiben Ausnahmen.
+
+Spielgruppeneinladungen werden automatisch übernommen, sofern keine fremden
+Benutzernamen oder Benutzerkennungen enthalten sind. Charakterbezeichnungen
+und Charakter-, Gruppen- und Einladungskennungen sind zulässig; fremde
+Benutzerbezüge und nicht eindeutig zuordenbare ID-Angaben bleiben offen.
+Eigene Benutzerkennungen lösen keine Ausnahme aus. Die Erkennung arbeitet
+mit einer einmal geladenen Kontoliste, berücksichtigt strukturierte Inhalte
+und HTML und speichert ausschließlich Trefferkennzeichen. Fehlende Nachweise
+werden vor der Prüfung neu erstellt; neue Namenstreffer entwerten alte Freigaben.
+
+Eigene Kreaturenangriffe einschließlich Namen und Notizen sind Standarddaten.
+Auch eigene Charaktergegenstände, Runenspezifikationen, konkrete Effekte,
+Identifikations- und Offenlegungsangaben sowie Kreaturengegenstände werden
+automatisch übernommen. Das gilt für Freitexte und strukturierte Angaben
+einschließlich darin enthaltener Charakternamen; eine gesonderte Suche nach
+fremden Charakternamen findet nicht statt. Dateien und unklare oder fremde
+Benutzerbezüge bleiben nach den bestehenden Schutzregeln prüfpflichtig.
+Die erfassten Anmeldeprotokolle (AccessLog, AccessAttempt, AccessFailureLog)
+werden einschließlich Browser, IP-Adresse und Zeitangaben automatisch
+übernommen, wenn ihr Benutzername exakt dem ausgewählten Konto entspricht.
+Unklare Kontozuordnungen, Sicherheitsgeheimnisse und manuelle Schwärzungen
+bleiben geschützt; die abschließende Freigabe ist weiterhin erforderlich.
+
+Administrative Vorgänge werden einschließlich historischer Objektbezeichnungen
+und Protokolltexte automatisch übernommen, sofern keine Benutzeranlage
+protokolliert wurde. Die Erkennung verwendet Aktionstyp und Zielmodell sowie
+strukturierte Angaben über zusätzlich angelegte Benutzer, auch bei Änderungen
+an anderen Objekten. Änderungen und Löschungen bereits bestehender Benutzer
+sind keine Benutzeranlage. Bei einer Benutzeranlage bleibt der gesamte Eintrag
+zur Einzelprüfung offen. Unbekannte Aktionen oder Objekttypen werden nicht
+pauschal freigegeben. Geheimnisse, bestehende Maskierungen fremder
+Verwaltungsakteure und manuelle Schwärzungen bleiben erhalten.
 
 Die Zusammenfassung nennt automatisch übernommene Felder, Einzelprüfungen,
 offene Ausnahmen und geschwärzte/geschützte Werte. Regeln und ihre Anzahlen
@@ -582,6 +641,7 @@ Gezielte Tests mit synthetischen Konten:
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_content --keepdb
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_review --keepdb
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_rules --keepdb
+.venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_transfer_rules --keepdb
 node charsheet/tests/test_privacy_review_ui.js
 ```
 
