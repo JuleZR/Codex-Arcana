@@ -101,6 +101,10 @@ und HTML und speichert ausschließlich Trefferkennzeichen. Fehlende Nachweise
 werden vor der Prüfung neu erstellt; neue Namenstreffer entwerten alte Freigaben.
 
 Eigene Kreaturenangriffe einschließlich Namen und Notizen sind Standarddaten.
+Eigene Charakterangaben einschließlich Beschreibungen und Erscheinungsmerkmalen,
+Charaktertagebücher und selbstgewählte Charakterkreatur-Namen werden ebenfalls
+automatisch übernommen. Eigene Spielgruppen einschließlich Namen und Notizen
+sind Standarddaten. Geheimnisse und manuelle Schwärzungen behalten Vorrang.
 Auch eigene Charaktergegenstände, Runenspezifikationen, konkrete Effekte,
 Identifikations- und Offenlegungsangaben sowie Kreaturengegenstände werden
 automatisch übernommen. Das gilt für Freitexte und strukturierte Angaben
@@ -109,11 +113,12 @@ fremden Charakternamen findet nicht statt. Angeschlossene Gegenstandswerte
 und Bezüge sind ebenfalls Standarddaten; Geheimnisse und direkte fremde
 Benutzerbezüge bleiben nach den bestehenden Schutzregeln geschützt.
 
-Eigene Gruppentabellen einschließlich Spalten, Zellen und gespeicherter
+Zugeordnete Gruppentabellen einschließlich Spalten, Zellen und gespeicherter
 Würfelprotokolle wie „Fehlschlag: Elementarmagie“ sind Standarddaten. Das gilt
 auch für Inhalte, die bislang unter „Weitere zu prüfende Inhalte“ erschienen.
-Die Zuordnung erfolgt über den Ersteller, nicht allein über den Tabellentitel.
-Tabellen fremder Ersteller bleiben prüfpflichtig.
+Die Zuordnung erfolgt über den Ersteller oder eine eigene Spielgruppe,
+nicht allein über den Tabellentitel. Auch zugehörige Tabellen anderer Ersteller
+werden einschließlich ihrer Strukturangaben automatisch übernommen.
 Die erfassten Anmeldeprotokolle (AccessLog, AccessAttempt, AccessFailureLog)
 werden einschließlich Browser, IP-Adresse und Zeitangaben automatisch
 übernommen, wenn ihr Benutzername exakt dem ausgewählten Konto entspricht.
@@ -141,8 +146,10 @@ wieder offen. Die optionale globale Neuausführung der Standardprüfung
 Die Sammelbearbeitung in Schritt 3 übernimmt, schwärzt oder öffnet markierte
 Felder einer Seite oder alle gefilterten Felder der ausgewählten Kategorie
 einschließlich weiterer Ergebnisseiten. Eine gemeinsame Begründung wird im
-Prüfstand gespeichert. Geschützte und nicht verfügbare Werte lassen sich nicht
-gesammelt freigeben. Auswahl, Filter, Signaturen und Prüfversion werden auf dem
+Prüfstand gespeichert. Geschützte Werte lassen sich ebenfalls gesammelt
+bearbeiten; beim Übernehmen bleiben ihre Maskierungen erhalten. Nicht verfügbare
+Inhalte werden dabei mit dokumentierter Begründung geschützt beibehalten.
+Auswahl, Filter, Signaturen und Prüfversion werden auf dem
 Server geprüft; eine Änderung entwertet Vorschau und Freigabe. Es wird nur ein
 Request benötigt, unabhängig von der Anzahl gefilterter Felder.
 

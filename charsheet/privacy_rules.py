@@ -21,14 +21,18 @@ from .privacy_mentions import (
     words,
 )
 
-RULESET = "privacy-standard-v12"
+RULESET = "privacy-standard-v14"
 RULES = {
+    "owned.character_content.v1": (True, "Eigene Charakterangaben"),
+    "owned.diary_content.v1": (True, "Eigenes Charaktertagebuch"),
+    "owned.creature_name.v1": (True, "Name einer eigenen Charakterkreatur"),
+    "owned.group_content.v1": (True, "Eigene Spielgruppe"),
     "owned.image.v1": (True, "Hochgeladenes Bild und Dateiname"),
     "owned.game_value.v1": (True, "Eigene Spielausprägung"),
     "owned.passkey_label.v1": (True, "Selbstgewählter Passkey-Name"),
     "owned.security_metadata.v1": (True, "Geprüfte Sicherheitsmetadaten"),
     "owned.group_table.v1": (
-        True, "Eigene Gruppentabelle und Würfelprotokoll",
+        True, "Zugeordnete Gruppentabelle und Würfelprotokoll",
     ),
     "owned.item_content.v1": (
         True, "Eigene Charaktergegenstandsdaten",
@@ -157,6 +161,13 @@ class Classifier:
         self.secret = SECRET
         self.protected = {PROTECTED, REDACTED}
         self.subject = str(source["subject"]["id"])
+        self.character_content = {
+            label: {field.name for field in apps.get_model(label)._meta.fields
+                    if not field.is_relation}
+            for label in (
+                "charsheet.Character", "charsheet.CharacterDiaryEntry",
+            )
+        }
         self.owned = {
             item["model"]
             for item in source["category_mapping"]
@@ -209,6 +220,11 @@ class Classifier:
             and isinstance(item["candidate"], dict)
         }
         self.admin_actions = self.classify_admin_actions(source)
+        self.own_groups = {
+            str(row["id"]) for row in source["categories"].get(
+                "charsheet.GameGroup", {}).get("records", [])
+            if str(row.get("creator")) == self.subject
+        }
         self.own_tables = {
             str(row["id"]) for row in source["categories"].get(
                 "charsheet.GameGroupTable", {}).get("records", [])
@@ -278,9 +294,20 @@ class Classifier:
             return "owned.item_content.v1"
         if image_field(category, name, metadata) and category in self.related:
             return "owned.image.v1"
-        if (category == "charsheet.GameGroupTable"
-                and str(pk) in self.own_tables):
+        if category in self.owned and not target:
+            if name in self.character_content.get(category, set()):
+                return ("owned.diary_content.v1"
+                        if category == "charsheet.CharacterDiaryEntry"
+                        else "owned.character_content.v1")
+            if (category == "charsheet.CharacterCreature"
+                    and name == "name_override"):
+                return "owned.creature_name.v1"
+        if (category == "charsheet.GameGroupTable" and (
+                str(pk) in self.own_tables
+                or (name == "contents" and category in self.related))):
             return "owned.group_table.v1"
+        if category == "charsheet.GameGroup" and str(pk) in self.own_groups:
+            return "owned.group_content.v1"
         if category in self.owned and not target:
             if category == "charsheet.PasskeyCredential" and name == "name":
                 return "owned.passkey_label.v1"

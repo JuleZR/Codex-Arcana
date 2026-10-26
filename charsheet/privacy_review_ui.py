@@ -742,17 +742,17 @@ def workspace_view(request, token, context):
                     form.add_error(None, "Bitte Datenfelder auswählen.")
                 elif sanitize(reason) != reason:
                     form.add_error("reason", "Zugangsdaten entfernen.")
-                elif operation == "include" and any(
-                    not field.can_take or field.rule == "review.protected.v1"
-                    for field in selected
-                ):
-                    form.add_error(None, "Geschützte oder nicht verfügbare "
-                                   "Werte bitte einzeln bearbeiten.")
                 else:
                     for field in selected:
                         if operation == "reset":
                             state["decisions"][field.key] = {
                                 "action": "pending",
+                            }
+                        elif operation == "include" and not field.can_take:
+                            state["decisions"][field.key] = {
+                                "action": "withhold",
+                                "reason": "Nicht verfügbare Inhalte bleiben "
+                                "geschützt. " + reason,
                             }
                         else:
                             state["decisions"][field.key] = {
