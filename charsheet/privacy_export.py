@@ -235,6 +235,7 @@ def validate_review(review, mode):
         "processing", "redactions", "portability", "approval", "coverage",
         "resolutions", "services", "controller", "supplements",
         "file_decisions",
+        "automatic_review",
     }
     if set(review) - allowed:
         raise ValueError("Unbekanntes Feld in der Prüfdatei.")
@@ -242,6 +243,9 @@ def validate_review(review, mode):
         if not isinstance(review.get(key, {}), dict):
             raise ValueError("Ungültiger Abschnitt in der Prüfdatei.")
     validate_content_review(review)
+    from .privacy_rules import validate_automatic_review
+
+    validate_automatic_review(review.get("automatic_review", {}))
     processing = review.get("processing", {})
     if set(processing) - set(PROCESSING_KEYS) or any(
         not isinstance(value, str) for value in processing.values()
@@ -638,6 +642,15 @@ class Collector:
         })
         self.catalog_references()
         self.payload["source_fingerprint"] = self.source_hash.hexdigest()
+        automatic = self.review.get("automatic_review")
+        if automatic:
+            if (automatic["subject_id"] != self.user.pk
+                    or set(automatic["categories"]) - known
+                    or (self.mode == "access" and
+                        automatic["source_fingerprint"] !=
+                        self.payload["source_fingerprint"])):
+                raise ValueError("Standardprüfung passt nicht zum Bestand.")
+            self.payload["automatic_review"] = automatic
         if set(self.review.get("resolutions", {})) - self.used_resolutions:
             raise ValueError("Einzelfallentscheidung passt nicht zum Bestand.")
         if set(self.review.get("file_decisions", {})) - {

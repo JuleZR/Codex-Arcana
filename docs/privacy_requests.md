@@ -68,7 +68,8 @@ vorher angezeigt und lassen sich direkt korrigieren.
 
 Ein unabhängiger Monitorprozess überlebt den Renderer oder Gunicorn-Worker,
 beendet überlange Renderer und bereinigt abgelaufene Jobs. Zusätzlich ist der
-unten beschriebene systemd-Timer zwingend einzurichten: Er beseitigt Rückstände
+unten beschriebene systemd-Timer oder ein entsprechender Benutzer-Cronjob
+zwingend einzurichten: Er beseitigt Rückstände
 auch nach Ausfall sämtlicher beteiligter Prozesse oder einem Serverneustart.
 Vorhandene Original-Uploads werden ausschließlich gelesen.
 
@@ -109,6 +110,18 @@ Beispiel für Linux (Dienstkonto und Installationspfad anpassen):
 ```sh
 sudo install -d -o codex -g codex -m 0700 /var/lib/codex-arcana/privacy-exports
 ```
+
+Ohne zusätzliche sudo-Rechte kann das Dienstkonto eine private Ablage außerhalb
+des Repositorys in seinem Home-Verzeichnis verwenden:
+
+```sh
+install -d -m 0700 "$HOME/.local/share/codex-arcana/privacy-exports"
+```
+
+In der bestehenden `.env` anschließend `PRIVACY_EXPORT_TEMP_ROOT` auf den
+vollständigen absoluten Pfad setzen und Gunicorn neu starten. Die Standardablage
+unter `/var/lib` wird ohne entsprechende Rechte nicht automatisch eingerichtet.
+Eine fehlende oder unbeschreibbare Ablage verhindert bereits den Start.
 
 `/etc/systemd/system/codex-privacy-cleanup.service`:
 
@@ -157,6 +170,15 @@ Die effektive Restefrist beträgt die jeweilige Jobfrist zuzüglich des
 Timerintervalls. Aktive OS-Dateisperren schützen laufende Downloads bis zum
 Responseende oder zum begrenzenden Download-Zeitgeber.
 Nach Prozessende gibt das Betriebssystem diese Sperren automatisch frei.
+
+Unter Linux kann alternativ der vorhandene Cron-Dienst die Bereinigung unter
+dem Anwendungskonto ausführen. Beispiel für dessen Benutzer-Crontab
+(Installationspfad anpassen, bestehende Einträge erhalten):
+
+```cron
+* * * * * cd /srv/codex-arcana && /srv/codex-arcana/.venv/bin/python manage.py privacy_export_job --cleanup >/dev/null 2>&1
+@reboot cd /srv/codex-arcana && /srv/codex-arcana/.venv/bin/python manage.py privacy_export_job --cleanup >/dev/null 2>&1
+```
 
 Der Bereiniger löscht ausschließlich mit passendem Marker gekennzeichnete
 Jobverzeichnisse und bekannte Arbeitsdateien. Fremde Dateien, Verknüpfungen und

@@ -18,6 +18,7 @@ from .privacy_jobs import (
 )
 from .privacy_review import (
     compile_review,
+    fields,
     friendly_missing,
     initial_state,
     progress,
@@ -60,7 +61,8 @@ def perform(path, options):
     else:
         state = read_json(path / "state.json")
         source = read_json(path / "source.json")
-        review = compile_review(source, state)
+        catalog = list(fields(source))
+        review = compile_review(source, state, catalog)
         if operation == "preview":
             review.pop("approval", None)
             if state["mode"] == "portability":
@@ -102,9 +104,9 @@ def perform(path, options):
                     approval=None,
                 )
                 state["missing"] = friendly_missing(
-                    source, missing_information(payload)
+                    source, missing_information(payload), catalog
                 )
-                remaining = progress(source, state)["open"]
+                remaining = progress(source, state, catalog)["open"]
                 if remaining:
                     state["missing"].append(
                         f"Noch {remaining} ungeprüfte Datenfelder."

@@ -4,7 +4,7 @@ import logging
 
 from django.core.management.base import BaseCommand, CommandError
 
-from charsheet.privacy_jobs import cleanup_expired, run_job
+from charsheet.privacy_jobs import cleanup_expired, run_job, watch_job
 
 
 class Command(BaseCommand):
@@ -13,6 +13,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument("--watch")
         group.add_argument("--job")
         group.add_argument("--cleanup", action="store_true")
 
@@ -34,6 +35,8 @@ class Command(BaseCommand):
             if options["cleanup"]:
                 count = cleanup_expired()
                 self.stdout.write(f"Abgelaufene Exporte entfernt: {count}")
+            elif options["watch"]:
+                watch_job(options["watch"])
             else:
                 run_job(options["job"])
         except Exception:
