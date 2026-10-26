@@ -25,7 +25,8 @@ from .management.commands.privacy_export import (
 from .privacy_export import (
     apply_approval, build_snapshot,
 )
-from .privacy_content import json_document
+from .privacy_content import json_document, recipient_payload
+from .privacy_performance import Performance, publish_progress
 
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,7 @@ def remove_job(path):
                "source.pending", "state.json", "state.pending", "preview.json",
                "preview.pending", "options.pending", "owner.pending",
                "precheck.json", "precheck.pending"}
+    allowed.update({"progress.json", "progress.pending"})
     children = list(path.iterdir())
     for child in children:
         if child.is_symlink():
@@ -254,46 +256,60 @@ def watch_job(token):
         cleanup_expired()
 
 
-def create_artifacts(payload, files, options, path):
+def create_artifacts(payload, files, options, path, *, performance=None):
     """Stream JSON, attachments and ZIP entries into private files."""
     started = time.monotonic()
+    metrics = performance or Performance(
+        lambda stage: publish_progress(path, stage))
     check_space(path)
     attachments(files)
     kind = options["format"]
     internal = options.get("audience") == "internal"
     archive = None
+    pages = 0
     try:
         if kind == "zip":
-            archive = zipfile.ZipFile(path / "export.zip", "x",
-                                      zipfile.ZIP_DEFLATED, allowZip64=True)
-            if os.name != "nt":
-                (path / "export.zip").chmod(0o600)
-            if options["include_files"]:
-                decisions = payload.get("content_review", {}).get(
-                    "file_decisions", {})
-                attachments([entry for entry in files
-                             if entry[1]["member"] not in decisions], archive)
-        apply_approval(payload, options["review"])
+            with metrics.phase("zip"):
+                archive = zipfile.ZipFile(
+                    path / "export.zip", "x", zipfile.ZIP_DEFLATED,
+                    allowZip64=True)
+                if os.name != "nt":
+                    (path / "export.zip").chmod(0o600)
+                if options["include_files"]:
+                    decisions = payload.get("content_review", {}).get(
+                        "file_decisions", {})
+                    attachments([entry for entry in files
+                                 if entry[1]["member"] not in decisions],
+                                archive)
+        with metrics.phase("review"):
+            apply_approval(payload, options["review"])
+        with metrics.phase("prepare"):
+            recipient = (recipient_payload(payload)
+                         if kind != "json" or not internal else None)
         if kind in {"pdf", "zip"}:
             from .privacy_pdf import write_pdf
 
             target = path / "report.pdf"
             target.touch(mode=0o600, exist_ok=False)
-            write_pdf(payload, target)
+            pages = write_pdf(recipient, target, performance=metrics)
         if kind in {"json", "zip"}:
-            if kind == "zip" or not internal:
-                write_json(path / "data.json", json_document(payload))
-            if internal:
-                write_json(path / "audit.json", json_document(payload, True))
+            with metrics.phase("json"):
+                if kind == "zip" or not internal:
+                    write_json(path / "data.json", json_document(recipient))
+                if internal:
+                    write_json(
+                        path / "audit.json", json_document(payload, True))
         if archive is not None:
-            check_space(path)
-            archive.write(path / "report.pdf", "report.pdf")
-            archive.write(path / "data.json", "data.json")
-            if internal:
-                archive.write(path / "audit.json", "audit.json")
+            with metrics.phase("zip"):
+                check_space(path)
+                archive.write(path / "report.pdf", "report.pdf")
+                archive.write(path / "data.json", "data.json")
+                if internal:
+                    archive.write(path / "audit.json", "audit.json")
     finally:
         if archive is not None:
-            archive.close()
+            with metrics.phase("zip"):
+                archive.close()
     if kind == "zip":
         (path / "report.pdf").unlink()
         (path / "data.json").unlink()
@@ -301,9 +317,10 @@ def create_artifacts(payload, files, options, path):
     logger.info("privacy_export artifacts_seconds=%.3f",
                 time.monotonic() - started)
     filenames = {"pdf": "report.pdf", "json": "data.json", "zip": "export.zip"}
-    if kind == "json" and internal:
-        return "audit.json"
-    return filenames[kind]
+    filename = "audit.json" if kind == "json" and internal else filenames[kind]
+    if performance is None:
+        metrics.finish(pages=pages, size=(path / filename).stat().st_size)
+    return filename
 
 
 def run_job(token):
@@ -330,12 +347,15 @@ def run_job(token):
         options = json.loads((path / "options.json").read_text(
             encoding="utf-8"))
         started = time.monotonic()
+        metrics = Performance(lambda stage: publish_progress(path, stage))
         payload, files = build_snapshot(
             options["user_id"], options["mode"], options["review"],
+            performance=metrics,
         )
         logger.info("privacy_export snapshot_seconds=%.3f",
                     time.monotonic() - started)
-        filename = create_artifacts(payload, files, options, path)
+        filename = create_artifacts(
+            payload, files, options, path, performance=metrics)
         (path / "options.json").unlink()
         # Publish readiness only after all writers have closed.
         write_json(path / "ready.pending", {
@@ -343,6 +363,8 @@ def run_job(token):
             "audience": options.get("audience", "recipient"),
         })
         (path / "ready.pending").replace(path / "ready.json")
+        publish_progress(path, "complete")
+        metrics.finish(size=(path / filename).stat().st_size)
     except BaseException:
         lease.close()
         remove_job(path)

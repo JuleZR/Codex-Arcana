@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 from time import perf_counter
 from html import escape
+from types import SimpleNamespace
 
 import pymupdf
 
@@ -26,10 +27,13 @@ from .privacy_content import (
 )
 from .privacy_export import REDACTED
 from .privacy_labels import PHRASES, german_label
+from .privacy_performance import Performance
 
 
 logger = logging.getLogger(__name__)
 BLOCK_SIZE = 16000
+PERSIST_BLOCKS = 32
+SAVE_OPTIONS = {"garbage": 0, "deflate": False}
 FIELD_LABELS = {
     "id": "Kennung", "username": "Benutzername", "email": "E-Mail-Adresse",
     "first_name": "Vorname", "last_name": "Nachname", "name": "Name",
@@ -339,14 +343,16 @@ def sections(payload):
         yield "omissions", "Auslassungen und Schwärzungen", body
 
 
-def write_pdf(payload, destination):
+def write_pdf(payload, destination, *, performance=None):
     """Generate an A4 report with a last-built table of contents.
 
     The data sections are rendered independently. The final
     document receives its table of contents only after all
     section page numbers are known.
     """
-    payload = recipient_payload(payload)
+    metrics = performance or Performance()
+    with metrics.phase("prepare"):
+        payload = recipient_payload(payload)
     page_box = pymupdf.paper_rect("a4")
     content_box = page_box + (42, 52, -42, -48)
 
@@ -368,11 +374,20 @@ def write_pdf(payload, destination):
     def render(story, positionfn=None):
         path = Path(scratch.name) / "block.pdf"
         path.touch(mode=0o600, exist_ok=True)
-        writer = pymupdf.DocumentWriter(str(path))
-        try:
-            story.write(writer, page_rectangles, positionfn=positionfn)
-        finally:
-            writer.close()
+        # Own the file handle in Python: native writer references retained by
+        # an exception traceback must not prevent Windows scratch cleanup.
+        with path.open("wb") as stream:
+            # A named file is interpreted as a path by DocumentWriter. Supply
+            # its file operations explicitly so MuPDF uses the open stream.
+            output = SimpleNamespace(
+                write=stream.write, seek=stream.seek, tell=stream.tell,
+                truncate=stream.truncate,
+            )
+            writer = pymupdf.DocumentWriter(output)
+            try:
+                story.write(writer, page_rectangles, positionfn=positionfn)
+            finally:
+                writer.close()
         return pymupdf.open(path)
 
     def persist_report():
@@ -394,18 +409,20 @@ def write_pdf(payload, destination):
         # Each section starts on its own new page.
         # --------------------------------------------------
 
-        for key, title, body in sections(payload):
+        iterator = iter(sections(payload))
+        block_count = 0
+        while True:
             block_started = perf_counter()
-            heading = (f'<h2 class="section-start">{title_html(title)}</h2>'
-                       if key != previous_key else '')
-            section_html = heading + body
-
-            story = pymupdf.Story(
-                html=section_html,
-                user_css=CSS,
-            )
-
-            section_document = render(story)
+            with metrics.phase("pdf_content"):
+                try:
+                    key, title, body = next(iterator)
+                except StopIteration:
+                    break
+                heading = (
+                    f'<h2 class="section-start">{title_html(title)}</h2>'
+                    if key != previous_key else '')
+                story = pymupdf.Story(html=heading + body, user_css=CSS)
+                section_document = render(story)
 
             try:
                 if section_document.page_count == 0:
@@ -416,11 +433,12 @@ def write_pdf(payload, destination):
                 # Page numbers are 1-based for PDF bookmarks.
                 start_page = document.page_count + 1
 
-                document.insert_pdf(
-                    section_document,
-                    links=False,
-                    annots=False,
-                )
+                with metrics.phase("pdf_merge", publish=False):
+                    document.insert_pdf(
+                        section_document,
+                        links=False,
+                        annots=False,
+                    )
 
                 if key != previous_key:
                     toc_entries.append((key, title, start_page))
@@ -430,7 +448,10 @@ def write_pdf(payload, destination):
                 section_document.close()
             # Keep completed PDF streams backed by disk rather than retaining
             # every inserted content stream on the native heap.
-            persist_report()
+            block_count += 1
+            if block_count % PERSIST_BLOCKS == 0:
+                with metrics.phase("pdf_merge", publish=False):
+                    persist_report()
             logger.info("privacy_pdf block_seconds=%.3f pages=%d",
                         perf_counter() - block_started, document.page_count)
 
@@ -494,12 +515,9 @@ def write_pdf(payload, destination):
             )
         )
 
-        toc_story = pymupdf.Story(
-            html=toc_html,
-            user_css=CSS,
-        )
-
-        toc_document = render(toc_story, positionfn=record_toc)
+        with metrics.phase("pdf_toc"):
+            toc_story = pymupdf.Story(html=toc_html, user_css=CSS)
+            toc_document = render(toc_story, positionfn=record_toc)
 
         try:
             toc_page_count = toc_document.page_count
@@ -521,12 +539,13 @@ def write_pdf(payload, destination):
                     )
 
             # Insert the completed TOC before the report.
-            document.insert_pdf(
-                toc_document,
-                start_at=0,
-                links=False,
-                annots=False,
-            )
+            with metrics.phase("pdf_merge"):
+                document.insert_pdf(
+                    toc_document,
+                    start_at=0,
+                    links=False,
+                    annots=False,
+                )
 
         finally:
             toc_document.close()
@@ -538,6 +557,9 @@ def write_pdf(payload, destination):
         # No additional layout is performed.
         # --------------------------------------------------
 
+        navigation_started = perf_counter()
+        if metrics.progress:
+            metrics.progress("pdf_navigation")
         for index, (_, title, original_page) in enumerate(
             toc_entries
         ):
@@ -625,21 +647,23 @@ def write_pdf(payload, destination):
 
         for index in range(total_pages):
             page = document.load_page(index)
-
-            page.draw_line(
+            decoration = page.new_shape()
+            decoration.draw_line(
                 (42, 34),
                 (page_box.width - 42, 34),
+            )
+            decoration.finish(
                 color=(0.48, 0.35, 0.17),
                 width=0.7,
             )
 
-            page.insert_text(
+            decoration.insert_text(
                 (42, 26),
                 "CODEX ARCANA | Vertraulich",
                 fontsize=8,
             )
 
-            page.insert_text(
+            decoration.insert_text(
                 (42, page_box.height - 26),
                 (
                     f"Konto-ID {payload['subject']['id']} | "
@@ -647,6 +671,7 @@ def write_pdf(payload, destination):
                 ),
                 fontsize=8,
             )
+            decoration.commit()
 
         # --------------------------------------------------
         # Phase 6: Save.
@@ -654,11 +679,18 @@ def write_pdf(payload, destination):
         # The production destination is a private file, never BytesIO.
         # --------------------------------------------------
 
-        document.save(
-            destination,
-            garbage=3,
-            deflate=True,
-        )
+        metrics.seconds["pdf_navigation"] = (
+            perf_counter() - navigation_started)
+        with metrics.phase("pdf_save"):
+            # Only recipient text ever enters Story / PDF objects. No source
+            # PDF, redaction overlay or removed original is retained here.
+            document.save(destination, **SAVE_OPTIONS)
+        size = (Path(destination).stat().st_size if isinstance(
+            destination, (str, Path)) else destination.tell())
+        metrics.pages = total_pages
+        if performance is None:
+            metrics.finish(pages=total_pages, size=size)
+        return total_pages
 
     finally:
         document.close()

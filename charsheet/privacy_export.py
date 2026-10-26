@@ -4,7 +4,9 @@ import base64
 import hashlib
 import json
 import re
+from contextlib import nullcontext
 from pathlib import Path
+from time import perf_counter
 
 from django.apps import apps
 from django.conf import settings
@@ -300,11 +302,14 @@ def validate_review(review, mode):
             raise ValueError("Art.-20-Freigabe ist unvollständig.")
 
 
-def build_snapshot(user_id, mode="access", review=None):
+def build_snapshot(user_id, mode="access", review=None, *, performance=None):
     """Collect exactly once in a consistent transaction; perform no writes."""
     review = review or {}
-    validate_review(review, mode)
-    with transaction.atomic():
+    phase = performance.phase("review") if performance else nullcontext()
+    with phase:
+        validate_review(review, mode)
+    phase = performance.phase("prepare") if performance else nullcontext()
+    with phase, transaction.atomic():
         if connection.vendor == "postgresql":
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -312,6 +317,7 @@ def build_snapshot(user_id, mode="access", review=None):
                 )
         user = get_user_model()._base_manager.get(pk=user_id)
         collector = Collector(user, mode, review)
+        collector.performance = performance
         collector.collect()
         return collector.payload, collector.files
 
@@ -321,6 +327,7 @@ class Collector:
         self.user = user
         self.mode = mode
         self.review = review
+        self.performance = None
         self.files = []
         self.used_redactions = set()
         self.used_resolutions = set()
@@ -474,6 +481,7 @@ class Collector:
                     self.omit(label, obj.pk, name, "Sicherheits-/Drittschutz")
                     continue
                 value = getattr(obj, field.attname)
+                review_started = perf_counter() if self.performance else 0
                 key = f"{label}:{obj.pk}:{name}"
                 if key in self.review.get("redactions", {}):
                     self.used_redactions.add(key)
@@ -547,6 +555,9 @@ class Collector:
                             "Mögliche Authentifizierungsgeheimnisse geschützt",
                         )
                     value = cleaned
+                if self.performance:
+                    self.performance.record(
+                        "review", perf_counter() - review_started)
                 record[name] = normalized(value)
                 category["fields"][name] = {
                     "label": str(field.verbose_name),

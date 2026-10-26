@@ -22,6 +22,7 @@ class Command(BaseCommand):
         # stderr is inherited from the service (journal/Gunicorn error log).
         loggers = [logging.getLogger(name) for name in (
             "charsheet.privacy_jobs", "charsheet.privacy_pdf",
+            "charsheet.privacy_performance",
         )]
         previous = [(log, log.level, log.handlers[:], log.propagate)
                     for log in loggers]

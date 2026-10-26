@@ -1,5 +1,8 @@
 # Interne Bearbeitung von Datenschutzanfragen
 
+Messwerte, Speicheroptionen und Integritätsnachweise für große PDF-Ausgaben:
+[Performancekorrektur des PDF-Exports](privacy_pdf_performance.md).
+
 Das Werkzeug ist über eine interne Superuser-Maske im Django-Admin und über das
 Management-Command `privacy_export` verfügbar. Es gibt keinen öffentlichen
 Export-Endpunkt, öffentlichen Downloadlink oder E-Mail-Versand.

@@ -32,6 +32,7 @@ from .privacy_review import (
     progress,
 )
 from .privacy_rules import RULESET
+from .privacy_performance import Performance, publish_progress
 
 logger = logging.getLogger("charsheet.privacy_jobs")
 ARTIFACTS = (
@@ -128,42 +129,49 @@ def refresh_workspace(path):
 
 
 def perform(path, options):
+    metrics = Performance(lambda stage: publish_progress(path, stage))
     operation = options["operation"]
     if operation == "refresh":
         refresh_workspace(path)
     elif operation == "workspace":
-        source, _ = build_snapshot(options["user_id"])
+        source, _ = build_snapshot(options["user_id"], performance=metrics)
         catalog = load_catalog(path, source)
         state = initial_state(source, options["mode"], catalog)
         state["subject_id"] = options["user_id"]
         atomic_json(path / "source.json", source)
         atomic_json(path / "state.json", state)
     else:
-        state = read_json(path / "state.json")
-        source = read_json(path / "source.json")
-        catalog = load_catalog(path, source)
-        ensure_precheck(source, state, catalog)
-        review = compile_review(source, state, catalog)
+        with metrics.phase("prepare"):
+            state = read_json(path / "state.json")
+            source = read_json(path / "source.json")
+            catalog = load_catalog(path, source)
+        with metrics.phase("review"):
+            ensure_precheck(source, state, catalog)
+            review = compile_review(source, state, catalog)
         if operation == "preview":
             review.pop("approval", None)
             if state["mode"] == "portability":
-                current, _ = build_snapshot(state["subject_id"])
+                current, _ = build_snapshot(
+                    state["subject_id"], performance=metrics)
             else:
                 current = None
             stale = False
             try:
                 payload, files = build_snapshot(
-                    state["subject_id"], state["mode"], review
+                    state["subject_id"], state["mode"], review,
+                    performance=metrics,
                 )
             except StaleAutomaticReview:
-                current, _ = build_snapshot(state["subject_id"])
+                current, _ = build_snapshot(
+                    state["subject_id"], performance=metrics)
                 payload, files, stale = current, [], True
             original = current or payload
             if stale or original.get("source_fingerprint") != source.get(
                 "source_fingerprint"
             ):
                 if current is None:
-                    current, _ = build_snapshot(state["subject_id"])
+                    current, _ = build_snapshot(
+                        state["subject_id"], performance=metrics)
                 fresh = initial_state(
                     current, state["mode"], load_catalog(path, current)
                 )
@@ -181,7 +189,8 @@ def perform(path, options):
             else:
                 clear_artifacts(path)
                 output = {**state["output"], "review": review}
-                create_artifacts(payload, files, output, path)
+                filename = create_artifacts(
+                    payload, files, output, path, performance=metrics)
                 atomic_json(path / "preview.json", payload)
                 state.update(
                     busy=False,
@@ -200,6 +209,7 @@ def perform(path, options):
                         f"Noch {remaining} ungeprüfte Datenfelder."
                     )
                 atomic_json(path / "state.json", state)
+                metrics.finish(size=(path / filename).stat().st_size)
         elif operation == "export":
             if (
                 not state.get("approval")
@@ -209,10 +219,12 @@ def perform(path, options):
                 raise ValueError("Keine gültige Freigabe.")
             clear_artifacts(path)
             payload, files = build_snapshot(
-                state["subject_id"], state["mode"], review
+                state["subject_id"], state["mode"], review,
+                performance=metrics,
             )
             filename = create_artifacts(
-                payload, files, {**state["output"], "review": review}, path
+                payload, files, {**state["output"], "review": review}, path,
+                performance=metrics,
             )
             state.update(busy=False, step=6)
             atomic_json(path / "state.json", state)
@@ -228,6 +240,8 @@ def perform(path, options):
                     "audience": state["output"]["audience"],
                 },
             )
+            publish_progress(path, "complete")
+            metrics.finish(size=(path / filename).stat().st_size)
             return True
         else:
             raise ValueError("Unbekannter Prüfschritt.")

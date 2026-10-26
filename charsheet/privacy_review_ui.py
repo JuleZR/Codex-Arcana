@@ -556,8 +556,11 @@ def edit_field(request, token, source, state, field, context):
 
 
 def workspace_view(request, token, context):
+    from .privacy_performance import progress_label
+
     path = owned_job(token, request.user.pk)
     context.update(workspace_token=token, workflow=True)
+    context["export_progress"] = progress_label(path)
     context["review_links"] = [
         (number, label, url(token, number))
         for number, label in (
@@ -805,6 +808,8 @@ def workspace_view(request, token, context):
                         None,
                         "Prüfung abschließen und Vorschau erstellen.",
                     )
+                    for missing in state["missing"]:
+                        form.add_error(None, missing)
                 else:
                     preview = read_json(path / "preview.json")
                     approval = {

@@ -141,6 +141,9 @@ def privacy_export_view(request):
         try:
             cleanup_expired()
             job = owned_job(token, request.user.pk)
+            from .privacy_performance import progress_label
+
+            context["export_progress"] = progress_label(job)
             context["job_token"] = token
             context["job_ready"] = (job / "ready.json").is_file()
             if context["job_ready"]:
