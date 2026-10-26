@@ -193,6 +193,25 @@ class FieldForm(forms.Form):
         return data
 
 
+class BulkForm(forms.Form):
+    scope = forms.ChoiceField(label="Umfang", choices=[
+        ("selected", "Markierte Felder dieser Seite"),
+        ("filtered", "Alle gefilterten Felder dieser Kategorie"),
+    ])
+    action = forms.ChoiceField(label="Sammelentscheidung", choices=[
+        ("include", "Übernehmen"), ("redact", "Schwärzen"),
+        ("reset", "Entscheidungen zurücksetzen"),
+    ])
+    reason = text_field("Gemeinsame Begründung", rows=2)
+
+    def clean(self):
+        data = super().clean()
+        if (data.get("action") == "redact"
+                and not meaningful(data.get("reason"))):
+            self.add_error("reason", "Schwärzung bitte begründen.")
+        return data
+
+
 class OutputForm(forms.Form):
     format = forms.ChoiceField(
         label="Exportformat",
@@ -210,7 +229,8 @@ class OutputForm(forms.Form):
         ],
     )
     files_reviewed = forms.BooleanField(
-        label="Beigefügte Dateien auf Rechte Dritter geprüft", required=False
+        label="Weitere Anhänge (außer Bildern) auf Rechte Dritter geprüft",
+        required=False,
     )
 
     def __init__(self, *args, mode, **kwargs):

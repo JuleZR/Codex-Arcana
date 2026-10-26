@@ -42,10 +42,11 @@ from .privacy_review import (
     portable_categories,
     progress,
 )
-from .privacy_rules import category_label, field_label
+from .privacy_rules import category_label, field_label, image_field
 from .privacy_mentions import needs_username_check
 from .privacy_review_forms import (
     ApprovalForm,
+    BulkForm,
     ControllerForm,
     FieldForm,
     FileForm,
@@ -252,6 +253,10 @@ def output_forms(source, state, data=None):
     )
     files = []
     for index, item in enumerate(source["files"]):
+        model, _, name = item["field"].split(":", 2)
+        metadata = source["categories"].get(model, {}).get("fields", {}).get(
+            name, {})
+        item = {**item, "image": image_field(model, name, metadata)}
         entry = state["file_decisions"].get(item["member"], {})
         if state.get("file_choices", {}).get(item["member"]) == "include":
             entry = {"action": "include"}
@@ -279,7 +284,11 @@ def save_output(output, file_forms, state):
     if include and output.cleaned_data["format"] != "zip":
         output.add_error("format", "Dateianhänge erfordern das ZIP-Format.")
         return False
-    if include and not output.cleaned_data["files_reviewed"]:
+    unreviewed = any(
+        choices[item["member"]] == "include" and not item.get("image")
+        for item, _, _ in file_forms
+    )
+    if unreviewed and not output.cleaned_data["files_reviewed"]:
         output.add_error("files_reviewed", "Dateiprüfung bestätigen.")
         return False
     state["output"] = {**output.cleaned_data, "include_files": include}
@@ -290,6 +299,22 @@ def save_output(output, file_forms, state):
         if form.cleaned_data["action"] not in {"", "include"}
     }
     return True
+
+
+def filtered_fields(catalog, state, category, category_index):
+    active = state.get("filter", {})
+    if active.get("category") != category_index:
+        active = {}
+    query = active.get("query", "").strip().casefold()
+    return [field for field in catalog if field.category == category
+            and (not active.get("only_open", True)
+                 or not decision_for(field, state))
+            and (not active.get("only_exceptions", True) or not field.automatic
+                 or state["decisions"].get(field.key, {}).get("action")
+                 == "pending")
+            and (not query or query in (
+                field.label + " " + field.record + " " + str(field.value)
+            ).casefold())]
 
 
 def selection_form(source, state, category, data=None):
@@ -588,6 +613,7 @@ def workspace_view(request, token, context):
             "save_mode",
             "save_information",
             "save_selection",
+            "bulk_fields",
             "accept_category",
             "accept_all_standards",
             "save_field",
@@ -692,6 +718,49 @@ def workspace_view(request, token, context):
                 category=category if action == "accept_category" else None,
             )
             changed = True
+        if action == "bulk_fields":
+            form = BulkForm(request.POST, prefix="bulk")
+            context["bulk_form"] = form
+            if form.is_valid():
+                selected = []
+                rows = filtered_fields(
+                    catalog, state, category, category_index)
+                if form.cleaned_data["scope"] == "filtered":
+                    selected = rows
+                else:
+                    refs = request.POST.getlist("bulk_ref")
+                    if len(refs) > PAGE_SIZE:
+                        raise ValueError("Zu viele markierte Felder.")
+                    allowed = {field.key for field in rows}
+                    selected = [find_field(token, source, ref, catalog)
+                                for ref in set(refs)]
+                    if any(field.key not in allowed for field in selected):
+                        raise ValueError("Auswahl gehört nicht zum Filter.")
+                operation = form.cleaned_data["action"]
+                reason = form.cleaned_data["reason"] or "Sammelprüfung"
+                if not selected:
+                    form.add_error(None, "Bitte Datenfelder auswählen.")
+                elif sanitize(reason) != reason:
+                    form.add_error("reason", "Zugangsdaten entfernen.")
+                elif operation == "include" and any(
+                    not field.can_take or field.rule == "review.protected.v1"
+                    for field in selected
+                ):
+                    form.add_error(None, "Geschützte oder nicht verfügbare "
+                                   "Werte bitte einzeln bearbeiten.")
+                else:
+                    for field in selected:
+                        if operation == "reset":
+                            state["decisions"][field.key] = {
+                                "action": "pending",
+                            }
+                        else:
+                            state["decisions"][field.key] = {
+                                "action": operation, "reason": reason,
+                            }
+                    changed = True
+            if form.errors:
+                context["error"] = "Sammelbearbeitung bitte korrigieren."
         signed = request.POST.get("field_ref") or request.GET.get("edit")
         if action == "save_field" and not signed:
             raise ValueError("Kein gültiges Datenfeld ausgewählt.")
@@ -888,28 +957,12 @@ def workspace_view(request, token, context):
         active_filter = state.get("filter", {})
         if active_filter.get("category") != category_index:
             active_filter = {}
-        query = active_filter.get("query", "").strip().casefold()
         only_open = active_filter.get("only_open", True)
         only_exceptions = active_filter.get("only_exceptions", True)
-        rows = [field for field in catalog if field.category == category]
-        rows = [
-            field
-            for field in rows
-            if (not only_open or not decision_for(field, state))
-            and (
-                not only_exceptions
-                or not field.automatic
-                or state["decisions"].get(field.key, {}).get("action")
-                == "pending"
-            )
-            and (
-                not query
-                or query
-                in (
-                    field.label + " " + field.record + " " + str(field.value)
-                ).casefold()
-            )
-        ]
+        rows = filtered_fields(catalog, state, category, category_index)
+        context.setdefault("bulk_form", BulkForm(prefix="bulk", initial={
+            "scope": "selected", "action": "include",
+        }))
         try:
             page = max(0, int(request.GET.get("page", 0)))
         except ValueError:
@@ -919,6 +972,7 @@ def workspace_view(request, token, context):
         context["review_fields"] = [
             {
                 "field": field,
+                "ref": field_token(token, source, field),
                 "checked": bool(decision_for(field, state)),
                 "automatic": bool(
                     (decision_for(field, state) or {}).get("automatic")

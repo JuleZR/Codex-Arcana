@@ -5,7 +5,7 @@
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'charsheet/css/privacy-admin.css' %}?v=20261025-1">
 {% if review_busy %}<meta http-equiv="refresh" content="2;url={{ refresh_url }}">{% elif job_token and not job_ready %}<meta http-equiv="refresh" content="3;url={% url 'admin:privacy_export' %}?job={{ job_token }}">{% endif %}
-<script src="{% static 'charsheet/js/privacy_review.js' %}?v=20261025-1" defer></script>
+<script src="{% static 'charsheet/js/privacy_review.js' %}?v=20261026-2" defer></script>
 {% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Administration</a> &rsaquo; Datenschutzverwaltung</div>{% endblock %}
 {% block content %}

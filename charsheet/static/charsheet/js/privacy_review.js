@@ -6,6 +6,11 @@
     }
     if (typeof module !== "undefined") module.exports = { redactSelection };
     if (typeof document === "undefined") return;
+    document.querySelector("[data-bulk-all]")?.addEventListener("change", event => {
+        document.querySelectorAll('[name="bulk_ref"]').forEach(input => {
+            input.checked = event.target.checked;
+        });
+    });
 
     const editor = document.querySelector("[data-field-editor]");
     function updateEditor() {

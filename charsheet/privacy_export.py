@@ -22,8 +22,7 @@ from .privacy_content import (
     validate_content_review,
 )
 from .privacy_mentions import (
-    INVITATION_CHECK_VERSION, INVITATION_MODEL, TRANSFER_MODELS,
-    USERNAME_CHECK_VERSION, ForeignAccountMatcher, UsernameMatcher,
+    INVITATION_CHECK_VERSION, INVITATION_MODEL, ForeignAccountMatcher,
 )
 
 
@@ -445,9 +444,6 @@ class Collector:
                     if isinstance(field, models.FileField):
                         original = original.name or ""
                     self.observe(label, obj.pk, name, original)
-                    self.check_transfer_usernames(
-                        label, obj.pk, field, original,
-                    )
                     self.check_invitation_accounts(
                         label, obj.pk, field, original,
                     )
@@ -602,7 +598,9 @@ class Collector:
         if not re.fullmatch(r"\.[a-z0-9]{1,8}", suffix):
             suffix = ".bin"
         member = f"files/{len(self.files) + 1:06d}{suffix}"
-        info = {"field": key, "member": member, "status": "not_included"}
+        info = {"field": key, "member": member, "status": "not_included",
+                "filename": sanitize(Path(stored.name).name),
+                "image": isinstance(field, models.ImageField)}
         self.files.append((stored, info))
         self.payload["files"].append(info)
         return {"attachment": member}
@@ -616,25 +614,6 @@ class Collector:
                 ).iterator(chunk_size=500)
             )
         return self._account_directory
-
-    def check_transfer_usernames(self, model, pk, field, value):
-        if model not in TRANSFER_MODELS:
-            return
-        if self.username_matcher is None:
-            self.username_matcher = UsernameMatcher(
-                username for username, _ in self.account_directory()
-            )
-            self.payload.setdefault("review_context", {})[
-                "transfer_usernames"] = {
-                    "version": USERNAME_CHECK_VERSION, "checked": {},
-                }
-            self.observe("privacy.Transfer", self.user.pk,
-                         "username_policy", USERNAME_CHECK_VERSION)
-        matched = (not field.choices and self.username_matcher.contains(value))
-        proof = self.payload["review_context"]["transfer_usernames"]["checked"]
-        proof[f"{model}:{pk}:{field.name}"] = bool(matched)
-        self.observe(model, pk, "username_mention." + field.name,
-                     bool(matched))
 
     def check_invitation_accounts(self, model, pk, field, value):
         if model != INVITATION_MODEL:
@@ -662,7 +641,6 @@ class Collector:
                      bool(matched))
 
     def collect(self):
-        self.username_matcher = None
         self.invitation_matcher = None
         self._account_directory = None
         paths = ownership_paths()
@@ -716,6 +694,7 @@ class Collector:
             "Weitere Einschränkungen sind mit ihrem Grund angegeben.",
         })
         self.catalog_references()
+        known.update(self.payload["references"])
         self.payload["source_fingerprint"] = self.source_hash.hexdigest()
         automatic = self.review.get("automatic_review")
         if automatic:

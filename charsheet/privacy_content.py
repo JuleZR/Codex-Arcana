@@ -274,7 +274,8 @@ def recipient_payload(payload):
         summaries[label]["records"] = len(entry["records"])
     files = []
     for item in payload.get("files", []):
-        exported = {key: item[key] for key in ("member", "status", "bytes")
+        exported = {key: item[key] for key in (
+            "member", "status", "bytes", "filename")
                     if key in item}
         decision = review.get("file_decisions", {}).get(item["member"])
         if decision:

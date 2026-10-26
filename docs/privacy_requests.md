@@ -69,24 +69,22 @@ Aktuell hält `quickslot_history.js` höchstens zehn Einträge ausschließlich i
 Browser-LocalStorage; diese Einträge werden serverseitig nicht gespeichert
 und sind deshalb nicht Bestandteil des DSGVO-Serverexports. Sie erzeugen dort
 keine zusätzlichen Einzelprüfpunkte.
-Unbekannte Zuordnungen, persönliche Freitexte, Dateien, unklare Strukturen und
-geschützte Inhalte bleiben zur Prüfung vorgemerkt und werden nicht entfernt.
+Nicht durch eine konkrete Standardregel abgedeckte Inhalte bleiben zur Prüfung
+vorgemerkt und werden nicht entfernt.
 
-Für Eigentumsübertragungen, Eigentumshistorien und ihre Benachrichtigungen
-werden Texte und Snapshots automatisch übernommen, sofern darin kein
-Benutzername erkannt wird. Charakternamen sind ausdrücklich zulässig.
-Geprüft werden die vorhandenen Benutzernamen einschließlich inaktiver Konten
-sowie explizite Benutzername-Angaben in strukturierten Daten oder beschriftetem
-Text. Groß-/Kleinschreibung, Unicode, HTML und verschachtelte Inhalte werden
-berücksichtigt; eine Namensgleichheit zwischen Charakter und Konto bleibt
-mehrdeutig und damit prüfpflichtig. Historische, nicht mehr gespeicherte
-Kontobezeichnungen bleiben Teil der abschließenden Rechercheprüfung.
-Die Namensliste wird nur im Arbeitsspeicher verwendet. Gespeichert werden
-ausschließlich Trefferkennzeichen für die bereits erfassten Übertragungsfelder.
-Geheimnisse bleiben geschützt; bestehende Maskierungen fremder Benutzerbezüge
-werden automatisch beibehalten. Ein neu hinzukommender Benutzername, der im
-Text vorkommt, entwertet den alten Prüfnachweis und eine darauf beruhende
-Freigabe. Eine endgültige Freigabe bleibt immer ausdrücklich erforderlich.
+Eigentumsübertragungen, Eigentumshistorien, Berechtigungsvergaben und ihre
+Benachrichtigungen werden einschließlich Texten und Snapshots automatisch
+übernommen. Eine Suche nach Benutzer- oder Charakternamen ist hierfür nicht
+mehr erforderlich. Geheimnisse und bestehende Maskierungen fremder direkter
+Benutzerbezüge bleiben geschützt. Die endgültige Freigabe bleibt erforderlich.
+
+Selbstgewählte Passkey-Namen, sichere Sicherheitsmetadaten einschließlich
+Sitzungsanzahl sowie eigene Skill-Ausprägungen und Spezifikationen sind
+Standarddaten. Hochgeladene Bilder einschließlich ihrer Dateinamen werden
+automatisch übernommen und im ZIP vorausgewählt. Dafür ist keine gesonderte
+Dateiprüfbestätigung erforderlich; für andere Anhänge bleibt sie bestehen.
+Dateinamen werden ohne Speicherverzeichnis ausgegeben. Die bisherigen
+Pfad-, Dateityp- und Integritätsprüfungen gelten weiterhin.
 
 Eine nach dem bestehenden Kalenderschema validierte Anordnung einschließlich
 reiner Trennzeichen wird vollständig automatisch übernommen. Enthält sie freien
@@ -107,8 +105,15 @@ Auch eigene Charaktergegenstände, Runenspezifikationen, konkrete Effekte,
 Identifikations- und Offenlegungsangaben sowie Kreaturengegenstände werden
 automatisch übernommen. Das gilt für Freitexte und strukturierte Angaben
 einschließlich darin enthaltener Charakternamen; eine gesonderte Suche nach
-fremden Charakternamen findet nicht statt. Dateien und unklare oder fremde
-Benutzerbezüge bleiben nach den bestehenden Schutzregeln prüfpflichtig.
+fremden Charakternamen findet nicht statt. Angeschlossene Gegenstandswerte
+und Bezüge sind ebenfalls Standarddaten; Geheimnisse und direkte fremde
+Benutzerbezüge bleiben nach den bestehenden Schutzregeln geschützt.
+
+Eigene Gruppentabellen einschließlich Spalten, Zellen und gespeicherter
+Würfelprotokolle wie „Fehlschlag: Elementarmagie“ sind Standarddaten. Das gilt
+auch für Inhalte, die bislang unter „Weitere zu prüfende Inhalte“ erschienen.
+Die Zuordnung erfolgt über den Ersteller, nicht allein über den Tabellentitel.
+Tabellen fremder Ersteller bleiben prüfpflichtig.
 Die erfassten Anmeldeprotokolle (AccessLog, AccessAttempt, AccessFailureLog)
 werden einschließlich Browser, IP-Adresse und Zeitangaben automatisch
 übernommen, wenn ihr Benutzername exakt dem ausgewählten Konto entspricht.
@@ -121,8 +126,9 @@ protokolliert wurde. Die Erkennung verwendet Aktionstyp und Zielmodell sowie
 strukturierte Angaben über zusätzlich angelegte Benutzer, auch bei Änderungen
 an anderen Objekten. Änderungen und Löschungen bereits bestehender Benutzer
 sind keine Benutzeranlage. Bei einer Benutzeranlage bleibt der gesamte Eintrag
-zur Einzelprüfung offen. Unbekannte Aktionen oder Objekttypen werden nicht
-pauschal freigegeben. Geheimnisse, bestehende Maskierungen fremder
+zur Einzelprüfung offen. Auch historische Aktionen und Objekttypen sind
+Standarddaten, sofern die Verwaltungsmetadaten vorliegen. Geheimnisse,
+bestehende Maskierungen fremder
 Verwaltungsakteure und manuelle Schwärzungen bleiben erhalten.
 
 Die Zusammenfassung nennt automatisch übernommene Felder, Einzelprüfungen,
@@ -131,6 +137,14 @@ sind aufklappbar nachvollziehbar. Manuelle Entscheidungen haben immer Vorrang;
 das Rückgängigmachen einer automatischen Übernahme macht genau dieses Feld
 wieder offen. Die optionale globale Neuausführung der Standardprüfung
 überschreibt weder Schwärzungen noch solche manuellen Rücknahmen.
+
+Die Sammelbearbeitung in Schritt 3 übernimmt, schwärzt oder öffnet markierte
+Felder einer Seite oder alle gefilterten Felder der ausgewählten Kategorie
+einschließlich weiterer Ergebnisseiten. Eine gemeinsame Begründung wird im
+Prüfstand gespeichert. Geschützte und nicht verfügbare Werte lassen sich nicht
+gesammelt freigeben. Auswahl, Filter, Signaturen und Prüfversion werden auf dem
+Server geprüft; eine Änderung entwertet Vorschau und Freigabe. Es wird nur ein
+Request benötigt, unabhängig von der Anzahl gefilterter Felder.
 
 Eine Klassifizierung wird je unveränderlichem Datenbestand und Regelversion
 einmal berechnet und in einer signierten privaten `precheck.json` abgelegt.

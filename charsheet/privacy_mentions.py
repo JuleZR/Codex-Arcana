@@ -11,6 +11,7 @@ TRANSFER_MODELS = frozenset(
         "charsheet.ItemTransfer",
         "charsheet.ItemOwnershipEvent",
         "charsheet.ItemTransferNotification",
+        "charsheet.ItemPermissionGrant",
     }
 )
 USERNAME_CHECK_VERSION = 1
@@ -200,11 +201,6 @@ class ForeignAccountMatcher(UsernameMatcher):
 
 
 def needs_username_check(source):
-    proof = source.get("review_context", {}).get("transfer_usernames", {})
-    transfers = proof.get("version") != USERNAME_CHECK_VERSION and any(
-        source["categories"].get(model, {}).get("records")
-        for model in TRANSFER_MODELS
-    )
     invitations = source.get("review_context", {}).get(
         "invitation_accounts", {})
     invitation_check = (
@@ -212,4 +208,4 @@ def needs_username_check(source):
         and bool(source["categories"].get(
             INVITATION_MODEL, {}).get("records"))
     )
-    return transfers or invitation_check
+    return invitation_check

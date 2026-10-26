@@ -7,9 +7,10 @@ from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import FieldDoesNotExist, ValidationError
+from django.db.models import ImageField
 from django.apps import apps
-from django.contrib.admin.models import ADDITION, CHANGE, DELETION
+from django.contrib.admin.models import ADDITION
 from django.contrib.auth import get_user_model
 
 from .calendar_layout import validate_layout
@@ -17,11 +18,18 @@ from .privacy_content import PROTECTED
 from .privacy_mentions import (
     INVITATION_CHECK_VERSION, INVITATION_MODEL, TRANSFER_MODELS,
     ITEM_CONTENT_MODELS,
-    USERNAME_CHECK_VERSION, words,
+    words,
 )
 
-RULESET = "privacy-standard-v11"
+RULESET = "privacy-standard-v12"
 RULES = {
+    "owned.image.v1": (True, "Hochgeladenes Bild und Dateiname"),
+    "owned.game_value.v1": (True, "Eigene Spielausprägung"),
+    "owned.passkey_label.v1": (True, "Selbstgewählter Passkey-Name"),
+    "owned.security_metadata.v1": (True, "Geprüfte Sicherheitsmetadaten"),
+    "owned.group_table.v1": (
+        True, "Eigene Gruppentabelle und Würfelprotokoll",
+    ),
     "owned.item_content.v1": (
         True, "Eigene Charaktergegenstandsdaten",
     ),
@@ -41,7 +49,9 @@ RULES = {
     "owned.default.v1": (True, "Unveränderter Standardtext der Anwendung"),
     "owned.dice.v1": (True, "Eigene Würfeleinstellungen und Ergebnistexte"),
     "owned.hotbar.v1": (True, "Eigene MMO-Toolbar und Slotbelegung"),
-    "transfer.content.v1": (True, "Eigentumsübertragung ohne Benutzernamen"),
+    "transfer.content.v1": (
+        True, "Gegenstandsübertragung und Eigentumshistorie",
+    ),
     "transfer.protected_account.v1": (
         True,
         "Geschützten fremden Benutzerbezug beibehalten",
@@ -116,6 +126,18 @@ def field_label(name, metadata):
     return PHRASES.get(name, german_label(metadata.get("label", name)))
 
 
+def image_field(category, name, metadata):
+    if metadata.get("type") == "ImageField":
+        return True
+    if metadata.get("type") != "FileField":
+        return False
+    try:
+        return isinstance(apps.get_model(category)._meta.get_field(name),
+                          ImageField)
+    except (LookupError, FieldDoesNotExist):
+        return False
+
+
 def category_label(name, metadata):
     from .privacy_labels import PHRASES, german_label
 
@@ -156,9 +178,6 @@ class Classifier:
             }
         )
         self.audit = source.get("review_context", {}).get("admin.LogEntry", {})
-        self.transfer_check = source.get("review_context", {}).get(
-            "transfer_usernames", {}
-        )
         self.invitation_check = source.get("review_context", {}).get(
             "invitation_accounts", {}
         )
@@ -190,6 +209,23 @@ class Classifier:
             and isinstance(item["candidate"], dict)
         }
         self.admin_actions = self.classify_admin_actions(source)
+        self.own_tables = {
+            str(row["id"]) for row in source["categories"].get(
+                "charsheet.GameGroupTable", {}).get("records", [])
+            if str(row.get("creator")) == self.subject
+        }
+        self.inventory_catalog = set()
+        for label in ITEM_CONTENT_MODELS & self.owned:
+            content = source["categories"].get(label, {})
+            for name, meta in content.get("fields", {}).items():
+                relation = meta.get("relation", "") or ""
+                if not relation.startswith("charsheet."):
+                    continue
+                for row in content.get("records", []):
+                    values = row.get(name)
+                    for pk in values if isinstance(values, list) else [values]:
+                        if type(pk) in {int, str}:
+                            self.inventory_catalog.add((relation, str(pk)))
         self.references = {
             label: {
                 str(record["id"])
@@ -236,11 +272,31 @@ class Classifier:
             if proof:
                 return proof
         target = metadata.get("relation")
+        kind = metadata.get("type")
+        if (name == "catalog_reference"
+                and (category, str(pk)) in self.inventory_catalog):
+            return "owned.item_content.v1"
+        if image_field(category, name, metadata) and category in self.related:
+            return "owned.image.v1"
+        if (category == "charsheet.GameGroupTable"
+                and str(pk) in self.own_tables):
+            return "owned.group_table.v1"
+        if category in self.owned and not target:
+            if category == "charsheet.PasskeyCredential" and name == "name":
+                return "owned.passkey_label.v1"
+            if name in {"specification", "specialization", "expression",
+                        "specification_value"}:
+                return "owned.game_value.v1"
+            if (category == "charsheet.AccountSecurityEvent"
+                    and name == "metadata" and isinstance(value, dict)
+                    and set(value) <= {"session_count", "label"}
+                    and isinstance(value.get("label", ""), str)
+                    and type(value.get("session_count", 0)) is int
+                    and value.get("session_count", 0) >= 0):
+                return "owned.security_metadata.v1"
         if (
             category in ITEM_CONTENT_MODELS and category in self.owned
-            and not target and metadata.get("type") not in {
-                "FileField", "ImageField", "BinaryField",
-            }
+            and target != "auth.User" and kind != "BinaryField"
         ):
             return "owned.item_content.v1"
         if (
@@ -377,20 +433,7 @@ class Classifier:
         )
 
     def transfer_rule(self, category, pk, name, metadata, value, candidate):
-        if (
-            category not in TRANSFER_MODELS
-            or category not in self.related
-            or self.transfer_check.get("version") != USERNAME_CHECK_VERSION
-        ):
-            return None
-        matched = self.transfer_check.get("checked", {}).get(
-            f"{category}:{pk}:{name}"
-        )
-        if matched is True:
-            if self.technical(category, name, value):
-                return None
-            return "review.username.v1"
-        if matched is not False:
+        if category not in TRANSFER_MODELS or category not in self.related:
             return None
         if metadata.get("type") in {"FileField", "ImageField", "BinaryField"}:
             return None
@@ -407,7 +450,6 @@ class Classifier:
             return {}
         user_model = get_user_model()._meta.concrete_model
         models = list(apps.get_models())
-        known_models = {model._meta.label for model in models}
         user_models = [
             model
             for model in models
@@ -437,18 +479,13 @@ class Classifier:
                 str(row.get("content_type")), {}
             )
             action = row.get("action_flag")
-            if (
-                type(action) is not int
-                or action not in {ADDITION, CHANGE, DELETION}
-                or target.get("model") not in known_models
-            ):
+            if type(action) is not int:
                 continue
-            user_target = target["model"] in user_model_labels
+            user_target = target.get("model") in user_model_labels
             created = user_target and action == ADDITION
             message = messages.get(pk, row.get("change_message", ""))
             if not isinstance(message, str) or message in self.protected:
-                if created:
-                    result[pk] = "creation"
+                result[pk] = "creation" if created else "routine"
                 continue
             try:
                 entries = json.loads(message)

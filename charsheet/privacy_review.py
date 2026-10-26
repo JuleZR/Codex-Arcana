@@ -141,6 +141,13 @@ def fields(source, rule_cache=None):
         if item["id"] in seen:
             continue
         value = sanitize(item["candidate"])
+        rule = cached.get(item["id"])
+        if rule not in RULES:
+            if classifier is None:
+                classifier = Classifier(source)
+            rule = classifier.classify(
+                item["model"], item["record"], item["field"], {}, value, True,
+            )
         yield ReviewField(
             item["id"],
             "additional",
@@ -154,7 +161,7 @@ def fields(source, rule_cache=None):
             PHRASES.get(item["field"], german_label(item["field"])),
             value,
             True,
-            rule="review.candidate.v1",
+            rule=rule,
             fingerprint=source["source_fingerprint"],
         )
 
@@ -277,7 +284,10 @@ def accept_standards(source, state, catalog=None, category=None):
     grouped = {
         key: set(value) for key, value in accepted["categories"].items()
     }
+    image_fields = set()
     for field in catalog if catalog is not None else fields(source):
+        if field.rule == "owned.image.v1":
+            image_fields.add(field.key)
         if field.automatic and (
             category is None or field.category == category
         ):
@@ -286,6 +296,13 @@ def accept_standards(source, state, catalog=None, category=None):
         key: sorted(value) for key, value in grouped.items()
     }
     state["standard_acceptance"] = accepted
+    choices = state.setdefault("file_choices", {})
+    for item in source["files"]:
+        if (item["field"] in image_fields
+                and item["member"] not in state["file_decisions"]):
+            choices.setdefault(item["member"], "include")
+    if state["output"]["format"] == "zip" and "include" in choices.values():
+        state["output"]["include_files"] = True
 
 
 def ensure_precheck(source, state, catalog=None):
@@ -321,7 +338,9 @@ def compile_review(source, state, catalog=None):
             continue
         action = decision["action"]
         if decision.get("automatic"):
-            automatic_categories.setdefault(field.category, set()).add(
+            category = (field.key.split(":", 1)[0]
+                        if field.category == "additional" else field.category)
+            automatic_categories.setdefault(category, set()).add(
                 field.rule
             )
             automatic_counts[field.rule] = (
