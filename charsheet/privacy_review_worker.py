@@ -6,6 +6,7 @@ import os
 import threading
 import time
 
+from django.core import signing
 from django.db import close_old_connections
 
 from .privacy_export import build_snapshot, missing_information, review_digest
@@ -18,11 +19,13 @@ from .privacy_jobs import (
 )
 from .privacy_review import (
     compile_review,
+    ensure_precheck,
     fields,
     friendly_missing,
     initial_state,
     progress,
 )
+from .privacy_rules import RULESET
 
 logger = logging.getLogger("charsheet.privacy_jobs")
 ARTIFACTS = (
@@ -45,6 +48,42 @@ def atomic_json(path, value):
     pending.replace(path)
 
 
+def load_catalog(path, source):
+    """Reuse signed classifications for this immutable source and rule set."""
+    cache = None
+    try:
+        candidate = signing.loads(
+            read_json(path / "precheck.json")["signed"],
+            salt="privacy-precheck",
+            max_age=3600,
+        )
+        if (
+            candidate["ruleset"] == RULESET
+            and candidate["source_fingerprint"] == source["source_fingerprint"]
+            and isinstance(candidate["fields"], dict)
+        ):
+            cache = candidate
+    except (OSError, ValueError, KeyError, TypeError, signing.BadSignature):
+        pass
+    catalog = list(fields(source, cache))
+    if cache is None or len(cache["fields"]) != len(catalog):
+        atomic_json(
+            path / "precheck.json",
+            {
+                "signed": signing.dumps(
+                    {
+                        "ruleset": RULESET,
+                        "source_fingerprint": source["source_fingerprint"],
+                        "fields": {field.key: field.rule for field in catalog},
+                    },
+                    salt="privacy-precheck",
+                    compress=True,
+                )
+            },
+        )
+    return catalog
+
+
 def clear_artifacts(path):
     for name in ARTIFACTS:
         (path / name).unlink(missing_ok=True)
@@ -54,14 +93,16 @@ def perform(path, options):
     operation = options["operation"]
     if operation == "workspace":
         source, _ = build_snapshot(options["user_id"])
-        state = initial_state(source, options["mode"])
+        catalog = load_catalog(path, source)
+        state = initial_state(source, options["mode"], catalog)
         state["subject_id"] = options["user_id"]
         atomic_json(path / "source.json", source)
         atomic_json(path / "state.json", state)
     else:
         state = read_json(path / "state.json")
         source = read_json(path / "source.json")
-        catalog = list(fields(source))
+        catalog = load_catalog(path, source)
+        ensure_precheck(source, state, catalog)
         review = compile_review(source, state, catalog)
         if operation == "preview":
             review.pop("approval", None)
@@ -78,7 +119,9 @@ def perform(path, options):
             ):
                 if current is None:
                     current, _ = build_snapshot(state["subject_id"])
-                fresh = initial_state(current, state["mode"])
+                fresh = initial_state(
+                    current, state["mode"], load_catalog(path, current)
+                )
                 fresh.update(
                     subject_id=state["subject_id"],
                     version=state["version"] + 1,

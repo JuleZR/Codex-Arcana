@@ -199,6 +199,7 @@ def category_inventory(paths):
     for model in apps.get_app_config("charsheet").get_models():
         name = model.__name__
         entry = {"model": model._meta.label,
+                 "primary_key": model._meta.pk.name,
                  "label": str(model._meta.verbose_name_plural)}
         if model in paths:
             entry.update(scope="account_owned", ownership_path=paths[model])
@@ -549,6 +550,9 @@ class Collector:
                         str(k): str(v) for k, v in field.flatchoices
                     } if field.choices else {},
                 }
+                if (isinstance(field.default, str)
+                        and sanitize(field.default) == field.default):
+                    category["fields"][name]["default"] = field.default
             for field in model._meta.local_many_to_many:
                 if requested and field.name not in requested:
                     continue
@@ -685,8 +689,6 @@ class Collector:
             names = [f for f in (
                 "name", "slug", "code", "short_name", "codename")
                      if f in fields]
-            if not names:
-                continue
             objects = model._base_manager.filter(pk__in=ids)
             if "catalog_group" in fields:
                 objects = objects.filter(catalog_group__isnull=True)
@@ -766,6 +768,72 @@ class Collector:
             "records": normalized(records),
         }
 
+    def audit_review_context(self, queryset, content_types):
+        """Prove schema messages and current public catalog identifiers."""
+        referenced = {}
+        for type_id, pk in queryset.values_list(
+            "content_type_id", "object_id",
+        ):
+            referenced.setdefault(type_id, set()).add(pk)
+        scope = {row["model"]: row["scope"]
+                 for row in self.payload["category_mapping"]}
+        context = {"targets": {}, "public_objects": {}}
+        for model in apps.get_models():
+            type_id = content_types.get((model._meta.app_label,
+                                         model._meta.model_name))
+            if type_id not in referenced:
+                continue
+            label = model._meta.label
+            fields = list(model._meta.fields) + list(
+                model._meta.local_many_to_many)
+            context["targets"][str(type_id)] = {
+                "model": label,
+                "fields": sorted({text for field in fields for text in (
+                    field.name, str(field.verbose_name),
+                    str(field.verbose_name).capitalize(),
+                    str(field.verbose_name)[:1].upper() +
+                    str(field.verbose_name)[1:],
+                )}),
+            }
+            if (model._meta.app_label != "charsheet"
+                    or scope.get(label) != "no_direct_account_assignment"
+                    or model.__name__.startswith("GameGroup")):
+                continue
+            identifiers = [field.name for field in fields if field.name in {
+                "name", "slug", "code", "short_name", "codename",
+            } and not field.is_relation]
+            ids = []
+            for pk in referenced[type_id]:
+                try:
+                    ids.append(model._meta.pk.to_python(pk))
+                except (ValidationError, ValueError, TypeError):
+                    continue
+            objects = model._base_manager.filter(pk__in=ids)
+            if any(field.name == "catalog_group" for field in fields):
+                objects = objects.filter(catalog_group__isnull=True)
+            values = {}
+            relations = [field.name for field in model._meta.fields
+                         if field.is_relation]
+            for obj in objects.select_related(*relations).iterator(
+                chunk_size=500,
+            ):
+                names = [str(getattr(obj, name)) for name in identifiers
+                         if getattr(obj, name)]
+                try:
+                    representation = str(obj)
+                    names.extend((representation, representation[:200]))
+                except Exception:
+                    # A broken display method is not proof of a safe value.
+                    pass
+                names = sorted({name for name in names
+                                if sanitize(name) == name})
+                if names:
+                    values[str(obj.pk)] = names
+            context["public_objects"][str(type_id)] = values
+        self.payload.setdefault("review_context", {})["admin.LogEntry"] = (
+            context)
+        self.observe("admin.LogEntry", self.user.pk, "review_context", context)
+
     def security_categories(self):
         from .auth_security import _bucket_digest
         from django.utils.encoding import force_bytes
@@ -815,8 +883,10 @@ class Collector:
                 owned = owned.annotate(privacy_pk=Cast(
                     "pk", models.CharField())).values("privacy_pk")
                 log_query |= Q(content_type_id=type_id, object_id__in=owned)
+        log_rows = log._base_manager.filter(log_query)
+        self.audit_review_context(log_rows, content_types)
         self.category(
-            log, log._base_manager.filter(log_query), shared=True,
+            log, log_rows, shared=True,
             only={"id", "action_time", "action_flag", "user", "content_type",
                   "object_id", "object_repr", "change_message"},
         )

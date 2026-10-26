@@ -113,7 +113,8 @@ def remove_job(path):
                "ready.json", "ready.pending", "claimed", "report.pdf",
                "data.json", "audit.json", "export.zip", "source.json",
                "source.pending", "state.json", "state.pending", "preview.json",
-               "preview.pending", "options.pending", "owner.pending"}
+               "preview.pending", "options.pending", "owner.pending",
+               "precheck.json", "precheck.pending"}
     children = list(path.iterdir())
     for child in children:
         if child.is_symlink():

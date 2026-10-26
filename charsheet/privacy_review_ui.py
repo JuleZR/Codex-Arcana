@@ -33,8 +33,8 @@ from .privacy_review import (
     compile_review,
     decision_for,
     decision_value,
+    ensure_precheck,
     field_token,
-    fields,
     find_field,
     included,
     invalidate,
@@ -55,7 +55,7 @@ from .privacy_review_forms import (
     SupplementValueForm,
     coverage_forms,
 )
-from .privacy_review_worker import atomic_json, read_json
+from .privacy_review_worker import atomic_json, load_catalog, read_json
 
 PAGE_SIZE = 8
 LEAF_PAGE_SIZE = 30
@@ -355,14 +355,20 @@ def selected_category(source, request, catalog, state):
         choices.append(("additional", "Weitere zu prüfende Inhalte"))
     pending = {}
     for field in catalog:
-        if included(field, state) and not decision_for(field, state) and (
-            not field.automatic or field.key in state["decisions"]
+        if (
+            included(field, state)
+            and not decision_for(field, state)
+            and (not field.automatic or field.key in state["decisions"])
         ):
             pending[field.category] = pending.get(field.category, 0) + 1
-    default = next((index for index, (key, _) in enumerate(choices)
-                    if pending.get(key)), 0)
-    choices = [(key, f"{label} · {pending.get(key, 0)} Einzelprüfungen offen")
-               for key, label in choices]
+    default = next(
+        (index for index, (key, _) in enumerate(choices) if pending.get(key)),
+        0,
+    )
+    choices = [
+        (key, f"{label} · {pending.get(key, 0)} Einzelprüfungen offen")
+        for key, label in choices
+    ]
     try:
         index = int(
             request.POST.get("category", request.GET.get("category", default))
@@ -395,6 +401,12 @@ def edit_field(request, token, source, state, field, context):
     except ValueError:
         page = 0
     entries = list(leaves(field.value)) if structured else []
+    if field.rule == "review.calendar_text.v1":
+        entries = [
+            (path, value)
+            for path, value in entries
+            if path and path[-1] == "text"
+        ]
     shown = page_items(entries, page, LEAF_PAGE_SIZE)
     previous = {
         tuple(edit["path"]): edit["text"] for edit in decision.get("edits", [])
@@ -541,10 +553,13 @@ def workspace_view(request, token, context):
             return render(request, context, 202)
         source = read_json(path / "source.json")
         state = read_json(path / "state.json")
-        catalog = list(fields(source))
+        catalog = load_catalog(path, source)
+        if ensure_precheck(source, state, catalog):
+            atomic_json(path / "state.json", state)
         step = step_number(request, state)
         choices, category_index = selected_category(
-            source, request, catalog, state)
+            source, request, catalog, state
+        )
         category = choices[category_index][0]
         context.update(
             state=state,
@@ -664,7 +679,9 @@ def workspace_view(request, token, context):
                 context["error"] = "Bitte die Feldauswahl korrigieren."
         if action in {"accept_category", "accept_all_standards"}:
             accept_standards(
-                source, state, catalog,
+                source,
+                state,
+                catalog,
                 category=category if action == "accept_category" else None,
             )
             changed = True
@@ -867,16 +884,17 @@ def workspace_view(request, token, context):
         query = active_filter.get("query", "").strip().casefold()
         only_open = active_filter.get("only_open", True)
         only_exceptions = active_filter.get("only_exceptions", True)
-        rows = [
-            field for field in catalog if field.category == category
-        ]
+        rows = [field for field in catalog if field.category == category]
         rows = [
             field
             for field in rows
             if (not only_open or not decision_for(field, state))
-            and (not only_exceptions or not field.automatic
-                 or state["decisions"].get(field.key, {}).get("action")
-                 == "pending")
+            and (
+                not only_exceptions
+                or not field.automatic
+                or state["decisions"].get(field.key, {}).get("action")
+                == "pending"
+            )
             and (
                 not query
                 or query
@@ -895,13 +913,12 @@ def workspace_view(request, token, context):
             {
                 "field": field,
                 "checked": bool(decision_for(field, state)),
-                "automatic": bool((decision_for(field, state) or {}).get(
-                    "automatic")),
+                "automatic": bool(
+                    (decision_for(field, state) or {}).get("automatic")
+                ),
                 "selected": included(field, state),
                 "value": (
-                    caption(
-                        decision_value(field, decision_for(field, state))
-                    )
+                    caption(decision_value(field, decision_for(field, state)))
                     if decision_for(field, state)
                     else caption(field.value)
                 ),

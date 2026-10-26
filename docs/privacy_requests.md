@@ -20,9 +20,9 @@ Staff-Berechtigungen reichen nicht. Auch hier ist `DEBUG=False` erforderlich.
 3. Art. 15 oder Art. 20 wählen, die außerhalb des Werkzeugs erfolgte
    Anfragenprüfung bestätigen und **Prüfung starten** wählen. Die Auskunft
    betrifft das gewählte Konto, auch wenn es über einen Charakter gefunden wurde.
-4. **Daten prüfen:** Kategorien öffnen, Inhalte durchsuchen und ungeprüfte
-   Felder filtern. Standardwerte lassen sich kategorieweise bestätigen;
-   besonders prüfpflichtige Inhalte erfordern eine Einzelentscheidung.
+4. **Daten prüfen:** Unkritische Standardwerte werden ohne zusätzliche
+   Bestätigung übernommen. Die Ansicht öffnet direkt eine Kategorie mit
+   verbleibenden Ausnahmen und zeigt zunächst nur ungeprüfte Einzelprüfungen.
    Art. 20 bietet je Kategorie Checkboxen für Felder, Bereitstellung und
    Rechtsgrundlage. Art. 15 verlangt begründete Einschränkungen am einzelnen Feld.
 5. **Verarbeitung:** Betreiberangaben, Zwecke, Empfänger, Speicherdauer,
@@ -45,6 +45,43 @@ behalten ihren Datentyp. Alternativ kann ein geprüfter Textauszug eingesetzt
 werden. Schwärzungen entfernen keine ganzen Datensätze und ändern keine
 Originaldaten. Ohne JavaScript bleiben die serverseitigen Formulare bedienbar.
 Es gibt keinen JSON-Editor und keine manuell einzugebenden Feldpfade oder Hashes.
+
+### Automatische Vorprüfung und Ausnahmeprüfung
+
+Die zentralen, versionierten Regeln stehen in `charsheet/privacy_rules.py`.
+Automatisch übernommen werden typgeprüfte Zahlen, Wahrheitswerte, Zeitangaben,
+geschlossene Auswahlwerte sowie nachgewiesene eigene oder öffentliche Bezüge.
+Auch Metadaten eines sicher ermittelten gemeinsamen Datensatzes brauchen keine
+Einzelbestätigung; daraus folgt keine automatische Übernahme seiner Freitexte.
+Unbekannte Zuordnungen, persönliche Freitexte, Dateien, unklare Strukturen und
+geschützte Inhalte bleiben zur Prüfung vorgemerkt und werden nicht entfernt.
+
+Eine nach dem bestehenden Kalenderschema validierte Anordnung einschließlich
+reiner Trennzeichen wird vollständig automatisch übernommen. Enthält sie freien
+Zusatztext, konzentriert sich der Editor auf diesen Text; Positionen, Größen
+und Ausrichtung werden nicht zur Einzelprüfung vorgelegt.
+Bei Admin-Protokollen sind reine Schemaänderungen (z. B. die Namen geänderter
+Modellfelder) automatisch übernehmbar. Objektbezeichnungen nur dann, wenn sie
+exakt mit dem aktuellen öffentlichen Katalogeintrag desselben Objekts
+übereinstimmen. Historische abweichende Namen, freie Protokolltexte, private
+Kataloge und nicht nachweisbare Objektbezüge bleiben Ausnahmen.
+
+Die Zusammenfassung nennt automatisch übernommene Felder, Einzelprüfungen,
+offene Ausnahmen und geschwärzte/geschützte Werte. Regeln und ihre Anzahlen
+sind aufklappbar nachvollziehbar. Manuelle Entscheidungen haben immer Vorrang;
+das Rückgängigmachen einer automatischen Übernahme macht genau dieses Feld
+wieder offen. Die optionale globale Neuausführung der Standardprüfung
+überschreibt weder Schwärzungen noch solche manuellen Rücknahmen.
+
+Eine Klassifizierung wird je unveränderlichem Datenbestand und Regelversion
+einmal berechnet und in einer signierten privaten `precheck.json` abgelegt.
+Seitenwechsel und Filter verwenden diesen Nachweis erneut. Die Regelanwendung
+wird kompakt je Kategorie gespeichert, nicht als zehntausende Einzelbestätigungen.
+Der interne Export enthält unter `automatic_review` Regelstand, Bestandsbindung,
+verwendete Regeln, Anzahlen und manuelle Abweichungen. Diese Angaben gehören
+nicht in die Benutzerkopie. Alle neuen Prüfdateien unterliegen derselben
+automatischen Bereinigung. Änderungen am Bestand oder Regelstand entwerten die
+bisherige Freigabe; eine endgültige Freigabe erfolgt niemals automatisch.
 
 Die Datensammlung und PDF-/ZIP-Erstellung laufen in einem separaten Prozess,
 außerhalb des synchronen Gunicorn-Requests. Jede Anfrage erhält ein isoliertes,
@@ -544,6 +581,7 @@ Gezielte Tests mit synthetischen Konten:
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_jobs --keepdb
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_content --keepdb
 .venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_review --keepdb
+.venv\Scripts\python.exe manage.py test charsheet.tests.test_privacy_rules --keepdb
 node charsheet/tests/test_privacy_review_ui.js
 ```
 

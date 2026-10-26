@@ -15,7 +15,11 @@ from .privacy_content import (
 from .privacy_export import ownership_paths, validate_review, SHARED
 from .privacy_labels import PHRASES, german_label
 from .privacy_rules import (
-    Classifier, RULES, RULESET, category_label, field_label,
+    Classifier,
+    RULES,
+    RULESET,
+    category_label,
+    field_label,
 )
 
 SALT = "charsheet.privacy-review.field.v1"
@@ -46,9 +50,16 @@ class ReviewField:
         return RULES[self.rule][1]
 
 
-def fields(source):
+def fields(source, rule_cache=None):
     candidates = {item["id"]: item for item in source["review_candidates"]}
-    classifier = Classifier(source)
+    cache = rule_cache or {}
+    cached = (
+        cache.get("fields", {})
+        if cache.get("ruleset") == RULESET
+        and cache.get("source_fingerprint") == source["source_fingerprint"]
+        else {}
+    )
+    classifier = None
     seen = set()
     for category, content in source["categories"].items():
         title = category_label(category, content)
@@ -90,6 +101,18 @@ def fields(source):
                         value = value["value"]
                 seen.add(key)
                 value = sanitize(value)
+                rule = cached.get(key)
+                if rule not in RULES:
+                    if classifier is None:
+                        classifier = Classifier(source)
+                    rule = classifier.classify(
+                        category,
+                        pk,
+                        original_name,
+                        meta,
+                        value,
+                        bool(item),
+                    )
                 yield ReviewField(
                     key,
                     category,
@@ -110,9 +133,7 @@ def fields(source):
                             else ""
                         )
                     ),
-                    classifier.classify(
-                        category, pk, original_name, meta, value, bool(item),
-                    ),
+                    rule,
                     source["source_fingerprint"],
                 )
     for item in source["review_candidates"]:
@@ -224,31 +245,58 @@ def decision_for(field, state):
     if manual is not None:
         return None if manual["action"] == "pending" else manual
     accepted = state.get("standard_acceptance", {})
-    if (field.automatic and accepted.get("ruleset") == RULESET
-            and accepted.get("source_fingerprint") == field.fingerprint
-            and field.rule in accepted.get("categories", {}).get(
-                field.category, [])):
-        return {"action": "include", "reason": field.rule_label,
-                "automatic": True, "rule": field.rule}
+    if (
+        field.automatic
+        and accepted.get("ruleset") == RULESET
+        and accepted.get("source_fingerprint") == field.fingerprint
+        and field.rule
+        in accepted.get("categories", {}).get(field.category, [])
+    ):
+        return {
+            "action": "include",
+            "reason": field.rule_label,
+            "automatic": True,
+            "rule": field.rule,
+        }
     return None
 
 
 def accept_standards(source, state, catalog=None, category=None):
     """Store accepted rules once per category, never one entry per record."""
     accepted = state.get("standard_acceptance", {})
-    if (accepted.get("ruleset") != RULESET or
-            accepted.get("source_fingerprint") != source["source_fingerprint"]):
-        accepted = {"ruleset": RULESET,
-                    "source_fingerprint": source["source_fingerprint"],
-                    "categories": {}}
-    grouped = {key: set(value) for key, value
-               in accepted["categories"].items()}
+    if (
+        accepted.get("ruleset") != RULESET
+        or accepted.get("source_fingerprint") != source["source_fingerprint"]
+    ):
+        accepted = {
+            "ruleset": RULESET,
+            "source_fingerprint": source["source_fingerprint"],
+            "categories": {},
+        }
+    grouped = {
+        key: set(value) for key, value in accepted["categories"].items()
+    }
     for field in catalog if catalog is not None else fields(source):
-        if field.automatic and (category is None or field.category == category):
+        if field.automatic and (
+            category is None or field.category == category
+        ):
             grouped.setdefault(field.category, set()).add(field.rule)
-    accepted["categories"] = {key: sorted(value)
-                              for key, value in grouped.items()}
+    accepted["categories"] = {
+        key: sorted(value) for key, value in grouped.items()
+    }
     state["standard_acceptance"] = accepted
+
+
+def ensure_precheck(source, state, catalog=None):
+    accepted = state.get("standard_acceptance", {})
+    if (
+        accepted.get("ruleset") == RULESET
+        and accepted.get("source_fingerprint") == source["source_fingerprint"]
+    ):
+        return False
+    accept_standards(source, state, catalog)
+    invalidate(state)
+    return True
 
 
 def compile_review(source, state, catalog=None):
@@ -273,9 +321,11 @@ def compile_review(source, state, catalog=None):
         action = decision["action"]
         if decision.get("automatic"):
             automatic_categories.setdefault(field.category, set()).add(
-                field.rule)
-            automatic_counts[field.rule] = automatic_counts.get(
-                field.rule, 0) + 1
+                field.rule
+            )
+            automatic_counts[field.rule] = (
+                automatic_counts.get(field.rule, 0) + 1
+            )
         if action == "include" and not field.candidate:
             continue
         value = decision_value(field, decision)
@@ -317,8 +367,10 @@ def compile_review(source, state, catalog=None):
             "ruleset": RULESET,
             "source_fingerprint": source["source_fingerprint"],
             "subject_id": source["subject"]["id"],
-            "categories": {key: sorted(value) for key, value
-                           in automatic_categories.items()},
+            "categories": {
+                key: sorted(value)
+                for key, value in automatic_categories.items()
+            },
             "counts": automatic_counts,
             "overrides": overrides,
         }
@@ -327,10 +379,19 @@ def compile_review(source, state, catalog=None):
 
 
 def progress(source, state, catalog=None):
-    result = {key: 0 for key in (
-        "total", "checked", "open", "automatic", "standard_open",
-        "exceptions", "exceptions_open", "redacted",
-    )}
+    result = {
+        key: 0
+        for key in (
+            "total",
+            "checked",
+            "open",
+            "automatic",
+            "standard_open",
+            "exceptions",
+            "exceptions_open",
+            "redacted",
+        )
+    }
     rules = {}
     for field in catalog if catalog is not None else fields(source):
         if not included(field, state):
@@ -340,33 +401,51 @@ def progress(source, state, catalog=None):
         result["checked"] += bool(decision)
         result["open"] += not decision
         result["automatic"] += bool(decision and decision.get("automatic"))
-        standard_open = (not decision and field.automatic
-                         and field.key not in state["decisions"])
+        standard_open = (
+            not decision
+            and field.automatic
+            and field.key not in state["decisions"]
+        )
         result["standard_open"] += standard_open
-        result["exceptions"] += (not field.automatic or
-                                 state["decisions"].get(field.key, {}).get(
-                                     "action") == "pending")
+        result["exceptions"] += (
+            not field.automatic
+            or state["decisions"].get(field.key, {}).get("action") == "pending"
+        )
         result["exceptions_open"] += not decision and not standard_open
-        result["redacted"] += (
-            field.rule == "review.protected.v1" or bool(decision and
-            decision["action"] in {
-                "redact", "partial", "withhold", "not_personal",
-            }))
-        entry = rules.setdefault(field.rule, {
-            "id": field.rule, "label": field.rule_label,
-            "automatic": field.automatic, "total": 0, "open": 0,
-            "accepted": 0,
-        })
+        result["redacted"] += field.rule == "review.protected.v1" or bool(
+            decision
+            and decision["action"]
+            in {
+                "redact",
+                "partial",
+                "withhold",
+                "not_personal",
+            }
+        )
+        entry = rules.setdefault(
+            field.rule,
+            {
+                "id": field.rule,
+                "label": field.rule_label,
+                "automatic": field.automatic,
+                "total": 0,
+                "open": 0,
+                "accepted": 0,
+            },
+        )
         entry["total"] += 1
         entry["open"] += not decision
         entry["accepted"] += bool(decision)
-    result["percent"] = (round(100 * result["checked"] / result["total"])
-                         if result["total"] else 0)
+    result["percent"] = (
+        round(100 * result["checked"] / result["total"])
+        if result["total"]
+        else 0
+    )
     result["rules"] = list(rules.values())
     return result
 
 
-def initial_state(source, mode):
+def initial_state(source, mode, catalog=None):
     categories = recipient_payload(source)["data_categories"]
     processing = {
         "purposes": "; ".join(dict.fromkeys(c["purpose"] for c in categories)),
@@ -384,7 +463,7 @@ def initial_state(source, mode):
         for label, key in retention
         if meaningful(legal.get(key))
     )
-    return {
+    state = {
         "version": 0,
         "mode": mode,
         "decisions": {},
@@ -411,6 +490,8 @@ def initial_state(source, mode):
         "busy": False,
         "step": 3,
     }
+    accept_standards(source, state, catalog)
+    return state
 
 
 def invalidate(state):
