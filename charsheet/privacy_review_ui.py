@@ -29,7 +29,9 @@ from .privacy_jobs import (
 )
 from .privacy_labels import german_label
 from .privacy_review import (
+    accept_standards,
     compile_review,
+    decision_for,
     decision_value,
     field_token,
     fields,
@@ -40,6 +42,7 @@ from .privacy_review import (
     portable_categories,
     progress,
 )
+from .privacy_rules import category_label, field_label
 from .privacy_review_forms import (
     ApprovalForm,
     ControllerForm,
@@ -294,7 +297,6 @@ def selection_form(source, state, category, data=None):
         return None, []
     mapping = []
     choices = []
-    labels = recipient_payload(source)["categories"][category]["fields"]
     for name, meta in content["fields"].items():
         original = meta.get("source_field", name)
         if original == "id":
@@ -303,7 +305,7 @@ def selection_form(source, state, category, data=None):
         choices.append(
             (
                 str(len(mapping) - 1),
-                labels.get(name, {}).get("label", german_label(name)),
+                field_label(name, meta),
             )
         )
     rule = state["portability"].get(category, {})
@@ -343,17 +345,27 @@ def selection_form(source, state, category, data=None):
     return form, mapping
 
 
-def selected_category(source, request):
+def selected_category(source, request, catalog, state):
     choices = [
-        (key, value["label"])
-        for key, value in recipient_payload(source)["categories"].items()
+        (key, category_label(key, value))
+        for key, value in source["categories"].items()
         if value["records"]
     ]
-    if any(field.category == "additional" for field in fields(source)):
+    if any(field.category == "additional" for field in catalog):
         choices.append(("additional", "Weitere zu prüfende Inhalte"))
+    pending = {}
+    for field in catalog:
+        if included(field, state) and not decision_for(field, state) and (
+            not field.automatic or field.key in state["decisions"]
+        ):
+            pending[field.category] = pending.get(field.category, 0) + 1
+    default = next((index for index, (key, _) in enumerate(choices)
+                    if pending.get(key)), 0)
+    choices = [(key, f"{label} · {pending.get(key, 0)} Einzelprüfungen offen")
+               for key, label in choices]
     try:
         index = int(
-            request.POST.get("category", request.GET.get("category", 0))
+            request.POST.get("category", request.GET.get("category", default))
         )
     except ValueError:
         raise ValueError("Ungültige Kategorie.") from None
@@ -363,7 +375,7 @@ def selected_category(source, request):
 
 
 def edit_field(request, token, source, state, field, context):
-    decision = state["decisions"].get(field.key, {})
+    decision = decision_for(field, state) or {}
     initial = {
         "action": decision.get("action", "include"),
         "reason": decision.get("reason", ""),
@@ -411,6 +423,8 @@ def edit_field(request, token, source, state, field, context):
         action = form.cleaned_data["action"]
         if action == "reset":
             state["decisions"].pop(field.key, None)
+            if decision_for(field, state):
+                state["decisions"][field.key] = {"action": "pending"}
         else:
             entry = {"action": action, "reason": form.cleaned_data["reason"]}
             if (
@@ -527,8 +541,10 @@ def workspace_view(request, token, context):
             return render(request, context, 202)
         source = read_json(path / "source.json")
         state = read_json(path / "state.json")
+        catalog = list(fields(source))
         step = step_number(request, state)
-        choices, category_index = selected_category(source, request)
+        choices, category_index = selected_category(
+            source, request, catalog, state)
         category = choices[category_index][0]
         context.update(
             state=state,
@@ -548,7 +564,7 @@ def workspace_view(request, token, context):
                 "Benutzerkonto",
             ),
         )
-        context["progress"] = progress(source, state)
+        context["progress"] = progress(source, state, catalog)
         action = (
             request.POST.get("action") if request.method == "POST" else None
         )
@@ -557,6 +573,7 @@ def workspace_view(request, token, context):
             "save_information",
             "save_selection",
             "accept_category",
+            "accept_all_standards",
             "save_field",
             "save_output",
             "create_preview",
@@ -645,24 +662,17 @@ def workspace_view(request, token, context):
             context["selection_form"] = form
             if form.errors:
                 context["error"] = "Bitte die Feldauswahl korrigieren."
-        if action == "accept_category":
-            for field in fields(source):
-                if (
-                    field.category == category
-                    and included(field, state)
-                    and not field.candidate
-                    and field.key not in state["decisions"]
-                ):
-                    state["decisions"][field.key] = {
-                        "action": "include",
-                        "reason": "",
-                    }
+        if action in {"accept_category", "accept_all_standards"}:
+            accept_standards(
+                source, state, catalog,
+                category=category if action == "accept_category" else None,
+            )
             changed = True
         signed = request.POST.get("field_ref") or request.GET.get("edit")
         if action == "save_field" and not signed:
             raise ValueError("Kein gültiges Datenfeld ausgewählt.")
         if signed:
-            field = find_field(token, source, signed)
+            field = find_field(token, source, signed, catalog)
             saved = edit_field(request, token, source, state, field, context)
             if saved:
                 atomic_json(path / "state.json", state)
@@ -678,7 +688,7 @@ def workspace_view(request, token, context):
                 changed = False
                 if action == "create_preview":
                     try:
-                        compile_review(source, state)
+                        compile_review(source, state, catalog)
                     except ValueError:
                         context["error"] = (
                             "Die Auswahl ist unvollständig. Feldauswahl "
@@ -696,7 +706,7 @@ def workspace_view(request, token, context):
                 if (
                     state["preview_version"] != state["version"]
                     or state["missing"]
-                    or progress(source, state)["open"]
+                    or context["progress"]["open"]
                 ):
                     form.add_error(
                         None,
@@ -709,7 +719,7 @@ def workspace_view(request, token, context):
                         "review_sha256": review_digest(preview),
                         "reviewed_at": timezone.now().isoformat(),
                     }
-                    review = compile_review(source, state)
+                    review = compile_review(source, state, catalog)
                     review["approval"] = approval
                     apply_approval(preview, review)
                     state.update(approval=approval, step=6)
@@ -830,7 +840,7 @@ def workspace_view(request, token, context):
         context.update(
             supplement_form=supplement_form,
             value_forms=value_forms,
-            progress=progress(source, state),
+            progress=context["progress"],
             category_choices=choices,
             review_links=[
                 (number, label, url(token, number))
@@ -848,20 +858,25 @@ def workspace_view(request, token, context):
                 "category": category_index,
                 "query": request.POST.get("query", "")[:200],
                 "only_open": request.POST.get("only_open") == "on",
+                "only_exceptions": request.POST.get("only_exceptions") == "on",
             }
             atomic_json(path / "state.json", state)
         active_filter = state.get("filter", {})
         if active_filter.get("category") != category_index:
             active_filter = {}
         query = active_filter.get("query", "").strip().casefold()
-        only_open = active_filter.get("only_open", False)
+        only_open = active_filter.get("only_open", True)
+        only_exceptions = active_filter.get("only_exceptions", True)
         rows = [
-            field for field in fields(source) if field.category == category
+            field for field in catalog if field.category == category
         ]
         rows = [
             field
             for field in rows
-            if (not only_open or field.key not in state["decisions"])
+            if (not only_open or not decision_for(field, state))
+            and (not only_exceptions or not field.automatic
+                 or state["decisions"].get(field.key, {}).get("action")
+                 == "pending")
             and (
                 not query
                 or query
@@ -879,13 +894,15 @@ def workspace_view(request, token, context):
         context["review_fields"] = [
             {
                 "field": field,
-                "checked": field.key in state["decisions"],
+                "checked": bool(decision_for(field, state)),
+                "automatic": bool((decision_for(field, state) or {}).get(
+                    "automatic")),
                 "selected": included(field, state),
                 "value": (
                     caption(
-                        decision_value(field, state["decisions"][field.key])
+                        decision_value(field, decision_for(field, state))
                     )
-                    if field.key in state["decisions"]
+                    if decision_for(field, state)
                     else caption(field.value)
                 ),
                 "edit_url": url(
@@ -900,6 +917,7 @@ def workspace_view(request, token, context):
         context.update(
             query=active_filter.get("query", ""),
             only_open=only_open,
+            only_exceptions=only_exceptions,
             previous_url=(
                 url(token, 3, category=category_index, page=page - 1)
                 if page

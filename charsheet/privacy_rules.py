@@ -105,8 +105,9 @@ class Classifier:
         if isinstance(value, (dict, list)):
             return "review.structure.v1"
         choices = metadata.get("choices", {})
-        if choices and str(value) in choices:
-            return "owned.choice.v1"
+        if choices:
+            return ("owned.choice.v1" if str(value) in choices
+                    else "review.unknown.v1")
         if category == "auth.User" and name in {
             "username", "email", "first_name", "last_name",
         } and isinstance(value, str) and len(value) <= 254 and not any(

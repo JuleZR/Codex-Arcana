@@ -343,7 +343,9 @@ def progress(source, state, catalog=None):
         standard_open = (not decision and field.automatic
                          and field.key not in state["decisions"])
         result["standard_open"] += standard_open
-        result["exceptions"] += not field.automatic
+        result["exceptions"] += (not field.automatic or
+                                 state["decisions"].get(field.key, {}).get(
+                                     "action") == "pending")
         result["exceptions_open"] += not decision and not standard_open
         result["redacted"] += (
             field.rule == "review.protected.v1" or bool(decision and
