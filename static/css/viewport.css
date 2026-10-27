@@ -3,7 +3,7 @@
   html:root {
     min-height: 100%;
     min-height: 100svh;
-    background: url("/static/img/forestbg.png") center / cover no-repeat;
+    background: #14251e url("/static/img/forestbg.png") center / cover no-repeat fixed;
     scroll-padding-top: env(safe-area-inset-top, 0px);
     scroll-padding-right: env(safe-area-inset-right, 0px);
     scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -26,22 +26,12 @@
 
 @media (max-width: 900px), (pointer: coarse) {
   html:root {
-    background: url("/static/img/forestbg.png") center / cover no-repeat;
-  }
-
-  html:root::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: url("/static/img/forestbg.png") center / cover no-repeat;
+    background: #14251e url("/static/img/forestbg.png") center / cover no-repeat fixed;
   }
 
   html:root body {
-    position: relative;
-    z-index: 1;
-    background: transparent !important;
+    /* Safari samples the actual page canvas for its surrounding system UI. */
+    background: #14251e url("/static/img/forestbg.png") center / cover no-repeat fixed !important;
   }
 
   html:root body:has(> .login_scene) {
@@ -53,21 +43,28 @@
     overflow: clip;
   }
 
-  /* Keep iframe windows inside the safe rectangle, including dragged positions. */
-  html:root :is([data-item-transfer-window], #dashboardGroupWindow) {
+  /* Apply to every floating window, including Shop and Lernen, not only iframes. */
+  html:root :is(.payday-window, [data-item-transfer-window], #dashboardGroupWindow, .quickslot-editor) {
     position: fixed !important;
-    inset: calc(env(safe-area-inset-top, 0px) + 8px)
-      calc(env(safe-area-inset-right, 0px) + 8px)
-      calc(env(safe-area-inset-bottom, 0px) + 8px)
-      calc(env(safe-area-inset-left, 0px) + 8px) !important;
-    width: auto !important;
-    height: auto !important;
+    inset: var(--app-window-top, calc(env(safe-area-inset-top, 0px) + 8px)) auto auto
+      var(--app-window-left, calc(env(safe-area-inset-left, 0px) + 8px)) !important;
+    width: var(--app-window-width, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px)) !important;
     min-width: 0 !important;
     min-height: 0 !important;
     max-width: none !important;
-    max-height: none !important;
+    max-height: var(--app-window-height, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px)) !important;
     margin: 0 !important;
     aspect-ratio: auto !important;
     transform: none !important;
+  }
+
+  html:root :is(.payday-window--large, .payday-window--a4, [data-item-transfer-window], #dashboardGroupWindow, .quickslot-editor) {
+    height: var(--app-window-height, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px)) !important;
+  }
+
+  html:root .payday-window > .payday-window__body {
+    min-height: 0;
+    max-height: calc(var(--app-window-height, 100dvh) - var(--sheet-window-frame-band, 28px)) !important;
+    overflow-y: auto;
   }
 }
