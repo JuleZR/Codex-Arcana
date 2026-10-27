@@ -1,7 +1,7 @@
 import { onReady } from "./utils.js";
 import { initTabs } from "./tabs.js?v=20261007-dynamic-panels";
 import { initStandardFloatingWindows } from "./window_manager.js?v=20261013-shop-close";
-import { initLeftTools } from "./left_tools.js?v=20261001-mobile-menu1";
+import { initLeftTools } from "./left_tools.js?v=20261027-mobile-glass-bar";
 import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-investment";
 import { initFireflies } from "./fireflies.js";
 import { initItemForm } from "./item_form.js?v=20261017-multi-skills";
@@ -29,7 +29,7 @@ import { initCardHand } from "./card_hand.js?v=20261001-mobile-tray3";
 import { initGodCards } from "./god_card.js?v=20261018-image-edges";
 import { initCreatureCards } from "./creature_card.js?v=20261018-wound-transitions";
 import { initItemTransfers } from "./item_transfers.js?v=20261015-post1";
-import { initItemTransferWindow } from "./item_transfer_window.js?v=20261015-post1";
+import { initItemTransferWindow } from "./item_transfer_window.js?v=20261027-visible-close";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20261014-attribute-flavor";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
 import { initExternalSheetRefresh } from "./external_refresh.js?v=20261016-learning-refresh";

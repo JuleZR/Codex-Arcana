@@ -2114,37 +2114,229 @@ html[data-left-tools-open="1"] .left-tools {
   }
 }
 
-.left-tools__mobile-toggle {
+#leftTools .left-tools__resource-trigger,
+#leftTools .left-tools__resource-close {
   display: none;
 }
 
+#leftTools :is(.left-tools__icon_symbol, .learn_choice_notice_icon, .left-tools__apply) svg {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
 @media (max-width: 900px) {
-  .left-tools__mobile-toggle {
-    display: block;
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 12px;
-    border: 1px solid rgba(103, 72, 43, 0.72);
-    border-radius: 6px;
-    background: #f3e6cc;
-    color: #4a3726;
-    font: 700 14px/1.2 "Cinzel", Georgia, serif;
-    text-align: left;
+  .charsheet-page #charsheetApp {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #leftToolsStack {
+    z-index: 28;
+  }
+
+  #leftTools {
+    position: fixed;
+    inset: auto max(12px, env(safe-area-inset-right, 0px))
+      calc(10px + env(safe-area-inset-bottom, 0px) + var(--left-tools-keyboard-offset, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+    width: auto;
+    max-width: 420px;
+    margin-inline: auto;
+    overflow: visible;
+    border: 0;
+    border-radius: 29px;
+    background: transparent;
+    box-shadow: none;
+    clip-path: none;
+    filter: none;
+    transform: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  #leftTools .left-tools__inner {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 2px;
+    min-height: 58px;
+    max-height: none;
+    padding: 5px;
+    overflow: visible;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: inherit;
+    background: rgba(241, 243, 242, 0.88);
+    box-shadow: inset 0 1px 1px #fff, inset 0 -1px 1px #ffffff66,
+      0 8px 30px #10201933;
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  #leftTools .left-tools__panel--actions {
+    display: contents;
+  }
+
+  #leftTools :is(.left-tools__icon_btn, .left-tools__icon_btn:hover, .left-tools__icon_btn:focus-visible) {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: auto;
+    min-width: 0;
+    min-height: 46px;
+    margin: 0;
+    padding: 5px 2px;
+    border: 0;
+    border-radius: 23px;
+    color: #525655;
+    background: transparent;
+    box-shadow: none;
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  #leftTools .left-tools__icon_btn:is([aria-expanded="true"], :active) {
+    color: var(--ink, #503524);
+    background: #c5a16a33;
+    box-shadow: inset 0 1px 2px #73462d14;
+  }
+
+  #leftTools :is(.left-tools__icon_frame, .left-tools__icon_symbol) {
+    width: 22px;
+    height: 22px;
+    min-width: 0;
+    min-height: 0;
+    color: inherit;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #leftTools .left-tools__icon_symbol svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  #leftTools .left-tools__icon_label {
+    color: inherit;
+    font: 500 10px/1.2 "Segoe UI", sans-serif;
+    letter-spacing: 0;
+    text-align: center;
+  }
+
+  #leftTools .left-tools__panel--resources {
+    position: absolute;
+    inset: auto 0 calc(100% + 12px);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  #leftTools .left-tools__group--resource {
+    display: none;
+    min-width: 0;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid #ffffffb3;
+    border-radius: 24px;
+    background: rgba(241, 243, 242, 0.94);
+    box-shadow: inset 0 1px #fff, 0 8px 30px #10201933;
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  #leftTools .left-tools__group--resource.is-resource-open {
+    display: flex;
+  }
+
+  #leftTools .left-tools__group--resource h3 {
+    margin: 0 38px 8px 0;
+    padding: 0;
+    border: 0;
+    color: #525655;
+    background: transparent;
+    font: 600 14px/24px "Segoe UI", sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  #leftTools .left-tools__resource-close {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #525655;
+    background: transparent;
     cursor: pointer;
   }
 
-  .left-tools__mobile-toggle::after {
-    content: "⌄";
-    float: right;
-    transform: rotate(180deg);
+  #leftTools .left-tools__form {
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 8px;
+    margin: 0;
   }
 
-  .left-tools__mobile-toggle[aria-expanded="true"]::after {
-    transform: none;
+  #leftTools .wallet_delta_input.left-tools__delta_input {
+    min-height: 44px;
+    border: 1px solid #52565533;
+    border-radius: 14px;
+    color: #303735;
+    background: #ffffffa6;
   }
 
-  .sheet-side-stack .left-tools.is-menu-collapsed {
+  #leftTools .left-tools__unit_inset {
+    color: #525655;
+  }
+
+  #leftTools .left-tools__apply {
+    width: 44px;
+    min-height: 44px;
+    border: 1px solid #ffffff99;
+    border-radius: 50%;
+    color: #fff;
+    background: #73462d;
+    box-shadow: inset 0 1px #ffffff66;
+  }
+
+  #leftTools .left-tools__panel--notice {
+    position: absolute;
+    right: 8px;
+    bottom: calc(100% + 12px);
+    width: auto;
+  }
+
+  #leftTools .left-tools__notice_trigger {
+    min-height: 44px;
+    border-radius: 22px;
+  }
+
+  #leftTools:has(.is-resource-open) .left-tools__panel--notice {
     display: none;
+  }
+
+  #leftTools :is(button, a):focus-visible {
+    outline: 2px solid var(--os-brass, #c5a16a);
+    outline-offset: 2px;
+  }
+
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    #leftTools :is(.left-tools__inner, .left-tools__group--resource) {
+      background: linear-gradient(160deg, #ffffff9e, #e8ebe870);
+    }
   }
 
   #diaryTrigger,
@@ -2152,5 +2344,15 @@ html[data-left-tools-open="1"] .left-tools {
   #diaryWindow,
   #battleCalculatorWindow {
     display: none !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .charsheet-page:has(#leftTools) #charsheetApp {
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #leftTools {
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px) + var(--left-tools-keyboard-offset, 0px));
   }
 }

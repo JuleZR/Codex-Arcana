@@ -10,8 +10,8 @@
     scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Prevent focus zoom on iOS without restricting manual page zoom. */
-  :is(input, textarea, select, [contenteditable="true"], [contenteditable=""]) {
+  /* Outrank component font overrides without restricting manual page zoom. */
+  html:root body :is(input, textarea, select, [contenteditable="true"], [contenteditable=""]) {
     font-size: max(16px, 1em) !important;
   }
 }

@@ -10,7 +10,7 @@
 @import url("./charsheet/card-hand.css?v=20261001-mobile-tray2");
 @import url("./charsheet/responsive.css?v=20261007-clear-viewport");
 @import url("./charsheet/parchment.css?v=20260801b");
-@import url("./charsheet/quick-access.css?v=20261018-sidebar-position-restored");
+@import url("./charsheet/quick-access.css?v=20261027-mobile-glass-gold");
 @import url("./charsheet/battle-calculator.css");
 @import url("./charsheet/window-system.css?v=20261018-specification-close-position");
 @import url("./charsheet/shop.css?v=20261017-subcategory-hierarchy");
@@ -21,4 +21,4 @@
 @import url("./charsheet/lessons.css?v=20261004a");
 @import url("./charsheet/alchemist-almanac.css?v=20260908w");
 @import url("./charsheet/journal-book.css?v=20261009-journal-hover-edge");
-@import url("./item-transfer-window.css?v=20261015-post3");
+@import url("./item-transfer-window.css?v=20261027-visible-close");

@@ -1,16 +1,58 @@
 export function initLeftTools() {
-  const mobileToggle = document.getElementById("leftToolsMobileToggle");
   const leftTools = document.getElementById("leftTools");
-  if (mobileToggle instanceof HTMLButtonElement && leftTools instanceof HTMLElement) {
-    const setExpanded = (expanded) => {
-      leftTools.classList.toggle("is-menu-collapsed", !expanded);
-      mobileToggle.setAttribute("aria-expanded", String(expanded));
-      mobileToggle.textContent = expanded ? "Menü ausblenden" : "Menü einblenden";
+  if (leftTools instanceof HTMLElement) {
+    const mobile = window.matchMedia("(max-width: 900px)");
+    const triggers = Array.from(leftTools.querySelectorAll("[data-resource-target]"));
+    const panels = Array.from(leftTools.querySelectorAll(".left-tools__group--resource"));
+    const updateKeyboardOffset = () => {
+      const viewport = window.visualViewport;
+      const editing = mobile.matches && panels.some((panel) => panel.contains(document.activeElement));
+      const offset = editing && viewport
+        ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        : 0;
+      leftTools.style.setProperty("--left-tools-keyboard-offset", `${offset}px`);
     };
-    setExpanded(!window.matchMedia("(max-width: 900px)").matches);
-    mobileToggle.addEventListener("click", () => {
-      setExpanded(mobileToggle.getAttribute("aria-expanded") !== "true");
+    const closeResources = (restoreFocus = false) => {
+      const activeTrigger = triggers.find((trigger) => trigger.getAttribute("aria-expanded") === "true");
+      const focusInPanel = panels.some((panel) => panel.contains(document.activeElement));
+      if (focusInPanel) document.activeElement.blur();
+      panels.forEach((panel) => panel.classList.remove("is-resource-open"));
+      triggers.forEach((trigger) => trigger.setAttribute("aria-expanded", "false"));
+      updateKeyboardOffset();
+      if (restoreFocus && activeTrigger) activeTrigger.focus({ preventScroll: true });
+    };
+    triggers.forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        const wasOpen = trigger.getAttribute("aria-expanded") === "true";
+        closeResources();
+        if (!mobile.matches || wasOpen) return;
+        const panel = panels.find((entry) => entry.id === trigger.dataset.resourceTarget);
+        if (!panel) return;
+        panel.classList.add("is-resource-open");
+        trigger.setAttribute("aria-expanded", "true");
+        panel.querySelector("input")?.focus({ preventScroll: true });
+        updateKeyboardOffset();
+      });
     });
+    leftTools.querySelectorAll("[data-resource-close]").forEach((button) => {
+      button.addEventListener("click", () => closeResources(true));
+    });
+    leftTools.addEventListener("click", (event) => {
+      if (event.target.closest(".left-tools__icon_btn:not([data-resource-target]), [data-pending-choice-trigger]")) {
+        closeResources();
+      }
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (mobile.matches && !leftTools.contains(event.target)) closeResources();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (mobile.matches && event.key === "Escape") closeResources(true);
+    });
+    mobile.addEventListener("change", () => closeResources());
+    leftTools.addEventListener("focusin", updateKeyboardOffset);
+    leftTools.addEventListener("focusout", () => window.requestAnimationFrame(updateKeyboardOffset));
+    window.visualViewport?.addEventListener("resize", updateKeyboardOffset);
+    window.visualViewport?.addEventListener("scroll", updateKeyboardOffset);
   }
 
   const moneyXpInputs = Array.from(document.querySelectorAll(".left-tools__delta_input"));

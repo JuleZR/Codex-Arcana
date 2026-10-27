@@ -39,6 +39,7 @@ export function initItemTransferWindow() {
     windowElement.classList.remove("is-dragging");
     dragPointerId = null;
   };
+  windowElement.querySelector("[data-close-item-transfer-window]")?.addEventListener("click", close);
   const open = (url) => {
     if (measurementFallback) window.clearTimeout(measurementFallback);
     windowElement.classList.add("is-measuring");
@@ -50,7 +51,9 @@ export function initItemTransferWindow() {
       windowElement.classList.remove("is-measuring");
       measurementFallback = null;
     }, 800);
-    windowElement.querySelector("[data-close-item-transfer-window]")?.focus();
+    const focusTarget = window.matchMedia("(max-width: 760px)").matches
+      ? frame : windowElement.querySelector("[data-close-item-transfer-window]");
+    focusTarget?.focus();
   };
   const updateTransferBadge = (count) => {
     const normalizedCount = Math.max(0, Number.parseInt(count, 10) || 0);
@@ -80,7 +83,6 @@ export function initItemTransferWindow() {
       event.preventDefault();
       open(trigger.dataset.transferUrl || "");
     }
-    if (event.target.closest("[data-close-item-transfer-window]")) close();
   });
   document.addEventListener("charsheet:open-transfer-compose", (event) => {
     const trigger = document.querySelector("[data-open-item-transfer-window][data-transfer-url]");

@@ -98,16 +98,6 @@
   }
 
   .item-transfer-window__header {
-    height: 82px;
-    width: 52px;
-    left: auto;
-    padding-right: 8px;
-    cursor: default;
-    touch-action: auto;
-  }
-
-  .item-transfer-window [data-close-item-transfer-window] {
-    min-width: 44px;
-    min-height: 44px;
+    display: none;
   }
 }

@@ -145,6 +145,21 @@ body { margin: 0; background: #281f1a; }
   .transfer-center { width: calc(100vw - 16px); height: calc(100dvh - 16px); aspect-ratio: auto; margin: 8px; }
 }
 @media (max-width: 760px) {
+  .transfer-center-page--embedded .transfer-center__header { position: relative; padding-right: 104px; }
+  .transfer-center-page--embedded .transfer-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: auto;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 15px;
+    font: 600 11px/1 "Segoe UI", sans-serif;
+  }
   .transfer-center__header { flex-basis: auto; min-height: 82px; flex-wrap: wrap; padding: 10px 12px; }
   .transfer-center__header .market_emblem { width: 32px; height: 32px; }
   .transfer-center__header .market_guild { font-size: 8px; letter-spacing: .7px; }

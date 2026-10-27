@@ -109,8 +109,13 @@ function initTransferCenter() {
   center.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-transfer-tab], [data-transfer-go]");
     if (tab) activateTab(tab.dataset.transferTab || tab.dataset.transferGo);
-    if (event.target.closest("[data-transfer-close]")) {
-      window.parent.postMessage({ type: "codex:item-transfer-close" }, window.location.origin);
+    const closeButton = event.target.closest("[data-transfer-close]");
+    if (closeButton) {
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: "codex:item-transfer-close" }, window.location.origin);
+      } else if (closeButton.dataset.transferReturnUrl) {
+        window.location.assign(closeButton.dataset.transferReturnUrl);
+      }
     }
     if (event.target.closest("[data-transfer-clear-selection]")) {
       checkboxes.forEach((box) => { box.checked = false; });

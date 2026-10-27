@@ -6,7 +6,7 @@
   {% include "charsheet/partials/_viewport.html" %}
   <title>Die Postzentrale | Codex Arcana</title>
   <link rel="stylesheet" href="{% static 'css/charsheet/shop.css' %}?v=20261015-post1">
-  <link rel="stylesheet" href="{% static 'css/charsheet/post-center.css' %}?v=20261015-post4">
+  <link rel="stylesheet" href="{% static 'css/charsheet/post-center.css' %}?v=20261027-visible-close">
 </head>
 <body class="transfer-center-page{% if embedded %} transfer-center-page--embedded{% endif %}">
 <main class="transfer-center">
@@ -14,7 +14,7 @@
     <span class="market_emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 6h18v14H3zM3 7l9 7 9-7M9 3h6m-3-2v4"/></svg></span>
     <div class="market_heading"><span class="market_guild">CODEX ARCANA · BOTENDIENST</span><h1 class="market_title">Die Postzentrale</h1><p class="market_subtitle">Sendungen, Übergaben und Korrespondenz{% if selected_character %} · {{ selected_character.name }}{% endif %}</p></div>
     <div class="market_wallet"><span>Offene Sendungen</span><strong>{{ incoming|length }}</strong></div>
-    {% if embedded %}<button type="button" class="transfer-close" data-transfer-close aria-label="Postzentrale schließen">×</button>{% else %}<a class="transfer-button" href="{% url 'dashboard' %}">Dashboard</a>{% endif %}
+    {% if embedded %}<button type="button" class="transfer-close" data-transfer-close data-transfer-return-url="{% if selected_character %}{% url 'character_sheet' selected_character.pk %}{% else %}{% url 'dashboard' %}{% endif %}" aria-label="Postzentrale schließen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg><span>Schließen</span></button>{% else %}<a class="transfer-button" href="{% url 'dashboard' %}">Dashboard</a>{% endif %}
   </header>
   <p class="transfer-feedback" data-transfer-feedback role="status" hidden></p>
   {% if messages %}<div class="transfer-toast-stack" aria-live="polite">{% for message in messages %}<p class="transfer-message" data-transfer-toast>{{ message }}</p>{% endfor %}</div>{% endif %}
@@ -107,6 +107,6 @@
     </div>
   </div>
 </main>
-<script type="module" src="{% static 'js/charsheet/post_center.js' %}?v=20261015-post3"></script>
+<script type="module" src="{% static 'js/charsheet/post_center.js' %}?v=20261027-standalone-close"></script>
 </body>
 </html>
