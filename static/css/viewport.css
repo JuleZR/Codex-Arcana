@@ -9,4 +9,9 @@
     scroll-padding-top: env(safe-area-inset-top, 0px);
     scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Prevent focus zoom on iOS without restricting manual page zoom. */
+  :is(input, textarea, select, [contenteditable="true"], [contenteditable=""]) {
+    font-size: max(16px, 1em) !important;
+  }
 }
