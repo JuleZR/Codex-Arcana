@@ -2128,7 +2128,11 @@ html[data-left-tools-open="1"] .left-tools {
 
 @media (max-width: 900px) {
   .charsheet-page #charsheetApp {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 78px;
+  }
+
+  .charsheet-page:has(#leftTools) #charsheetApp > .book-spread {
+    padding-bottom: 0;
   }
 
   #leftToolsStack {
@@ -2349,10 +2353,14 @@ html[data-left-tools-open="1"] .left-tools {
 
 @media (max-width: 700px) {
   .charsheet-page:has(#leftTools) #charsheetApp {
-    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(var(--mobile-status-hud-height, 64px) + 78px - env(safe-area-inset-bottom, 0px));
+  }
+
+  #mobileStatusHud {
+    bottom: 0;
   }
 
   #leftTools {
-    bottom: calc(74px + env(safe-area-inset-bottom, 0px) + var(--left-tools-keyboard-offset, 0px));
+    bottom: calc(var(--mobile-status-hud-height, 64px) + 10px + var(--left-tools-keyboard-offset, 0px));
   }
 }

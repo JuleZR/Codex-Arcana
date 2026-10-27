@@ -19,7 +19,7 @@ import { initCharInfoCounter } from "./char_info_counter.js";
 import { initCharacterInfoForm } from "./character_info_form.js?v=20261018-image-edges";
 import { initSheetActions } from "./sheet_actions.js?v=20261017-decisions";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js?v=20261018-image-edges";
-import { initMobileHud } from "./mobile_hud.js";
+import { initMobileHud } from "./mobile_hud.js?v=20261027-dock-height";
 import { initSkillManager } from "./skill_manager.js?v=20261006-skill-sorting2";
 import { initArmorPanel } from "./armor_panel.js?v=20261006-item-damage";
 import { initBattleCalculator } from "./battle_calculator.js?v=20260731a";

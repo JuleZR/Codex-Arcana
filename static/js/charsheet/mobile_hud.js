@@ -73,6 +73,16 @@ export function initMobileHud() {
 
   syncAll();
 
+  const syncDockHeight = () => {
+    const height = Math.ceil(hud.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--mobile-status-hud-height", `${height}px`);
+  };
+  syncDockHeight();
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(syncDockHeight).observe(hud);
+  }
+  window.addEventListener("resize", syncDockHeight);
+
   const gauge = document.querySelector(".damage_gauge");
   const meter = document.querySelector(".arcane_meter");
 

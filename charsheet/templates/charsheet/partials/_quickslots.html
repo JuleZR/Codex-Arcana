@@ -1,10 +1,10 @@
-<aside id="characterQuickslots" class="quickslots" aria-label="Würfel-Hotbar"
+<aside id="characterQuickslots" class="quickslots is-collapsed" aria-label="Würfel-Hotbar"
        data-storage-key="charsheet.quickslots.{{ request.user.pk }}.{{ character.pk }}"
        data-layout-url="{% url 'quickslot_layout' character.pk %}"
        data-actions-url="{% url 'quickslot_actions' character.pk %}"
        data-debug-result-url="{% url 'quickslot_debug_result' character.pk %}"
        data-weapon-result-url="{% url 'quickslot_weapon_result' character.pk %}">
-  <button type="button" class="quickslots__toggle" data-quickslot-toggle aria-controls="quickslotBody" aria-expanded="true" title="Hotbar einklappen">›</button>
+  <button type="button" class="quickslots__toggle" data-quickslot-toggle aria-controls="quickslotBody" aria-expanded="false" title="Hotbar ausklappen">‹</button>
   <div id="quickslotBody" class="quickslots__body">
     <button type="button" class="quickslots__modifiers-toggle" data-quickslot-modifiers-toggle aria-controls="quickslotModifiers" aria-expanded="false" title="Boni und Mali" aria-label="Boni und Mali ein- oder ausklappen">±</button>
     <button type="button" class="quickslots__modifiers-toggle" data-quickslot-history-toggle aria-controls="quickslotHistory" aria-expanded="false" title="Wurfprotokoll" aria-label="Wurfprotokoll ein- oder ausklappen">≡</button>

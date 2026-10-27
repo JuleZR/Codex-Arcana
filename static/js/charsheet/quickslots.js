@@ -161,7 +161,8 @@ export function initQuickslots({ rollDice, isRolling }) {
   const status = document.getElementById("quickslotStatus");
   let slots = [...FREE_DICE, ...Array(30).fill(null)];
   const enabledBars = { ctrl: false, shift: false };
-  let collapsed = window.matchMedia("(max-width: 700px)").matches;
+  const mobileViewport = window.matchMedia("(max-width: 900px)");
+  let collapsed = mobileViewport.matches;
   let catalog = [];
   let editingIndex = null;
   let choices = [];
@@ -236,7 +237,7 @@ export function initQuickslots({ rollDice, isRolling }) {
           enabledBars[key] = bar?.enabled === true;
           if (bar) slots.splice((index + 1) * 11, 11, ...bar.slots.map(normalizeAction));
         });
-        collapsed = layout.collapsed;
+        collapsed = mobileViewport.matches || layout.collapsed;
         try { window.localStorage.removeItem?.(root.dataset.storageKey); } catch (_) { /* Central layout is already loaded. */ }
       }
       ready = true;
@@ -494,6 +495,12 @@ export function initQuickslots({ rollDice, isRolling }) {
     refreshCatalog().then(() => { if (editor.open) fillChoices(); }).catch(error => notify(error.message));
   }
 
+  mobileViewport.addEventListener("change", () => {
+    if (mobileViewport.matches) {
+      collapsed = true;
+      render();
+    }
+  });
   toggle.addEventListener("click", async () => {
     if (!ready || saving) return;
     collapsed = !collapsed;
@@ -615,8 +622,10 @@ export function initQuickslots({ rollDice, isRolling }) {
     event.dataTransfer.setData(MIME, JSON.stringify(drag));
     event.dataTransfer.effectAllowed = slot ? "move" : "copy";
     root.classList.add("is-dragging");
-    root.classList.remove("is-collapsed");
-    toggle.setAttribute("aria-expanded", "true");
+    if (!mobileViewport.matches) {
+      root.classList.remove("is-collapsed");
+      toggle.setAttribute("aria-expanded", "true");
+    }
   }, true);
   root.addEventListener("dragover", event => {
     const button = event.target.closest("[data-quickslot-index]");

@@ -3,15 +3,19 @@
   html:root {
     min-height: 100%;
     min-height: 100svh;
-    background: #14251e url("/static/img/forestbg.png") center / cover no-repeat;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
+    background: url("/static/img/forestbg.png") center / cover no-repeat;
     scroll-padding-top: env(safe-area-inset-top, 0px);
     scroll-padding-right: env(safe-area-inset-right, 0px);
     scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
     scroll-padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  html:root body {
+    /* Reserve content space without insetting the document canvas. */
+    border-style: solid;
+    border-color: transparent;
+    border-width: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
 
   /* Outrank component font overrides without restricting manual page zoom. */
@@ -22,15 +26,13 @@
 
 @media (max-width: 900px), (pointer: coarse) {
   html:root {
-    /* Keep Safari's extended canvas opaque underneath the full-height image. */
-    background: #14251e url("/static/img/forestbg.png") center / cover no-repeat;
+    background: url("/static/img/forestbg.png") center / cover no-repeat;
   }
 
   html:root::before {
     content: "";
     position: fixed;
     inset: 0;
-    min-height: 100lvh;
     z-index: 0;
     pointer-events: none;
     background: url("/static/img/forestbg.png") center / cover no-repeat;
@@ -40,5 +42,32 @@
     position: relative;
     z-index: 1;
     background: transparent !important;
+  }
+
+  html:root body:has(> .login_scene) {
+    min-height: 100dvh;
+  }
+
+  html:root body:has(> .login_scene) > .firefly-layer {
+    contain: paint;
+    overflow: clip;
+  }
+
+  /* Keep iframe windows inside the safe rectangle, including dragged positions. */
+  html:root :is([data-item-transfer-window], #dashboardGroupWindow) {
+    position: fixed !important;
+    inset: calc(env(safe-area-inset-top, 0px) + 8px)
+      calc(env(safe-area-inset-right, 0px) + 8px)
+      calc(env(safe-area-inset-bottom, 0px) + 8px)
+      calc(env(safe-area-inset-left, 0px) + 8px) !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    aspect-ratio: auto !important;
+    transform: none !important;
   }
 }
