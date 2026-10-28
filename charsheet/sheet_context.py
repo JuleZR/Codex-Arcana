@@ -9011,11 +9011,6 @@ def build_temporary_attribute_context(
     gw_value = engine.gw()
     willpower = attributes.get(ATTR_WILL, 0)
     school_level_total = sum(int(entry.level) for entry in engine._school_entries.values())
-    aspect_level_total = sum(
-        int(entry.level)
-        for entry in character.get_magic_engine().get_character_aspects()
-        if entry.is_bonus_aspect
-    )
     from charsheet.engine.vampire_engine import VampireRules
 
     vampire_rules = VampireRules(character)
@@ -9083,7 +9078,6 @@ def build_temporary_attribute_context(
         resource_tooltip_rows = [
             {"label": "Will", "value": willpower},
             {"label": "Stufen in Schulen", "value": school_level_total},
-            {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
             *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
             {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
         ]
@@ -9711,11 +9705,6 @@ def build_character_sheet_context(
     willpower = attributes.get(ATTR_WILL, 0)
     school_level_total = sum(school_levels.values())
     magic_engine = character.get_magic_engine()
-    aspect_level_total = sum(
-        int(entry.level)
-        for entry in magic_engine.get_character_aspects()
-        if entry.is_bonus_aspect
-    )
     from charsheet.engine.vampire_engine import VampireRules
 
     vampire_rules = VampireRules(character)
@@ -10473,7 +10462,6 @@ def build_character_sheet_context(
                 else [
                     {"label": "Will", "value": willpower},
                     {"label": "Stufen in Schulen", "value": school_level_total},
-                    {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
                     *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
                     {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
                 ],

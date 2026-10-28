@@ -70,11 +70,6 @@ def calculate_arcane_power(engine) -> int:
 
     willpower = engine.attributes().get(ATTR_WILL, 0)
     school_levels = sum(entry.level for entry in engine._school_entries.values())
-    aspect_levels = sum(
-        int(entry.level)
-        for entry in engine.character.get_magic_engine(refresh=True).get_character_aspects()
-        if entry.is_bonus_aspect
-    )
     lesson_levels = engine.character.learned_lessons.count()
     advanced_runes = (
         sum(
@@ -86,7 +81,7 @@ def calculate_arcane_power(engine) -> int:
         else 0
     )
     return (
-        willpower + school_levels + aspect_levels + lesson_levels
+        willpower + school_levels + lesson_levels
         + advanced_runes
         + arcane_power_bonus(engine.character)
         + career_arcane_power_bonus(engine.character)
