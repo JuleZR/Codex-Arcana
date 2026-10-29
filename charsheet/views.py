@@ -8673,12 +8673,7 @@ def adjust_experience(request, character_id: int):
     character = _owned_character_or_404(request, character_id)
     if character.is_npc:
         if _is_partial_request(request):
-            return _sheet_partials_response(
-                request,
-                character,
-                "experience_panel",
-                "learning_budget",
-            )
+            return _experience_partials_response(request, character)
         messages.info(request, "NPCs besitzen keinen verfügbaren EP-Vorrat.")
         return redirect("character_sheet", character_id=character_id)
     raw_delta = str(request.POST.get("delta", "0") or "0").strip()
@@ -8697,16 +8692,53 @@ def adjust_experience(request, character_id: int):
         delta = -delta
 
     if delta:
-        character.current_experience = max(0, character.current_experience + delta)
+        character.current_experience = max(
+            0, character.current_experience + delta,
+        )
         update_fields = ["current_experience"]
         if not current_only:
-            character.overall_experience = max(0, character.overall_experience + delta)
+            character.overall_experience = max(
+                0, character.overall_experience + delta,
+            )
             update_fields.append("overall_experience")
         character.save(update_fields=update_fields)
 
     if _is_partial_request(request):
-        return _sheet_partials_response(request, character, "experience_panel", "learning_budget")
+        return _experience_partials_response(request, character)
     return redirect("character_sheet", character_id=character_id)
+
+
+def _experience_partials_response(
+    request, character: Character,
+) -> JsonResponse:
+    """Refresh EP displays without rebuilding unrelated sheet data."""
+    engine = character.get_engine(
+        refresh=True,
+        runtime_attribute_adjustments=_temporary_attribute_adjustments(
+            request, character.pk,
+        ),
+    )
+    context = {
+        "character": character,
+        "learn_magic_slot_summary": (
+            character.get_magic_engine().get_spell_learning_slot_summary()
+        ),
+        "learn_free_language_remaining": max(
+            0,
+            engine.free_language_slots()
+            - character.int_bonus_languages.count(),
+        ),
+    }
+    return JsonResponse({
+        "ok": True,
+        "characterId": character.pk,
+        "partials": _render_sheet_partials(
+            request, context, ("experience_panel", "learning_budget"),
+        ),
+        "openItemTransferCount": ItemTransfer.objects.filter(
+            recipient=character, status=ItemTransfer.Status.PENDING,
+        ).count(),
+    })
 
 
 @login_required
