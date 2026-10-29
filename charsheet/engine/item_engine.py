@@ -1,6 +1,7 @@
 """Helpers for item prices, quality effects, and equipment stat lookups."""
 
 from decimal import Decimal, ROUND_HALF_UP
+from functools import cached_property
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
@@ -181,12 +182,18 @@ class ItemEngine:
     def _get_weapon_stats(self) -> WeaponStats | None:
         if self.weapon_stats is not None:
             return self.weapon_stats
-        return (
-            self._get_item()
-            .weapon_stats
-            .order_by("id")
-            .first()
-        )
+        return self._default_weapon_stats
+
+    @cached_property
+    def _default_weapon_stats(self) -> WeaponStats | None:
+        """Reuse the first profile, including an absent profile, per engine."""
+        item = self._get_item()
+        if "weapon_stats" in getattr(item, "_prefetched_objects_cache", {}):
+            return min(
+                item.weapon_stats.all(), key=lambda stats: stats.pk,
+                default=None,
+            )
+        return item.weapon_stats.order_by("id").first()
 
     def get_weapon_stats_profiles(self) -> list[WeaponStats]:
         return list(

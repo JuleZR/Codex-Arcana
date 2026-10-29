@@ -631,11 +631,13 @@ class TechniqueSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"technique_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.technique.name
-            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            condition_race_ids = sorted(
+                race.pk for race in self.condition_races.all()
+            )
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
-            condition_school_ids = list(
-                self.condition_schools.order_by("id").values_list("id", flat=True)
+            condition_school_ids = sorted(
+                school.pk for school in self.condition_schools.all()
             )
             if condition_school_ids:
                 metadata["condition_school_ids"] = condition_school_ids
@@ -645,7 +647,9 @@ class TechniqueSemanticEffect(models.Model):
                 "id": int(self.target_choice_definition_id),
             }
         if self.pk:
-            selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
+            selected_skill_slugs = sorted(
+                skill.slug for skill in self.target_skills.all()
+            )
             if selected_skill_slugs:
                 metadata["target_skill_slugs"] = selected_skill_slugs
         if self.technique.has_specification and "skill_specification_source" not in metadata:

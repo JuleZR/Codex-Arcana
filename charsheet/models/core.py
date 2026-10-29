@@ -854,8 +854,9 @@ class TraitSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.trait.name
-            condition_race_ids = list(self.condition_races.order_by(
-                "id").values_list("id", flat=True))
+            condition_race_ids = sorted(
+                race.pk for race in self.condition_races.all()
+            )
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
         if self.target_choice_definition_id:
@@ -864,8 +865,9 @@ class TraitSemanticEffect(models.Model):
                 "id": int(self.target_choice_definition_id),
             }
         if self.pk:
-            selected_skill_slugs = list(self.target_skills.order_by(
-                "slug").values_list("slug", flat=True))
+            selected_skill_slugs = sorted(
+                skill.slug for skill in self.target_skills.all()
+            )
             if selected_skill_slugs:
                 metadata["target_skill_slugs"] = selected_skill_slugs
         resolved_target = TargetResolver.resolve(

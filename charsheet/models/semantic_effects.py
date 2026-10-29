@@ -123,11 +123,13 @@ class SemanticEffectFields(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"{self.semantic_effect_key_prefix()}:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()
-            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            condition_race_ids = sorted(
+                race.pk for race in self.condition_races.all()
+            )
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
-            condition_school_ids = list(
-                self.condition_schools.order_by("id").values_list("id", flat=True)
+            condition_school_ids = sorted(
+                school.pk for school in self.condition_schools.all()
             )
             if condition_school_ids:
                 metadata["condition_school_ids"] = condition_school_ids

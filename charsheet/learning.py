@@ -172,6 +172,8 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         "choices": 0,
         "daemonic_powers": 0,
     }
+    if not _has_progression_inputs(post_data):
+        return summary
 
     def _rebuild_if(dirty: bool) -> tuple:
         if not dirty:

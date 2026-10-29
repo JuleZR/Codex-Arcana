@@ -1746,6 +1746,7 @@ def _build_sheet_context_for_request(
     skip_magic_sync: bool = False,
     read_only: bool = False,
     sl_effect_group_id: int | None = None,
+    include_learning_catalog: bool = True,
 ) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
     if not read_only:
@@ -1771,6 +1772,7 @@ def _build_sheet_context_for_request(
         close_learn_window_once=close_learn_window_once,
         read_only=read_only,
         sl_effect_group_id=sl_effect_group_id,
+        include_learning_catalog=include_learning_catalog,
     )
     if read_only:
         user_settings = UserSettings.objects.filter(user=request.user).first() or UserSettings(user=request.user)
@@ -1890,9 +1892,14 @@ def _temporary_attribute_response(
     )
 
 
-def _sheet_partials_response(request, character: Character, *partial_keys: str) -> JsonResponse:
+def _sheet_partials_response(
+    request, character: Character, *partial_keys: str,
+    include_learning_catalog: bool = True,
+) -> JsonResponse:
     """Render one or more server-truth sheet partials for targeted DOM replacement."""
-    context = _build_sheet_context_for_request(request, character)
+    context = _build_sheet_context_for_request(
+        request, character, include_learning_catalog=include_learning_catalog,
+    )
     partials = _render_sheet_partials(request, context, partial_keys)
     return JsonResponse(
         {
@@ -5725,7 +5732,10 @@ def create_item_transfer(request, pk=None):
                 message=request.POST.get("message", ""),
             )
             if _is_partial_request(request):
-                return _sheet_partials_response(request, sender, *SHEET_INVENTORY_PARTIAL_KEYS)
+                return _sheet_partials_response(
+                    request, sender, *SHEET_INVENTORY_PARTIAL_KEYS,
+                    include_learning_catalog=False,
+                )
             messages.success(request, f"Zur Bearbeitung an SL @ {group.name} gesendet.")
             return redirect("character_sheet", character_id=sender.pk)
         if recipient is None:
@@ -5758,7 +5768,10 @@ def create_item_transfer(request, pk=None):
             request, error, character_id=item.owner_id if item else None,
         )
     if _is_partial_request(request):
-        return _sheet_partials_response(request, sender, *SHEET_INVENTORY_PARTIAL_KEYS)
+        return _sheet_partials_response(
+            request, sender, *SHEET_INVENTORY_PARTIAL_KEYS,
+            include_learning_catalog=False,
+        )
     messages.success(request, "Übergabe wurde erstellt.")
     return redirect("character_sheet", character_id=sender.pk)
 
@@ -5849,7 +5862,9 @@ def decline_item_transfer_view(request, transfer_id):
     except TransferError as error:
         return _transfer_response_error(request, error)
     if _is_partial_request(request):
-        return _sheet_partials_response(request, recipient, "left_tools")
+        return _sheet_partials_response(
+            request, recipient, "left_tools", include_learning_catalog=False,
+        )
     messages.info(request, "Übergabe abgelehnt.")
     return _item_transfer_center_redirect(request)
 
@@ -5872,7 +5887,10 @@ def recall_item_transfer_view(request, transfer_id):
             character_id=transfer.sender_id if return_to_character else None,
         )
     if _is_partial_request(request) and return_to_character:
-        return _sheet_partials_response(request, transfer.sender, *SHEET_INVENTORY_PARTIAL_KEYS)
+        return _sheet_partials_response(
+            request, transfer.sender, *SHEET_INVENTORY_PARTIAL_KEYS,
+            include_learning_catalog=False,
+        )
     messages.success(request, "Übergabe zurückgezogen.")
     if return_to_character:
         return redirect("character_sheet", character_id=transfer.sender_id)
@@ -8868,7 +8886,10 @@ def _shop_cart_partial_keys(character, payload, buy_key, sell_key):
 def _add_shop_cart_partials(
     request, character, response_payload, partial_keys,
 ):
-    context = _build_sheet_context_for_request(request, character)
+    context = _build_sheet_context_for_request(
+        request, character,
+        include_learning_catalog="learning_budget" in partial_keys,
+    )
     response_payload["partials"] = _render_sheet_partials(
         request, context, partial_keys,
     )

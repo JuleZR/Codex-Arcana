@@ -8595,6 +8595,10 @@ def _build_learning_rows(
     spell_attribute_chart_by_school, spell_attribute_chart_by_aspect = _spell_attribute_chart_maps()
     divine_binding = magic_engine._divine_binding()
     divine_entity = divine_binding.entity if divine_binding is not None else None
+    divine_school = (
+        divine_binding.school if divine_binding is not None else None
+    )
+    divine_school_id = divine_school.pk if divine_school is not None else None
     divine_primary_symbol = ""
     divine_primary_image_url = ""
     divine_aspect_symbols: list[str] = []
@@ -8604,11 +8608,11 @@ def _build_learning_rows(
         divine_primary_image_url = _image_field_url(divine_entity, "symbol_image")
         if not divine_primary_image_url:
             divine_primary_symbol = str(
-                getattr(divine_binding.school, "panel_symbol", "")
+                getattr(divine_school, "panel_symbol", "")
                 or divine_primary_symbol
             ).strip()
             divine_primary_image_url = _school_symbol_image_url(
-                divine_binding.school,
+                divine_school,
             )
         for link in divine_entity.aspects.select_related("aspect").order_by("aspect__name"):
             aspect = link.aspect
@@ -8623,6 +8627,7 @@ def _build_learning_rows(
     active_clerical_school_ids = {
         int(school.id)
         for school in School.objects.filter(id__in=learned_school_ids).select_related("type")
+        .prefetch_related("druid_cults", "shaman_patrons")
         if is_clerical_school(school)
     }
     selected_religion_entity = selected_divine_entity(character)
@@ -8634,7 +8639,9 @@ def _build_learning_rows(
                 allowed_divine_entity_types=(
                     selected_religion_entity.entity_type
                 ),
-            ).select_related("type") if is_divine_entity_school(school)
+            ).select_related("type").prefetch_related(
+                "druid_cults", "shaman_patrons",
+            ) if is_divine_entity_school(school)
         )
     schools = (
         School.objects.select_related("type")
@@ -8664,7 +8671,7 @@ def _build_learning_rows(
         source_image_url = _school_symbol_image_url(school)
         secondary_symbols = ""
         secondary_image_urls = ""
-        if divine_entity is not None and school.id == divine_binding.school_id:
+        if divine_entity is not None and school.id == divine_school_id:
             source_symbol = divine_primary_symbol
             source_image_url = divine_primary_image_url
             secondary_symbols = ";".join(divine_aspect_symbols)
@@ -9346,6 +9353,13 @@ def build_item_semantic_effect_partial_context(
 ) -> dict[str, object]:
     """Build only the sheet data needed after item semantic-effect toggles."""
     partial_key_set = set(partial_keys)
+    if partial_key_set == {"inventory_panel"}:
+        context = build_inventory_partial_context(character)
+        context["read_only"] = read_only
+        context["carry_load"]["penalty"] = (
+            character.engine.carry_penalty("load")
+        )
+        return context
     context = build_temporary_attribute_context(character, read_only=read_only)
     engine = character.engine
     carry_state = ItemEngine.carry_state_for_character(character)
@@ -9720,6 +9734,7 @@ def build_character_sheet_context(
     close_learn_window_once: bool = False,
     read_only: bool = False,
     sl_effect_group_id: int | None = None,
+    include_learning_catalog: bool = True,
 ) -> dict[str, object]:
     """Build the full character-sheet context without direct template calculations."""
     engine = character.engine
@@ -9888,7 +9903,7 @@ def build_character_sheet_context(
         school_levels,
         engine=base_engine,
         synchronize=not read_only,
-    )
+    ) if include_learning_catalog else {}
     lesson_context = _build_lesson_context(character, engine=base_engine, read_only=read_only)
     learning_progression_context = build_learning_progression_context(
         character,
@@ -10737,10 +10752,22 @@ def build_character_sheet_context(
             for rune in Rune.objects.order_by("name")
         ],
         "close_learn_window_once": close_learn_window_once,
-        "learn_skill_count": sum(len(group["rows"]) for group in learning_context["learn_skill_groups"]),
-        "learn_trait_count": sum(len(group["rows"]) for group in learning_context["learn_trait_groups"]),
-        "learn_school_count": sum(len(group["rows"]) for group in learning_context["learn_school_groups"]),
-        "learn_magic_count": sum(len(group["rows"]) for group in learning_context["learn_magic_groups"]),
+        "learn_skill_count": sum(
+            len(group["rows"])
+            for group in learning_context.get("learn_skill_groups", [])
+        ),
+        "learn_trait_count": sum(
+            len(group["rows"])
+            for group in learning_context.get("learn_trait_groups", [])
+        ),
+        "learn_school_count": sum(
+            len(group["rows"])
+            for group in learning_context.get("learn_school_groups", [])
+        ),
+        "learn_magic_count": sum(
+            len(group["rows"])
+            for group in learning_context.get("learn_magic_groups", [])
+        ),
         **learning_context,
         **lesson_context,
         **learning_progression_context,

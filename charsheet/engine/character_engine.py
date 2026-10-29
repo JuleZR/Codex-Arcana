@@ -53,6 +53,7 @@ from charsheet.models import (
     TechniqueChoiceDefinition,
     TechniqueExclusion,
     TechniqueRequirement,
+    TechniqueSemanticEffect,
 )
 
 
@@ -657,13 +658,20 @@ class CharacterEngine:
     @cached_property
     def _computed_technique_ids(self) -> set[int]:
         """Cache technique ids whose effects may be resolved automatically."""
+        techniques = (
+            list(self._character_school_technique_list)
+            + list(self._race_technique_list)
+        )
+        active_effect_ids = set(
+            TechniqueSemanticEffect.objects.filter(
+                technique_id__in=[technique.id for technique in techniques],
+                active_flag=True,
+            ).values_list("technique_id", flat=True)
+        )
         return {
             technique.id
-            for technique in (
-                list(self._character_school_technique_list)
-                + list(self._race_technique_list)
-            )
-            if self._technique_effect_is_computed(technique)
+            for technique in techniques
+            if technique.choice_bonus_value or technique.id in active_effect_ids
         }
 
     @cached_property
@@ -1430,6 +1438,11 @@ class CharacterEngine:
         """Return whether the engine should resolve passive effects for this technique."""
         if technique.choice_bonus_value:
             return True
+        if (
+            technique.id in self._techniques_by_id
+            or technique.id in self._race_technique_ids
+        ):
+            return technique.id in self._computed_technique_ids
         semantic_effects = getattr(technique, "semantic_effects", None)
         return bool(semantic_effects and semantic_effects.filter(active_flag=True).exists())
 

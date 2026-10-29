@@ -492,7 +492,9 @@ class MagicEngine:
 
     def get_spell_learning_slot_summary(self) -> dict[str, int | bool]:
         summary = self.project_spell_learning_slot_summary()
-        source_summaries = self.get_spell_learning_slot_source_summaries()
+        source_summaries = self.get_spell_learning_slot_source_summaries(
+            has_bonus_trait=bool(summary["has_bonus_trait"]),
+        )
         total = sum(int(source["total"]) for source in source_summaries.values())
         spent = sum(int(source["spent"]) for source in source_summaries.values())
         summary.update(
@@ -509,8 +511,11 @@ class MagicEngine:
         )
         return summary
 
-    def get_spell_learning_slot_source_summaries(self) -> dict[str, dict[str, object]]:
-        has_bonus_trait = self._has_bonus_spell_trait()
+    def get_spell_learning_slot_source_summaries(
+        self, *, has_bonus_trait: bool | None = None,
+    ) -> dict[str, dict[str, object]]:
+        if has_bonus_trait is None:
+            has_bonus_trait = self._has_bonus_spell_trait()
         slots_per_level = SPELL_LEARNING_SLOTS_PER_MAGIC_LEVEL + (
             SPELL_LEARNING_BONUS_SLOTS_PER_MAGIC_LEVEL if has_bonus_trait else 0
         )
