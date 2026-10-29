@@ -5367,6 +5367,26 @@ def _build_skill_rows(
         rank_bonus = int(engine.skill_rank_bonus(
             skill.slug, specification=specification, learned_rank=base_rank,
         ))
+        rank_bonus_sources = []
+        if rank_bonus:
+            for target in dict.fromkeys((skill.slug, skill.category.slug)):
+                for entry in engine.explain_modifier_resolution(
+                    "skill_rank", target, specification=specification,
+                ):
+                    value = entry.get("resolved_value")
+                    if not isinstance(value, (int, float)) or not value:
+                        continue
+                    if (
+                        entry.get("operator") == "min_value"
+                        and value <= base_rank
+                    ):
+                        continue
+                    rank_bonus_sources.append(_resolve_modifier_source_name(
+                        engine,
+                        entry.get("source_type"),
+                        entry.get("source_id"),
+                    ))
+        rank_bonus_label = ", ".join(dict.fromkeys(rank_bonus_sources))
         rank = base_rank + rank_bonus
         size_modifier = _skill_size_modifier(skill)
         total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
@@ -5412,7 +5432,10 @@ def _build_skill_rows(
                     {"label": "Eigenschaft", "value": format_modifier(attribute_modifier), "source": skill.attribute.short_name},
                     {"label": "Rang", "value": base_rank},
                     *(
-                        [{"label": "Rang-Bonus", "value": format_modifier(rank_bonus), "source": "Effekt"}]
+                        [{
+                            "label": rank_bonus_label or "Rang",
+                            "value": format_modifier(rank_bonus),
+                        }]
                         if rank_bonus
                         else []
                     ),
@@ -7983,17 +8006,31 @@ def _build_language_rows(character: Character) -> tuple[list[dict], object]:
         key=lambda entry: (not entry.is_mother_tongue, entry.language.name),
     )
     language_rows: list[dict] = []
-    for entry in language_entries:
-        level_count = max(0, min(3, engine.resolve_language_level(entry.language.slug)))
+    languages = sorted(
+        engine._language_definitions_by_slug.values(),
+        key=lambda language: (
+            not bool(
+                engine._languages_map.get(language.slug)
+                and engine._languages_map[language.slug].is_mother_tongue
+            ),
+            language.name,
+        ),
+    )
+    for language in languages:
+        level_count = max(0, min(
+            3, engine.resolve_language_level(language.slug),
+        ))
         if not level_count:
             continue
         language_rows.append(
             {
-                "name": entry.language.name,
+                "name": language.name,
                 "level_1": level_count >= 1,
                 "level_2": level_count >= 2,
                 "level_3": level_count >= 3,
-                "can_write": bool(engine.effective_language_write(entry.language.slug)),
+                "can_write": bool(
+                    engine.effective_language_write(language.slug)
+                ),
             }
         )
     return language_rows, language_entries

@@ -143,6 +143,9 @@
     if (["skill", "multi_skill", "skill_category"].indexOf(area.value) !== -1) {
       allowed.push("skill_rank_minimum");
     }
+    if (area.value === "language") {
+      allowed.push("language_rank_minimum");
+    }
     rebuildOptions(
       operator,
       readAllOptions(operator).filter(function (option) {

@@ -3707,6 +3707,7 @@ class RuleSemanticEffectAdminForm(
         ("choice_binding", "Auswahlbindung"),
         ("multi_skill", "Mehrere Fertigkeiten"),
         ("skill_category", "Fertigkeitskategorie"),
+        ("language", "Sprache"),
         ("item", "Item"),
         ("item_category", "Item-Kategorie"),
         ("specialization", "Spezialisierung"),
@@ -3742,6 +3743,7 @@ class RuleSemanticEffectAdminForm(
         ("override", "auf Wert setzen"),
         ("min_value", "mindestens"),
         ("skill_rank_minimum", "Fertigkeitsrang mindestens"),
+        ("language_rank_minimum", "Sprachrang mindestens"),
         ("max_value", "hoechstens"),
         ("set_flag", "Flag setzen"),
         ("unset_flag", "Flag entfernen"),
@@ -3899,6 +3901,11 @@ class RuleSemanticEffectAdminForm(
         choices.extend((f"weapon:{item.pk}", item.name) for item in weapon_items)
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
+        choices.append(("language:foreign_languages", "Alle Fremdsprachen"))
+        choices.extend(
+            (f"language:{language.slug}", language.name)
+            for language in Language.objects.order_by("name")
+        )
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
         choices.extend((f"item_category:{value}", label)
                        for value, label in Item.type_choices(active_only=True))
@@ -3941,6 +3948,7 @@ class RuleSemanticEffectAdminForm(
             "weapon": "weapon",
             "skill": "skill",
             "skill_category": "skill_category",
+            "language": "language",
             "item": "item",
             "item_category": "item_category",
             "specialization": "specialization",
@@ -3957,6 +3965,11 @@ class RuleSemanticEffectAdminForm(
                 else "skill"
             )
             self.initial.setdefault("simple_operator", "skill_rank_minimum")
+        if (
+            target_domain == "language"
+            and self.instance.operator == "min_value"
+        ):
+            self.initial.setdefault("simple_operator", "language_rank_minimum")
         if positional_wound_stage:
             self.initial.setdefault("effect_area", "wound_stage")
             self.initial.setdefault("simple_target", f"wound_stage:{wound_stage_position}")
@@ -4105,6 +4118,12 @@ class RuleSemanticEffectAdminForm(
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
         operator = cleaned_data.get("simple_operator") or "flat_add"
+        if operator == "language_rank_minimum":
+            if area != "language":
+                self.add_error(
+                    "simple_operator", "Ein Sprachrang gilt nur für Sprachen.",
+                )
+            operator = "min_value"
         if operator == "skill_rank_minimum":
             if area not in {"skill", "multi_skill", "skill_category"}:
                 self.add_error(
@@ -4246,6 +4265,7 @@ class RuleSemanticEffectAdminForm(
             "multi_skill": "skill",
             "skill": "skill",
             "skill_category": "skill_category",
+            "language": "language",
             "item": "item",
             "item_category": "item_category",
             "specialization": "specialization",

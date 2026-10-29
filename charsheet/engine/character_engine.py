@@ -39,6 +39,7 @@ from charsheet.models import (
     CharacterTechniqueChoice,
     CharacterTraitChoice,
     Item,
+    Language,
     ProgressionRule,
     RaceChoiceDefinition,
     RaceTechnique,
@@ -225,6 +226,11 @@ class CharacterEngine:
             skill.slug: skill
             for skill in Skill.objects.select_related("category", "attribute").order_by("slug")
         }
+
+    @cached_property
+    def _language_definitions_by_slug(self) -> dict[str, Language]:
+        """Cache valid languages, including those without purchased ranks."""
+        return {language.slug: language for language in Language.objects.all()}
 
     @cached_property
     def _languages_map(self) -> dict[str, CharacterLanguage]:
@@ -1059,15 +1065,19 @@ class CharacterEngine:
     def resolve_language_level(self, language_slug: str) -> int:
         """Resolve the effective spoken language level after language modifiers."""
         entry = self._languages_map.get(language_slug)
-        if entry is None:
+        if (
+            entry is None
+            and language_slug not in self._language_definitions_by_slug
+        ):
             return 0
         base_level = max(
-            int(entry.levels), self.free_language_level(language_slug),
+            int(entry.levels) if entry is not None else 0,
+            self.free_language_level(language_slug),
         )
-        modifier_parts = [self.modifier_total_for_language(language_slug)]
-        if not bool(entry.is_mother_tongue):
-            modifier_parts.append(self.modifier_total_for_language("foreign_languages"))
-        return max(0, base_level + sum(int(part) for part in modifier_parts))
+        return self.modifier_engine.resolve_language_level(
+            language_slug, base_level=base_level,
+            is_mother_tongue=bool(entry and entry.is_mother_tongue),
+        )
 
     def effective_language_write(self, language_slug: str) -> bool:
         """Return whether the character can currently write the given language."""

@@ -873,6 +873,22 @@ class ModifierEngine:
             metadata.update(modifier.metadata or {})
         return metadata
 
+    def resolve_language_level(
+        self, language_slug: str, *, base_level: int,
+        is_mother_tongue: bool = False,
+    ) -> int:
+        """Apply language bonuses and floors to independent learned ranks."""
+        group_keys = (
+            () if is_mother_tongue else (PROFICIENCY_GROUP_FOREIGN_LANGUAGES,)
+        )
+        bonus = self._migrated_numeric_total(
+            TargetDomain.LANGUAGE,
+            language_slug,
+            minimum_base=base_level,
+            additional_target_keys=group_keys,
+        )
+        return max(0, base_level + bonus)
+
     def skill_modifier_specifications(self, skill_id: int, skill_slug: str, context: dict[str, Any] | None = None) -> list[str]:
         """Return non-generic skill specifications made visible by active skill modifiers."""
         if self.character_engine is None:
@@ -1394,6 +1410,7 @@ class ModifierEngine:
         *,
         specification: str | None = None,
         minimum_base: int = 0,
+        additional_target_keys: tuple[str, ...] = (),
     ) -> int:
         """Resolve one numeric target from migrated typed modifiers."""
         skill = (
@@ -1416,6 +1433,7 @@ class ModifierEngine:
                     skill is not None
                     and modifier.target_key == skill.category.slug
                 )
+                or modifier.target_key in additional_target_keys
             )
             and self._modifier_matches_skill_specification(
                 modifier,
@@ -1465,7 +1483,9 @@ class ModifierEngine:
                 resolved_total = int(resolved_total // resolved_value)
                 continue
             if modifier.operator == ModifierOperator.MIN_VALUE:
-                if target_domain == TargetDomain.SKILL_RANK:
+                if target_domain in {
+                    TargetDomain.SKILL_RANK, TargetDomain.LANGUAGE,
+                }:
                     rank_minimum = max(
                         rank_minimum or 0, int(resolved_value),
                     )

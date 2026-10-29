@@ -24,7 +24,7 @@ SEMANTIC_EFFECT_AREA_GROUPS = (
     ("Geld", ("economy",)),
     ("Fertigkeiten", (
         "skill", "multi_skill", "skill_category", "special_skill",
-        "specialization", "proficiency_group",
+        "specialization", "proficiency_group", "language",
     )),
     ("Kampf & Waffen", (
         "combat", "damage_source", "attack_type_damage",
