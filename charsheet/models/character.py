@@ -759,14 +759,57 @@ class CharacterTrait(models.Model):
     @property
     def resolved_nobility_rank(self):
         """Expose the derived title independently of name composition."""
+        return next((
+            title["rank"] for title in self.resolved_nobility_titles
+            if title["rank"]
+        ), "")
+
+    @property
+    def resolved_nobility_titles(self):
+        """Resolve every authored title using the same invested trait CP."""
+        if not self.trait.choice_definitions.filter(
+            is_active=True, uses_nobility_ranks=True,
+        ).exists():
+            return []
+        titles = list(self.nobility_titles.select_related(
+            "country__nobility_rank_system",
+        ))
+        if titles:
+            points = self.trait.cost_for_level(self.trait_level)
+            result = []
+            for title in titles:
+                rank = ""
+                if title.country_id and title.country.nobility_rank_system_id:
+                    system = title.country.nobility_rank_system
+                    if title.selected_rank:
+                        if system.ranks.filter(
+                            cp_threshold__lte=points,
+                            title=title.selected_rank,
+                        ).exists():
+                            rank = title.selected_rank
+                    else:
+                        rank = system.resolve_rank(points)
+                result.append({
+                    "country_id": title.country_id,
+                    "specification": title.specification,
+                    "selected_rank": title.selected_rank,
+                    "rank": rank,
+                })
+            return result
+        result = []
         for choice in self.choices.filter(
             definition__is_active=True,
             definition__uses_nobility_ranks=True,
         ).select_related("definition", "selected_content_type"):
-            rank = choice.resolved_nobility_rank
-            if rank:
-                return rank
-        return ""
+            result.append({
+                "country_id": (
+                    choice.selected_object_id
+                    if isinstance(choice.selected_entity, Country) else None
+                ),
+                "specification": self.specification,
+                "rank": choice.resolved_nobility_rank,
+            })
+        return result
 
     class Meta:
         constraints = [
@@ -831,6 +874,47 @@ class CharacterTrait(models.Model):
     def __str__(self):
         suffix = f": {self.specification}" if self.specification else ""
         return f"{self.owner}: {self.trait}{suffix} ({self.trait_level})"
+
+
+class CharacterTraitNobilityTitle(models.Model):
+    """An independently authored country title on one acquired trait."""
+
+    character_trait = models.ForeignKey(
+        CharacterTrait, on_delete=models.CASCADE,
+        related_name="nobility_titles",
+    )
+    country = models.ForeignKey(
+        Country, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="character_nobility_titles",
+    )
+    specification = models.CharField(max_length=100, blank=True, default="")
+    selected_rank = models.CharField(max_length=200, blank=True, default="")
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def clean(self):
+        super().clean()
+        if not self.character_trait.trait.choice_definitions.filter(
+            is_active=True, uses_nobility_ranks=True,
+        ).exists():
+            raise ValidationError("Dieser Trait unterstützt keine Adelstitel.")
+        if not Country.objects.filter(
+            pk=self.country_id, nobility_rank_system__isnull=False,
+        ).exists():
+            raise ValidationError("Ein Land mit Adelsrangsystem auswählen.")
+        if self.selected_rank:
+            ranks = self.country.nobility_rank_system.ranks
+            if not ranks.filter(
+                cp_threshold__lte=self.character_trait.trait.cost_for_level(
+                    self.character_trait.trait_level,
+                ),
+                title=self.selected_rank,
+            ).exists():
+                raise ValidationError(
+                    "Einen Rang bis zu den aktuellen CP wählen.",
+                )
 
 
 class TraitChoiceDefinition(models.Model):

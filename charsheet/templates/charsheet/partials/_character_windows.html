@@ -193,6 +193,11 @@
               {{ trait_specification_form.specification_option }}
             </label>
             <p class="skill_spec_hint">Die Spezifikation wird direkt im Trait-Tooltip angezeigt.</p>
+            <div data-nobility-editor hidden>
+              <div data-nobility-title-list></div>
+              <button type="button" class="shop_item_cancel_btn" data-nobility-add>+ Titel hinzufügen</button>
+              <input type="hidden" name="nobility_titles" disabled>
+            </div>
           </div>
           <div class="shop_item_form_actions">
             <button type="button" id="traitSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>

@@ -5912,8 +5912,33 @@ def _trait_display_name(trait: Trait, specification: str) -> str:
     return trait.name
 
 
+def _trait_name_suffix(character, entry):
+    """Compose an opted-in display suffix without changing identity data."""
+    if not entry.trait.has_specification:
+        return ""
+    mode = entry.trait.name_display_mode
+    if mode == Trait.NameDisplayMode.NOBILITY_RANK:
+        return ", ".join(dict.fromkeys(
+            " ".join((title["rank"] + " " + title["specification"]).split())
+            for title in entry.resolved_nobility_titles
+            if title["rank"] and title["specification"].strip()
+        ))
+    specification = " ".join((entry.specification or "").split())
+    if not specification:
+        return ""
+    if mode == Trait.NameDisplayMode.GENDERED_LINEAGE:
+        term = {
+            Character.Gender.M: "Sohn",
+            Character.Gender.W: "Tochter",
+        }.get(character.gender)
+        return f"{term} {specification}" if term else ""
+    return ""
+
+
 def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     """Build prepared rows for advantages and disadvantages."""
+    from charsheet.nobility import nobility_editor_payload
+
     traits_qs = (
         CharacterTrait.objects
         .filter(owner=character)
@@ -5931,7 +5956,12 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             if entry.specification_option_id
             else (entry.specification or "").strip()
         )
-        display_name = _trait_display_name(entry.trait, specification)
+        nobility_rank = " ".join(entry.resolved_nobility_rank.split())
+        display_specification = " ".join(
+            part for part in (nobility_rank, specification) if part
+        )
+        display_name = _trait_display_name(entry.trait, display_specification)
+        nobility = nobility_editor_payload(entry)
         row = {
             "id": entry.id,
             "name": entry.trait.name,
@@ -5940,7 +5970,14 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             "can_edit_specification": bool(entry.trait.has_specification),
             "organization_rank_choices": [],
             "name_affiliations": [],
+            "name_suffix": _trait_name_suffix(character, entry),
+            "name_suffix_priority": (
+                0 if entry.trait.name_display_mode
+                == Trait.NameDisplayMode.NOBILITY_RANK else 1
+            ),
             "specification": specification,
+            "specification_display": display_specification,
+            "nobility_editor_json": json.dumps(nobility) if nobility else "",
             "specification_option_id": entry.specification_option_id,
             "specification_options_json": json.dumps(
                 [
@@ -5954,7 +5991,7 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 specification and len(display_name) > 40
             )
             row["display_name"] = (
-                entry.trait.name
+                _trait_display_name(entry.trait, nobility_rank)
                 if row["specification_hidden"] else display_name
             )
             tooltip_title = (
@@ -6038,6 +6075,20 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             row["display_name"] += ": " + ", ".join(
                 dict.fromkeys(affiliations)
             )
+        if nobility:
+            row["display_name"] = entry.trait.name
+            row["specification_hidden"] = False
+            row["can_edit_specification"] = True
+            labels = [
+                " ".join(part for part in (
+                    title["rank"], title["specification"],
+                ) if part)
+                for title in nobility["titles"] if title.get("rank")
+            ]
+            row["tooltip"] = "\n\n".join(part for part in (
+                f"**{entry.trait.name}**", "\n".join(labels),
+                row["description"],
+            ) if part)
         if entry.trait.trait_type == Trait.TraitType.ADV:
             advantage_rows.append(row)
         else:
@@ -6065,17 +6116,39 @@ def _ranked_character_affiliations(trait_rows):
     return result
 
 
+def _affiliation_name_suffix(affiliation):
+    """Share the visible affiliation wording with plain-name composition."""
+    if affiliation["is_guild"]:
+        return f"{affiliation['rank']} der {affiliation['name']}"
+    return affiliation["rank"] or "Zugehörigkeit"
+
+
+def _trait_name_suffixes(trait_rows):
+    """Order configured suffixes and retain existing affiliation controls."""
+    seen = {
+        _affiliation_name_suffix(affiliation)
+        for row in trait_rows for affiliation in row["name_affiliations"]
+    }
+    suffixes = []
+    for row in sorted(trait_rows, key=lambda row: (
+        row.get("name_suffix_priority", 0), row.get("id", 0),
+    )):
+        suffix = row.get("name_suffix", "")
+        if suffix and suffix not in seen:
+            suffixes.append(suffix)
+            seen.add(suffix)
+    return suffixes
+
+
 def _build_ranked_character_name(character_name, trait_rows):
     """Append all ranks and affiliations after the character's name."""
-    titles = []
-    for affiliation in _ranked_character_affiliations(trait_rows):
-        rank, name = (
-            affiliation["rank"], affiliation["name"],
-        )
-        if affiliation["is_guild"]:
-            titles.append(f"{rank} der {name}")
-        else:
-            titles.append(rank or "Zugehörigkeit")
+    suffixes = _trait_name_suffixes(trait_rows)
+    if suffixes:
+        character_name = ", ".join([character_name, *suffixes])
+    titles = [
+        _affiliation_name_suffix(affiliation)
+        for affiliation in _ranked_character_affiliations(trait_rows)
+    ]
     if not titles:
         return character_name
     suffix = (
@@ -10341,6 +10414,9 @@ def build_character_sheet_context(
         "ranked_character_name": _build_ranked_character_name(
             character.name, advantage_rows + disadvantage_rows,
         ),
+        "character_name_trait_suffix": ", ".join(_trait_name_suffixes(
+            advantage_rows + disadvantage_rows,
+        )),
         "character_name_affiliations": _ranked_character_affiliations(
             advantage_rows + disadvantage_rows,
         ),

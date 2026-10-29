@@ -7,7 +7,7 @@ import { initFireflies } from "./fireflies.js";
 import { initItemForm } from "./item_form.js?v=20261017-multi-skills";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js?v=20261018-specification-title";
-import { initTraitSpecModal } from "./trait_spec_modal.js?v=20261019-rank-bubble";
+import { initTraitSpecModal } from "./trait_spec_modal.js?v=20261029-nobility-rank-choice";
 import { initShopMenu } from "./shop_menu.js?v=20261017-subtypes";
 import { initLearningMenu } from "./learning_menu.js?v=20261019-inline-rank";
 import { initTooltips } from "./tooltip.js?v=20261017-trait-heading";

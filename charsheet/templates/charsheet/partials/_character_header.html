@@ -29,7 +29,7 @@
               <tr>
                 <td class="label">Name</td>
                 <td class="value" colspan="5">
-                  <strong class="char_name">{{ character.name }}</strong>{% if character_name_affiliations %}<span class="char_name_affiliations">,
+                  <strong class="char_name">{{ character.name }}</strong>{% if character_name_trait_suffix %}<span class="char_name_trait_suffix">, {{ character_name_trait_suffix }}</span>{% endif %}{% if character_name_affiliations %}<span class="char_name_affiliations">,
                     {% for affiliation in character_name_affiliations %}
                       {% include "charsheet/partials/_organization_rank_choices.html" %}
                     {% endfor %}
@@ -172,11 +172,11 @@
             {% endif %}
               <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }}){% if trait.specification_hidden %} <span class="trait_details_label">&middot; Details</span>{% endif %}</span>
               {% if trait.can_edit_specification %}
-                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
+                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-nobility-editor="{{ trait.nobility_editor_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
               {% endif %}
             {% if trait.specification_hidden %}
             </summary>
-              <div class="trait_specification tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.specification }}">{{ trait.specification }}</div>
+              <div class="trait_specification tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.specification_display }}">{{ trait.specification_display }}</div>
             </details>
             {% else %}
             </span>
@@ -196,11 +196,11 @@
             {% endif %}
               <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }}){% if trait.specification_hidden %} <span class="trait_details_label">&middot; Details</span>{% endif %}</span>
               {% if trait.can_edit_specification %}
-                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
+                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-nobility-editor="{{ trait.nobility_editor_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
               {% endif %}
             {% if trait.specification_hidden %}
             </summary>
-              <div class="trait_specification tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.specification }}">{{ trait.specification }}</div>
+              <div class="trait_specification tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.specification_display }}">{{ trait.specification_display }}</div>
             </details>
             {% else %}
             </span>

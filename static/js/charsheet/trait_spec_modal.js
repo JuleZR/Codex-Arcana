@@ -38,6 +38,98 @@ export function initTraitSpecModal() {
   organizationChoice.disabled = true;
   organizationRank.disabled = true;
   const specificationMaxLength = traitSpecInput.maxLength;
+  const nobilityEditor = traitSpecForm.querySelector("[data-nobility-editor]");
+  const titleList = traitSpecForm.querySelector("[data-nobility-title-list]");
+  const titleInput = traitSpecForm.querySelector('[name="nobility_titles"]');
+  const addTitle = traitSpecForm.querySelector("[data-nobility-add]");
+  let nobility = null;
+
+  function syncTitles() {
+    const rows = Array.from(titleList.children);
+    titleInput.value = JSON.stringify(rows.map((row) => ({
+      country_id: row.querySelector("select").value,
+      specification: row.querySelector("[data-title-specification]").value,
+      selected_rank: row.querySelector("[data-title-rank]").value,
+    })));
+    rows.forEach((row) => {
+      row.querySelector("button[data-remove-title]").disabled = rows.length < 2;
+    });
+  }
+
+  function appendTitle(title = {}) {
+    const row = document.createElement("div");
+    row.className = "nobility_title_row";
+    const countryLabel = document.createElement("label");
+    countryLabel.className = "shop_item_form_row skill_spec_form_row nobility_title_country";
+    const label = document.createElement("span");
+    label.textContent = "Titelland";
+    const country = document.createElement("select");
+    country.required = true;
+    country.className = "dashboard_input";
+    country.dataset.learnEntityChoice = "";
+    country.append(new Option("Land wählen", ""));
+    nobility.countries.forEach((option) => {
+      country.add(new Option(option.name, String(option.id)));
+    });
+    country.value = String(title.country_id || "");
+    countryLabel.append(label, country);
+    const rankLabel = document.createElement("label");
+    rankLabel.className = "shop_item_form_row skill_spec_form_row nobility_title_rank";
+    const rankText = document.createElement("span");
+    rankText.textContent = "Rang";
+    const rank = document.createElement("select");
+    rank.dataset.titleRank = "";
+    rank.className = "dashboard_input";
+    rankLabel.append(rankText, rank);
+    const updateRank = (preferred = "", retainSelection = false) => {
+      const selected = nobility.countries.find(
+        (option) => String(option.id) === country.value,
+      );
+      const ranks = selected?.rank_options || [];
+      rank.replaceChildren();
+      if (retainSelection && preferred && !ranks.includes(preferred)) {
+        rank.add(new Option("Rang wählen", ""));
+      }
+      ranks.forEach((name) => rank.add(new Option(name, name)));
+      if (!ranks.length) rank.add(new Option("Kein gültiger Rang", ""));
+      rank.disabled = !ranks.length;
+      rank.required = Boolean(ranks.length);
+      rank.value = ranks.includes(preferred) ? preferred
+        : (retainSelection && preferred ? "" : (selected?.rank || ""));
+      syncTitles();
+    };
+    const specificationLabel = document.createElement("label");
+    specificationLabel.className = "shop_item_form_row skill_spec_form_row nobility_title_specification";
+    const specificationText = document.createElement("span");
+    specificationText.textContent = "Namenszusatz";
+    const specification = document.createElement("input");
+    specification.type = "text";
+    specification.className = "dashboard_input";
+    specification.maxLength = specificationMaxLength;
+    specification.dataset.titleSpecification = "";
+    specification.value = title.specification || "";
+    specification.placeholder = "z. B. von Vagoth";
+    specificationLabel.append(specificationText, specification);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "shop_item_cancel_btn";
+    remove.dataset.removeTitle = "";
+    remove.textContent = "×";
+    remove.title = "Titel entfernen";
+    remove.setAttribute("aria-label", "Titel entfernen");
+    remove.addEventListener("click", () => {
+      row.remove();
+      syncTitles();
+    });
+    country.addEventListener("change", () => updateRank());
+    rank.addEventListener("change", syncTitles);
+    specification.addEventListener("input", syncTitles);
+    row.append(countryLabel, rankLabel, specificationLabel, remove);
+    titleList.append(row);
+    updateRank(title.selected_rank || title.rank || "", true);
+  }
+
+  addTitle?.addEventListener("click", () => appendTitle());
 
   const controller = createFloatingWindowController({
     windowEl: traitSpecWindow,
@@ -113,11 +205,34 @@ export function initTraitSpecModal() {
       traitSpecOption.add(new Option(option.name, String(option.id)));
     });
     traitSpecOption.value = source.dataset.specificationOption || "";
+    nobility = null;
+    if (!organization && source.dataset.nobilityEditor) {
+      try {
+        nobility = JSON.parse(source.dataset.nobilityEditor);
+      } catch (_error) {
+        nobility = null;
+      }
+    }
+    if (nobilityEditor && titleList && titleInput) {
+      traitSpecWindow.dataset.nobilityMode = nobility ? "1" : "0";
+      nobilityEditor.hidden = !nobility;
+      titleInput.disabled = !nobility;
+      titleList.replaceChildren();
+      if (nobility) {
+        freeRow.hidden = true;
+        controlledRow.hidden = true;
+        traitSpecInput.disabled = true;
+        traitSpecOption.disabled = true;
+        traitSpecForm.querySelector(".skill_spec_hint").hidden = true;
+        nobility.titles.forEach(appendTitle);
+      }
+    }
     controller.open();
     window.setTimeout(() => {
-      const target = controlled ? traitSpecOption : traitSpecInput;
+      const target = nobility ? titleList.querySelector("select")
+        : (controlled ? traitSpecOption : traitSpecInput);
       target.focus();
-      if (!controlled) target.select();
+      if (!nobility && !controlled) target.select();
     }, 0);
   });
 

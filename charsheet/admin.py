@@ -8354,6 +8354,7 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
                     "has_specification",
+                    "name_display_mode",
                     "points_by_level",
                     ("min_level", "max_level"),
                     "description",

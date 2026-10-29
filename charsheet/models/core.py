@@ -371,11 +371,21 @@ class Trait(models.Model):
         ADV = "advantage", "Advantage"
         DIS = "disadvantage", "Disadvantage"
 
+    class NameDisplayMode(models.TextChoices):
+        NONE = "none", "Kein Namenszusatz"
+        GENDERED_LINEAGE = "gendered_lineage", "Abstammung: Sohn / Tochter"
+        NOBILITY_RANK = "nobility_rank", "Adelsrang und Spezifikation"
+
     name = models.CharField(max_length=200, unique=True)
     slug = models.SlugField(max_length=50, unique=True)
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField()
     has_specification = models.BooleanField(default=False)
+    name_display_mode = models.CharField(
+        "Namensdarstellung", max_length=24,
+        choices=NameDisplayMode.choices, default=NameDisplayMode.NONE,
+        help_text="Nur Anzeige im Charakterkopf; unabhängig von Regelflags.",
+    )
 
     min_level = models.PositiveIntegerField(default=1)
     max_level = models.PositiveIntegerField(

@@ -2962,6 +2962,16 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
 def update_trait_specification(request, character_id: int, character_trait_id: int):
     """Persist the specification text for one character-owned trait."""
     character, character_trait = _owned_character_trait_or_404(request, character_id, character_trait_id)
+    if "nobility_titles" in request.POST:
+        from .nobility import save_nobility_titles
+
+        try:
+            save_nobility_titles(character_trait, request.POST["nobility_titles"])
+        except ValidationError as error:
+            messages.error(request, " ".join(error.messages))
+        else:
+            messages.success(request, "Adelstitel wurden aktualisiert.")
+        return redirect("character_sheet", character_id=character.id)
     if "organization_choice" in request.POST:
         choice = get_object_or_404(
             character_trait.choices, pk=request.POST["organization_choice"],
@@ -2992,7 +3002,12 @@ def update_trait_specification(request, character_id: int, character_trait_id: i
 
     form = CharacterTraitSpecificationForm(request.POST, instance=character_trait)
     if form.is_valid():
-        form.save()
+        with transaction.atomic():
+            form.save()
+            first_title = character_trait.nobility_titles.first()
+            if first_title is not None:
+                first_title.specification = character_trait.specification
+                first_title.save(update_fields=["specification"])
         messages.success(request, f"{character_trait.trait.name} wurde aktualisiert.")
     else:
         messages.error(request, "Die Trait-Spezifikation konnte nicht gespeichert werden.")

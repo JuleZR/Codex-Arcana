@@ -1180,6 +1180,83 @@ body.sheet-feedback--error::after {
   gap: 5px;
 }
 
+#traitSpecWindow [data-nobility-editor]:not([hidden]),
+#traitSpecWindow [data-nobility-title-list] {
+  display: grid;
+  gap: 12px;
+}
+
+#traitSpecWindow .nobility_title_row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 1.3fr) 32px;
+  gap: 10px;
+  align-items: end;
+}
+
+#traitSpecWindow .nobility_title_row > label {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  gap: 5px;
+}
+
+#traitSpecWindow .nobility_title_row :is(input, select:not(.searchable_choice_native), .searchable_choice_trigger) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid #cbb292;
+  border-radius: 2px;
+  color: #503524;
+  background: linear-gradient(#fffaf2, #f8eddb);
+  box-shadow: inset 0 1px 3px #6147290c;
+  font: 13px "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+#traitSpecWindow .nobility_title_row + .nobility_title_row {
+  border-top: 1px solid #d5c3a7;
+  padding-top: 12px;
+}
+
+#traitSpecWindow .nobility_title_row > button {
+  box-sizing: border-box;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  justify-self: end;
+  font-size: 21px;
+}
+
+#traitSpecWindow .nobility_title_row > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#traitSpecWindow [data-nobility-add] {
+  width: auto;
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  #traitSpecWindow .nobility_title_row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+  }
+
+  #traitSpecWindow .nobility_title_country {
+    grid-column: 1 / 3;
+  }
+
+  #traitSpecWindow .nobility_title_rank {
+    grid-column: 1;
+  }
+}
+
 .sheet-window .skill_spec_form_row + .skill_spec_hint {
   margin-top: 2px;
 }

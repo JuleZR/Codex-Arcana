@@ -28,6 +28,7 @@ from .character import (
     CharacterSkill,
     CharacterTraitChoice,
     CharacterTrait,
+    CharacterTraitNobilityTitle,
     TraitChoiceDefinition,
     TraitChoiceEntityOption,
 )
@@ -270,6 +271,7 @@ __all__ = [
     "CharacterTechnique",
     "CharacterTechniqueChoice",
     "CharacterTrait",
+    "CharacterTraitNobilityTitle",
     "CharacterTraitChoice",
     "CreatureDaemonicPower",
     "CreatureVampirePower",
