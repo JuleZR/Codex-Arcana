@@ -59,23 +59,31 @@ def save_nobility_titles(entry, raw_titles):
         ):
             raise ValidationError("Ungültige Titelauswahl.")
         country_id = row.get("country_id")
+        is_custom_title = country_id in (None, "")
         if isinstance(country_id, bool) or not isinstance(
-            country_id, (str, int),
+            country_id, (str, int, type(None)),
         ):
             raise ValidationError("Ein Land mit Adelsrangsystem auswählen.")
-        selection = definition.entity_selection_payload(country_id)
+        selection = (
+            definition.entity_selection_payload(country_id)
+            if not is_custom_title else None
+        )
         selected_rank = row.get("selected_rank", "")
         if not isinstance(selected_rank, str):
             raise ValidationError("Ungültiger Rang.")
         title = CharacterTraitNobilityTitle(
             character_trait=entry,
-            country_id=selection["selected_object_id"],
+            country_id=selection["selected_object_id"] if selection else None,
+            is_custom_title=is_custom_title,
             specification=" ".join(row.get("specification", "").split()),
             selected_rank=selected_rank.strip(),
             sort_order=index,
         )
         title.full_clean()
-        if "selected_rank" in row and not title.selected_rank:
+        if (
+            not is_custom_title
+            and "selected_rank" in row and not title.selected_rank
+        ):
             if title.country.nobility_rank_system.ranks.filter(
                 cp_threshold__lte=points,
             ).exists():
@@ -86,12 +94,14 @@ def save_nobility_titles(entry, raw_titles):
         title.save()
     # Keep the original acquisition choice usable by creation/learning flows.
     entry.choices.filter(definition=definition).delete()
-    choice = CharacterTraitChoice(
-        character_trait=entry, definition=definition,
-        **definition.entity_selection_payload(titles[0].country_id),
-    )
-    choice.full_clean()
-    choice.save()
+    country_title = next((title for title in titles if title.country_id), None)
+    if country_title is not None:
+        choice = CharacterTraitChoice(
+            character_trait=entry, definition=definition,
+            **definition.entity_selection_payload(country_title.country_id),
+        )
+        choice.full_clean()
+        choice.save()
     if entry.trait.has_specification:
         entry.specification = titles[0].specification
         entry.save(update_fields=["specification"])

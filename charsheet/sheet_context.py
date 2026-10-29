@@ -5944,7 +5944,8 @@ def _trait_name_suffix(character, entry):
         return ", ".join(dict.fromkeys(
             " ".join((title["rank"] + " " + title["specification"]).split())
             for title in entry.resolved_nobility_titles
-            if title["rank"] and title["specification"].strip()
+            if (title["rank"] or title.get("is_custom_title"))
+            and title["specification"].strip()
         ))
     specification = " ".join((entry.specification or "").split())
     if not specification:
@@ -6106,7 +6107,8 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 " ".join(part for part in (
                     title["rank"], title["specification"],
                 ) if part)
-                for title in nobility["titles"] if title.get("rank")
+                for title in nobility["titles"]
+                if title.get("rank") or title.get("is_custom_title")
             ]
             row["tooltip"] = "\n\n".join(part for part in (
                 f"**{entry.trait.name}**", "\n".join(labels),

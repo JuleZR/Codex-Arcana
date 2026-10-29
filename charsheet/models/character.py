@@ -778,6 +778,15 @@ class CharacterTrait(models.Model):
             points = self.trait.cost_for_level(self.trait_level)
             result = []
             for title in titles:
+                if title.is_custom_title:
+                    result.append({
+                        "country_id": None,
+                        "specification": title.specification,
+                        "selected_rank": "",
+                        "rank": "",
+                        "is_custom_title": True,
+                    })
+                    continue
                 rank = ""
                 if title.country_id and title.country.nobility_rank_system_id:
                     system = title.country.nobility_rank_system
@@ -889,6 +898,7 @@ class CharacterTraitNobilityTitle(models.Model):
     )
     specification = models.CharField(max_length=100, blank=True, default="")
     selected_rank = models.CharField(max_length=200, blank=True, default="")
+    is_custom_title = models.BooleanField(default=False)
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -900,6 +910,15 @@ class CharacterTraitNobilityTitle(models.Model):
             is_active=True, uses_nobility_ranks=True,
         ).exists():
             raise ValidationError("Dieser Trait unterstützt keine Adelstitel.")
+        if self.is_custom_title:
+            if (
+                self.country_id or self.selected_rank
+                or not self.specification.strip()
+            ):
+                raise ValidationError(
+                    "Einen eigenen Titel ohne Titelvorgabe eingeben.",
+                )
+            return
         if not Country.objects.filter(
             pk=self.country_id, nobility_rank_system__isnull=False,
         ).exists():

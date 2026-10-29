@@ -952,7 +952,7 @@ class NobilityRankSystem(models.Model):
 
 
 class NobilityRank(models.Model):
-    """One unambiguous CP threshold within a nobility hierarchy."""
+    """A title available at a CP threshold within a nobility hierarchy."""
 
     rank_system = models.ForeignKey(
         NobilityRankSystem, on_delete=models.CASCADE, related_name="ranks",
@@ -965,10 +965,6 @@ class NobilityRank(models.Model):
     class Meta:
         ordering = ["cp_threshold", "id"]
         constraints = [
-            models.UniqueConstraint(
-                fields=["rank_system", "cp_threshold"],
-                name="unique_nobility_rank_threshold",
-            ),
             models.CheckConstraint(
                 condition=models.Q(cp_threshold__gte=0),
                 name="nobility_rank_threshold_nonnegative",

@@ -64,10 +64,10 @@ export function initTraitSpecModal() {
     const label = document.createElement("span");
     label.textContent = "Titelland";
     const country = document.createElement("select");
-    country.required = true;
+    country.required = false;
     country.className = "dashboard_input";
     country.dataset.learnEntityChoice = "";
-    country.append(new Option("Land wählen", ""));
+    country.append(new Option("Freitext", ""));
     nobility.countries.forEach((option) => {
       country.add(new Option(option.name, String(option.id)));
     });
@@ -91,11 +91,16 @@ export function initTraitSpecModal() {
         rank.add(new Option("Rang wählen", ""));
       }
       ranks.forEach((name) => rank.add(new Option(name, name)));
-      if (!ranks.length) rank.add(new Option("Kein gültiger Rang", ""));
+      if (!ranks.length) {
+        rank.add(new Option(country.value ? "Kein gültiger Rang" : "", ""));
+      }
       rank.disabled = !ranks.length;
       rank.required = Boolean(ranks.length);
       rank.value = ranks.includes(preferred) ? preferred
         : (retainSelection && preferred ? "" : (selected?.rank || ""));
+      specificationText.textContent = country.value ? "Namenszusatz" : "Titel (Freitext)";
+      specification.placeholder = country.value ? "z. B. von Vagoth" : "Eigener Adelstitel";
+      specification.required = !country.value;
       syncTitles();
     };
     const specificationLabel = document.createElement("label");
