@@ -104,7 +104,11 @@ class School(models.Model):
                 pk=entity.pk,
             ).exists()
         ):
-            name = f"{name} {entity.genitive_article} {entity.name}"
+            affiliation = f"{entity.genitive_article} {entity.name}"
+            if not name.rstrip().casefold().endswith(
+                f" {affiliation}".casefold()
+            ):
+                name = f"{name} {affiliation}"
         return name
 
 
