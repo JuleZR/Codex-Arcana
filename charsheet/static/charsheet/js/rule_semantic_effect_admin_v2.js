@@ -11,7 +11,7 @@
   function fieldRow(root, fieldName) {
     var fieldBox = root.querySelector(".fieldBox.field-" + fieldName);
     if (fieldBox) {
-      return fieldBox.parentElement;
+      return fieldBox;
     }
     var classRow = root.querySelector(".field-" + fieldName);
     if (classRow) {
@@ -51,7 +51,7 @@
       if (formRow && formRow !== row) {
         var boxes = formRow.querySelectorAll(".fieldBox");
         var hasVisibleField = Array.prototype.some.call(boxes, function (box) {
-          return !box.parentElement.hidden;
+          return !box.hidden && box.style.display !== "none";
         });
         formRow.hidden = !hasVisibleField;
         formRow.style.display = hasVisibleField ? "" : "none";

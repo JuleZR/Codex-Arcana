@@ -1188,7 +1188,15 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                 TraitChoiceDefinition.TargetKind.ENTITY,
             }:
                 continue
-            existing_count = len(engine._trait_choices_by_definition_id.get(definition.id, []))
+            stored_choices = engine._trait_choices_by_definition_id.get(
+                definition.id, [],
+            )
+            if definition.uses_nobility_ranks:
+                stored_choices = [
+                    choice for choice in stored_choices
+                    if choice.has_valid_title_country
+                ]
+            existing_count = len(stored_choices)
             required_count = definition.min_choices if definition.is_required else 0
             missing_count = max(0, required_count - existing_count)
             if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
@@ -1211,7 +1219,9 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         definition.id, []
                     )
                 }
-                if definition.has_organization_types:
+                if definition.uses_nobility_ranks:
+                    options = definition.entity_choice_options()
+                elif definition.has_organization_types:
                     selected_ids = {
                         f"organization:{object_id}"
                         for _content_type, object_id in existing_targets

@@ -229,6 +229,8 @@ from .models import (
     Organization,
     OrganizationType,
     OrganizationTypeRank,
+    NobilityRankSystem,
+    NobilityRank,
     TraitExclusion,
     TraitSpecificationOption,
     TraitSemanticEffect,
@@ -3276,6 +3278,11 @@ class TraitChoiceDefinitionAdminForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         if cleaned.get("allowed_organization_types"):
+            if cleaned.get("uses_nobility_ranks"):
+                self.add_error(
+                    "allowed_organization_types",
+                    "Titelländer erlauben keine Organisationstypen.",
+                )
             if cleaned.get("target_kind") != "entity":
                 self.add_error(
                     "allowed_organization_types",
@@ -3314,6 +3321,7 @@ class TraitChoiceDefinitionInline(
         "allowed_resource",
         "allowed_proficiency_group",
         "allowed_organization_types",
+        "uses_nobility_ranks",
         "sort_order",
         "is_active",
         "description",
@@ -3688,6 +3696,7 @@ class RuleSemanticEffectAdminForm(
         ("derived_stat", "Abgeleiteter Wert"),
         ("wound_stage", "Wundstufe einfügen"),
         ("resource", "Ressource"),
+        ("economy", "Geld"),
         ("combat", "Kampf / Waffe"),
         ("movement", "Bewegung"),
         ("creature_movement", "Kreaturenbewegung"),
@@ -3863,7 +3872,10 @@ class RuleSemanticEffectAdminForm(
 
     def _simple_target_choices(self):
         choices = [("", "-")]
-        choices.append(("resource:artefact_rank", "Artefaktrang"))
+        choices.extend(
+            (f"resource:{key}", label) for key, label in RESOURCE_KEY_CHOICES
+        )
+        choices.append(("economy:starting_funds", "Startgeld (KM)"))
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend(
             (f"derived_stat:{value}", label)
@@ -3917,6 +3929,7 @@ class RuleSemanticEffectAdminForm(
         )
         area = {
             "resource": "resource",
+            "economy": "economy",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "combat": "combat",
@@ -4221,6 +4234,7 @@ class RuleSemanticEffectAdminForm(
             return "", ""
         mapping = {
             "resource": "resource",
+            "economy": "economy",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "combat": "combat",
@@ -7041,6 +7055,19 @@ class TraitChoiceEntityOptionInline(admin.TabularInline):
     extra = 0
 
 
+class NobilityRankInline(admin.TabularInline):
+    model = NobilityRank
+    fields = ("cp_threshold", "title")
+    extra = 0
+
+
+@admin.register(NobilityRankSystem)
+class NobilityRankSystemAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name", "description")
+    inlines = (NobilityRankInline,)
+
+
 class OrganizationTypeRankInline(admin.TabularInline):
     model = OrganizationTypeRank
     fields = ("points", "size_category", "name")
@@ -7106,6 +7133,7 @@ class TraitChoiceDefinitionAdmin(
                     "allowed_resource",
                     "allowed_proficiency_group",
                     "allowed_organization_types",
+                    "uses_nobility_ranks",
                     ("sort_order", "is_active"),
                 ),
             },
@@ -8524,10 +8552,10 @@ class CountryAdmin(admin.ModelAdmin):
     """Admin configuration for countries and their language assignments."""
 
     form = CountryAdminForm
-    list_display = ("name", "default_native_language")
+    list_display = ("name", "default_native_language", "nobility_rank_system")
     search_fields = ("name", "description")
     ordering = ("name",)
-    autocomplete_fields = ("default_native_language",)
+    autocomplete_fields = ("default_native_language", "nobility_rank_system")
     filter_horizontal = ("spoken_languages",)
 
 

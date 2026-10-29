@@ -8613,6 +8613,11 @@ def _build_learning_rows(
             ):
                 continue
             choice = existing_choices.get(definition.pk)
+            if (
+                choice and definition.uses_nobility_ranks
+                and not choice.has_valid_title_country
+            ):
+                choice = None
             entity_choices.append({
                 "name": definition.name,
                 "field_name": trait_choice_field_name(

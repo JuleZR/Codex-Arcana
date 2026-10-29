@@ -756,6 +756,18 @@ class CharacterTrait(models.Model):
         related_name="character_traits",
     )
 
+    @property
+    def resolved_nobility_rank(self):
+        """Expose the derived title independently of name composition."""
+        for choice in self.choices.filter(
+            definition__is_active=True,
+            definition__uses_nobility_ranks=True,
+        ).select_related("definition", "selected_content_type"):
+            rank = choice.resolved_nobility_rank
+            if rank:
+                return rank
+        return ""
+
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["owner", "trait"], name="unique_trait_per_character")
@@ -903,6 +915,11 @@ class TraitChoiceDefinition(models.Model):
     )
     sort_order = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    uses_nobility_ranks = models.BooleanField(
+        default=False,
+        verbose_name="Titelland mit Adelsrangsystem auswählen",
+        help_text="Entitätsauswahl eines Landes; Rang aus investierten CP.",
+    )
 
     class Meta:
         ordering = ["trait__trait_type", "trait__name", "sort_order", "name", "id"]
@@ -910,6 +927,20 @@ class TraitChoiceDefinition(models.Model):
     def clean(self):
         """Prevent contradictory trait choice filters."""
         super().clean()
+        if self.uses_nobility_ranks and (
+            self.target_kind != self.TargetKind.ENTITY
+            or self.has_organization_types
+            or self.min_choices != 1 or self.max_choices != 1
+            or not self.is_required
+            or (self.pk and self.entity_options.exists())
+        ):
+            raise ValidationError({
+                "uses_nobility_ranks": (
+                    "Titelländer erfordern genau eine verpflichtende "
+                    "Entitätsauswahl ohne Organisationstypen "
+                    "oder Einzeloptionen."
+                ),
+            })
         if self.has_organization_types:
             if self.target_kind != self.TargetKind.ENTITY:
                 raise ValidationError({
@@ -948,6 +979,13 @@ class TraitChoiceDefinition(models.Model):
 
     def entity_choice_options(self):
         """Offer catalog and private organizations of the configured type."""
+        if self.uses_nobility_ranks:
+            return [
+                {"value": str(country.pk), "label": country.name, "meta": ""}
+                for country in Country.objects.filter(
+                    nobility_rank_system__isnull=False,
+                )
+            ]
         if not self.has_organization_types:
             return [
                 {"value": str(option.pk), "label": str(option.entity),
@@ -1018,6 +1056,21 @@ class TraitChoiceDefinition(models.Model):
         """Resolve a configured option into the entity binding fields."""
         if self.target_kind != self.TargetKind.ENTITY or not self.is_active:
             raise ValidationError("This is not an active entity choice.")
+        if self.uses_nobility_ranks:
+            try:
+                country = Country.objects.get(
+                    pk=int(option_id), nobility_rank_system__isnull=False,
+                )
+            except (TypeError, ValueError, Country.DoesNotExist):
+                raise ValidationError(
+                    "Ein Land mit Adelsrangsystem auswählen."
+                )
+            return {
+                "selected_content_type": ContentType.objects.get_for_model(
+                    Country,
+                ),
+                "selected_object_id": country.pk,
+            }
         if self.has_organization_types:
             value = self.serialize_entity_selection(option_id, specification)
             if value.startswith("custom:"):
@@ -1101,10 +1154,11 @@ class TraitChoiceEntityOption(models.Model):
         super().clean()
         if (
             self.definition_id
-            and self.definition.has_organization_types
+            and (self.definition.has_organization_types
+                 or self.definition.uses_nobility_ranks)
         ):
             raise ValidationError(
-                "Ein Organisationstyp ersetzt einzelne Entitätsoptionen."
+                "Organisationstypen und Titelländer ersetzen Einzeloptionen."
             )
         if self.definition_id and self.definition.target_kind != "entity":
             raise ValidationError({
@@ -1272,6 +1326,17 @@ class CharacterTraitChoice(models.Model):
         ):
             raise ValidationError({"definition": "The selected trait choice definition must belong to the same trait."})
         self._validate_target_kind(self.definition.target_kind if self.definition_id else "")
+        if self.definition_id and self.definition.uses_nobility_ranks:
+            if (
+                not isinstance(self.selected_entity, Country)
+                or not Country.objects.filter(
+                    pk=self.selected_object_id,
+                    nobility_rank_system__isnull=False,
+                ).exists()
+            ):
+                raise ValidationError(
+                    "Ein Land mit Adelsrangsystem auswählen."
+                )
         if self.definition_id and self.definition.target_kind == "entity":
             if self.definition.has_organization_types:
                 types = self.definition.allowed_organization_types.all()
@@ -1492,6 +1557,35 @@ class CharacterTraitChoice(models.Model):
         if self.selected_entity is not None:
             return str(self.selected_entity)
         return "-"
+
+    @property
+    def has_valid_title_country(self):
+        """Check eligibility independently of the CP threshold reached."""
+        return (
+            self.definition.is_active
+            and self.definition.uses_nobility_ranks
+            and self.definition.target_kind == "entity"
+            and isinstance(self.selected_entity, Country)
+            and Country.objects.filter(
+                pk=self.selected_object_id,
+                nobility_rank_system__isnull=False,
+            ).exists()
+        )
+
+    @property
+    def resolved_nobility_rank(self):
+        """Resolve from current country data, with no title fallback."""
+        if not self.has_valid_title_country:
+            return ""
+        country = (
+            Country.objects.select_related("nobility_rank_system")
+            .filter(pk=self.selected_object_id).first()
+        )
+        if country is None or country.nobility_rank_system_id is None:
+            return ""
+        return country.nobility_rank_system.resolve_rank(
+            self.trait.cost_for_level(self.character_trait.trait_level),
+        )
 
     @property
     def organization_ranks(self):

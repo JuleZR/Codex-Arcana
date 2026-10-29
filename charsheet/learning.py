@@ -503,6 +503,12 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             choice_payload.update(
                 definition.entity_selection_payload(raw_value, specification)
             )
+            if definition.uses_nobility_ranks:
+                for previous in trait_row.choices.filter(
+                    definition=definition,
+                ):
+                    if not previous.has_valid_title_country:
+                        previous.delete()
         elif target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Attributswahl.")
@@ -1018,7 +1024,9 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         )
         organization_choices = trait.uses_organization_choices
         if (
-            organization_choices and slug in trait_rows
+            (organization_choices or trait.choice_definitions.filter(
+                is_active=True, uses_nobility_ranks=True,
+            ).exists()) and slug in trait_rows
             and f"learn_trait_spec_option_{slug}" not in post_data
             and f"learn_trait_spec_text_{slug}" not in post_data
         ):

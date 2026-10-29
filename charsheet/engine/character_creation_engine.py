@@ -1609,7 +1609,7 @@ class CharacterCreationEngine:
                         trait_slug=slug,
                         level=level,
                         trait=trait,
-                        allow_persisted_lookup=False,
+                        allow_persisted_lookup=True,
                     )
                 )
         for slug, level in self.phase_4_advantages().items():
@@ -1622,7 +1622,7 @@ class CharacterCreationEngine:
                         trait_slug=slug,
                         level=level,
                         trait=trait,
-                        allow_persisted_lookup=False,
+                        allow_persisted_lookup=True,
                     )
                 )
         return modifiers
@@ -1630,7 +1630,10 @@ class CharacterCreationEngine:
     def resolve_creation_starting_funds(self) -> int:
         """Add creation-only economy modifiers to the standard funds in KM."""
         engine = ModifierEngine(
-            modifiers=self._creation_trait_semantic_modifiers()
+            modifiers=self._creation_trait_semantic_modifiers(),
+            trait_levels_by_slug={
+                **self.phase_3_disadvantages(), **self.phase_4_advantages(),
+            },
         )
         return self.BASE_STARTING_FUNDS + engine.resolve_numeric_total(
             TargetDomain.ECONOMY,

@@ -21,6 +21,7 @@ SEMANTIC_EFFECT_AREA_GROUPS = (
         "attribute", "derived_stat", "attribute_cap", "defense",
         "wound_stage", "resource",
     )),
+    ("Geld", ("economy",)),
     ("Fertigkeiten", (
         "skill", "multi_skill", "skill_category", "special_skill",
         "specialization", "proficiency_group",

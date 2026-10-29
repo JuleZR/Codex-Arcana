@@ -920,11 +920,64 @@ class Language(models.Model):
         return self.name
 
 
+class NobilityRankSystem(models.Model):
+    """A shared, configurable hierarchy of noble titles."""
+
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+    def resolve_rank(self, invested_cp):
+        """Return only a title whose threshold has actually been reached."""
+        return (
+            self.ranks.filter(cp_threshold__lte=invested_cp)
+            .order_by("-cp_threshold").values_list("title", flat=True).first()
+            or ""
+        )
+
+
+class NobilityRank(models.Model):
+    """One unambiguous CP threshold within a nobility hierarchy."""
+
+    rank_system = models.ForeignKey(
+        NobilityRankSystem, on_delete=models.CASCADE, related_name="ranks",
+    )
+    cp_threshold = models.PositiveIntegerField(
+        validators=[MinValueValidator(0)],
+    )
+    title = models.CharField(max_length=200)
+
+    class Meta:
+        ordering = ["cp_threshold", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rank_system", "cp_threshold"],
+                name="unique_nobility_rank_threshold",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cp_threshold__gte=0),
+                name="nobility_rank_threshold_nonnegative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.rank_system}: {self.cp_threshold} / {self.title}"
+
+
 class Country(models.Model):
     """Country of origin with its commonly spoken languages."""
 
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
+    nobility_rank_system = models.ForeignKey(
+        NobilityRankSystem, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="countries",
+    )
     spoken_languages = models.ManyToManyField(
         Language,
         blank=True,
