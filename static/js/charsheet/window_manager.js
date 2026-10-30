@@ -161,7 +161,14 @@ export function createFloatingWindowController({
 
 export function createOverlayWindowController({ trigger, windowEl, closeButton, handle, overlayEl, storageKey }) {
   if (!windowEl || !closeButton || !overlayEl) return null;
-  if (windowEl.__floatingWindowController) return windowEl.__floatingWindowController;
+  const existingController = windowEl.__floatingWindowController;
+  if (existingController) {
+    if (trigger instanceof HTMLElement && !existingController.boundTriggers.has(trigger)) {
+      trigger.addEventListener("click", existingController.open);
+      existingController.boundTriggers.add(trigger);
+    }
+    return existingController;
+  }
   let previousFocus = null;
   const desktop = window.matchMedia("(min-width: 761px)");
   const positionWindow = () => {
@@ -238,9 +245,13 @@ export function createOverlayWindowController({ trigger, windowEl, closeButton, 
   if (handle) bindWindowDragging(windowEl, handle, saveState, () => desktop.matches);
   window.addEventListener("resize", positionWindow);
   const controller = {
+    boundTriggers: new Set(trigger instanceof HTMLElement ? [trigger] : []),
     windowEl, open, close, saveState,
     destroy() {
-      trigger?.removeEventListener("click", open);
+      controller.boundTriggers.forEach((boundTrigger) => {
+        boundTrigger.removeEventListener("click", open);
+      });
+      controller.boundTriggers.clear();
       closeButton.removeEventListener("click", close);
       overlayEl.removeEventListener("click", backdropClick);
       document.removeEventListener("keydown", keydown);

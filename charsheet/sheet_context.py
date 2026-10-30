@@ -5951,6 +5951,8 @@ def _trait_name_suffix(character, entry):
     if not specification:
         return ""
     if mode == Trait.NameDisplayMode.GENDERED_LINEAGE:
+        if entry.specification_is_full_title:
+            return specification
         term = {
             Character.Gender.M: "Sohn",
             Character.Gender.W: "Tochter",
@@ -5984,6 +5986,12 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         display_specification = " ".join(
             part for part in (nobility_rank, specification) if part
         )
+        is_lineage = (
+            entry.trait.name_display_mode
+            == Trait.NameDisplayMode.GENDERED_LINEAGE
+        )
+        if is_lineage:
+            display_specification = _trait_name_suffix(character, entry)
         display_name = _trait_display_name(entry.trait, display_specification)
         nobility = nobility_editor_payload(entry)
         row = {
@@ -6000,6 +6008,8 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 == Trait.NameDisplayMode.NOBILITY_RANK else 1
             ),
             "specification": specification,
+            "is_lineage": is_lineage,
+            "specification_is_full_title": entry.specification_is_full_title,
             "specification_display": display_specification,
             "nobility_editor_json": json.dumps(nobility) if nobility else "",
             "specification_option_id": entry.specification_option_id,
@@ -6012,7 +6022,7 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         }
         if row["can_edit_specification"]:
             row["specification_hidden"] = bool(
-                specification and len(display_name) > 40
+                not is_lineage and specification and len(display_name) > 40
             )
             row["display_name"] = (
                 _trait_display_name(entry.trait, nobility_rank)

@@ -26,6 +26,7 @@ from .models import (
     CharacterTrait,
     Country,
     DivineEntity,
+    Trait,
 )
 from .models.user import UserSettings
 from .religion_rules import (
@@ -664,9 +665,18 @@ class CharacterSkillSpecificationForm(forms.ModelForm):
 class CharacterTraitSpecificationForm(forms.ModelForm):
     """Edit the specification text for character traits that require one."""
 
+    specification_is_full_title = forms.TypedChoiceField(
+        choices=[("0", "Sohn/Tochter"), ("1", "Freitext")],
+        coerce=lambda value: str(value) == "1",
+        required=False,
+        empty_value=False,
+        widget=forms.Select(attrs={"class": "dashboard_input"}),
+    )
+
     class Meta:
         model = CharacterTrait
-        fields = ["specification", "specification_option"]
+        fields = ["specification", "specification_option",
+                  "specification_is_full_title"]
         widgets = {
             "specification": forms.TextInput(
                 attrs={
@@ -688,6 +698,10 @@ class CharacterTraitSpecificationForm(forms.ModelForm):
             else self.fields["specification_option"].queryset.none()
         )
         self.fields["specification_option"].queryset = options
+        if trait is not None and (
+            trait.name_display_mode != Trait.NameDisplayMode.GENDERED_LINEAGE
+        ):
+            self.fields.pop("specification_is_full_title")
 
     def clean_specification(self):
         specification = (self.cleaned_data.get("specification") or "").strip()

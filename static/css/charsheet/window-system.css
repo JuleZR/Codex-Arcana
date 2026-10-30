@@ -1180,6 +1180,22 @@ body.sheet-feedback--error::after {
   gap: 5px;
 }
 
+#traitSpecWindow .sheet-window__surface--form:has([data-trait-lineage-mode]:not([hidden])) {
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+#traitSpecWindow .sheet-window__surface--form:has([data-trait-lineage-mode]:not([hidden])) > label {
+  min-width: 0;
+  margin: 0;
+}
+
+#traitSpecWindow .sheet-window__surface--form:has([data-trait-lineage-mode]:not([hidden])) > .skill_spec_hint {
+  grid-column: 1 / -1;
+}
+
 #traitSpecWindow [data-nobility-editor]:not([hidden]),
 #traitSpecWindow [data-nobility-title-list] {
   display: grid;

@@ -11,6 +11,8 @@ export function initTraitSpecModal() {
   const traitSpecOption = document.getElementById("id_specification_option");
   const freeRow = traitSpecForm?.querySelector("[data-trait-free-specification]");
   const controlledRow = traitSpecForm?.querySelector("[data-trait-controlled-specification]");
+  const lineageRow = traitSpecForm?.querySelector("[data-trait-lineage-mode]");
+  const lineageMode = lineageRow?.querySelector("select");
   if (
     !traitSpecWindow
     || !traitSpecWindowClose
@@ -38,6 +40,19 @@ export function initTraitSpecModal() {
   organizationChoice.disabled = true;
   organizationRank.disabled = true;
   const specificationMaxLength = traitSpecInput.maxLength;
+  const specificationPlaceholder = traitSpecInput.placeholder;
+  const specificationHint = traitSpecForm.querySelector(".skill_spec_hint");
+  const defaultHint = specificationHint.textContent;
+  const syncLineageMode = () => {
+    if (!lineageRow || lineageRow.hidden) return;
+    const fullTitle = lineageMode.value === "1";
+    freeRow.querySelector("span").textContent = fullTitle ? "Vollständiger Titel" : "Namenszusatz";
+    traitSpecInput.placeholder = fullTitle ? "z. B. Erbe von Varis" : "z. B. des Varis";
+    specificationHint.textContent = fullTitle
+      ? "Der Freitext wird unverändert als vollständiger Titel angezeigt."
+      : "Sohn oder Tochter wird passend zum Geschlecht vor den Namenszusatz gesetzt.";
+  };
+  lineageMode?.addEventListener("change", syncLineageMode);
   const nobilityEditor = traitSpecForm.querySelector("[data-nobility-editor]");
   const titleList = traitSpecForm.querySelector("[data-nobility-title-list]");
   const titleInput = traitSpecForm.querySelector('[name="nobility_titles"]');
@@ -210,6 +225,15 @@ export function initTraitSpecModal() {
       traitSpecOption.add(new Option(option.name, String(option.id)));
     });
     traitSpecOption.value = source.dataset.specificationOption || "";
+    traitSpecInput.placeholder = specificationPlaceholder;
+    specificationHint.textContent = defaultHint;
+    if (lineageRow && lineageMode) {
+      const isLineage = !organization && !controlled && source.dataset.lineage === "1";
+      lineageRow.hidden = !isLineage;
+      lineageMode.disabled = !isLineage;
+      lineageMode.value = source.dataset.fullTitle === "1" ? "1" : "0";
+      syncLineageMode();
+    }
     nobility = null;
     if (!organization && source.dataset.nobilityEditor) {
       try {

@@ -1,13 +1,13 @@
 import { onReady } from "./utils.js";
 import { initTabs } from "./tabs.js?v=20261007-dynamic-panels";
-import { initStandardFloatingWindows } from "./window_manager.js?v=20261013-shop-close";
+import { initStandardFloatingWindows } from "./window_manager.js?v=20261030-shop-trigger";
 import { initLeftTools } from "./left_tools.js?v=20261027-mobile-glass-bar";
 import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-investment";
 import { initFireflies } from "./fireflies.js";
 import { initItemForm } from "./item_form.js?v=20261017-multi-skills";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js?v=20261018-specification-title";
-import { initTraitSpecModal } from "./trait_spec_modal.js?v=20261029-nobility-rank-choice";
+import { initTraitSpecModal } from "./trait_spec_modal.js?v=20261030-lineage-title";
 import { initShopMenu } from "./shop_menu.js?v=20261017-subtypes";
 import { initLearningMenu } from "./learning_menu.js?v=20261019-inline-rank";
 import { initTooltips } from "./tooltip.js?v=20261017-trait-heading";

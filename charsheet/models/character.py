@@ -748,6 +748,7 @@ class CharacterTrait(models.Model):
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     trait_level = models.PositiveIntegerField(default=1)
     specification = models.CharField(max_length=100, blank=True, default="")
+    specification_is_full_title = models.BooleanField(default=False)
     specification_option = models.ForeignKey(
         "charsheet.TraitSpecificationOption",
         on_delete=models.PROTECT,
