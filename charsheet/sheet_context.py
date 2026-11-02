@@ -3534,7 +3534,7 @@ def build_character_item_card_context(
     modifier_payloads: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Return the shared resolved item-card context for sheet and GM preview."""
-    item = character_item.item
+    item = character_item.effective_item
     item_engine = ItemEngine(character_item)
     character_engine = character_item.owner.get_engine() if character_item.owner_id else None
     player_display = resolve_character_item_display(
@@ -4621,7 +4621,7 @@ def _character_item_weapon_target_context(
     weapon_stats=None,
 ) -> dict[str, tuple[str, ...]]:
     """Return weapon target context for one equipped item row."""
-    item = character_item.item
+    item = character_item.effective_item
     weapon_categories: set[str] = {"weapon"}
     weapon_skill_slugs: set[str] = set()
     weapon_type_slugs: set[str] = set()
@@ -6263,6 +6263,7 @@ def _build_inventory_rows(
             | (Q(original_owner_character=character) & ~Q(owner=character))
         )
         .select_related(
+            "item_type_override",
             "item",
             "item__item_type",
             "item__default_quality",
@@ -6301,7 +6302,7 @@ def _build_inventory_rows(
     )
 
     for character_item in inventory_items:
-        item = character_item.item
+        item = character_item.effective_item
         pending_transfer = pending_transfer_for_item(character_item)
 
         is_gm_edit_pending = bool(
@@ -8244,7 +8245,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
     for character_item in inventory_items:
         if item_is_pending(character_item) or not has_item_permission(character_item, "sell", character):
             continue
-        item = character_item.item
+        item = character_item.effective_item
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality_obj())
         effective_unit_price = item_engine.get_price()

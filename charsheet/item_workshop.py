@@ -12,7 +12,8 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 
 from charsheet.models import (
-    CharacterItemRuneSpec, CharacterItemSemanticEffect, ItemRune, Race, Rune,
+    CharacterItemRuneSpec, CharacterItemSemanticEffect, ItemRune, ItemType,
+    Race, Rune,
     ItemSemanticEffect, School,
 )
 from charsheet.sheet_context import (
@@ -49,6 +50,11 @@ def _preview_lines(payloads):
 def _preview_item_card(owned, post, effect_payloads, viewer):
     """Render the shared card from an in-memory draft, without saving it."""
     draft = copy(owned)
+    if post.get("item_type"):
+        category = ItemType.objects.get(pk=post["item_type"])
+        if not category.is_active and category != owned.effective_item_type:
+            raise ValueError
+        draft.item_type_override = category
     draft.name_override = str(post.get("name") or owned.item.name).strip()
     draft.price_override = _read_int(
         post, "price", owned.item.price, minimum=0,
@@ -168,6 +174,9 @@ def preview_item_effects(request, pk):
             result["item_card_html"] = _preview_item_card(
                 owned, request.POST, card_payloads, request.user,
             )
-        except (ValidationError, InvalidOperation, ValueError, TypeError):
+        except (
+            ValidationError, InvalidOperation, ValueError, TypeError,
+            ItemType.DoesNotExist,
+        ):
             return JsonResponse({"error": "Ungültige Grunddaten."}, status=400)
     return JsonResponse(result)

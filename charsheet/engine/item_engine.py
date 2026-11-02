@@ -123,7 +123,7 @@ class ItemEngine:
         if isinstance(self.obj, Item):
             return self.obj
         if isinstance(self.obj, CharacterItem):
-            return self.obj.item
+            return self.obj.effective_item
         raise TypeError("ItemEngine expects Item or CharacterItem")
 
     def _get_character_item(self) -> CharacterItem | None:
@@ -1074,8 +1074,8 @@ class ItemEngine:
     @classmethod
     def active_inventory_weight_for_character(cls, character) -> Decimal:
         """Return carried weight excluding worn armor, shields and clothing."""
-        worn_equipment = Q(
-            item__item_type__excludes_equipped_carry_weight=True,
+        worn_equipment = CharacterItem.type_filter(
+            excludes_equipped_carry_weight=True,
         )
         character_items = (
             CharacterItem.objects.filter(owner=character, stored=False)

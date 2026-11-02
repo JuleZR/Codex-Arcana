@@ -9,6 +9,11 @@ register = template.Library()
 
 
 @register.simple_tag
+def workshop_item_types():
+    return ItemType.objects.all()
+
+
+@register.simple_tag
 def substance_stats_form(item=None):
     return SubstanceStatsForm(
         instance=getattr(item, "substancestats", None), prefix="substance",

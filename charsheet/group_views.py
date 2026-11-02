@@ -833,6 +833,7 @@ def game_master_screen(request, group_id: int):
     inventory_items = list(
         CharacterItem.objects.filter(group_owner=group)
         .select_related(
+            "item_type_override",
             "item",
             "quality",
             "item__armorstats",
@@ -859,6 +860,7 @@ def game_master_screen(request, group_id: int):
         )
         .select_related(
             "item__owner",
+            "item__item_type_override",
             "item__item",
             "item__quality",
             "item__item__armorstats",
@@ -887,7 +889,7 @@ def game_master_screen(request, group_id: int):
         inventory_items.append(edit_transfer.item)
         known_item_ids.add(edit_transfer.item_id)
     for inventory_item in inventory_items:
-        item = inventory_item.item
+        item = inventory_item.effective_item
         weapon = getattr(item, "weaponstats", None)
         armor = getattr(item, "armorstats", None)
         shield = getattr(item, "shieldstats", None)
@@ -948,7 +950,7 @@ def game_master_screen(request, group_id: int):
                 [],
             ),
         )
-        item = inventory_item.item
+        item = inventory_item.effective_item
         engine = ItemEngine(inventory_item)
         workshop_values = {
             "name": inventory_item.effective_name,
@@ -3398,7 +3400,10 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 card = _preview_item_card(
                     instance, request.POST, payloads, request.user,
                 )
-            except (ValidationError, InvalidOperation, ValueError, TypeError):
+            except (
+                ValidationError, InvalidOperation, ValueError, TypeError,
+                ItemType.DoesNotExist,
+            ):
                 return JsonResponse(
                     {"error": "Ungültige Vorschau."}, status=400,
                 )

@@ -131,11 +131,9 @@ def equipped_weapon_items(engine) -> list[CharacterItem]:
                 equipped=True,
             )
             .filter(
-                Q(item__item_type__is_weapon=True)
-                | Q(
-                    item__item_type__is_shield=True,
-                    item__shieldstats__isnull=False,
-                )
+                CharacterItem.type_filter(is_weapon=True)
+                | (CharacterItem.type_filter(is_shield=True)
+                   & Q(item__shieldstats__isnull=False))
             )
             .select_related("item__item_type", "item")
             .select_related("item__rangedweaponstats")
@@ -172,7 +170,7 @@ def equipped_armor_items(engine) -> list[CharacterItem]:
                 equipped=True,
             )
             .filter(
-                Q(item__item_type__is_armor=True)
+                CharacterItem.type_filter(is_armor=True)
                 | Q(item__armorstats__isnull=False)
             )
             .select_related("item__item_type", "item", "item__armorstats")
@@ -190,8 +188,8 @@ def equipped_clothing_items(engine) -> list[CharacterItem]:
             CharacterItem.objects.filter(
                 owner=engine.character,
                 equipped=True,
-                item__item_type__is_clothing=True,
             )
+            .filter(CharacterItem.type_filter(is_clothing=True))
             .select_related("item__item_type", "item")
             .prefetch_related("item__runes", "runes", "item_runes__rune")
         )
@@ -210,16 +208,16 @@ def equipped_magic_item_items(engine) -> list[CharacterItem]:
             )
             .filter(
                 Q(item__is_magic=True)
-                | Q(item__item_type__is_magic_equipment=True)
-                | Q(item__item_type__forces_magic=True)
+                | CharacterItem.type_filter(is_magic_equipment=True)
+                | CharacterItem.type_filter(forces_magic=True)
                 | Q(is_magic=True)
                 | Q(item__magicitemstats__isnull=False)
             )
             .exclude(
-                Q(item__item_type__is_shield=True)
-                | Q(item__item_type__is_clothing=True)
-                | Q(item__item_type__is_armor=True)
-                | Q(item__item_type__is_weapon=True)
+                CharacterItem.type_filter(is_shield=True)
+                | CharacterItem.type_filter(is_clothing=True)
+                | CharacterItem.type_filter(is_armor=True)
+                | CharacterItem.type_filter(is_weapon=True)
             )
             .exclude(item__armorstats__isnull=False)
             .select_related("item__item_type", "item", "item__magicitemstats")
@@ -237,8 +235,8 @@ def equipped_shield_items(engine) -> list[CharacterItem]:
             CharacterItem.objects.filter(
                 owner=engine.character,
                 equipped=True,
-                item__item_type__is_shield=True,
             )
+            .filter(CharacterItem.type_filter(is_shield=True))
             .select_related(
                 "item__item_type", "item", "item__shieldstats",
                 "item__shieldstats__weapon_type",

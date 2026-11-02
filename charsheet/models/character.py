@@ -1,5 +1,6 @@
 """Character-owned models and draft state."""
 import json
+from copy import copy
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -436,6 +437,10 @@ class CharacterItem(models.Model):
     """Ownership state of one item for one character."""
 
     item = models.ForeignKey("Item", on_delete=models.CASCADE)
+    item_type_override = models.ForeignKey(
+        "charsheet.ItemType", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="character_item_overrides",
+    )
     owner = models.ForeignKey(Character, on_delete=models.CASCADE, null=True, blank=True)
     group_owner = models.ForeignKey(
         "charsheet.GameGroup",
@@ -570,10 +575,14 @@ class CharacterItem(models.Model):
             raise ValidationError("Exactly one original owner is required.")
         if self.group_owner_id and self.original_owner_group_id != self.group_owner_id:
             raise ValidationError({"original_owner_group": "A group-held item must originate from that group."})
-        if not self.item.stackable and self.amount != 1:
+        if not self.effective_item.stackable and self.amount != 1:
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
-        if self.item.stackable and self.equipped:
+        if self.effective_item.stackable and self.equipped:
             raise ValidationError({"equipped": "Stackable Items can't be equipped"})
+        if self.equipped and not self.effective_item_type.is_equippable:
+            raise ValidationError({
+                "equipped": "This item type can't be equipped.",
+            })
         from charsheet.engine.item_engine import ItemEngine
 
         destroyed = ItemEngine(self).get_structure_status() == "destroyed"
@@ -637,9 +646,38 @@ class CharacterItem(models.Model):
         return f"{self.owner or self.group_owner} owns {self.item}"
 
     @property
+    def effective_item_type(self):
+        return self.item_type_override or self.item.item_type
+
+    @staticmethod
+    def type_filter(**capabilities):
+        """Match the instance type, falling back to its catalog type."""
+        return models.Q(**{
+            f"item_type_override__{key}": value
+            for key, value in capabilities.items()
+        }) | (
+            models.Q(item_type_override__isnull=True)
+            & models.Q(**{
+                f"item__item_type__{key}": value
+                for key, value in capabilities.items()
+            })
+        )
+
+    @property
+    def effective_item(self):
+        """Resolve instance metadata without changing the catalog item."""
+        if not self.item_type_override_id:
+            return self.item
+        item = copy(self.item)
+        item.item_type = self.item_type_override
+        if item.item_type.forbids_stacking:
+            item.stackable = False
+        return item
+
+    @property
     def is_magic_effective(self) -> bool:
         """Return whether this owned entry behaves as a magic item."""
-        return bool(self.is_magic or self.item.is_magic_effective)
+        return bool(self.is_magic or self.effective_item.is_magic_effective)
 
     @property
     def effective_name(self) -> str:

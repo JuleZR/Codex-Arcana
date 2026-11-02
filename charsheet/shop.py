@@ -92,7 +92,10 @@ def _read_weapon_type(raw_value) -> WeaponType | None:
 def apply_rune_to_item(*, item: CharacterItem, rune: Rune, crafter_level: int) -> ItemRune:
     """Apply or improve one rune assignment on a concrete owned item."""
     allowed_item_types = set(rune.allowed_item_types or [])
-    if allowed_item_types and item.item.item_type_id not in allowed_item_types:
+    if (
+        allowed_item_types
+        and item.effective_item_type.pk not in allowed_item_types
+    ):
         raise ValidationError({"rune": "Diese Rune ist fuer diesen Gegenstandstyp nicht erlaubt."})
     if rune.allow_multiple:
         return ItemRune.objects.create(
@@ -1084,6 +1087,15 @@ def apply_character_item_modifications(
 ) -> bool:
     """Persist one owned-item modification including quality, runes, magic, and costs."""
     item = character_item.item
+    type_slug = str(post_data.get("item_type") or "").strip()
+    category = character_item.effective_item_type
+    if type_slug:
+        category = ItemType.objects.filter(pk=type_slug).first()
+        if category is None or (
+            not category.is_active
+            and type_slug != character_item.effective_item_type.pk
+        ):
+            return False
     name = str(post_data.get("name") or "").strip() or item.name
     price = _read_int(post_data, "price", item.price, minimum=0)
     weight = _read_decimal(post_data, "weight", item.weight)
@@ -1139,7 +1151,7 @@ def apply_character_item_modifications(
         allowed_item_types = set(rune.allowed_item_types or [])
         if (
             allowed_item_types
-            and character_item.item.item_type_id not in allowed_item_types
+            and category.pk not in allowed_item_types
         ):
             continue
         slot = int(payload["slot"])
@@ -1167,6 +1179,9 @@ def apply_character_item_modifications(
 
     try:
         with transaction.atomic():
+            character_item.item_type_override = (
+                category if category.pk != item.item_type_id else None
+            )
             if allow_catalog_flags:
                 item.not_buyable = not_buyable
                 item.not_sellable = not_sellable

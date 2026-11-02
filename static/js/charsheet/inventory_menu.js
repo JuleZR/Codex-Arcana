@@ -251,6 +251,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runeSearchInput = document.getElementById("runeRetrofitSearch");
   const runeSelectionCount = document.getElementById("runeRetrofitSelectionCount");
   const runeQualitySelect = document.getElementById("runeRetrofitQuality");
+  const runeItemTypeSelect = document.getElementById("runeRetrofitItemType");
   const runeExperienceCostInput = document.querySelector("#runeRetrofitForm input[name='experience_cost']");
   const runeMoneyCostInput = document.querySelector("#runeRetrofitForm input[name='money_cost']");
   const runeNameInput = document.getElementById("runeRetrofitCustomName");
@@ -286,6 +287,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       weight: runeWeightInput?.value || "0",
       size_class: runeSizeClassSelect?.value || "",
       quality: runeQualitySelect?.value || "",
+      item_type: runeItemTypeSelect?.value || "",
       description: runeDescriptionInput?.value || "",
       remove_image: runeRemoveImageInput?.checked ? "1" : "",
       rune_payloads: document.getElementById("runeRetrofitRunePayloads")?.value || "[]",
@@ -1291,6 +1293,12 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const itemImage = String(button.getAttribute("data-item-image") || "");
     const itemImageOverride = String(button.getAttribute("data-item-image-override") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
+    if (runeItemTypeSelect instanceof HTMLSelectElement) {
+      runeItemTypeSelect.value = retrofitItemType;
+      Array.from(runeItemTypeSelect.options).forEach((option) => {
+        option.disabled = option.dataset.active === "0" && option.value !== retrofitItemType;
+      });
+    }
     retrofitCapabilities = {};
     ["weapon", "armor", "shield"].forEach((type) => {
       const value = button.getAttribute(`data-supports-${type}`);
@@ -1743,6 +1751,17 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   document.addEventListener("scroll", () => {
     document.querySelectorAll(".inv_menu").forEach((menu) => closeMenu(menu));
   }, true);
+
+  runeItemTypeSelect?.addEventListener("change", () => {
+    retrofitItemType = runeItemTypeSelect.value;
+    const option = runeItemTypeSelect.selectedOptions[0];
+    ["weapon", "armor", "shield"].forEach((type) => {
+      retrofitCapabilities[type] = option?.dataset[type] === "1";
+    });
+    syncRetrofitDetailSections();
+    syncRuneSelectionCount();
+    updateEffectPreviews();
+  });
 
   // Catalog definitions share the inline workshop's effect catalog and
   // inspector, but have no inventory owner, crafting costs or sheet action.

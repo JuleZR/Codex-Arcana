@@ -1,3 +1,4 @@
+{% load item_types %}
 <section class="workshop_panel" id="workshopPanel-base" data-workshop-panel="base" role="tabpanel" aria-labelledby="workshopTab-base">
 {% if catalog_editor %}
   {% include "charsheet/partials/item_editor/_catalog_base_fields.html" %}
@@ -5,6 +6,15 @@
               <div class="workshop_split">
                 <section class="workshop_catalog" aria-label="Grunddaten bearbeiten">
                   <h2>Grunddaten</h2>
+                  {% workshop_item_types as workshop_types %}
+                  <label class="shop_item_form_row">
+                    <span>Itemtyp</span>
+                    <select name="item_type" id="runeRetrofitItemType">
+                      {% for type in workshop_types %}
+                        <option value="{{ type.pk }}" data-active="{{ type.is_active|yesno:'1,0' }}" data-weapon="{{ type.supports_weapon_stats|yesno:'1,0' }}" data-armor="{{ type.supports_armor_stats|yesno:'1,0' }}" data-shield="{{ type.supports_shield_stats|yesno:'1,0' }}">{{ type.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
                   {% if group_workshop %}
                   <label class="shop_item_form_row">
                     <span>Menge</span>

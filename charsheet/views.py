@@ -461,7 +461,7 @@ def _equipment_action_partial_keys(
     effects: list[ItemSemanticEffect | CharacterItemSemanticEffect] | None = None,
 ) -> tuple[str, ...]:
     """Return narrow sheet fragments affected by equipping or unequipping one item."""
-    item = character_item.item
+    item = character_item.effective_item
     item_type = item.item_type
     keys = ["inventory_panel"]
 
@@ -6255,7 +6255,7 @@ def toggle_equip(request, pk):
             status=409
             ), character_id=ci.owner_id)
 
-    if not ci.item.item_type.is_equippable and not ci.equipped:
+    if not ci.effective_item_type.is_equippable and not ci.equipped:
         return redirect("character_sheet", character_id=ci.owner_id)
 
     if ItemEngine(ci).get_structure_status() == "destroyed":
@@ -6282,8 +6282,8 @@ def toggle_equip(request, pk):
             ci.owner,
             _equipment_action_partial_keys(ci),
             include_body_armor=(
-                ci.item.item_type.is_armor
-                or ci.item.item_type.is_shield
+                ci.effective_item_type.is_armor
+                or ci.effective_item_type.is_shield
                 or getattr(ci.item, "armorstats", None) is not None
             ),
         )
@@ -6405,7 +6405,7 @@ def consume_item(request, pk):
 
     if (
         not ci.item.stackable
-        or not ci.item.item_type.is_consumable
+        or not ci.effective_item_type.is_consumable
     ):
         return redirect(
             "character_sheet",
