@@ -62,7 +62,19 @@
                   </div>
                 {% elif not group_row.group.is_archived %}
                   <div class="sl-inventory-row-actions">
-                    <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="edit-{{ instance.id }}" aria-label="Gegenstand anpassen" title="Gegenstand anpassen">
+                    <button type="button" class="sl-inventory-icon-button" data-open-rune-window
+                      data-character-item-id="{{ instance.id }}" data-item-name="{{ instance.effective_name }}"
+                      data-current-quality="{{ instance.quality.code }}" data-description="{{ instance.description|default:instance.item.description }}"
+                      data-item-image="{{ instance.effective_image_url }}" data-item-image-override="{{ instance.image_override }}"
+                      data-item-type="{{ instance.item.item_type_id }}" data-extra-rune-ids="{{ instance.workshop_rune_ids }}"
+                      data-supports-weapon="{{ instance.item.item_type.supports_weapon_stats|yesno:'1,0' }}"
+                      data-supports-armor="{{ instance.item.item_type.supports_armor_stats|yesno:'1,0' }}"
+                      data-supports-shield="{{ instance.item.item_type.supports_shield_stats|yesno:'1,0' }}"
+                      data-rune-specs="{{ instance.workshop_rune_specs_json }}" data-modify-payload="{{ instance.workshop_payload_json }}"
+                      data-magic-modifier-payloads="{{ instance.editor_magic_modifier_payloads_json }}"
+                      data-workshop-action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}"
+                      data-workshop-charge-costs="{% if instance.owner_id %}1{% else %}0{% endif %}"
+                      aria-label="Gegenstand anpassen" title="Gegenstand anpassen">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Zm12.5-16.5 4 4 1-1a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-1 1Z"/></svg>
                     </button>
                     <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="disclosure-{{ instance.id }}" aria-label="Sichtbarkeit verwalten" title="Sichtbarkeit verwalten">
@@ -104,14 +116,6 @@
                     <button type="button" class="dashboard_button dashboard_button--primary" data-sl-disclosure-save data-disclosure-form="{{ instance.sl_disclosure_form_id }}" data-effect-form="{{ instance.sl_effect_form_id }}">Speichern</button>
                     <button type="button" class="dashboard_button" data-close-sl-item-action>Abbrechen</button>
                   </div>
-                </td>
-              </tr>
-              <tr class="sl-inventory-action-row" id="edit-{{ instance.id }}" hidden>
-                <td colspan="5">
-                  <form class="sl-inventory-edit-form sl-editor-form sheet-window__editor-form" method="post" enctype="multipart/form-data" action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}" data-sl-instance-form data-item-type="{{ instance.item.item_type_id }}">
-                    {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
-                    {% include "charsheet/partials/_item_workshop.html" with workshop_instance=instance %}
-                  </form>
                 </td>
               </tr>
               {% if not instance.sl_edit_access %}

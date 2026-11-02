@@ -20,8 +20,9 @@
     </div>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" enctype="multipart/form-data" data-sheet-action data-ajax-only data-close-window-on-success="1">
+    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" enctype="multipart/form-data" {% if not group_workshop %}data-sheet-action data-ajax-only data-close-window-on-success="1"{% endif %}>
       {% csrf_token %}
+      {% if group_workshop %}<input type="hidden" name="shared_workshop" value="1">{% endif %}
       <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
       {% include "charsheet/partials/_item_workshop.html" %}
     </form>

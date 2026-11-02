@@ -5,6 +5,12 @@
               <div class="workshop_split">
                 <section class="workshop_catalog" aria-label="Grunddaten bearbeiten">
                   <h2>Grunddaten</h2>
+                  {% if group_workshop %}
+                  <label class="shop_item_form_row">
+                    <span>Menge</span>
+                    <input type="number" name="amount" min="1" step="1" value="1">
+                  </label>
+                  {% endif %}
                   <label class="shop_item_form_row">
                     <span>Name</span>
                     <input type="text" name="name" id="runeRetrofitCustomName" maxlength="200" placeholder="Name des Besitz-Items">

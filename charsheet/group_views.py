@@ -110,12 +110,16 @@ from charsheet.shop import (
     _cp_matches_steps,
     _read_magic_modifier_payloads,
     _save_magic_modifiers,
+    apply_character_item_modifications,
     create_custom_shop_item,
 )
 from charsheet.sheet_context import (
     _load_character_item_modifier_payloads,
     _merge_magic_effect_payloads,
     _serialize_item_semantic_effect_payload,
+    _serialize_character_item_rune_specs,
+    _rune_image_url,
+    _rune_inline_description,
     build_character_item_card_context,
 )
 from charsheet.views import (
@@ -938,6 +942,56 @@ def game_master_screen(request, group_id: int):
                 [],
             ),
         )
+        item = inventory_item.item
+        engine = ItemEngine(inventory_item)
+        workshop_values = {
+            "name": inventory_item.effective_name,
+            "price": engine.get_base_price(),
+            "weight": str(engine._get_override_value(
+                "weight_override", item.weight,
+            )),
+            "size_class": engine.get_size_class(),
+            "invested_cp": (
+                inventory_item.invested_cp or item.invested_cp or ""
+            ),
+            "invested_cp_steps": item.invested_cp_steps or "",
+            "not_buyable": item.not_buyable,
+            "not_sellable": item.not_sellable,
+            "amount": inventory_item.amount,
+        }
+        for prefix, stats in (
+            ("weapon", getattr(item, "weaponstats", None)),
+            ("armor", getattr(item, "armorstats", None)),
+            ("shield", getattr(item, "shieldstats", None)),
+        ):
+            if stats is None:
+                continue
+            for field in stats._meta.concrete_fields:
+                if field.name in {"id", "item"}:
+                    continue
+                name = (
+                    "maneuver_attribute"
+                    if field.name == "maneuver_attribute_mode" else field.name
+                )
+                override = f"{prefix}_{name}_override"
+                if hasattr(inventory_item, override):
+                    value = engine._get_override_value(
+                        override, getattr(stats, field.name),
+                    )
+                    if field.is_relation:
+                        value = getattr(
+                            value,
+                            "slug" if field.name == "weapon_type" else "pk",
+                            "",
+                        )
+                    workshop_values[f"{prefix}_{name}"] = value
+        inventory_item.workshop_payload_json = json.dumps(workshop_values)
+        inventory_item.workshop_rune_specs_json = json.dumps(
+            _serialize_character_item_rune_specs(inventory_item)
+        )
+        inventory_item.workshop_rune_ids = ",".join(
+            str(rune.pk) for rune in inventory_item.runes.all()
+        )
         inventory_item.magic_modifier_payloads_json = json.dumps(magic_payloads)
         inventory_item.editor_magic_modifier_payloads_json = json.dumps(
             editor_magic_payloads
@@ -1206,6 +1260,32 @@ def game_master_screen(request, group_id: int):
             "group_inventory_damage_sources": DamageSource.objects.order_by("name"),
             "group_inventory_weapon_types": WeaponType.objects.order_by("sort_order", "name"),
             "group_inventory_weapon_skills": Skill.objects.select_related("category").order_by("name"),
+            "shop_quality_choices": [
+                {"value": quality.code, "label": quality.name,
+                 "color": quality.hex_color}
+                for quality in Quality.objects.all()
+            ],
+            "shop_weapon_type_choices": [
+                ("", "Nicht festgelegt"),
+                *WeaponType.objects.order_by("sort_order", "name").values_list(
+                    "slug", "name",
+                ),
+            ],
+            "rune_retrofit_choices": [
+                {
+                    "id": rune.pk, "name": rune.name,
+                    "description": _rune_inline_description(rune),
+                    "image": _rune_image_url(rune),
+                    "has_specialization": rune.has_specialization,
+                    "specialization_label": (
+                        rune.specialization_label or "Bezeichnung"
+                    ),
+                    "allow_multiple": rune.allow_multiple,
+                    "allowed_item_types": rune.allowed_item_types,
+                    "is_level_scaled": rune.is_level_scaled,
+                }
+                for rune in Rune.objects.order_by("name")
+            ],
             "group_inventory_runes": Rune.objects.order_by("name"),
             "group_inventory_effect_kinds": [
                 ("text", "Nur Beschreibung"),
@@ -3300,6 +3380,46 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             recipient_group=group,
         ).exists():
             raise GroupError("pending_transfer", "Eine angebotene Instanz kann nicht verändert werden.", status=409)
+        if request.GET.get("preview") == "1":
+            from charsheet.item_workshop import (
+                build_item_effect_previews, _preview_item_card,
+            )
+
+            try:
+                previews, payloads = build_item_effect_previews(
+                    request.POST, character_item=instance,
+                )
+                card = _preview_item_card(
+                    instance, request.POST, payloads, request.user,
+                )
+            except (ValidationError, InvalidOperation, ValueError, TypeError):
+                return JsonResponse(
+                    {"error": "Ungültige Vorschau."}, status=400,
+                )
+            return JsonResponse({"previews": previews, "item_card_html": card})
+        if request.POST.get("shared_workshop") == "1":
+            amount = max(1, int(
+                request.POST.get("amount") or instance.amount,
+            ))
+            if not instance.item.stackable and amount != 1:
+                raise GroupError(
+                    "not_stackable",
+                    "Nicht stapelbare Gegenstände haben immer Menge 1.",
+                )
+            instance.amount = amount
+            if not apply_character_item_modifications(
+                instance, request.POST, request.FILES,
+                charge_character_costs=instance.owner_id is not None,
+            ):
+                raise GroupError(
+                    "invalid_item",
+                    "Die Gegenstandsmodifikation ist ungültig "
+                    "oder nicht bezahlbar.",
+                )
+            messages.success(request, "Instanzanpassung gespeichert.")
+            return redirect(
+                f"{reverse('game_master_screen', args=[group_id])}#sl-inventar"
+            )
         amount = max(1, int(request.POST.get("amount") or instance.amount))
         if not instance.item.stackable and amount != 1:
             raise GroupError("not_stackable", "Nicht stapelbare Gegenstände haben immer Menge 1.")

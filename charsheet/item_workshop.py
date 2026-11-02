@@ -107,7 +107,7 @@ def build_item_effect_previews(post, *, character_item=None):
     invested_cp = max(0, int(post.get("invested_cp") or 0))
     school_ids = set(character_item.owner.schools.values_list(
         "school_id", flat=True,
-    )) if character_item else set()
+    )) if character_item and character_item.owner_id else set()
     grouped = defaultdict(list)
     display_groups = defaultdict(list)
     card_payloads = []
@@ -125,7 +125,8 @@ def build_item_effect_previews(post, *, character_item=None):
             draft,
             invested_cp=invested_cp,
             character_race_id=(
-                character_item.owner.race_id if character_item else None
+                character_item.owner.race_id
+                if character_item and character_item.owner_id else None
             ),
             character_school_ids=school_ids,
             condition_races=list(Race.objects.filter(

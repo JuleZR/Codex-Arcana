@@ -300,6 +300,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runeWeaponWieldMode = document.getElementById("runeRetrofitWeaponWieldMode");
   const runeWeaponTwoHandFields = document.getElementById("runeRetrofitWeaponTwoHandFields");
   let retrofitItemType = "";
+  let retrofitCapabilities = {};
   const WEAPON_ONLY_MAGIC_TARGET_KINDS = ["weapon_maneuver", "weapon_damage", "weapon_damage_dice", "weapon_mastery_bonus"];
   const WEAPON_MASTERY_BONUS_KIND = "weapon_mastery_bonus";
   const WEAPON_MASTERY_BONUS_DESCRIPTION = "Waffenmeister-Bonus +1/+1";
@@ -649,13 +650,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   const syncRetrofitDetailSections = () => {
     if (runeArmorFields instanceof HTMLElement) {
-      runeArmorFields.hidden = retrofitItemType !== "armor";
+      runeArmorFields.hidden = !(retrofitCapabilities.armor ?? (retrofitItemType === "armor"));
     }
     if (runeWeaponFields instanceof HTMLElement) {
-      runeWeaponFields.hidden = retrofitItemType !== "weapon";
+      runeWeaponFields.hidden = !(retrofitCapabilities.weapon ?? (retrofitItemType === "weapon"));
     }
     if (runeShieldFields instanceof HTMLElement) {
-      runeShieldFields.hidden = retrofitItemType !== "shield";
+      runeShieldFields.hidden = !(retrofitCapabilities.shield ?? (retrofitItemType === "shield"));
     }
     if (runeWeaponTwoHandFields instanceof HTMLElement && runeWeaponWieldMode instanceof HTMLSelectElement) {
       runeWeaponTwoHandFields.hidden = runeWeaponWieldMode.value === "1h";
@@ -951,8 +952,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
         const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
         if (weaponOnlyOption instanceof HTMLOptionElement) {
-          weaponOnlyOption.hidden = retrofitItemType !== "weapon";
-          weaponOnlyOption.disabled = retrofitItemType !== "weapon";
+          weaponOnlyOption.hidden = !(retrofitCapabilities.weapon ?? (retrofitItemType === "weapon"));
+          weaponOnlyOption.disabled = weaponOnlyOption.hidden;
         }
       });
     }
@@ -977,7 +978,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       row.dataset.displayGroupAppend = initialPayload.display_group_append ? "1" : "0";
       if (targetKindSelect instanceof HTMLSelectElement) {
         targetKindSelect.value = String(initialPayload.target_kind || "");
-        if (retrofitItemType !== "weapon" && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
+        if (!(retrofitCapabilities.weapon ?? (retrofitItemType === "weapon")) && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
           targetKindSelect.value = "";
         }
       }
@@ -1290,6 +1291,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const itemImage = String(button.getAttribute("data-item-image") || "");
     const itemImageOverride = String(button.getAttribute("data-item-image-override") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
+    retrofitCapabilities = {};
+    ["weapon", "armor", "shield"].forEach((type) => {
+      const value = button.getAttribute(`data-supports-${type}`);
+      if (value !== null) retrofitCapabilities[type] = value === "1";
+    });
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
     const modifyPayload = parseJsonObject(button.getAttribute("data-modify-payload"));
 
@@ -1315,7 +1321,16 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const extraRuneIds = new Set(parseIdList(button.getAttribute("data-extra-rune-ids")));
     const useLegacy = rawRuneSpecs.length === 0 && extraRuneIds.size > 0;
 
-    runeForm.action = `/character-item/${characterItemId}/runes/update/`;
+    const groupAction = button.dataset.workshopAction;
+    runeForm.action = groupAction || `/character-item/${characterItemId}/runes/update/`;
+    if (groupAction) runeForm.dataset.effectPreviewUrl = `${groupAction}?preview=1`;
+    else delete runeForm.dataset.effectPreviewUrl;
+    [runeExperienceCostInput, runeMoneyCostInput].forEach((input) => {
+      if (!input) return;
+      input.disabled = button.dataset.workshopChargeCosts === "0";
+      const section = input.closest("details");
+      if (section) section.hidden = input.disabled;
+    });
     runeOptions.innerHTML = "";
     if (runeSearchInput instanceof HTMLInputElement) {
       runeSearchInput.value = "";
@@ -1396,6 +1411,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
 
     [
+      "amount",
       "weapon_type",
       "weapon_min_st",
       "weapon_damage_source",

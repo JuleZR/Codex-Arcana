@@ -9,10 +9,18 @@
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261001i">
   <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20261017-shared-workshop">
   <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261004c">
+  <link rel="stylesheet" href="{% static 'css/searchable_choices.css' %}?v=20261019-size-colors">
+  <script defer src="{% static 'js/searchable_choices.js' %}?v=20261019-size-colors"></script>
   <script defer src="{% static 'js/charsheet/condition_picker.js' %}?v=20261004c"></script>
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20261025-effect-fields"></script>
   <script defer src="{% static 'js/game_master_screen.js' %}?v=20260929b"></script>
+  <script type="module">
+    import { initInventoryMenu } from "{% static 'js/charsheet/inventory_menu.js' %}?v=20261102-sl-workshop";
+    import { initTooltips } from "{% static 'js/charsheet/tooltip.js' %}?v=20261015-effect-preview";
+    initInventoryMenu();
+    initTooltips();
+  </script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -985,5 +993,8 @@
       </section>
     </div>
   </main>
+  {% if not group.is_archived %}
+    {% include "charsheet/partials/_sl_item_workshop.html" %}
+  {% endif %}
 </body>
 </html>
