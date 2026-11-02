@@ -914,64 +914,71 @@ document.addEventListener("DOMContentLoaded", () => {
     display.classList.toggle("is-player-hidden", checkbox.checked);
   };
 
-  document.querySelectorAll(".sl-card-lock-control").forEach((control) => {
-    control.addEventListener("change", (event) => {
-      if (
-        event.target instanceof HTMLInputElement
-        && event.target.type === "file"
-        && event.target.files?.[0]
-      ) {
-        const preview = control.querySelector(".sl-card-image-picker img") || document.createElement("img");
-        preview.src = URL.createObjectURL(event.target.files[0]);
-        if (!preview.parentElement) {
-          const picker = control.querySelector(".sl-card-image-picker");
-          picker?.prepend(preview);
-        }
-      }
-      syncDisclosureControl(control);
-      syncEffectControl(control);
-    });
-    control.addEventListener("input", () => {
-      syncDisclosureControl(control);
-      syncEffectControl(control);
-    });
-    syncDisclosureControl(control);
-    syncEffectControl(control);
-  });
-
-  document.querySelectorAll("[data-sl-disclosure-save]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const disclosureForm = document.getElementById(button.dataset.disclosureForm || "");
-      const effectForm = document.getElementById(button.dataset.effectForm || "");
-      if (!(disclosureForm instanceof HTMLFormElement) || !(effectForm instanceof HTMLFormElement)) return;
-      button.disabled = true;
-      const originalText = button.textContent;
-      button.textContent = "Speichert...";
-      try {
-        for (const form of [disclosureForm, effectForm]) {
-          const data = new FormData(form);
-          data.set("_response_format", "json");
-          const response = await fetch(form.action, {
-            method: "POST",
-            body: data,
-            headers: {
-              "X-Requested-With": "XMLHttpRequest",
-              "Accept": "application/json",
-            },
-          });
-          if (!response.ok) {
-            const detail = await response.text();
-            throw new Error(`Save failed: ${response.status} ${detail.slice(0, 300)}`);
+  const initDisclosureControls = (root) => {
+    root.querySelectorAll(".sl-card-lock-control").forEach((control) => {
+      control.addEventListener("change", (event) => {
+        if (
+          event.target instanceof HTMLInputElement
+          && event.target.type === "file"
+          && event.target.files?.[0]
+        ) {
+          const preview = control.querySelector(".sl-card-image-picker img") || document.createElement("img");
+          preview.src = URL.createObjectURL(event.target.files[0]);
+          if (!preview.parentElement) {
+            const picker = control.querySelector(".sl-card-image-picker");
+            picker?.prepend(preview);
           }
         }
-        window.location.reload();
-      } catch (error) {
-        console.error(error);
-        button.disabled = false;
-        button.textContent = originalText || "Speichern";
-        window.alert("Speichern fehlgeschlagen.");
-      }
+        syncDisclosureControl(control);
+        syncEffectControl(control);
+      });
+      control.addEventListener("input", () => {
+        syncDisclosureControl(control);
+        syncEffectControl(control);
+      });
+      syncDisclosureControl(control);
+      syncEffectControl(control);
     });
+
+    root.querySelectorAll("[data-sl-disclosure-save]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const disclosureForm = document.getElementById(button.dataset.disclosureForm || "");
+        const effectForm = document.getElementById(button.dataset.effectForm || "");
+        if (!(disclosureForm instanceof HTMLFormElement) || !(effectForm instanceof HTMLFormElement)) return;
+        button.disabled = true;
+        const originalText = button.textContent;
+        button.textContent = "Speichert...";
+        try {
+          for (const form of [disclosureForm, effectForm]) {
+            const data = new FormData(form);
+            data.set("_response_format", "json");
+            const response = await fetch(form.action, {
+              method: "POST",
+              body: data,
+              headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json",
+              },
+            });
+            if (!response.ok) {
+              const detail = await response.text();
+              throw new Error(`Save failed: ${response.status} ${detail.slice(0, 300)}`);
+            }
+          }
+          window.location.reload();
+        } catch (error) {
+          console.error(error);
+          button.disabled = false;
+          button.textContent = originalText || "Speichern";
+          window.alert("Speichern fehlgeschlagen.");
+        }
+      });
+    });
+  };
+  initDisclosureControls(document);
+  document.addEventListener("sl-inventory:item-updated", (event) => {
+    actionFrame?.hide();
+    if (event.detail?.root) initDisclosureControls(event.detail.root);
   });
 
   document.querySelectorAll(".sl-inventory").forEach((panel) => {
@@ -1194,7 +1201,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let reloadStarted = false;
 
     const updateTransferState = async () => {
-      if (document.hidden || requestInFlight || reloadStarted) return;
+      if (document.hidden || requestInFlight || reloadStarted
+          || document.getElementById("runeRetrofitWindow")?.getAttribute("aria-hidden") === "false") return;
       requestInFlight = true;
       try {
         const response = await fetch(inventory.dataset.slTransferStateUrl, {
@@ -1206,6 +1214,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const state = await response.json();
         const nextSignature = String(state.signature || "");
         if (nextSignature !== signature) {
+          // Do not interrupt editing if a poll completed after the workshop opened.
+          if (document.getElementById("runeRetrofitWindow")?.getAttribute("aria-hidden") === "false") return;
           signature = nextSignature;
           reloadStarted = true;
           window.location.reload();

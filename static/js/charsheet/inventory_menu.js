@@ -1645,12 +1645,72 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row?.querySelector("[data-magic-target-kind]")?.focus();
   });
 
-  runeForm?.addEventListener("submit", () => {
+  runeForm?.addEventListener("submit", async (event) => {
     pendingRuneSubmit = true;
     if (workshopStatus) workshopStatus.textContent = "Wird gespeichert …";
     serializeMagicEffects();
     serializeRunePayloads();
     runeForm?.querySelector(".rune_window_save_error")?.remove();
+    const groupButton = document.querySelector(
+      "[data-open-rune-window][data-workshop-action]",
+    );
+    if (!groupButton || !runeForm.querySelector("[name='shared_workshop']")) return;
+    event.preventDefault();
+    if (runeForm.dataset.savePending === "1") return;
+    runeForm.dataset.savePending = "1";
+    const saveButton = runeForm.querySelector(".workshop_submit");
+    if (saveButton) saveButton.disabled = true;
+    try {
+      const response = await fetch(runeForm.action, {
+        method: "POST",
+        body: new FormData(runeForm),
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      if (response.headers.get("content-type")?.includes("application/json")) {
+        const result = await response.json();
+        throw new Error(result.error || "Speichern fehlgeschlagen.");
+      }
+      if (!response.ok) throw new Error("Speichern fehlgeschlagen.");
+      const updated = new DOMParser().parseFromString(await response.text(), "text/html");
+      const selector = `[data-open-rune-window][data-workshop-action="${CSS.escape(runeForm.action.replace(window.location.origin, ""))}"]`;
+      const currentButton = document.querySelector(selector);
+      const nextButton = updated.querySelector(selector);
+      if (!currentButton || !nextButton) {
+        throw new Error("Gespeichert, aber der Inventareintrag konnte nicht aktualisiert werden. Bitte die Seite neu laden.");
+      }
+      const currentRow = currentButton.closest("tr");
+      const nextRow = nextButton.closest("tr");
+      // Preserve the other rows and their listeners, selection and open dialogs.
+      currentRow.cells[1].querySelector("strong").textContent = nextRow.cells[1].querySelector("strong").textContent;
+      currentRow.cells[2].replaceChildren(...nextRow.cells[2].childNodes);
+      currentRow.cells[3].textContent = nextRow.cells[3].textContent;
+      Array.from(nextButton.attributes).forEach(({ name, value }) => {
+        if (name.startsWith("data-")) currentButton.setAttribute(name, value);
+      });
+      const itemId = currentButton.dataset.characterItemId;
+      const disclosure = document.getElementById(`disclosure-${itemId}`);
+      const nextDisclosure = updated.getElementById(`disclosure-${itemId}`);
+      if (disclosure && nextDisclosure) {
+        disclosure.replaceChildren(...nextDisclosure.childNodes);
+        document.dispatchEvent(new CustomEvent("sl-inventory:item-updated", {
+          detail: { root: disclosure },
+        }));
+      }
+      const quantity = document.querySelector(`#send-${CSS.escape(itemId)} input[name='quantity']`);
+      if (quantity) {
+        quantity.max = currentRow.cells[3].textContent.trim();
+        quantity.value = String(Math.min(Number(quantity.value), Number(quantity.max)));
+      }
+      closeRuneWindow();
+    } catch (error) {
+      runeForm.dispatchEvent(new CustomEvent("sheet:action-failed", {
+        detail: { error: error.message },
+      }));
+    } finally {
+      delete runeForm.dataset.savePending;
+      if (saveButton) saveButton.disabled = false;
+    }
   });
 
   runeForm?.addEventListener("sheet:action-failed", (event) => {
