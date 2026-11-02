@@ -125,13 +125,15 @@
                     {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
                     <div class="sl-inventory-send-form__top">
                     <div data-group-character-picker data-search-url="{% url 'group_character_search' group_row.group.id %}" data-search-mode="recipient">
+                      <label class="sl-send-field-label" for="sl-send-recipient-{{ instance.id }}">Empfänger</label>
                       <input type="hidden" name="recipient_id" data-group-character-id>
-                      <input class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Empfängername">
+                      <input id="sl-send-recipient-{{ instance.id }}" class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Charaktername suchen …">
                       <div class="dashboard_group_character_results" data-group-character-results role="listbox"></div>
                     </div>
-                    <input class="dashboard_input" name="quantity" type="number" min="1" max="{{ instance.amount }}" value="1" aria-label="Menge">
+                    <label class="sl-send-quantity"><span class="sl-send-field-label">Menge</span><input class="dashboard_input" name="quantity" type="number" min="1" max="{{ instance.amount }}" value="1"></label>
                     </div>
-                    <textarea class="dashboard_input sl-inventory-send-form__message" name="message" maxlength="1000" rows="5" placeholder="Optionale Nachricht"></textarea>
+                    <label class="sl-send-scope"><input type="checkbox" name="include_outside_group" value="1" data-group-character-outside><span><strong>Außerhalb der Gruppe suchen</strong><small>Auch andere Charaktere als Empfänger zulassen.</small></span></label>
+                    <label class="sl-send-message"><span class="sl-send-field-label">Nachricht <small>optional</small></span><textarea class="dashboard_input sl-inventory-send-form__message" name="message" maxlength="1000" rows="5" placeholder="Eine Nachricht zum Gegenstand …"></textarea></label>
                     <div class="sl-inventory-send-form__actions"><button class="dashboard_button dashboard_button--primary">Senden</button></div>
                   </form>
                 </td>
@@ -149,12 +151,14 @@
           <div data-sl-bulk-send-items></div>
           <div class="sl-inventory-send-form__top sl-inventory-send-form__top--bulk">
           <div data-group-character-picker data-search-url="{% url 'group_character_search' group_row.group.id %}" data-search-mode="recipient">
+            <label class="sl-send-field-label" for="sl-bulk-send-recipient-{{ group_row.group.id }}">Empfänger</label>
             <input type="hidden" name="recipient_id" data-group-character-id>
-            <input class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Empfängername">
+            <input id="sl-bulk-send-recipient-{{ group_row.group.id }}" class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Charaktername suchen …">
             <div class="dashboard_group_character_results" data-group-character-results role="listbox"></div>
           </div>
           </div>
-          <textarea class="dashboard_input sl-inventory-send-form__message" name="message" maxlength="1000" rows="5" placeholder="Optionale Nachricht"></textarea>
+          <label class="sl-send-scope"><input type="checkbox" name="include_outside_group" value="1" data-group-character-outside><span><strong>Außerhalb der Gruppe suchen</strong><small>Auch andere Charaktere als Empfänger zulassen.</small></span></label>
+          <label class="sl-send-message"><span class="sl-send-field-label">Nachricht <small>optional</small></span><textarea class="dashboard_input sl-inventory-send-form__message" name="message" maxlength="1000" rows="5" placeholder="Eine Nachricht zu den Gegenständen …"></textarea></label>
           <div class="sl-inventory-send-form__actions"><button class="dashboard_button dashboard_button--primary">Auswahl senden</button></div>
         </form>
       </div>

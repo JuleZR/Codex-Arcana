@@ -8,6 +8,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.append(backdrop, win);
 
     const constrainDisclosureWindow = () => {
+      if (win.classList.contains("is-send")) {
+        win.style.height = "auto";
+        win.style.maxHeight = `${Math.min(win.getBoundingClientRect().width * 297 / 210, window.innerHeight - 28)}px`;
+        return;
+      }
       if (!win.classList.contains("is-disclosure-card")) return;
       const height = Math.max(320, Math.min(1074, window.innerHeight - 28));
       win.style.height = `${height}px`;
@@ -37,6 +42,11 @@ document.addEventListener("DOMContentLoaded", () => {
     opener?.addEventListener("click", () => show(opener));
     closeButtons.forEach((button) => button.addEventListener("click", hide));
     backdrop.addEventListener("click", hide);
+    window.addEventListener("resize", () => {
+      if (win.classList.contains("is-open") && win.classList.contains("is-send")) {
+        constrainDisclosureWindow();
+      }
+    });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && win.classList.contains("is-open")) hide();
     });
@@ -791,6 +801,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const panelId = String(button.dataset.toggleSlInventoryPanel || "");
       if (!row || !actionBody) return false;
       const isWorkshop = panelId.startsWith("edit-");
+      actionWindow?.classList.toggle("is-send", panelId.startsWith("send-") || panelId.startsWith("bulk-send-"));
       actionWindow?.classList.toggle("sl-workshop-window", isWorkshop);
       actionWindow?.querySelector("[data-sl-item-action-handle]")?.classList.toggle("workshop_header", isWorkshop);
       actionWindow?.querySelector(".payday-window__close")?.classList.toggle("sheet-window__close", isWorkshop);
@@ -827,6 +838,9 @@ document.addEventListener("DOMContentLoaded", () => {
       activeForm = null;
       movedNodes = [];
       actionWindow?.classList.remove("is-disclosure-card");
+      actionWindow?.classList.remove("is-send");
+      actionWindow?.style.removeProperty("height");
+      actionWindow?.style.removeProperty("max-height");
       actionWindow?.classList.remove("sl-workshop-window");
       actionWindow?.querySelector("[data-sl-item-action-handle]")?.classList.remove("workshop_header");
       actionWindow?.querySelector(".payday-window__close")?.classList.remove("sheet-window__close");

@@ -218,6 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const search = picker.querySelector("[data-group-character-query]");
     const hidden = picker.querySelector("[data-group-character-id]");
     const results = picker.querySelector("[data-group-character-results]");
+    const outsideGroup = picker.closest("form")?.querySelector("[data-group-character-outside]");
     if (!search || !hidden || !results) return;
     let timer = null;
     let requestVersion = 0;
@@ -246,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const url = new URL(picker.dataset.searchUrl, window.location.origin);
         url.searchParams.set("q", query);
         url.searchParams.set("mode", picker.dataset.searchMode || "invite");
+        if (outsideGroup?.checked) url.searchParams.set("include_outside_group", "1");
         controller = new AbortController();
         announce("Charaktere werden gesucht …");
         try {
@@ -263,7 +265,15 @@ document.addEventListener("DOMContentLoaded", () => {
             button.type = "button";
             button.dataset.characterId = row.id;
             button.dataset.characterLabel = row.name;
-            button.textContent = `${row.name} · ${row.race} · ${row.username}`;
+            if (picker.closest(".sl-inventory-send-form")) {
+              const name = document.createElement("strong");
+              const details = document.createElement("small");
+              name.textContent = row.name;
+              details.textContent = `${row.race} · ${row.username}`;
+              button.append(name, details);
+            } else {
+              button.textContent = `${row.name} · ${row.race} · ${row.username}`;
+            }
             results.append(button);
           });
           search.setAttribute("aria-expanded", String(Boolean(payload.results.length)));
@@ -276,6 +286,10 @@ document.addEventListener("DOMContentLoaded", () => {
           announce("Die Suche ist fehlgeschlagen. Bitte erneut versuchen.");
         }
       }, 180);
+    });
+
+    outsideGroup?.addEventListener("change", () => {
+      search.dispatchEvent(new Event("input"));
     });
 
     results.addEventListener("click", (event) => {

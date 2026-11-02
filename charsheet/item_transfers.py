@@ -810,6 +810,7 @@ def create_group_transfer(
     recipient: Character,
     quantity: int,
     message: str = "",
+    include_outside_group: bool = False,
 ):
     from charsheet.game_groups import require_game_master
     from charsheet.models import GameGroupMembership
@@ -825,11 +826,15 @@ def create_group_transfer(
         raise TransferError("not_owner", "Das Item gehört nicht diesem Gruppeninventar.", status=403)
     if item.owner_id is not None or item.original_owner_character_id is not None:
         raise TransferError("invalid_group_item", "Der Gruppenbesitz dieses Items ist inkonsistent.", status=409)
-    if recipient.is_archived or not GameGroupMembership.objects.select_for_update().filter(
-        group=locked_group,
-        character=recipient,
-        status=GameGroupMembership.Status.ACTIVE,
-    ).exists():
+    if recipient.is_archived:
+        raise TransferError("invalid_recipient", "Der Empfänger ist archiviert.")
+    if not include_outside_group and not (
+        GameGroupMembership.objects.select_for_update().filter(
+            group=locked_group,
+            character=recipient,
+            status=GameGroupMembership.Status.ACTIVE,
+        ).exists()
+    ):
         raise TransferError("invalid_recipient", "Empfänger muss aktives Mitglied dieser Gruppe sein.")
     if quantity < 1 or quantity > item.amount:
         raise TransferError("invalid_quantity", "Die gewählte Menge ist nicht verfügbar.")
@@ -854,6 +859,7 @@ def create_group_transfer(
     item_snapshot["creature_choices"] = _creature_choice_snapshot(item)
     item_snapshot["requested_permissions"] = []
     item_snapshot["transfer_original_ownership"] = True
+    item_snapshot["include_outside_group"] = include_outside_group
     transfer = ItemTransfer.objects.create(
         item=item,
         item_provenance_id=item.provenance_id,
@@ -913,7 +919,10 @@ def accept_transfer(*, transfer_id: int, recipient: Character):
         recipient = Character.objects.select_for_update().get(pk=recipient.pk)
         if group.is_archived:
             raise TransferError("group_archived", "Die absendende Gruppe ist archiviert.", status=409)
-        if recipient.is_archived or not membership_exists:
+        if recipient.is_archived or (
+            not membership_exists
+            and not preliminary.item_snapshot.get("include_outside_group", False)
+        ):
             raise TransferError(
                 "group_membership_required",
                 "Der Charakter ist kein aktives Mitglied der absendenden Gruppe.",

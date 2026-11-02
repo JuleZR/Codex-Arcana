@@ -298,10 +298,13 @@ def group_character_search(request, group_id: int):
         name__istartswith=query,
     ).select_related("race", "owner")
     if mode == "recipient":
-        characters = characters.filter(
-            game_group_memberships__group=group,
-            game_group_memberships__status=GameGroupMembership.Status.ACTIVE,
-        )
+        if request.GET.get("include_outside_group") != "1":
+            characters = characters.filter(
+                game_group_memberships__group=group,
+                game_group_memberships__status=(
+                    GameGroupMembership.Status.ACTIVE
+                ),
+            )
     else:
         active_ids = GameGroupMembership.objects.filter(
             group=group,
@@ -338,10 +341,13 @@ def group_character_search(request, group_id: int):
         name__istartswith=query,
     ).select_related("race", "owner")
     if mode == "recipient":
-        characters = characters.filter(
-            game_group_memberships__group=group,
-            game_group_memberships__status=GameGroupMembership.Status.ACTIVE,
-        )
+        if request.GET.get("include_outside_group") != "1":
+            characters = characters.filter(
+                game_group_memberships__group=group,
+                game_group_memberships__status=(
+                    GameGroupMembership.Status.ACTIVE
+                ),
+            )
     else:
         active_ids = GameGroupMembership.objects.filter(
             group=group,
@@ -3794,6 +3800,7 @@ def send_group_inventory_item(request, group_id: int, item_id: int):
         recipient=recipient,
         quantity=max(1, int(request.POST.get("quantity") or 1)),
         message=request.POST.get("message", ""),
+        include_outside_group=request.POST.get("include_outside_group") == "1",
     )
     messages.success(request, f"Angebot an {transfer.recipient.name} versendet.")
     return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
@@ -3827,6 +3834,9 @@ def send_group_inventory_items(request, group_id: int):
                     recipient=recipient,
                     quantity=item.amount,
                     message=request.POST.get("message", ""),
+                    include_outside_group=(
+                        request.POST.get("include_outside_group") == "1"
+                    ),
                 )
             )
     transfer_label = "Angebot" if len(transfers) == 1 else "Angebote"
