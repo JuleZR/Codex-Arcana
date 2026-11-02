@@ -830,6 +830,13 @@ class CharacterTrait(models.Model):
         """Validate the chosen trait level against its allowed range."""
         super().clean()
         if (
+            self.trait_id and self.owner_id
+            and not self.trait.is_available_for_race(self.owner.race_id)
+        ):
+            raise ValidationError({
+                "trait": "Dieser Trait ist für die Rasse nicht erlaubt.",
+            })
+        if (
             self.trait.effective_max_level is not None
             and self.trait_level > self.trait.effective_max_level
         ):

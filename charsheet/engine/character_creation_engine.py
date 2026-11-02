@@ -1545,6 +1545,7 @@ class CharacterCreationEngine:
         trait_rows = Trait.objects.filter(
             trait_type=trait_type
         ).prefetch_related(
+            "allowed_races",
             "exclusions__excluded_trait",
             "excluded_by__trait",
         )
@@ -1561,6 +1562,7 @@ class CharacterCreationEngine:
             )
             rules[trait.slug] = TraitBuildRule(
                 slug=trait.slug,
+                available_for_race=trait.is_available_for_race(self.race.pk),
                 cp_cost=(
                     int(trait.points_per_level)
                     if trait_type == Trait.TraitType.ADV

@@ -8344,6 +8344,7 @@ class WeaponTypeAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 @admin.register(Trait)
 class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for traits and their level boundaries."""
+    filter_horizontal = ("allowed_races",)
     list_display = (
         "name",
         "slug",
@@ -8374,6 +8375,7 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
                     "has_specification",
+                    "allowed_races",
                     "name_display_mode",
                     "points_by_level",
                     ("min_level", "max_level"),

@@ -3269,11 +3269,14 @@ def _build_alchemical_brew_requirement_line(
     item: Item,
 ) -> str:
     """Return the generated crafting line for an alchemical brew."""
-    brew = (
-        AlchemicalBrewStats.objects
-        .filter(item_id=item.pk)
-        .first()
-    )
+    if hasattr(item, "_card_draft_brew"):
+        brew = item._card_draft_brew
+    else:
+        brew = (
+            AlchemicalBrewStats.objects
+            .filter(item_id=item.pk)
+            .first()
+        )
 
     if brew is None:
         return ""
@@ -8714,10 +8717,12 @@ def _build_learning_rows(
 
     trait_groups: OrderedDict[str, list[dict]] = OrderedDict()
     for trait in Trait.objects.prefetch_related(
-        "specification_options", "choice_definitions",
+        "specification_options", "choice_definitions", "allowed_races",
     ).order_by(
         "trait_type", "name"
     ):
+        if not trait.is_available_for_race(character.race_id):
+            continue
         base_level = int(trait_levels.get(trait.id, 0))
         if (
             trait.slug == VAMPIRE_ANCHOR_TRAIT_SLUG

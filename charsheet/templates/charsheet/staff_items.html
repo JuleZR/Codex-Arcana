@@ -1,0 +1,51 @@
+{% load static %}
+<!doctype html>
+<html lang="de"{% if embedded %} class="staff-items-document--embedded"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  {% include "charsheet/partials/_viewport.html" %}
+  <title>Itemverwaltung | Codex Arcana</title>
+  <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'css/dashboard/staff-items.css' %}?v=20261102-overlay-workshop4">
+  <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}">
+  {% block editor_scripts %}{% endblock %}
+</head>
+<body class="staff-items-page{% if embedded %} staff-items-embedded{% endif %}" data-item-editor="{% block window_editor %}0{% endblock %}" data-item-window-title="{% block window_title %}Items verwalten{% endblock %}">
+  <main class="staff-items">
+    {% if not embedded %}<header class="staff-items__header">
+      <div><h1>{% block heading %}Items verwalten{% endblock %}</h1><p>Gruppenunabhängiger Itemkatalog</p></div>
+      <div class="staff-items__actions">
+        {% if perms.charsheet.add_item %}<a class="dashboard_button" href="{% url 'staff_item_create' %}">Item erstellen</a>{% endif %}
+        {% if perms.charsheet.change_item %}<a class="dashboard_button" href="{% url 'staff_items' %}">Items verwalten</a>{% endif %}
+        <a class="dashboard_button" href="{% url 'dashboard' %}">Zum Dashboard</a>
+      </div>
+    </header>{% endif %}
+    {% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}
+    {% block content %}
+      <section class="staff-catalog">
+        <form method="get" class="staff-catalog__toolbar">
+          {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
+          <label class="staff-catalog__search"><span>Gegenstand suchen</span><input type="search" name="q" value="{{ query }}" placeholder="Name des Gegenstands …"></label>
+          <label><span>Kategorie</span><select name="category"><option value="">Alle Kategorien</option>{% for type in item_types %}<option value="{{ type.pk }}"{% if category == type.pk %} selected{% endif %}>{{ type.name }}</option>{% endfor %}</select></label>
+          <button class="dashboard_button" type="submit">Filtern</button>
+          <span class="staff-catalog__count">{{ page_obj.paginator.count }} Gegenstände</span>
+        </form>
+        <div class="staff-catalog__scroll">
+          <table class="staff-catalog__table">
+            <thead><tr><th>Gegenstand</th><th>Kategorie</th><th>Qualität</th><th>Preis</th><th><span class="dashboard_sr_only">Aktion</span></th></tr></thead>
+            <tbody>{% for item in items %}
+              <tr><td><a class="staff-catalog__name" href="{% url 'staff_item_edit' item.id %}{% if embedded %}?embedded=1{% endif %}">{{ item.name }}</a>{% if item.is_magic_effective %}<span class="staff-catalog__badge">Magisch</span>{% endif %}</td><td>{{ item.item_type.name }}</td><td>{{ item.default_quality.name }}</td><td class="staff-catalog__price">{{ item.price }} KS</td><td><a class="staff-catalog__edit" href="{% url 'staff_item_edit' item.id %}{% if embedded %}?embedded=1{% endif %}" aria-label="{{ item.name }} bearbeiten">Bearbeiten <span aria-hidden="true">&#8594;</span></a></td></tr>
+            {% empty %}<tr><td colspan="5" class="staff-catalog__empty">Keine Gegenstände gefunden.</td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+        <nav class="staff-catalog__pagination" aria-label="Katalogseiten">
+          {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&amp;q={{ query|urlencode }}&amp;category={{ category|urlencode }}{% if embedded %}&amp;embedded=1{% endif %}">← Zurück</a>{% endif %}
+          <span>Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&amp;q={{ query|urlencode }}&amp;category={{ category|urlencode }}{% if embedded %}&amp;embedded=1{% endif %}">Weiter →</a>{% endif %}
+        </nav>
+      </section>
+    {% endblock %}
+  </main>
+</body>
+</html>

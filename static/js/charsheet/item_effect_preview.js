@@ -76,15 +76,18 @@ export function createItemEffectPreview({ form, payloadInput, getInvestedCp, car
     const requestRevision = revision;
     timer = setTimeout(async () => {
       controller = new AbortController();
-      const body = new URLSearchParams({
-        ...cardFields,
+      const body = new URLSearchParams();
+      Object.entries(cardFields).forEach(([key, value]) => {
+        (Array.isArray(value) ? value : [value]).forEach((entry) => body.append(key, entry));
+      });
+      Object.entries({
         include_item_card: cardTarget ? "1" : "",
         csrfmiddlewaretoken: form.querySelector("[name='csrfmiddlewaretoken']")?.value || "",
         magic_modifier_payloads: payload,
         invested_cp: investedCp,
-      });
+      }).forEach(([key, value]) => body.set(key, value));
       try {
-        const response = await fetch(form.action.replace(/runes\/update\/$/, "effects/preview/"), {
+        const response = await fetch(form.dataset?.effectPreviewUrl || form.action.replace(/runes\/update\/$/, "effects/preview/"), {
           method: "POST",
           credentials: "same-origin",
           headers: { "X-Requested-With": "XMLHttpRequest" },

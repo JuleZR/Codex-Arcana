@@ -1,6 +1,6 @@
 import { applySheetPartials } from "./partial_updates.js";
 import { createFloatingWindowController } from "./window_manager.js";
-import { createItemEffectPreview } from "./item_effect_preview.js?v=20261015-fit-item-card";
+import { createItemEffectPreview } from "./item_effect_preview.js?v=20261102-overlay-workshop4";
 
 function parseIdList(rawValue) {
   return String(rawValue || "")
@@ -213,7 +213,7 @@ function openMenu(menu) {
   positionMenuPanel(menu);
 }
 
-export function initInventoryMenu({ warningWindowController = null, modifyWindowController = null } = {}) {
+export function initInventoryMenu({ warningWindowController = null, modifyWindowController = null, catalogEditor = false } = {}) {
   if (document.body.dataset.inventoryMenuBound === "1") {
     return;
   }
@@ -275,7 +275,12 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     payloadInput: magicPayloadInput,
     cardTarget: document.getElementById("workshopItemCardPreview"),
     cardStatus: document.getElementById("workshopItemCardStatus"),
-    getCardFields: () => ({
+    getCardFields: () => catalogEditor ? Array.from(new FormData(runeForm)).reduce((fields, [key, value]) => {
+      if (value instanceof File) return fields;
+      if (key in fields) fields[key] = [].concat(fields[key], value);
+      else fields[key] = value;
+      return fields;
+    }, {}) : ({
       name: runeNameInput?.value || "",
       price: runePriceInput?.value || "0",
       weight: runeWeightInput?.value || "0",
@@ -304,6 +309,14 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   let runeInstances = [];
   let selectedRune = null;
   let selectedEffect = null;
+  const publishCatalogStatus = () => {
+    if (!catalogEditor || window.parent === window) return;
+    window.parent.postMessage({
+      type: "staff-item-workshop-status",
+      price: Number(runePriceInput?.value) || 0,
+      runeCount: runeInstances.length,
+    }, window.location.origin);
+  };
 
   const syncInvestedCpStepControl = (currentValue) => {
     if (!(runeInvestedCpInput instanceof HTMLInputElement) || !(runeInvestedCpSelect instanceof HTMLSelectElement)) {
@@ -366,7 +379,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       storage.classList.remove("inventory_storage--drag-preview");
     }
   };
-  const floatingController = modifyWindowController || createFloatingWindowController({
+  const floatingController = modifyWindowController || (catalogEditor ? null : createFloatingWindowController({
     windowEl: runeWindow,
     closeButton: runeCloseButton,
     handle: document.getElementById("runeRetrofitWindowHandle"),
@@ -374,7 +387,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     storageKey: "charsheet.runeRetrofitWindow",
     allowPersistedOpen: false,
     startRightInset: 214,
-  });
+  }));
 
   const workshopTabs = Array.from(runeWindow?.querySelectorAll("[data-workshop-tab]") || []);
   const showWorkshopPanel = (key, focus = false) => {
@@ -455,11 +468,14 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       button.className = "workshop_socket";
       button.classList.toggle("is-selected", Boolean(instance && instance === selectedRune));
       button.setAttribute("aria-label", instance
-        ? `${instance.rune.name}, Runenplatz ${index + 1}, Waffenmeisterstufe ${instance.crafter_level} bearbeiten`
+        ? catalogEditor ? `${instance.rune.name}, Runenplatz ${index + 1} bearbeiten`
+          : `${instance.rune.name}, Runenplatz ${index + 1}, Waffenmeisterstufe ${instance.crafter_level} bearbeiten`
         : `Leerer Runenplatz ${index + 1}, Runenverzeichnis öffnen`);
       button.setAttribute("aria-pressed", String(Boolean(instance && instance === selectedRune)));
       const name = document.createElement("strong");
-      name.textContent = instance ? `${instance.rune.name} (${instance.crafter_level})` : "Freier Platz";
+      name.textContent = instance
+        ? catalogEditor ? instance.rune.name : `${instance.rune.name} (${instance.crafter_level})`
+        : "Freier Platz";
       button.append(runeArtwork(instance?.rune), name);
       button.addEventListener("click", () => {
         showWorkshopPanel("runes");
@@ -481,7 +497,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     runeOptions?.querySelectorAll("[data-add-rune]").forEach((button) => {
       const rune = runeChoices.find((choice) => String(choice.id) === button.dataset.addRune);
       const duplicate = !rune?.allow_multiple && runeInstances.some((instance) => instance.rune.id === rune?.id);
-      const allowed = !rune?.allowed_item_types?.length || rune.allowed_item_types.includes(retrofitItemType);
+      const type = catalogEditor ? runeForm.elements.namedItem("item_type")?.value : retrofitItemType;
+      const allowed = !rune?.allowed_item_types?.length || rune.allowed_item_types.includes(type);
       button.disabled = runeInstances.length >= MAX_RUNES_PER_ITEM || duplicate || !allowed;
       button.textContent = duplicate ? "Eingesetzt" : "Hinzufügen";
       button.title = !allowed ? "Für diesen Gegenstandstyp nicht verfügbar"
@@ -492,6 +509,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     renderRuneSockets();
     filterRuneEntries();
     updateEffectPreviews();
+    if (catalogEditor) publishCatalogStatus();
   };
 
   const renderRuneInspector = () => {
@@ -546,8 +564,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     };
     stepper.append(stepButton(-1), input, stepButton(1));
     label.append(stepper);
-    inspector.append(runeArtwork(instance.rune), title, description, label);
-    if (instance.rune.has_specialization) {
+    inspector.append(runeArtwork(instance.rune), title, description);
+    if (!catalogEditor) inspector.append(label);
+    if (instance.rune.has_specialization && !catalogEditor) {
       const specLabel = document.createElement("label");
       specLabel.className = "shop_item_form_row";
       specLabel.textContent = instance.rune.specialization_label || "Spezifikation";
@@ -562,7 +581,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       specLabel.append(spec);
       inspector.append(specLabel);
     }
-    if (instance.rune.is_level_scaled) {
+    if (instance.rune.is_level_scaled && !catalogEditor) {
       const scaling = document.createElement("p");
       scaling.textContent = "Die Wirkung skaliert mit der Waffenmeisterstufe.";
       inspector.append(scaling);
@@ -613,6 +632,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const syncWorkshopPrice = () => {
     const price = document.getElementById("workshopPrice");
     if (price) price.textContent = `${new Intl.NumberFormat("de-DE").format(Number(runePriceInput?.value) || 0)} KS`;
+    if (catalogEditor) publishCatalogStatus();
   };
   runePriceInput?.addEventListener("input", syncWorkshopPrice);
 
@@ -1647,4 +1667,58 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   document.addEventListener("scroll", () => {
     document.querySelectorAll(".inv_menu").forEach((menu) => closeMenu(menu));
   }, true);
+
+  // Catalog definitions share the inline workshop's effect catalog and
+  // inspector, but have no inventory owner, crafting costs or sheet action.
+  if (catalogEditor && runeForm) {
+    const capabilities = JSON.parse(document.getElementById("item-type-capabilities")?.textContent || "{}");
+    const type = runeForm.querySelector("[name='item_type']");
+    const magic = runeForm.querySelector("[name='is_magic']");
+    let runeDraft = [];
+    try {
+      const parsed = JSON.parse(runePayloadInput?.value || "[]");
+      if (Array.isArray(parsed)) runeDraft = parsed;
+    } catch (_error) { /* The server renders the validation error. */ }
+    const syncCatalogStats = () => {
+      const category = capabilities[type?.value] || {};
+      retrofitItemType = category.supports_weapon_stats ? "weapon" : type?.value || "";
+      runeForm.querySelectorAll("[data-catalog-stat-capability]").forEach((section) => {
+        const capability = section.dataset.catalogStatCapability;
+        const available = capability === "magic"
+          ? magic?.checked || category.forces_magic || category.is_magic_equipment
+          : category[capability];
+        section.hidden = !available && !section.hasAttribute("data-catalog-existing-stats") && !section.querySelector(".errorlist");
+      });
+      syncRuneSelectionCount();
+    };
+    type?.addEventListener("change", syncCatalogStats);
+    magic?.addEventListener("change", syncCatalogStats);
+    syncCatalogStats();
+    const selectedRuneIds = new Set(runeDraft.map((entry) => Number(entry.rune_id)));
+    runeChoices.forEach((rune) => {
+      runeOptions?.append(buildRuneOption(rune, selectedRuneIds.has(Number(rune.id))
+        ? [{ slot: 1, crafter_level: DEFAULT_RUNE_CRAFTER_LEVEL, specification: "" }]
+        : []));
+    });
+    renderRuneInspector();
+    syncRuneSelectionCount();
+    let effects = [];
+    try {
+      const parsed = JSON.parse(magicPayloadInput?.value || "[]");
+      if (Array.isArray(parsed)) effects = parsed;
+    } catch (_error) { /* The server renders the validation error. */ }
+    populateMagicEffects(effects);
+    runeForm.querySelectorAll("[data-catalog-formset]").forEach((section) => {
+      section.querySelector("[data-catalog-add-form]")?.addEventListener("click", () => {
+        const total = section.querySelector("input[name$='-TOTAL_FORMS']");
+        const template = section.querySelector("[data-catalog-empty-form]");
+        const maximum = Number(section.querySelector("input[name$='-MAX_NUM_FORMS']")?.value || 1000);
+        if (!total || !template || Number(total.value) >= maximum) return;
+        section.querySelector("[data-catalog-forms]")?.insertAdjacentHTML("beforeend", template.innerHTML.replaceAll("__prefix__", total.value));
+        total.value = String(Number(total.value) + 1);
+      });
+    });
+    const errorPanel = runeForm.querySelector(".errorlist")?.closest("[data-workshop-panel]");
+    showWorkshopPanel(errorPanel?.dataset.workshopPanel || "base");
+  }
 }

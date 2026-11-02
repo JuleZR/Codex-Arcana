@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 
 from charsheet.models import (
     CharacterItemRuneSpec, CharacterItemSemanticEffect, ItemRune, Race, Rune,
-    School,
+    ItemSemanticEffect, School,
 )
 from charsheet.sheet_context import (
     _build_character_item_magic_tooltip_rows,
@@ -98,21 +98,16 @@ def _preview_item_card(owned, post, effect_payloads, viewer):
     )
 
 
-@login_required
-@require_POST
-def preview_item_effects(request, pk):
-    """Format drafts without saving items, effects, or conditions."""
-    owned = _owned_character_item_or_404(request, pk)
-    try:
-        raw = json.loads(request.POST.get("magic_modifier_payloads", "[]"))
-        if not isinstance(raw, list) or len(raw) > 100:
-            raise ValueError
-        payloads = _read_magic_modifier_payloads(request.POST)
-        invested_cp = max(0, int(request.POST.get("invested_cp") or 0))
-    except (ValidationError, ValueError, TypeError):
-        return JsonResponse({"error": "Ungültige Effekte."}, status=400)
-
-    school_ids = set(owned.owner.schools.values_list("school_id", flat=True))
+def build_item_effect_previews(post, *, character_item=None):
+    """Format effect drafts for the inline workshop in either item context."""
+    raw = json.loads(post.get("magic_modifier_payloads", "[]"))
+    if not isinstance(raw, list) or len(raw) > 100:
+        raise ValueError
+    payloads = _read_magic_modifier_payloads(post)
+    invested_cp = max(0, int(post.get("invested_cp") or 0))
+    school_ids = set(character_item.owner.schools.values_list(
+        "school_id", flat=True,
+    )) if character_item else set()
     grouped = defaultdict(list)
     display_groups = defaultdict(list)
     card_payloads = []
@@ -120,11 +115,18 @@ def preview_item_effects(request, pk):
         kwargs = _magic_payload_to_semantic_effect_kwargs(payload)
         if kwargs is None:
             continue
-        draft = CharacterItemSemanticEffect(character_item=owned, **kwargs)
+        draft = (
+            CharacterItemSemanticEffect(
+                character_item=character_item, **kwargs,
+            )
+            if character_item else ItemSemanticEffect(**kwargs)
+        )
         serialized = _serialize_item_semantic_effect_payload(
             draft,
             invested_cp=invested_cp,
-            character_race_id=owned.owner.race_id,
+            character_race_id=(
+                character_item.owner.race_id if character_item else None
+            ),
             character_school_ids=school_ids,
             condition_races=list(Race.objects.filter(
                 pk__in=payload.get("condition_races", []),
@@ -145,6 +147,20 @@ def preview_item_effects(request, pk):
         if group is not None:
             effects = display_groups[group]
         previews.append(_preview_lines(effects))
+    return previews, card_payloads
+
+
+@login_required
+@require_POST
+def preview_item_effects(request, pk):
+    """Format drafts without saving items, effects, or conditions."""
+    owned = _owned_character_item_or_404(request, pk)
+    try:
+        previews, card_payloads = build_item_effect_previews(
+            request.POST, character_item=owned,
+        )
+    except (ValidationError, ValueError, TypeError):
+        return JsonResponse({"error": "Ungültige Effekte."}, status=400)
     result = {"previews": previews}
     if request.POST.get("include_item_card"):
         try:

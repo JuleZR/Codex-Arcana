@@ -23,6 +23,7 @@ class TraitBuildRule:
     overlap_groups: tuple[str, ...] = ()
     cap_groups: tuple[str, ...] = ()
     creation_only: bool = True
+    available_for_race: bool = True
 
     def total_cp_cost(self, rank: int) -> int:
         """Return cumulative CP cost for the selected rank."""
@@ -79,6 +80,14 @@ class CharacterBuildValidator:
             rule = self.rules.get(slug)
             if rule is None:
                 continue
+            if not rule.available_for_race:
+                issues.append(BuildValidationIssue(
+                    code="race_restricted",
+                    message=(
+                        f"Trait '{slug}' ist für diese Rasse nicht erlaubt."
+                    ),
+                    related_slugs=(slug,),
+                ))
             if rank < rule.min_rank or (
                 rule.max_rank is not None and rank > rule.max_rank
             ):

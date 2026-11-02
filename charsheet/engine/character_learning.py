@@ -10,6 +10,7 @@ def build_trait_validator(engine, trait_type: str, *, max_disadvantage_cp: int |
     """Build a persisted-trait validator for the requested trait family."""
     rules: dict[str, TraitBuildRule] = {}
     trait_rows = Trait.objects.filter(trait_type=trait_type).prefetch_related(
+        "allowed_races",
         "exclusions__excluded_trait",
         "excluded_by__trait",
     )
@@ -26,6 +27,9 @@ def build_trait_validator(engine, trait_type: str, *, max_disadvantage_cp: int |
         )
         rules[trait.slug] = TraitBuildRule(
             slug=trait.slug,
+            available_for_race=trait.is_available_for_race(
+                engine.character.race_id
+            ),
             cp_cost=int(trait.points_per_level) if trait_type == Trait.TraitType.ADV else 0,
             cp_refund=int(trait.points_per_level) if trait_type == Trait.TraitType.DIS else 0,
             cp_cost_by_rank=(

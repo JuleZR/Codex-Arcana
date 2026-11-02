@@ -21,6 +21,7 @@ from charsheet import group_views, views
 from charsheet.calendar_views import character_date
 from charsheet.attribute_flavor import attribute_flavor_card
 from charsheet.item_workshop import preview_item_effects
+from charsheet.catalog_items import staff_item_editor, staff_items
 from django.views.static import serve
 from django.views.generic import TemplateView
 from django.conf import settings
@@ -54,6 +55,11 @@ urlpatterns = [
         name="nutzungsbedingungen",
     ),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/items/", staff_items, name="staff_items"),
+    path("dashboard/items/create/", staff_item_editor,
+         name="staff_item_create"),
+    path("dashboard/items/<int:item_id>/edit/", staff_item_editor,
+         name="staff_item_edit"),
     path(
         "groups/create/",
         group_views.create_game_group,

@@ -381,6 +381,13 @@ class Trait(models.Model):
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField()
     has_specification = models.BooleanField(default=False)
+    allowed_races = models.ManyToManyField(
+        Race,
+        blank=True,
+        related_name="allowed_traits",
+        verbose_name="Erlaubte Rassen",
+        help_text="Leer lassen, um den Trait für alle Rassen zu erlauben.",
+    )
     name_display_mode = models.CharField(
         "Namensdarstellung", max_length=24,
         choices=NameDisplayMode.choices, default=NameDisplayMode.NONE,
@@ -453,6 +460,11 @@ class Trait(models.Model):
                     "starting with 0 for level 0."
                 ),
             })
+
+    def is_available_for_race(self, race_id):
+        """Unrestricted traits are available to every race."""
+        races = self.allowed_races.all()
+        return not races or any(race.pk == race_id for race in races)
 
     def cost_curve(self) -> tuple[int, ...]:
         """Return explicit per-level costs when configured."""

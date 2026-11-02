@@ -5126,8 +5126,12 @@ def create_character(request):
     phase_3_rows = []
     disadvantage_traits = Trait.objects.filter(
         trait_type=Trait.TraitType.DIS
-    ).prefetch_related("specification_options").order_by("name")
+    ).prefetch_related(
+        "specification_options", "allowed_races",
+    ).order_by("name")
     for trait in disadvantage_traits:
+        if not trait.is_available_for_race(engine.race.pk):
+            continue
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
         specification_options = sorted(
             trait.specification_options.all(),
@@ -5197,8 +5201,12 @@ def create_character(request):
     phase_4_adv_rows = []
     advantage_traits = Trait.objects.filter(
         trait_type=Trait.TraitType.ADV
-    ).prefetch_related("specification_options").order_by("name")
+    ).prefetch_related(
+        "specification_options", "allowed_races",
+    ).order_by("name")
     for trait in advantage_traits:
+        if not trait.is_available_for_race(engine.race.pk):
+            continue
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
         selected_level = phase_4_values.get(
             trait.slug, "" if trait.min_level == 0 else 0,

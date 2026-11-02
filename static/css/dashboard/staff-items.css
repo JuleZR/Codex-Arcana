@@ -1,0 +1,94 @@
+/* Dashboard overlay; the workshop keeps the shared commerce styles. */
+.dashboard_register.dashboard_page .dashboard_panel--sidebar .dashboard_button[data-open-staff-items] {
+  border-color: #718eae;
+  background: linear-gradient(110deg, #2b4160, #4d729a, #2c456c);
+  color: #f9e7c7;
+  box-shadow: inset 0 1px #aac5e655;
+  text-shadow: none;
+}
+.dashboard_register.dashboard_page .dashboard_panel--sidebar .dashboard_button[data-open-staff-items]:hover {
+  background: linear-gradient(110deg, #2b4160, #4d729a, #2c456c);
+  color: #f9e7c7;
+  filter: brightness(1.12);
+}
+.dashboard_register.dashboard_page .dashboard_panel--sidebar .dashboard_button[data-open-staff-items]:focus-visible {
+  outline: 2px solid #edce96;
+  outline-offset: 3px;
+}
+.staff-items-open { overflow: hidden; }
+.dashboard-item-backdrop { position: fixed; inset: 0; z-index: 1799; background: #15110fc4; backdrop-filter: blur(5px); }
+.dashboard-item-backdrop[hidden] { display: none; }
+#runeRetrofitWindow[data-dashboard-item-window] { position: fixed; z-index: 1800; width: min(1680px, calc(100vw - 40px)); height: calc(100dvh - 48px); max-height: calc(100dvh - 48px); box-shadow: 0 24px 100px #000a; }
+#runeRetrofitWindow[data-dashboard-item-window]:not(.is-open) { display: none; }
+#runeRetrofitWindow[data-dashboard-item-window] .sheet-window__actions { display: flex; gap: 8px; align-items: center; }
+#runeRetrofitWindow[data-dashboard-item-window] .dashboard_button { min-height: 32px; padding: 5px 12px; font: 600 12px "Segoe UI", sans-serif; }
+.dashboard-item-frame { width: 100%; height: 100%; flex: 1; border: 0; background: transparent; }
+.staff-items-page { display: block; overflow: auto; font: 13px "Segoe UI", sans-serif; color: #503524; }
+.staff-items { width: min(1600px, 96%); margin: 20px auto; padding: 20px; background: #f3ead6; }
+.staff-items__header, .staff-items__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.staff-items__header { justify-content: space-between; margin-bottom: 20px; }
+.staff-items__header h1 { margin: 0; }
+.staff-items #runeRetrofitWindow { height: 82dvh; min-height: 460px; background: transparent; font: 13px "Segoe UI", sans-serif; }
+.staff-items-document--embedded { height: 100%; background: transparent !important; }
+.staff-items-embedded { height: 100dvh; min-height: 0; margin: 0; padding: 0; overflow: hidden; background: transparent !important; }
+.staff-items-embedded .staff-items { display: flex; flex-direction: column; width: 100%; height: 100%; margin: 0; padding: 0; background: transparent; }
+.staff-items-embedded #runeRetrofitWindow { flex: 1; height: 100%; min-height: 0; min-width: 0; }
+.staff-items [role="status"] { flex: 0 0 auto; margin: 0; padding: 8px 20px; background: #e6eddb; color: #34472a; }
+.staff-items #runeRetrofitWindow .workshop_layout { grid-template-columns: 112px minmax(0, 1fr); }
+.staff-items #runeRetrofitWindow .workshop_nav button { font-size: 12px; overflow-wrap: normal; }
+.staff-items #runeRetrofitWindow .workshop_panel { overflow: auto; }
+.staff-items #runeRetrofitWindow .workshop_section_heading { margin-bottom: 14px; }
+.staff-items #runeRetrofitWindow .catalog-base { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); }
+.catalog-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; align-content: start; }
+.staff-items #runeRetrofitWindow .catalog-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; }
+.staff-items #runeRetrofitWindow .catalog-field label { margin: 0; font-size: 12px; font-weight: 600; }
+.staff-items #runeRetrofitWindow .catalog-field input:not([type="checkbox"]),
+.staff-items #runeRetrofitWindow .catalog-field select,
+.staff-items #runeRetrofitWindow .catalog-field textarea { width: 100%; min-width: 0; font: 13px "Segoe UI", sans-serif; }
+.staff-items #runeRetrofitWindow .catalog-field input:not([type="checkbox"]),
+.staff-items #runeRetrofitWindow .catalog-field select:not([multiple]) { min-height: 34px; padding: 6px 9px; }
+.staff-items #runeRetrofitWindow .catalog-field textarea { min-height: 88px; max-height: 240px; resize: vertical; padding: 9px; }
+.staff-items #runeRetrofitWindow .catalog-field--name,
+.staff-items #runeRetrofitWindow .catalog-field:has(textarea),
+.staff-items #runeRetrofitWindow .catalog-field:has(select[multiple]),
+.staff-items #runeRetrofitWindow .catalog-field:has(input[type="file"]) { grid-column: 1 / -1; }
+.staff-items #runeRetrofitWindow .catalog-field--check { flex-direction: row; align-items: center; flex-wrap: wrap; align-self: center; gap: 8px; min-height: 30px; }
+.staff-items #runeRetrofitWindow .catalog-field--check input { flex: 0 0 16px; width: 16px; height: 16px; margin: 0; }
+.staff-items #runeRetrofitWindow .catalog-field--check label { flex: 1; }
+.staff-items #runeRetrofitWindow .catalog-field small { color: #806950; font-size: 11px; line-height: 1.4; }
+.staff-items #runeRetrofitWindow .catalog-field--check small { flex-basis: 100%; }
+.staff-items #runeRetrofitWindow .workshop_stat_fields fieldset { margin: 0 0 16px; padding: 12px; min-width: 0; border: 1px solid #c8a983; border-radius: 3px; }
+.catalog-stat-count { margin-left: 8px; font: 600 12px "Segoe UI", sans-serif; color: #806950; }
+.staff-items .errorlist { margin: 4px 0; padding-left: 18px; color: #8b2018; font-size: 12px; }
+.staff-items #runeRetrofitWindow .catalog-back { color: #f3dab0; font: 600 12px "Segoe UI", sans-serif; text-decoration: none; padding: 8px; }
+.staff-catalog { display: flex; flex: 1; flex-direction: column; min-height: 0; background: linear-gradient(120deg, #fffaf0f5, #eee0c7f0); }
+.staff-catalog__toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 18px 22px; border-bottom: 1px solid #c8a983; }
+.staff-catalog__toolbar label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; }
+.staff-catalog__search { flex: 1; min-width: 200px; }
+.staff-catalog__toolbar input, .staff-catalog__toolbar select { min-height: 36px; padding: 7px 10px; border: 1px solid #bb9b77; border-radius: 3px; background: #fffaf2; color: #503524; font: 13px "Segoe UI", sans-serif; }
+.staff-catalog__count { padding: 10px 0; color: #806950; font-size: 12px; }
+.staff-catalog__scroll { flex: 1; min-height: 0; overflow: auto; }
+.staff-catalog__table { width: 100%; border-collapse: collapse; font: 13px "Segoe UI", sans-serif; }
+.staff-catalog__table th { position: sticky; top: 0; background: #e8d9be; color: #6e5037; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.staff-catalog__table th, .staff-catalog__table td { padding: 12px 22px; border-bottom: 1px solid #c8a98370; }
+.staff-catalog__table tbody tr:hover { background: #e6cfaa50; }
+.staff-catalog__name, .staff-catalog__name:visited { color: #654331; font-weight: 600; text-decoration: none; }
+.staff-catalog__name:hover { color: #813d36; text-decoration: underline; }
+.staff-catalog__badge { display: inline-block; margin-left: 8px; padding: 2px 6px; border: 1px solid #b696b2; border-radius: 3px; color: #785078; font-size: 10px; }
+.staff-catalog__price { white-space: nowrap; }
+.staff-catalog__edit, .staff-catalog__edit:visited { color: #813d36; font-size: 12px; text-decoration: none; white-space: nowrap; }
+.staff-catalog__edit:hover { text-decoration: underline; }
+.staff-catalog__empty { text-align: center; padding: 40px !important; color: #806950; }
+.staff-catalog__pagination { display: flex; justify-content: center; align-items: center; gap: 20px; padding: 12px 20px; border-top: 1px solid #c8a983; font-size: 12px; }
+.staff-catalog__pagination a { color: #813d36; text-decoration: none; }
+@media (max-width: 760px) {
+  #runeRetrofitWindow[data-dashboard-item-window] { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
+  #runeRetrofitWindow[data-dashboard-item-window] .workshop_header p { display: none; }
+  #runeRetrofitWindow[data-dashboard-item-window] .sheet-window__title { font-size: 22px; }
+  #runeRetrofitWindow[data-dashboard-item-window] .dashboard_button { padding: 4px 7px; font-size: 11px; }
+  .staff-items #runeRetrofitWindow .workshop_layout { grid-template-columns: minmax(0, 1fr); }
+  .staff-items #runeRetrofitWindow .catalog-base { grid-template-columns: minmax(0, 1fr); }
+  .staff-catalog__toolbar { padding: 12px; }
+  .staff-catalog__table th, .staff-catalog__table td { padding: 10px 12px; }
+  .staff-catalog__table th:nth-child(3), .staff-catalog__table td:nth-child(3) { display: none; }
+}

@@ -1,0 +1,20 @@
+<details class="workshop_accordion workshop_stat_fields" data-catalog-formset{% if formset.total_error_count %} open{% endif %}>
+  <summary>{{ label }}{% if formset.initial_form_count %} <span class="catalog-stat-count">{{ formset.initial_form_count }}</span>{% endif %}</summary>
+  <div class="workshop_accordion_body">
+  {{ formset.management_form }}{{ formset.non_form_errors }}
+  <div data-catalog-forms>
+    {% for stat_form in formset %}
+      <fieldset>
+        <legend>{{ label }} {{ forloop.counter }}</legend>
+        {% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=stat_form only %}
+      </fieldset>
+    {% endfor %}
+  </div>
+  {% if formset.max_num > 1 %}
+    <template data-catalog-empty-form>
+      <fieldset>{% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=formset.empty_form only %}</fieldset>
+    </template>
+    <button type="button" class="dashboard_button" data-catalog-add-form>Weiteren Datensatz hinzufügen</button>
+  {% endif %}
+  </div>
+</details>
