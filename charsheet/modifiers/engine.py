@@ -11,6 +11,7 @@ from typing import Any
 from charsheet.modifiers.definitions import (
     AttributeCapModifier,
     BaseModifier,
+    DIVISION_OPERATORS,
     ModifierOperator,
     RuleFlagModifier,
     StackBehavior,
@@ -31,7 +32,9 @@ from charsheet.constants import (
 from charsheet.modifiers.migration import ModifierResolutionMode, NumericResolutionComparison
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.modifiers.targets import TargetResolver
-from charsheet.modifiers.rounding import round_semantic_value
+from charsheet.modifiers.rounding import (
+    divide_semantic_value, round_semantic_value,
+)
 from charsheet.item_disclosure import is_character_item_effect_identified
 from charsheet.models import (
     CharacterDaemonicPower,
@@ -66,6 +69,9 @@ class MovementProfile:
     values: dict[str, int] = field(default_factory=dict)
     multipliers: dict[str, float] = field(default_factory=dict)
     overrides: dict[str, int | float] = field(default_factory=dict)
+    operations: dict[str, list[tuple[str, int | float]]] = field(
+        default_factory=dict,
+    )
     blocked_modes: set[str] = field(default_factory=set)
 
 
@@ -1011,6 +1017,17 @@ class ModifierEngine:
                 for target_key, resolved_value in self._resolve_movement_target_values(modifier, target_keys, default=0):
                     profile.overrides[target_key] = resolved_value
                 continue
+            if modifier.operator in DIVISION_OPERATORS | {
+                ModifierOperator.MIN_VALUE, ModifierOperator.MAX_VALUE,
+            }:
+                target_values = self._resolve_movement_target_values(
+                    modifier, target_keys, default=0,
+                )
+                for target_key, resolved_value in target_values:
+                    profile.operations.setdefault(target_key, []).append(
+                        (modifier.operator, resolved_value),
+                    )
+                continue
             for target_key, resolved_value in self._resolve_movement_target_values(modifier, target_keys, default=0):
                 profile.values[target_key] = profile.values.get(target_key, 0) + resolved_value
         return profile
@@ -1147,10 +1164,12 @@ class ModifierEngine:
             if modifier.operator == ModifierOperator.MULTIPLY:
                 total = int(total * resolved_value)
                 continue
-            if modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+            if modifier.operator in DIVISION_OPERATORS:
                 if not resolved_value:
                     continue
-                total = int(total // resolved_value)
+                total = divide_semantic_value(
+                    total, resolved_value, modifier.operator,
+                )
                 continue
             if modifier.operator == ModifierOperator.MIN_VALUE:
                 total = max(total, int(resolved_value))
@@ -1362,7 +1381,7 @@ class ModifierEngine:
             return -abs(int(numeric_value))
         if modifier.operator == ModifierOperator.MULTIPLY:
             return float(numeric_value)
-        if modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+        if modifier.operator in DIVISION_OPERATORS:
             return float(numeric_value)
         return int(numeric_value)
 
@@ -1477,10 +1496,12 @@ class ModifierEngine:
             if modifier.operator == ModifierOperator.MULTIPLY:
                 resolved_total = int(resolved_total * resolved_value)
                 continue
-            if modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+            if modifier.operator in DIVISION_OPERATORS:
                 if not resolved_value:
                     continue
-                resolved_total = int(resolved_total // resolved_value)
+                resolved_total = divide_semantic_value(
+                    resolved_total, resolved_value, modifier.operator,
+                )
                 continue
             if modifier.operator == ModifierOperator.MIN_VALUE:
                 if target_domain in {

@@ -88,7 +88,7 @@
         });
       } else {
         operatorOptions = operatorOptions.filter(function (option) {
-          return ["", "flat_add", "flat_sub", "multiply", "floor_divide", "override", "min_value", "max_value"].indexOf(option.value) !== -1;
+          return ["", "flat_add", "flat_sub", "multiply", "divide", "floor_divide", "ceil_divide", "override", "min_value", "max_value"].indexOf(option.value) !== -1;
         });
       }
       rebuildOptions(operator, operatorOptions, operator.value);

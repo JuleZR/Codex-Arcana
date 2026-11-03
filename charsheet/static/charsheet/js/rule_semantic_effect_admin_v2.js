@@ -139,7 +139,7 @@
       ? ["", "set_flag", "unset_flag"]
       : area.value === "wound_stage"
         ? ["", "flat_add"]
-        : ["", "flat_add", "flat_sub", "multiply", "floor_divide", "override", "min_value", "max_value"];
+        : ["", "flat_add", "flat_sub", "multiply", "divide", "floor_divide", "ceil_divide", "override", "min_value", "max_value"];
     if (["skill", "multi_skill", "skill_category"].indexOf(area.value) !== -1) {
       allowed.push("skill_rank_minimum");
     }

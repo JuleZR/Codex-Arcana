@@ -17,7 +17,9 @@ class ModifierOperator(StringEnum):
     FLAT_ADD = "flat_add"
     FLAT_SUB = "flat_sub"
     MULTIPLY = "multiply"
+    DIVIDE = "divide"
     FLOOR_DIVIDE = "floor_divide"
+    CEIL_DIVIDE = "ceil_divide"
     OVERRIDE = "override"
     MIN_VALUE = "min_value"
     MAX_VALUE = "max_value"
@@ -39,6 +41,13 @@ class ModifierOperator(StringEnum):
     ACTION_COST_CHANGE = "action_cost_change"
     CONDITIONAL_BONUS = "conditional_bonus"
     CONDITIONAL_PENALTY = "conditional_penalty"
+
+
+DIVISION_OPERATORS = {
+    ModifierOperator.DIVIDE,
+    ModifierOperator.FLOOR_DIVIDE,
+    ModifierOperator.CEIL_DIVIDE,
+}
 
 
 class TargetDomain(StringEnum):

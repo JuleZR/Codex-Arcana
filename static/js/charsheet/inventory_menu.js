@@ -2,6 +2,8 @@ import { applySheetPartials } from "./partial_updates.js";
 import { createFloatingWindowController } from "./window_manager.js";
 import { createItemEffectPreview } from "./item_effect_preview.js?v=20261102-overlay-workshop4";
 
+let divisionGroupId = 0;
+
 function parseIdList(rawValue) {
   return String(rawValue || "")
     .split(",")
@@ -694,6 +696,16 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       operator.closest("label").hidden = !canSet;
       if (!canSet) operator.value = "";
     }
+    const divisionRounding = row.querySelector("[data-division-rounding]");
+    if (divisionRounding) {
+      divisionRounding.hidden = !canSet || operator?.value !== "divide";
+      const radios = divisionRounding.querySelectorAll("[data-division-mode]");
+      const groupName = radios[0]?.name || `inventory-division-${++divisionGroupId}`;
+      radios.forEach((radio) => {
+        radio.name = groupName;
+        radio.disabled = divisionRounding.hidden;
+      });
+    }
     const valueLabel = row.querySelector("[data-magic-value-label]");
     if (valueLabel) valueLabel.textContent = selectedKind === "wound_stage" ? "Anzahl" : "Wert";
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
@@ -761,7 +773,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const isRuleFlag = targetKind === "rule_flag";
       const payload = {
         target_kind: targetKind,
-        operator: String(row.querySelector("[data-magic-operator]")?.value || ""),
+        operator: row.querySelector("[data-magic-operator]")?.value === "divide"
+          ? row.querySelector("[data-division-mode]:checked")?.value || "divide"
+          : String(row.querySelector("[data-magic-operator]")?.value || ""),
         value: isTextOnly || isRuleFlag ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
         rules_text: String(row.querySelector("[data-magic-rules-text]")?.value || "").trim(),
@@ -988,7 +1002,15 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         valueInput.value = String(initialPayload.value ?? "0");
       }
       const operator = row.querySelector("[data-magic-operator]");
-      if (operator) operator.value = initialPayload.operator === "override" ? "override" : "";
+      if (operator) {
+        const isDivision = ["divide", "floor_divide", "ceil_divide"].includes(initialPayload.operator);
+        operator.value = isDivision ? "divide"
+          : ["override", "multiply", "min_value", "max_value"].includes(initialPayload.operator)
+            ? initialPayload.operator : "";
+        row.querySelectorAll("[data-division-mode]").forEach((radio) => {
+          radio.checked = radio.value === (isDivision ? initialPayload.operator : "divide");
+        });
+      }
       if (descriptionInput instanceof HTMLInputElement) {
         descriptionInput.value = String(initialPayload.effect_description || "");
       }
@@ -1057,6 +1079,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       serializeMagicEffects();
     });
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelectorAll("[data-division-mode]").forEach((radio) => {
+      radio.addEventListener("change", serializeMagicEffects);
+    });
     row.querySelector("[data-magic-operator]")?.addEventListener("change", () => {
       syncMagicEffectRow(row);
       serializeMagicEffects();

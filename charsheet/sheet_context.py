@@ -11,6 +11,9 @@ from django.db.models import F, Prefetch, Q
 from django.urls import reverse
 from django.utils.functional import SimpleLazyObject
 
+from charsheet.modifiers.definitions import DIVISION_OPERATORS
+from charsheet.modifiers.rounding import divide_semantic_value
+
 from charsheet.constants import (
     ALCHEMICAL_BREW_LEARNING_SLOT,
     ALCHEMIST_ALMANAC,
@@ -2020,6 +2023,16 @@ def _movement_effect_value_display(raw_value: object, operator: str, target_key:
             return str(value)
         if operator == "multiply":
             return f"x{format_compact_number(number)}"
+        if operator in DIVISION_OPERATORS:
+            rounding = {
+                "divide": "normal",
+                "floor_divide": "abrunden",
+                "ceil_divide": "aufrunden",
+            }[operator]
+            return f"/ {format_compact_number(number)} ({rounding})"
+        if operator in {"min_value", "max_value"}:
+            limit = "min" if operator == "min_value" else "max"
+            return f"{limit} {format_compact_number(number)}"
         if operator == "override":
             return format_compact_number(number)
         signed = -abs(number) if operator == "flat_sub" else number
@@ -2642,10 +2655,23 @@ def _build_character_item_magic_tooltip_rows(
                 f"× {formatted_value}",
             )
 
-        if operator == "floor_divide":
+        if operator in DIVISION_OPERATORS:
+            rounding = {
+                "divide": "normal",
+                "floor_divide": "abrunden",
+                "ceil_divide": "aufrunden",
+            }[operator]
+            division_display = f"/ {formatted_value} ({rounding})"
             return (
-                f"{target_display} ÷ {formatted_value}",
-                f"÷ {formatted_value}",
+                f"{target_display} {division_display}",
+                division_display,
+            )
+
+        if operator in {"min_value", "max_value"}:
+            limit = "min" if operator == "min_value" else "max"
+            return (
+                f"{target_display} {limit} {formatted_value}",
+                f"{limit} {formatted_value}",
             )
 
         return (
@@ -3741,9 +3767,11 @@ def _apply_item_semantic_stat_effects(
                     rounding=ROUND_FLOOR
                 )
 
-        elif operator == "floor_divide":
+        elif operator in DIVISION_OPERATORS:
             if effect_value:
-                value //= effect_value
+                value = Decimal(divide_semantic_value(
+                    value, effect_value, operator,
+                ))
 
         elif operator == "override":
             value = effect_value
@@ -9575,11 +9603,24 @@ def _build_movement_ground(engine, race) -> dict[str, str]:
 
     def _resolve_movement_value(base_value, target_key):
         if target_key in movement_profile.overrides:
-            return max(0, int(movement_profile.overrides[target_key] or 0))
-        base = int(base_value or 0)
-        multiplier = float(movement_profile.multipliers.get(target_key, 1.0))
-        additive = int(movement_profile.values.get(target_key, 0))
-        return max(0, int(base * multiplier) + additive)
+            value = int(movement_profile.overrides[target_key] or 0)
+        else:
+            base = int(base_value or 0)
+            multiplier = float(
+                movement_profile.multipliers.get(target_key, 1.0),
+            )
+            additive = int(movement_profile.values.get(target_key, 0))
+            value = int(base * multiplier) + additive
+        for operator, operand in movement_profile.operations.get(
+            target_key, [],
+        ):
+            if operator in DIVISION_OPERATORS and operand:
+                value = divide_semantic_value(value, operand, operator)
+            elif operator == "min_value":
+                value = max(value, int(operand))
+            elif operator == "max_value":
+                value = min(value, int(operand))
+        return max(0, value)
 
     ground_blocked = "ground" in movement_profile.blocked_modes
     swim_blocked = "swim" in movement_profile.blocked_modes
@@ -9590,6 +9631,7 @@ def _build_movement_ground(engine, race) -> dict[str, str]:
     swim_triplet_keys = ("swim_combat", "swim_march", "swim_sprint")
     has_swim_triplet = not swim_blocked and any(
         key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
+        or key in movement_profile.operations
         for key in swim_triplet_keys
     )
     swim_value = "-" if swim_speed is None else format_compact_number(swim_speed)
@@ -9608,6 +9650,7 @@ def _build_movement_ground(engine, race) -> dict[str, str]:
     fly_value = "-"
     has_flight = race.can_fly or any(
         key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
+        or key in movement_profile.operations
         for key in ("fly_combat", "fly_march", "fly_sprint")
     )
     if has_flight and "fly" not in movement_profile.blocked_modes:

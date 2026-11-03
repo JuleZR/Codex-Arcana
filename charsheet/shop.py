@@ -38,7 +38,9 @@ from charsheet.constants import (
 )
 from charsheet.engine import ItemEngine
 from charsheet.magic_effects import TEXT_TARGET_KIND
-from charsheet.modifiers.definitions import ModifierOperator, TargetDomain
+from charsheet.modifiers.definitions import (
+    DIVISION_OPERATORS, ModifierOperator, TargetDomain,
+)
 from charsheet.models import (
     ArmorStats,
     Character,
@@ -235,6 +237,17 @@ def _positive_int_list(raw_values) -> list[int]:
     return values
 
 
+MAGIC_VALUE_OPERATORS = {
+    ModifierOperator.OVERRIDE.value,
+    ModifierOperator.MULTIPLY.value,
+    ModifierOperator.DIVIDE.value,
+    ModifierOperator.FLOOR_DIVIDE.value,
+    ModifierOperator.CEIL_DIVIDE.value,
+    ModifierOperator.MIN_VALUE.value,
+    ModifierOperator.MAX_VALUE.value,
+}
+
+
 def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict[str, object] | None:
     """Resolve one normalized magic-item modifier payload from raw row data."""
     if not target_kind:
@@ -248,7 +261,8 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     payload: dict[str, object] = {
         "target_kind": target_kind,
         "operator": (
-            "override" if row_data.get("operator") == "override" else ""
+            row_data.get("operator")
+            if row_data.get("operator") in MAGIC_VALUE_OPERATORS else ""
         ),
         "value": value,
         "effect_description": str(row_data.get("effect_description") or "").strip(),
@@ -691,9 +705,15 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     target_key = target_slug
     operator = ModifierOperator.FLAT_SUB if int(payload.get("value") or 0) < 0 else ModifierOperator.FLAT_ADD
     value = abs(int(payload.get("value") or 0))
-    if payload.get("operator") == "override":
-        operator = ModifierOperator.OVERRIDE
+    if payload.get("operator") in MAGIC_VALUE_OPERATORS:
+        operator = ModifierOperator(payload["operator"])
         value = int(payload.get("value") or 0)
+        if operator in DIVISION_OPERATORS and value == 0:
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Division durch null ist nicht erlaubt."
+                ),
+            })
 
     if target_kind == TARGET_KIND_ATTRIBUTE:
         target_domain = TargetDomain.ATTRIBUTE

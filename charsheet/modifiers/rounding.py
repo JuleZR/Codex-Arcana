@@ -27,3 +27,12 @@ def round_semantic_value(value, scaling):
         )
     legacy = scaling.get("round_mode")
     return round_scaled_value(value, legacy == "ceil", legacy == "floor")
+
+
+def divide_semantic_value(value, divisor, operator):
+    """Divide with the explicitly selected semantic rounding operation."""
+    return round_scaled_value(
+        Decimal(str(value)) / Decimal(str(divisor)),
+        round_up=operator == "ceil_divide",
+        round_down=operator == "floor_divide",
+    )

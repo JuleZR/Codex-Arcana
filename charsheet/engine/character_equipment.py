@@ -26,11 +26,13 @@ from charsheet.constants import (
 )
 
 from charsheet.modifiers.definitions import (
+    DIVISION_OPERATORS,
     ModifierOperator,
     StackBehavior,
     TargetDomain,
 )
 from charsheet.modifiers.targets import TargetResolver
+from charsheet.modifiers.rounding import divide_semantic_value
 from charsheet.models import ArmorStats, CharacterItem
 
 from .item_engine import ItemEngine
@@ -583,9 +585,11 @@ def _resolve_item_bound_numeric_modifiers(
             resolved_total = int(resolved_value)
         elif modifier.operator == ModifierOperator.MULTIPLY:
             resolved_total = int(resolved_total * resolved_value)
-        elif modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+        elif modifier.operator in DIVISION_OPERATORS:
             if resolved_value:
-                resolved_total = int(resolved_total // resolved_value)
+                resolved_total = divide_semantic_value(
+                    resolved_total, resolved_value, modifier.operator,
+                )
         elif modifier.operator == ModifierOperator.MIN_VALUE:
             resolved_total = max(resolved_total, int(resolved_value))
         elif modifier.operator == ModifierOperator.MAX_VALUE:

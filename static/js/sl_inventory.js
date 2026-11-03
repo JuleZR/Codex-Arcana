@@ -1,4 +1,25 @@
 document.addEventListener("DOMContentLoaded", () => {
+  let divisionGroupId = 0;
+  const syncDivisionRounding = (row) => {
+    const group = row.querySelector("[data-division-rounding]");
+    if (!group) return;
+    const operator = row.querySelector("[data-effect-operator]");
+    group.hidden = operator?.disabled || operator?.value !== "divide";
+    const radios = group.querySelectorAll("[data-division-mode]");
+    const groupName = radios[0]?.name || `sl-division-${++divisionGroupId}`;
+    radios.forEach((radio) => {
+      radio.name = groupName;
+      radio.disabled = group.hidden;
+    });
+  };
+
+  const effectOperator = (row) => {
+    const operator = row.querySelector("[data-effect-operator]")?.value || "";
+    return operator === "divide"
+      ? row.querySelector("[data-division-mode]:checked")?.value || "divide"
+      : operator;
+  };
+
   const floating = ({ win, backdrop, handle, opener, closeButtons, beforeOpen, afterClose }) => {
     if (!win || !backdrop || !handle) return null;
 
@@ -219,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const targetKind = row.querySelector("[data-effect-kind]")?.value || "";
         const payload = {
           target_kind: targetKind,
-          operator: row.querySelector("[data-effect-operator]")?.value || "",
+          operator: effectOperator(row),
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
@@ -300,6 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
         operator.closest("label").hidden = operator.disabled;
         if (operator.disabled) operator.value = "";
       }
+      syncDivisionRounding(row);
       if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Wert";
       const hasCalculation = !["text", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !hasCalculation;
@@ -443,7 +465,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const kind = row.querySelector("[data-effect-kind]")?.value || "";
         const payload = {
           target_kind: kind,
-          operator: row.querySelector("[data-effect-operator]")?.value || "",
+          operator: effectOperator(row),
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
@@ -534,6 +556,7 @@ document.addEventListener("DOMContentLoaded", () => {
         operator.closest("label").hidden = operator.disabled;
         if (operator.disabled) operator.value = "";
       }
+      syncDivisionRounding(row);
       if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Wert";
       const calculated = !["text", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !calculated;
@@ -589,7 +612,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (kind && payload.target_kind) kind.value = payload.target_kind;
       if (value) value.value = String(payload.value ?? 0);
       const operator = row.querySelector("[data-effect-operator]");
-      if (operator) operator.value = payload.operator === "override" ? "override" : "";
+      if (operator) {
+        const isDivision = ["divide", "floor_divide", "ceil_divide"].includes(payload.operator);
+        operator.value = isDivision ? "divide"
+          : ["override", "multiply", "min_value", "max_value"].includes(payload.operator)
+            ? payload.operator : "";
+        row.querySelectorAll("[data-division-mode]").forEach((radio) => {
+          radio.checked = radio.value === (isDivision ? payload.operator : "divide");
+        });
+      }
       if (description) description.value = payload.effect_description || "";
       if (rulesText) rulesText.value = payload.rules_text || "";
       if (displayGroup) displayGroup.value = payload.display_group == null ? "" : String(payload.display_group);

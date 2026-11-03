@@ -3632,8 +3632,8 @@
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_panel > h2 { flex: 0 0 auto; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_item_form_row { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin-bottom: 12px; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_item_form_row > span { color: #73462d; font-size: 12px; font-weight: 600; }
-:is(#runeRetrofitWindow, .sl-workshop-window) input:not([type="checkbox"]), :is(#runeRetrofitWindow, .sl-workshop-window) select, :is(#runeRetrofitWindow, .sl-workshop-window) textarea { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #b69a79; border-radius: 3px; color: #503524; background: #fffaf2; }
-:is(#runeRetrofitWindow, .sl-workshop-window) input[type="checkbox"] { accent-color: #813d36; }
+:is(#runeRetrofitWindow, .sl-workshop-window) input:not([type="checkbox"], [type="radio"]), :is(#runeRetrofitWindow, .sl-workshop-window) select, :is(#runeRetrofitWindow, .sl-workshop-window) textarea { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #b69a79; border-radius: 3px; color: #503524; background: #fffaf2; }
+:is(#runeRetrofitWindow, .sl-workshop-window) input:is([type="checkbox"], [type="radio"]) { accent-color: #813d36; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_item_form_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_accordion { margin: 12px 0; border-top: 1px solid #c8a983; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_accordion > summary { padding: 12px 0; color: #813d36; cursor: pointer; font-weight: 600; }

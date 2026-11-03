@@ -46,12 +46,16 @@ from charsheet.models.creatures import (
     CreatureTraitDefinition,
 )
 from charsheet.models.core import Skill
-from charsheet.modifiers.rounding import round_semantic_value
+from charsheet.modifiers.rounding import (
+    divide_semantic_value, round_semantic_value,
+)
 from charsheet.models.daemonic_powers import DaemonicPowerSemanticEffect
 from charsheet.models.vampirism import VampireTraitSemanticEffect
 from charsheet.models.character import CharacterItem
 from charsheet.models.techniques import CharacterTechnique
-from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
+from charsheet.modifiers.definitions import (
+    DIVISION_OPERATORS, ModifierOperator, StackBehavior, TargetDomain,
+)
 from charsheet.models.items import Quality
 
 
@@ -1233,10 +1237,12 @@ class CreatureEngine:
             return resolved_value
         if effect.operator == ModifierOperator.MULTIPLY:
             return base_value * resolved_value
-        if effect.operator == ModifierOperator.FLOOR_DIVIDE:
+        if effect.operator in DIVISION_OPERATORS:
             if not resolved_value:
                 return base_value
-            return base_value // resolved_value
+            return divide_semantic_value(
+                base_value, resolved_value, effect.operator,
+            )
         if effect.operator == ModifierOperator.MIN_VALUE:
             return max(base_value, resolved_value)
         if effect.operator == ModifierOperator.MAX_VALUE:
@@ -1280,7 +1286,7 @@ class CreatureEngine:
             return -abs(numeric_value)
         if effect.operator == ModifierOperator.MULTIPLY:
             return float(numeric_value)
-        if effect.operator == ModifierOperator.FLOOR_DIVIDE:
+        if effect.operator in DIVISION_OPERATORS:
             return float(numeric_value)
         return self._normalize_numeric_display_value(numeric_value)
 
