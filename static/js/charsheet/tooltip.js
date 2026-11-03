@@ -911,6 +911,9 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   const extras = [];
   const normalizedWeaponSymbolRows = normalizeTooltipSectionRows(weaponSymbolRows, "[[WEAPON_SYMBOL]]");
   const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
+  normalizedEffectRows.forEach((row) => {
+    if (row.cells[0]) row.cells[0].lang = "de";
+  });
   const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
   if (includeExtraSections) {
     const substanceMarkup = createTooltipCardTableMarkup(table, substanceRows, { includeHead: false });
