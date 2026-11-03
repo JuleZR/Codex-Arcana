@@ -6,6 +6,7 @@
       data-character-item-id="{{ row.character_item.pk }}"
       data-stored="{% if row.is_stored %}1{% else %}0{% endif %}"
       data-inventory-container="{{ row.character_item.inventory_container_id|default:'' }}"
+      data-item-size-class="{{ row.character_item.size_class_override|default:row.item.size_class }}"
       data-item-type="{{ row.item.item_type_id }}"
       data-equip-drop-zone="{{ row.equip_drop_zone }}"
       data-equip-drop-zones="{{ row.equip_drop_zones }}"

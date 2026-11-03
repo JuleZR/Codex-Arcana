@@ -632,10 +632,23 @@ class Item(models.Model):
         return cls.type_values("is_consumable")
 
 
+def validate_inventory_size_classes(value):
+    if not isinstance(value, list) or any(
+        not isinstance(size, str) or size not in dict(GK_CHOICES)
+        for size in value
+    ):
+        raise ValidationError("Bitte gültige Größenklassen auswählen.")
+
+
 class OwnInventoryStat(models.Model):
     """Optional inventory carried by each owned instance of an item."""
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    allowed_size_classes = models.JSONField(
+        "Erlaubte GK", default=list, blank=True,
+        validators=[validate_inventory_size_classes],
+        help_text="Leer bedeutet keine Einschränkung.",
+    )
     capacity_kg = models.PositiveIntegerField(
         "Traglast (kg)", null=True, blank=True,
         help_text="Leer bedeutet unbegrenzt.",

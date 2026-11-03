@@ -6,11 +6,16 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from charsheet.constants import GK_CHOICES
 from charsheet.engine.item_engine import ItemEngine
 from charsheet.models import CharacterItem
 
 
 class OwnInventorySettingsForm(forms.Form):
+    own_inventory_allowed_size_classes = forms.MultipleChoiceField(
+        label="Erlaubte GK", choices=GK_CHOICES, required=False,
+        help_text="Leer bedeutet keine Einschränkung.",
+    )
     own_inventory_enabled = forms.BooleanField(
         label="Eigene Ablage", required=False,
     )
@@ -33,6 +38,7 @@ class OwnInventorySettingsForm(forms.Form):
             cleaned.update(
                 own_inventory_capacity_kg=None, own_inventory_breaks_at=False,
                 own_inventory_breaks_at_kg=None,
+                own_inventory_allowed_size_classes=[],
             )
         elif (cleaned.get("own_inventory_breaks_at")
                 and cleaned.get("own_inventory_breaks_at_kg") is None):
@@ -56,6 +62,9 @@ def inventory_settings_payload(entry):
     stat = entry.own_inventory_stat
     return {
         "own_inventory_enabled": bool(stat),
+        "own_inventory_allowed_size_classes": (
+            stat.allowed_size_classes if stat else []
+        ),
         "own_inventory_capacity_kg": stat.capacity_kg if stat else None,
         "own_inventory_breaks_at": stat.breaks_at if stat else False,
         "own_inventory_breaks_at_kg": stat.breaks_at_kg if stat else None,
@@ -85,6 +94,13 @@ def inventory_weight(container):
     )
 
 
+def inventory_allows_size(stat, entry):
+    return bool(stat) and (
+        not stat.allowed_size_classes
+        or ItemEngine(entry).get_size_class() in stat.allowed_size_classes
+    )
+
+
 def reconcile_inventory(entry):
     """Empty unavailable containers and resolve overload after item changes."""
     contents = entry.inventory_contents.all()
@@ -94,6 +110,11 @@ def reconcile_inventory(entry):
                 or ItemEngine(entry).get_structure_status() == "destroyed"):
             contents.update(inventory_container=None, stored=False)
         else:
+            for content in contents.select_related("item"):
+                if not inventory_allows_size(stat, content):
+                    contents.filter(pk=content.pk).update(
+                        inventory_container=None, stored=False,
+                    )
             _break_if_overloaded(entry, stat)
         contents.exclude(owner_id=entry.owner_id).update(
             inventory_container=None, stored=False,
@@ -101,7 +122,8 @@ def reconcile_inventory(entry):
     if not entry.inventory_container_id:
         return
     container = entry.inventory_container
-    if entry.owner_id != container.owner_id or entry.equipped or entry.stored:
+    if (entry.owner_id != container.owner_id or entry.equipped or entry.stored
+            or not inventory_allows_size(container.own_inventory_stat, entry)):
         CharacterItem.objects.filter(pk=entry.pk).update(
             inventory_container=None,
         )
@@ -130,6 +152,10 @@ def move_to_inventory(entry, container_id):
             or entry.own_inventory_stat):
         raise ValidationError(
             "Der Gegenstand kann dort nicht abgelegt werden."
+        )
+    if not inventory_allows_size(stat, entry):
+        raise ValidationError(
+            "Diese Größenklasse ist in der Ablage nicht erlaubt."
         )
     weight = sum(
         (ItemEngine(row).get_weight() for row in entries

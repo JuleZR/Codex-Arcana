@@ -30,6 +30,7 @@ from .constants import (
     ALCHEMICAL_BREW_LEARNING_SLOT,
     ATTRIBUTE_CODE_CHOICES,
     COMA_IGNORE,
+    GK_CHOICES,
     MELEE_MANEUVERS,
     ONE_HANDED,
     QUALITY_COLOR_MAP,
@@ -2467,6 +2468,10 @@ class AlchemicalBrewStatsInlineFormSet(BaseInlineFormSet):
 
 
 class OwnInventoryStatForm(forms.ModelForm):
+    allowed_size_classes = forms.MultipleChoiceField(
+        label="Erlaubte GK", choices=GK_CHOICES, required=False,
+        help_text="Leer bedeutet keine Einschränkung.",
+    )
     class Meta:
         model = OwnInventoryStat
         fields = "__all__"

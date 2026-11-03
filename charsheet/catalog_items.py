@@ -143,6 +143,9 @@ class CatalogItemForm(forms.ModelForm):
         stat = getattr(self.instance, "owninventorystat", None)
         self.initial.update({
             "own_inventory_enabled": bool(stat),
+            "own_inventory_allowed_size_classes": (
+                stat.allowed_size_classes if stat else []
+            ),
             "own_inventory_capacity_kg": stat.capacity_kg if stat else None,
             "own_inventory_breaks_at": stat.breaks_at if stat else False,
             "own_inventory_breaks_at_kg": stat.breaks_at_kg if stat else None,
@@ -185,6 +188,7 @@ class CatalogItemForm(forms.ModelForm):
                     ("Gegenstandsbild", ("image",)),
                     ("Eigene Ablage", (
                         "own_inventory_enabled", "own_inventory_capacity_kg",
+                        "own_inventory_allowed_size_classes",
                         "own_inventory_breaks_at",
                         "own_inventory_breaks_at_kg",
                     )),
@@ -244,6 +248,8 @@ class CatalogItemForm(forms.ModelForm):
             if self.cleaned_data.get("own_inventory_enabled"):
                 OwnInventoryStat.objects.update_or_create(
                     item=item, defaults={
+                        "allowed_size_classes": self.cleaned_data[
+                            "own_inventory_allowed_size_classes"],
                         "capacity_kg": self.cleaned_data[
                             "own_inventory_capacity_kg"],
                         "breaks_at": self.cleaned_data[

@@ -3525,6 +3525,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 "magic_effect_summary", "is_magic", "price_override",
                 "weight_override", "invested_cp", "size_class_override", "image_override",
                 "own_inventory_enabled", "own_inventory_capacity_kg",
+                "own_inventory_allowed_size_classes",
                 "own_inventory_breaks_at", "own_inventory_breaks_at_kg",
                 *active_override_fields,
                 *(

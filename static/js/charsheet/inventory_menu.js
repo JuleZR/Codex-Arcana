@@ -38,10 +38,17 @@ function syncOwnInventoryFields(section) {
 }
 
 function loadOwnInventorySettings(form, payload) {
-  ["own_inventory_enabled", "own_inventory_capacity_kg", "own_inventory_breaks_at", "own_inventory_breaks_at_kg"]
+  ["own_inventory_enabled", "own_inventory_capacity_kg", "own_inventory_breaks_at", "own_inventory_breaks_at_kg", "own_inventory_allowed_size_classes"]
     .forEach((name) => {
       const field = form.querySelector(`[name='${name}']`);
       if (!field) return;
+      if (field.multiple) {
+        const allowed = Array.isArray(payload[name]) ? payload[name] : [];
+        Array.from(field.options).forEach((option) => {
+          option.selected = allowed.includes(option.value);
+        });
+        return;
+      }
       if (field.type === "checkbox") field.checked = Boolean(payload[name]);
       else field.value = String(payload[name] ?? "");
     });
@@ -128,6 +135,10 @@ function resolveInventoryDropAction(zone, row) {
   const equipZone = String(row.dataset.equipDropZone || "");
   if (zoneType === "container") {
     const containerId = String(zone.dataset.containerId || "");
+    const allowedSizes = String(zone.dataset.allowedSizeClasses || "").split(",").filter(Boolean);
+    if (allowedSizes.length && !allowedSizes.includes(row.dataset.itemSizeClass)) {
+      return null;
+    }
     if (rowEquipped || !containerId || row.dataset.inventoryContainer === containerId) {
       return null;
     }

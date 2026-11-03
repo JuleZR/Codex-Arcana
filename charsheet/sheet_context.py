@@ -6909,6 +6909,7 @@ def _own_inventory_sections(character, rows):
             "container": container,
             "weight": format_compact_number(inventory_weight(container)),
             "capacity": stat.capacity_kg,
+            "allowed_size_classes": stat.allowed_size_classes,
             "rows": [
                 row for row in rows
                 if row["character_item"].inventory_container_id == container.pk

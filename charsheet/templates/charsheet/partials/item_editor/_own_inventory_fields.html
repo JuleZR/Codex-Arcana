@@ -1,3 +1,5 @@
+{% load item_types %}
+{% inventory_size_class_choices as inventory_size_classes %}
 <details class="workshop_accordion" data-own-inventory-settings>
   <summary>Eigene Ablage</summary>
   <div class="workshop_accordion_body">
@@ -8,6 +10,15 @@
     </label>
     <p class="shop_item_form_hint">Für nicht stapelbare Einzelgegenstände. Beim Deaktivieren wird der Inhalt ins normale Inventar gelegt.</p>
     <div data-own-inventory-values>
+      <label class="shop_item_form_row">
+        <span>Erlaubte GK</span>
+        <select name="own_inventory_allowed_size_classes" multiple size="4">
+          {% for value, label in inventory_size_classes %}
+            <option value="{{ value }}"{% if value in inventory_stat.allowed_size_classes %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <small>Mehrfachauswahl möglich. Leer bedeutet keine Einschränkung.</small>
+      </label>
       <label class="shop_item_form_row">
         <span>Traglast (kg)</span>
         <input type="number" name="own_inventory_capacity_kg" min="0" step="1" value="{{ inventory_stat.capacity_kg|default_if_none:'' }}" placeholder="Unbegrenzt">

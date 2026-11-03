@@ -35,7 +35,7 @@
     </ul>
   </section>
   {% for inventory in own_inventories %}
-    <section class="inventory_storage" id="ownInventory{{ inventory.container.pk }}" data-own-inventory-panel data-inventory-zone="container" data-container-id="{{ inventory.container.pk }}" hidden>
+    <section class="inventory_storage" id="ownInventory{{ inventory.container.pk }}" data-own-inventory-panel data-inventory-zone="container" data-container-id="{{ inventory.container.pk }}" data-allowed-size-classes="{{ inventory.allowed_size_classes|join:',' }}" hidden>
       <div class="inventory_storage_header">
         <h3>{{ inventory.container.effective_name }} · {{ inventory.weight }} / {% if inventory.capacity != None %}{{ inventory.capacity }}{% else %}∞{% endif %} kg</h3>
       </div>
@@ -52,7 +52,7 @@
         </svg>
       </button>
       {% for inventory in own_inventories %}
-        <button type="button" class="inventory_container_toggle" title="{{ inventory.container.effective_name }}" aria-label="{{ inventory.container.effective_name }}" aria-expanded="false" aria-controls="ownInventory{{ inventory.container.pk }}" data-own-inventory-toggle data-inventory-zone="container" data-container-id="{{ inventory.container.pk }}">
+        <button type="button" class="inventory_container_toggle" title="{{ inventory.container.effective_name }}" aria-label="{{ inventory.container.effective_name }}" aria-expanded="false" aria-controls="ownInventory{{ inventory.container.pk }}" data-own-inventory-toggle data-inventory-zone="container" data-container-id="{{ inventory.container.pk }}" data-allowed-size-classes="{{ inventory.allowed_size_classes|join:',' }}">
           {% if inventory.container.effective_image_url %}
             <img src="{{ inventory.container.effective_image_url }}" alt="" loading="lazy">
           {% else %}

@@ -2,10 +2,16 @@
 
 from django import template
 
+from charsheet.constants import GK_CHOICES
 from charsheet.models import ItemType
 from charsheet.substances import SubstanceStatsForm
 
 register = template.Library()
+
+
+@register.simple_tag
+def inventory_size_class_choices():
+    return GK_CHOICES
 
 
 @register.simple_tag

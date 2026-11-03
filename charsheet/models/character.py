@@ -9,7 +9,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from uuid import uuid4
-from .items import Item, Rune, default_quality_pk
+from .items import (
+    Item, Rune, default_quality_pk, validate_inventory_size_classes,
+)
 
 from ..constants import (
     DAMAGE_TYPE_CHOICES,
@@ -477,6 +479,9 @@ class CharacterItem(models.Model):
     )
     inventory_broken = models.BooleanField(default=False, editable=False)
     own_inventory_enabled = models.BooleanField(null=True, blank=True)
+    own_inventory_allowed_size_classes = models.JSONField(
+        default=list, blank=True, validators=[validate_inventory_size_classes],
+    )
     own_inventory_capacity_kg = models.PositiveIntegerField(
         null=True, blank=True,
     )
@@ -600,6 +605,12 @@ class CharacterItem(models.Model):
                 raise ValidationError({
                     "inventory_container": "Ungültige Inventarzuordnung.",
                 })
+            from charsheet.own_inventory import inventory_allows_size
+
+            if not inventory_allows_size(container.own_inventory_stat, self):
+                raise ValidationError({
+                    "inventory_container": "Diese GK ist nicht erlaubt.",
+                })
         if self.own_inventory_enabled:
             if self.inventory_container_id:
                 raise ValidationError(
@@ -700,6 +711,7 @@ class CharacterItem(models.Model):
 
         return OwnInventoryStat(
             item=self.item, capacity_kg=self.own_inventory_capacity_kg,
+            allowed_size_classes=self.own_inventory_allowed_size_classes,
             breaks_at=self.own_inventory_breaks_at,
             breaks_at_kg=self.own_inventory_breaks_at_kg,
         )
