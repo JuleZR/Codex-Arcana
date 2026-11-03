@@ -37,6 +37,7 @@ from charsheet.constants import (
     WOUND_STAGE_TARGET_PREFIX,
 )
 from charsheet.engine import ItemEngine
+from charsheet.own_inventory import apply_inventory_settings
 from charsheet.magic_effects import TEXT_TARGET_KIND
 from charsheet.modifiers.definitions import (
     DIVISION_OPERATORS, ModifierOperator, TargetDomain,
@@ -1217,6 +1218,7 @@ def apply_character_item_modifications(
             character_item.item_type_override = (
                 category if category.pk != item.item_type_id else None
             )
+            apply_inventory_settings(character_item, post_data)
             if allow_catalog_flags:
                 item.not_buyable = not_buyable
                 item.not_sellable = not_sellable
@@ -1580,6 +1582,7 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
                 existing = CharacterItem.objects.filter(
                     owner=character,
                     original_owner_character=character,
+                    inventory_container__isnull=True,
                     item=item, quality_id=quality
                     ).exclude(transfers__status="pending").first()
                 if existing:
@@ -1795,6 +1798,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
                 existing = CharacterItem.objects.filter(
                     owner=character,
                     original_owner_character=character,
+                    inventory_container__isnull=True,
                     item=item,
                     quality_id=quality
                     ).exclude(transfers__status="pending").first()

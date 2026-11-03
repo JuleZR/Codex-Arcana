@@ -6361,8 +6361,20 @@ def set_item_storage(request, pk):
     if ci.equipped or ci.equip_locked:
         return redirect("character_sheet", character_id=ci.owner_id)
 
+    if request.POST.get("inventory_container"):
+        from charsheet.own_inventory import move_to_inventory
+
+        try:
+            move_to_inventory(ci, int(request.POST["inventory_container"]))
+        except (ValueError, ValidationError) as error:
+            return JsonResponse({"ok": False, "error": str(error)}, status=400)
+        if _is_partial_request(request):
+            return _inventory_panel_response(request, ci.owner)
+        return redirect("character_sheet", character_id=ci.owner_id)
+
+    ci.inventory_container = None
     ci.stored = str(request.POST.get("stored", "0")).lower() in {"1", "true", "on", "yes"}
-    ci.save(update_fields=["stored"])
+    ci.save(update_fields=["stored", "inventory_container"])
     if _is_partial_request(request):
         return _inventory_panel_response(request, ci.owner)
 

@@ -90,6 +90,7 @@ from .models import (
     AlchemicalBrewStats,
     ConsumableEffectStats,
     SubstanceStats,
+    OwnInventoryStat,
     AlchemicalBrewRequirement,
     ArmorStats,
     Aspect,
@@ -2463,6 +2464,26 @@ class AlchemicalBrewStatsInlineFormSet(BaseInlineFormSet):
             form.save_requirements(instance)
 
         return instance
+
+
+class OwnInventoryStatForm(forms.ModelForm):
+    class Meta:
+        model = OwnInventoryStat
+        fields = "__all__"
+
+    def has_changed(self):
+        # With extra=0, an explicitly added blank row means unlimited storage.
+        return super().has_changed() or (
+            self.is_bound and not self.instance.pk
+            and self.add_prefix("capacity_kg") in self.data
+        )
+
+
+class OwnInventoryStatInline(admin.StackedInline):
+    model = OwnInventoryStat
+    form = OwnInventoryStatForm
+    extra = 0
+    max_num = 1
 
 
 class SubstanceStatsInline(admin.StackedInline):
@@ -6432,6 +6453,7 @@ class ItemAdmin(admin.ModelAdmin):
         AlchemicalBrewStatsInline,
         ConsumableEffectStatsInline,
         SubstanceStatsInline,
+        OwnInventoryStatInline,
         ItemSemanticEffectInline,
         ItemRaceStartingInline,
         CreatureCardItemBindingInline,

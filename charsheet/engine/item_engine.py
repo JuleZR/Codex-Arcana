@@ -314,6 +314,8 @@ class ItemEngine:
         return max(self.get_structure_points() - self.obj.structure_damage, 0)
 
     def get_structure_status(self) -> str | None:
+        if getattr(self.obj, "inventory_broken", False):
+            return "destroyed"
         remaining = self.get_remaining_structure()
         if remaining is None:
             return None
@@ -1079,6 +1081,7 @@ class ItemEngine:
         )
         character_items = (
             CharacterItem.objects.filter(owner=character, stored=False)
+            .exclude(inventory_container__stored=True)
             .exclude(transfers__status="pending")
             .exclude(Q(equipped=True) & worn_equipment)
             .select_related("item")

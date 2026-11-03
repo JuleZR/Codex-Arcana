@@ -262,6 +262,7 @@ def _split_item(source: CharacterItem, quantity: int) -> CharacterItem:
         "owner",
         "group_owner",
         "amount",
+        "inventory_container",
         "provenance_id",
         "ownership_version",
         "original_owner_character",

@@ -3,6 +3,50 @@ import { createFloatingWindowController } from "./window_manager.js";
 import { createItemEffectPreview } from "./item_effect_preview.js?v=20261102-overlay-workshop4";
 
 let divisionGroupId = 0;
+const openOwnInventories = new Map();
+
+function showOwnInventory(panel, containerId) {
+  if (!(panel instanceof HTMLElement)) {
+    return;
+  }
+  const sections = Array.from(panel.querySelectorAll("[data-own-inventory-panel]"));
+  const selectedId = sections.some((section) => section.dataset.containerId === containerId)
+    ? containerId : "";
+  openOwnInventories.set(panel.dataset.inventoryCharacter, selectedId);
+  sections.forEach((section) => {
+    section.hidden = section.dataset.containerId !== selectedId;
+  });
+  panel.querySelectorAll("[data-own-inventory-toggle]").forEach((button) => {
+    button.setAttribute("aria-expanded", button.dataset.containerId === selectedId ? "true" : "false");
+  });
+}
+
+function restoreOwnInventory() {
+  const panel = document.getElementById("sheetInventoryPanel");
+  if (panel instanceof HTMLElement) {
+    showOwnInventory(panel, openOwnInventories.get(panel.dataset.inventoryCharacter) || "");
+  }
+}
+
+function syncOwnInventoryFields(section) {
+  const enabled = section.querySelector("[name='own_inventory_enabled']");
+  const breaksAt = section.querySelector("[name='own_inventory_breaks_at']");
+  const values = section.querySelector("[data-own-inventory-values]");
+  const breakLimit = section.querySelector("[data-own-inventory-break-limit]");
+  if (values) values.hidden = !enabled?.checked;
+  if (breakLimit) breakLimit.hidden = !breaksAt?.checked;
+}
+
+function loadOwnInventorySettings(form, payload) {
+  ["own_inventory_enabled", "own_inventory_capacity_kg", "own_inventory_breaks_at", "own_inventory_breaks_at_kg"]
+    .forEach((name) => {
+      const field = form.querySelector(`[name='${name}']`);
+      if (!field) return;
+      if (field.type === "checkbox") field.checked = Boolean(payload[name]);
+      else field.value = String(payload[name] ?? "");
+    });
+  form.querySelectorAll("[data-own-inventory-settings]").forEach(syncOwnInventoryFields);
+}
 
 function parseIdList(rawValue) {
   return String(rawValue || "")
@@ -82,6 +126,19 @@ function resolveInventoryDropAction(zone, row) {
   const rowStored = (row.dataset.stored || "0") === "1";
   const rowEquipped = (row.dataset.equipped || "0") === "1";
   const equipZone = String(row.dataset.equipDropZone || "");
+  if (zoneType === "container") {
+    const containerId = String(zone.dataset.containerId || "");
+    if (rowEquipped || !containerId || row.dataset.inventoryContainer === containerId) {
+      return null;
+    }
+    const form = row.querySelector("[data-container-form]");
+    const select = form?.querySelector("select[name='inventory_container']");
+    if (!(form instanceof HTMLFormElement) || !(select instanceof HTMLSelectElement)) {
+      return null;
+    }
+    select.value = containerId;
+    return select.value ? { form, kind: "storage" } : null;
+  }
   if (zoneType === "stored") {
     if (rowEquipped) {
       return null;
@@ -105,7 +162,7 @@ function resolveInventoryDropAction(zone, row) {
       }
       return { form, kind: "unequip" };
     }
-    if (!rowStored) {
+    if (!rowStored && !row.dataset.inventoryContainer) {
       return null;
     }
     const form = row.querySelector("[data-storage-form]");
@@ -142,9 +199,15 @@ function updateAllowedDropZoneState(row) {
     const allowed = Boolean(resolveInventoryDropAction(probe, row));
     document.body.dataset[`dragAllow${zoneType.replace(/(^|-)([a-z])/g, (_m, _sep, char) => char.toUpperCase())}`] = allowed ? "1" : "0";
   });
+  document.querySelectorAll('[data-inventory-zone="container"]').forEach((zone) => {
+    zone.classList.toggle("is-drop-allowed", Boolean(resolveInventoryDropAction(zone, row)));
+  });
 }
 
 function clearAllowedDropZoneState() {
+  document.querySelectorAll(".is-drop-allowed").forEach((zone) => {
+    zone.classList.remove("is-drop-allowed");
+  });
   [
     "dragAllowCarried",
     "dragAllowStored",
@@ -216,6 +279,13 @@ function openMenu(menu) {
 }
 
 export function initInventoryMenu({ warningWindowController = null, modifyWindowController = null, catalogEditor = false } = {}) {
+  restoreOwnInventory();
+  document.querySelectorAll("[data-own-inventory-settings]").forEach(syncOwnInventoryFields);
+  document.addEventListener("change", (event) => {
+    const section = event.target instanceof Element
+      ? event.target.closest("[data-own-inventory-settings]") : null;
+    if (section) syncOwnInventoryFields(section);
+  });
   if (document.body.dataset.inventoryMenuBound === "1") {
     return;
   }
@@ -1178,6 +1248,17 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   }, true);
 
   document.addEventListener("click", (event) => {
+    const inventoryToggle = event.target instanceof Element
+      ? event.target.closest("[data-own-inventory-toggle]") : null;
+    if (inventoryToggle instanceof HTMLButtonElement) {
+      event.preventDefault();
+      showOwnInventory(
+        inventoryToggle.closest("#sheetInventoryPanel"),
+        inventoryToggle.getAttribute("aria-expanded") === "true"
+          ? "" : inventoryToggle.dataset.containerId,
+      );
+      return;
+    }
     const toggleBtn = event.target instanceof Element
       ? event.target.closest("[data-rune-toggle]")
       : null;
@@ -1332,6 +1413,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
     const modifyPayload = parseJsonObject(button.getAttribute("data-modify-payload"));
+    loadOwnInventorySettings(runeForm, modifyPayload);
 
     // Build spec map: rune_id → [{specification, slot}]
     const rawRuneSpecs = parseJsonList(button.getAttribute("data-rune-specs"));
@@ -1551,7 +1633,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     document.body.dataset.dragEquipDropZone = row.dataset.equipDropZone || "";
     updateAllowedDropZoneState(row);
     const storage = document.querySelector("[data-inventory-storage]");
-    if (storage instanceof HTMLElement && storage.hidden) {
+    if (
+      storage instanceof HTMLElement && storage.hidden &&
+      !storage.hasAttribute("data-own-inventory-panel")
+    ) {
       storage.hidden = false;
       storage.classList.add("inventory_storage--drag-preview");
     }
@@ -1584,6 +1669,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (!dropAction) {
       zone.classList.remove("is-drag-over");
       return;
+    }
+    if (zone.matches("[data-own-inventory-toggle]")) {
+      showOwnInventory(zone.closest("#sheetInventoryPanel"), zone.dataset.containerId);
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -1765,6 +1853,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   });
 
   document.addEventListener("charsheet:partials-applied", () => {
+    restoreOwnInventory();
     if (pendingRuneSubmit) {
       closeRuneWindow();
     }

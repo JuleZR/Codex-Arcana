@@ -110,6 +110,7 @@
     {% include "charsheet/partials/item_editor/_stat_formset.html" with label="Alchemistische Voraussetzungen" formset=requirements only %}
   </div>
 {% else %}
+              {% include "charsheet/partials/item_editor/_own_inventory_fields.html" %}
               <details class="workshop_accordion">
                 <summary>Handel und Verfügbarkeit</summary>
                 <div class="workshop_accordion_body">

@@ -471,6 +471,19 @@ class CharacterItem(models.Model):
     equipped = models.BooleanField(default=False)
     equip_locked = models.BooleanField(default=False)
     stored = models.BooleanField(default=False)
+    inventory_container = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="inventory_contents",
+    )
+    inventory_broken = models.BooleanField(default=False, editable=False)
+    own_inventory_enabled = models.BooleanField(null=True, blank=True)
+    own_inventory_capacity_kg = models.PositiveIntegerField(
+        null=True, blank=True,
+    )
+    own_inventory_breaks_at = models.BooleanField(default=False)
+    own_inventory_breaks_at_kg = models.PositiveIntegerField(
+        null=True, blank=True,
+    )
     quality = models.ForeignKey(
         "charsheet.Quality",
         db_column="quality",
@@ -575,6 +588,33 @@ class CharacterItem(models.Model):
             raise ValidationError("Exactly one original owner is required.")
         if self.group_owner_id and self.original_owner_group_id != self.group_owner_id:
             raise ValidationError({"original_owner_group": "A group-held item must originate from that group."})
+        if self.inventory_container_id:
+            container = self.inventory_container
+            if (
+                not self.owner_id or container.owner_id != self.owner_id
+                or container.pk == self.pk or container.inventory_container_id
+                or self.equipped or self.stored
+                or container.amount != 1 or container.inventory_broken
+                or not container.own_inventory_stat
+            ):
+                raise ValidationError({
+                    "inventory_container": "Ungültige Inventarzuordnung.",
+                })
+        if self.own_inventory_enabled:
+            if self.inventory_container_id:
+                raise ValidationError(
+                    "Den Behälter zuerst ins normale Inventar legen."
+                )
+            if self.amount != 1 or self.effective_item.stackable:
+                raise ValidationError(
+                    "Eine eigene Ablage benötigt einen nicht stapelbaren "
+                    "Einzelgegenstand."
+                )
+            if (self.own_inventory_breaks_at
+                    and self.own_inventory_breaks_at_kg is None):
+                raise ValidationError({
+                    "own_inventory_breaks_at_kg": "Bruchgrenze erforderlich.",
+                })
         if not self.effective_item.stackable and self.amount != 1:
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
         if self.effective_item.stackable and self.equipped:
@@ -642,8 +682,27 @@ class CharacterItem(models.Model):
                 raise ValidationError("The original owner is immutable outside the transfer service.")
         super().save(*args, **kwargs)
 
+        from charsheet.own_inventory import reconcile_inventory
+
+        reconcile_inventory(self)
+
     def __str__(self):
         return f"{self.owner or self.group_owner} owns {self.item}"
+
+    @property
+    def own_inventory_stat(self):
+        """Resolve instance settings with the catalog definition as fallback."""
+        if self.own_inventory_enabled is None:
+            return getattr(self.item, "owninventorystat", None)
+        if not self.own_inventory_enabled:
+            return None
+        from .items import OwnInventoryStat
+
+        return OwnInventoryStat(
+            item=self.item, capacity_kg=self.own_inventory_capacity_kg,
+            breaks_at=self.own_inventory_breaks_at,
+            breaks_at_kg=self.own_inventory_breaks_at_kg,
+        )
 
     @property
     def effective_item_type(self):

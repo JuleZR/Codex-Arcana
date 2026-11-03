@@ -993,6 +993,9 @@ def game_master_screen(request, group_id: int):
                             "",
                         )
                     workshop_values[f"{prefix}_{name}"] = value
+        from charsheet.own_inventory import inventory_settings_payload
+
+        workshop_values.update(inventory_settings_payload(inventory_item))
         inventory_item.workshop_payload_json = json.dumps(workshop_values)
         inventory_item.workshop_rune_specs_json = json.dumps(
             _serialize_character_item_rune_specs(inventory_item)
@@ -3512,12 +3515,17 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             instance.weapon_h2_damage_type_override = str(
                 request.POST.get("weapon_h2_damage_type_override") or ""
             )
+        from charsheet.own_inventory import apply_inventory_settings
+
+        apply_inventory_settings(instance, request.POST)
         instance.full_clean()
         instance.save(
             update_fields=[
                 "amount", "quality", "name_override", "description",
                 "magic_effect_summary", "is_magic", "price_override",
                 "weight_override", "invested_cp", "size_class_override", "image_override",
+                "own_inventory_enabled", "own_inventory_capacity_kg",
+                "own_inventory_breaks_at", "own_inventory_breaks_at_kg",
                 *active_override_fields,
                 *(
                     (

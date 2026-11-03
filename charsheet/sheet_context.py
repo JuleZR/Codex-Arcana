@@ -65,6 +65,7 @@ from charsheet.engine.character_carry import CARRY_ATTRIBUTES
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
 from charsheet.engine.magic_engine import _spell_owner_accent
 from charsheet.modifiers.targets import TargetResolver
+from charsheet.own_inventory import inventory_settings_payload
 from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
 from charsheet.item_disclosure import (
     identified_effect_id_sets,
@@ -3549,14 +3550,16 @@ def _item_structure_context(character_item: CharacterItem) -> dict:
     maximum = engine.get_structure_points()
     remaining = engine.get_remaining_structure()
     crack_level = 0
-    if engine.can_manage_structure_damage():
-        if remaining == 0:
-            crack_level = 5
-        elif maximum and remaining < maximum:
-            crack_level = 1 + sum(
-                remaining * 4 <= maximum * threshold
-                for threshold in (3, 2, 1)
-            )
+    if engine.get_structure_status() == "destroyed":
+        crack_level = 5
+    elif (
+        engine.can_manage_structure_damage()
+        and maximum and remaining < maximum
+    ):
+        crack_level = 1 + sum(
+            remaining * 4 <= maximum * threshold
+            for threshold in (3, 2, 1)
+        )
     return {
         "can_manage_structure_damage": engine.can_manage_structure_damage(),
         "structure_points": maximum,
@@ -6717,6 +6720,7 @@ def _build_inventory_rows(
                 ),
                 "modify_payload_json": json.dumps(
                     {
+                        **inventory_settings_payload(character_item),
                         "name": item_name,
                         "price": item_engine.get_base_price(),
                         "weight": str(
@@ -6880,6 +6884,34 @@ def _build_inventory_rows(
         )
 
     return inventory_rows
+
+
+def _own_inventory_sections(character, rows):
+    from charsheet.own_inventory import inventory_weight
+
+    sections = []
+    containers = CharacterItem.objects.filter(
+        Q(own_inventory_enabled=True)
+        | Q(item__owninventorystat__isnull=False),
+        owner=character, amount=1,
+        inventory_container__isnull=True,
+    ).exclude(own_inventory_enabled=False).select_related(
+        "item__owninventorystat", "quality",
+    )
+    for container in containers:
+        if ItemEngine(container).get_structure_status() == "destroyed":
+            continue
+        stat = container.own_inventory_stat
+        sections.append({
+            "container": container,
+            "weight": format_compact_number(inventory_weight(container)),
+            "capacity": stat.capacity_kg,
+            "rows": [
+                row for row in rows
+                if row["character_item"].inventory_container_id == container.pk
+            ],
+        })
+    return sections
 
 
 def _build_inventory_total_weight_display(character: Character) -> str:
@@ -9538,8 +9570,19 @@ def build_item_semantic_effect_partial_context(
         inventory_total_weight_display = _build_inventory_total_weight_display(character)
         context.update(
             {
-                "inventory_rows": [row for row in inventory_rows if not row.get("is_stored")],
-                "stored_inventory_rows": [row for row in inventory_rows if row.get("is_stored")],
+                "inventory_rows": [
+                    row for row in inventory_rows
+                    if not row.get("is_stored")
+                    and not row["character_item"].inventory_container_id
+                ],
+                "stored_inventory_rows": [
+                    row for row in inventory_rows
+                    if row.get("is_stored")
+                    and not row["character_item"].inventory_container_id
+                ],
+                "own_inventories": _own_inventory_sections(
+                    character, inventory_rows,
+                ),
                 "inventory_total_weight_display": inventory_total_weight_display,
                 "carry_load": {
                     "enabled": bool(character.carry_load_enabled),
@@ -9734,8 +9777,15 @@ def build_inventory_partial_context(character: Character) -> dict[str, object]:
     carry_state = ItemEngine.carry_state_for_character(character)
     return {
         "character": character,
-        "inventory_rows": [row for row in inventory_rows if not row.get("is_stored")],
-        "stored_inventory_rows": [row for row in inventory_rows if row.get("is_stored")],
+        "inventory_rows": [
+            row for row in inventory_rows if not row.get("is_stored")
+            and not row["character_item"].inventory_container_id
+        ],
+        "stored_inventory_rows": [
+            row for row in inventory_rows if row.get("is_stored")
+            and not row["character_item"].inventory_container_id
+        ],
+        "own_inventories": _own_inventory_sections(character, inventory_rows),
         "inventory_total_weight_display": inventory_total_weight_display,
         "carry_load": {
             "enabled": bool(character.carry_load_enabled),
@@ -9840,8 +9890,14 @@ def build_character_sheet_context(
     )
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character, sl_effect_group_id=sl_effect_group_id)
-    carried_inventory_rows = [row for row in inventory_rows if not row.get("is_stored")]
-    stored_inventory_rows = [row for row in inventory_rows if row.get("is_stored")]
+    carried_inventory_rows = [
+        row for row in inventory_rows if not row.get("is_stored")
+        and not row["character_item"].inventory_container_id
+    ]
+    stored_inventory_rows = [
+        row for row in inventory_rows if row.get("is_stored")
+        and not row["character_item"].inventory_container_id
+    ]
     inventory_total_weight_display = _build_inventory_total_weight_display(character)
     weapon_rows = _build_weapon_rows(engine, sl_effect_group_id=sl_effect_group_id)
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
@@ -10553,6 +10609,7 @@ def build_character_sheet_context(
         "disadvantage_rows": disadvantage_rows,
         "inventory_rows": carried_inventory_rows,
         "stored_inventory_rows": stored_inventory_rows,
+        "own_inventories": _own_inventory_sections(character, inventory_rows),
         "inventory_total_weight_display": inventory_total_weight_display,
         "carry_load": {
             "enabled": bool(character.carry_load_enabled),

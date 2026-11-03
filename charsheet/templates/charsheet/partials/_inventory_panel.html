@@ -1,4 +1,4 @@
-<div class="p2_panel p2_fill" id="sheetInventoryPanel">
+<div class="p2_panel p2_fill" id="sheetInventoryPanel" data-inventory-character="{{ character.pk }}">
   <div class="p2_panel_header">
     <h2>Ausr&uuml;stung</h2>
     <button
@@ -22,15 +22,47 @@
       {% include "charsheet/partials/_inventory_row_list.html" with rows=inventory_rows %}
     </ul>
   </div>
-  <section class="inventory_storage{% if not stored_inventory_rows %} inventory_storage--empty{% endif %}"
+  <section class="inventory_storage{% if not own_inventories and not stored_inventory_rows %} inventory_storage--empty{% endif %}" id="standardInventory"
+            {% if own_inventories %}data-own-inventory-panel data-container-id="stored"{% endif %}
             data-inventory-storage
             data-inventory-zone="stored"
-            {% if not stored_inventory_rows %}hidden{% endif %}>
+            {% if own_inventories or not stored_inventory_rows %}hidden{% endif %}>
     <div class="inventory_storage_header">
-      <h3>Karren / Lager / Pferd</h3>
+      <h3>Beiseitegelegt</h3>
     </div>
     <ul class="p2_lines inventory_list inventory_list--storage">
       {% include "charsheet/partials/_inventory_row_list.html" with rows=stored_inventory_rows %}
     </ul>
   </section>
+  {% for inventory in own_inventories %}
+    <section class="inventory_storage" id="ownInventory{{ inventory.container.pk }}" data-own-inventory-panel data-inventory-zone="container" data-container-id="{{ inventory.container.pk }}" hidden>
+      <div class="inventory_storage_header">
+        <h3>{{ inventory.container.effective_name }} · {{ inventory.weight }} / {% if inventory.capacity != None %}{{ inventory.capacity }}{% else %}∞{% endif %} kg</h3>
+      </div>
+      <ul class="p2_lines inventory_list inventory_list--storage">
+        {% include "charsheet/partials/_inventory_row_list.html" with rows=inventory.rows %}
+      </ul>
+    </section>
+  {% endfor %}
+  {% if own_inventories %}
+    <nav class="inventory_container_dock" aria-label="Ablagen">
+      <button type="button" class="inventory_container_toggle" title="Beiseitegelegt" aria-label="Beiseitegelegt" aria-expanded="false" aria-controls="standardInventory" data-own-inventory-toggle data-inventory-zone="stored" data-container-id="stored">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M4 10h16v10H4zM2 6h20v4H2zM9 14h6"/>
+        </svg>
+      </button>
+      {% for inventory in own_inventories %}
+        <button type="button" class="inventory_container_toggle" title="{{ inventory.container.effective_name }}" aria-label="{{ inventory.container.effective_name }}" aria-expanded="false" aria-controls="ownInventory{{ inventory.container.pk }}" data-own-inventory-toggle data-inventory-zone="container" data-container-id="{{ inventory.container.pk }}">
+          {% if inventory.container.effective_image_url %}
+            <img src="{{ inventory.container.effective_image_url }}" alt="" loading="lazy">
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M8 7V5a4 4 0 0 1 8 0v2M7 7h10a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3Z"/>
+              <path d="M8 13h8v5H8zM8 7v3m8-3v3"/>
+            </svg>
+          {% endif %}
+        </button>
+      {% endfor %}
+    </nav>
+  {% endif %}
 </div>

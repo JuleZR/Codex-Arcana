@@ -1,7 +1,7 @@
 """Staff editing of independent catalog definitions."""
 
 import json
-from copy import copy
+from copy import copy, deepcopy
 
 from django import forms
 from django.contrib import messages
@@ -28,7 +28,10 @@ from charsheet.models import (
     CharacterItem, ConsumableEffectStats, Item, ItemSemanticEffect, ItemType,
     MagicItemStats, Race, RangedWeaponStats, Rune, School, ShieldStats, Skill,
     SkillCategory,
-    Specialization, SubstanceStats, WeaponStats,
+    Specialization, SubstanceStats, WeaponStats, OwnInventoryStat,
+)
+from charsheet.own_inventory import (
+    OwnInventorySettingsForm, reconcile_inventory,
 )
 from charsheet.sheet_context import (
     _rune_image_url, _rune_inline_description,
@@ -136,6 +139,14 @@ class CatalogItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields.update(deepcopy(OwnInventorySettingsForm.base_fields))
+        stat = getattr(self.instance, "owninventorystat", None)
+        self.initial.update({
+            "own_inventory_enabled": bool(stat),
+            "own_inventory_capacity_kg": stat.capacity_kg if stat else None,
+            "own_inventory_breaks_at": stat.breaks_at if stat else False,
+            "own_inventory_breaks_at_kg": stat.breaks_at_kg if stat else None,
+        })
         self.fields["item_type"].queryset = ItemType.objects.filter(
             Q(is_active=True) | Q(pk=self.instance.item_type_id),
         )
@@ -172,6 +183,11 @@ class CatalogItemForm(forms.ModelForm):
                     )),
                     ("Investierte CP", ("invested_cp", "invested_cp_steps")),
                     ("Gegenstandsbild", ("image",)),
+                    ("Eigene Ablage", (
+                        "own_inventory_enabled", "own_inventory_capacity_kg",
+                        "own_inventory_breaks_at",
+                        "own_inventory_breaks_at_kg",
+                    )),
                 )]
 
     def clean_runes(self):
@@ -200,6 +216,19 @@ class CatalogItemForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        if "own_inventory_settings" in self.data:
+            settings_form = OwnInventorySettingsForm(self.data)
+            if settings_form.is_valid():
+                data.update(settings_form.cleaned_data)
+                if (data.get("own_inventory_enabled")
+                        and data.get("stackable")):
+                    self.add_error(
+                        "stackable", "Eigene Ablagen sind nicht stapelbar.",
+                    )
+            else:
+                for field, errors in settings_form.errors.items():
+                    for error in errors:
+                        self.add_error(field, error)
         if not _cp_matches_steps(
             data.get("invested_cp") or 0, data.get("invested_cp_steps") or "",
         ):
@@ -208,6 +237,26 @@ class CatalogItemForm(forms.ModelForm):
                 "Investierte CP passen nicht zu den CP-Schritten.",
             )
         return data
+
+    def save(self, commit=True):
+        item = super().save(commit=commit)
+        if commit and "own_inventory_settings" in self.data:
+            if self.cleaned_data.get("own_inventory_enabled"):
+                OwnInventoryStat.objects.update_or_create(
+                    item=item, defaults={
+                        "capacity_kg": self.cleaned_data[
+                            "own_inventory_capacity_kg"],
+                        "breaks_at": self.cleaned_data[
+                            "own_inventory_breaks_at"],
+                        "breaks_at_kg": self.cleaned_data[
+                            "own_inventory_breaks_at_kg"],
+                    },
+                )
+            else:
+                OwnInventoryStat.objects.filter(item=item).delete()
+            for entry in CharacterItem.objects.filter(item=item):
+                reconcile_inventory(entry)
+        return item
 
 
 # Django supplies all model fields, including M2M and optional profiles.

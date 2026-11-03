@@ -5,6 +5,7 @@
       data-inventory-row
       data-character-item-id="{{ row.character_item.pk }}"
       data-stored="{% if row.is_stored %}1{% else %}0{% endif %}"
+      data-inventory-container="{{ row.character_item.inventory_container_id|default:'' }}"
       data-item-type="{{ row.item.item_type_id }}"
       data-equip-drop-zone="{{ row.equip_drop_zone }}"
       data-equip-drop-zones="{{ row.equip_drop_zones }}"
@@ -51,8 +52,27 @@
           {% if row.can_manage_storage %}<form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="equip_form" data-sheet-action>
             {% csrf_token %}
             <input type="hidden" name="stored" value="{% if row.is_stored %}0{% else %}1{% endif %}">
-            <button type="submit" class="inv_menu_btn">{% if row.is_stored %}Zum Tragen{% else %}In den Karren{% endif %}</button>
-          </form>{% endif %}
+            <button type="submit" class="inv_menu_btn">{% if row.is_stored %}Zum Tragen{% else %}Beiseitelegen{% endif %}</button>
+          </form>
+          {% if row.character_item.inventory_container_id %}
+            <form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="equip_form" data-sheet-action>
+              {% csrf_token %}
+              <input type="hidden" name="stored" value="0">
+              <button type="submit" class="inv_menu_btn">Ins normale Inventar</button>
+            </form>
+          {% endif %}
+          {% if own_inventories and not row.character_item.own_inventory_stat %}
+            <form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="equip_form" data-sheet-action data-container-form>
+              {% csrf_token %}
+              <select name="inventory_container" aria-label="Eigene Ablage" required>
+                {% for inventory in own_inventories %}
+                  <option value="{{ inventory.container.pk }}"{% if row.character_item.inventory_container_id == inventory.container.pk %} selected{% endif %}>{{ inventory.container.effective_name }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="inv_menu_btn">Einlagern</button>
+            </form>
+          {% endif %}
+          {% endif %}
           {% if row.can_consume %}
             <form method="post" action="{% url 'consume_item' row.character_item.pk %}" class="equip_form" data-sheet-action data-consumable data-ajax-only>
               {% csrf_token %}

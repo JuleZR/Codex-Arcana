@@ -1,4 +1,5 @@
 <div class="workshop_split catalog-base">
+  <input type="hidden" name="own_inventory_settings" value="1">
   <section class="workshop_catalog" aria-label="Basisitem bearbeiten">
     <div class="workshop_section_heading"><h2>Basisitem</h2></div>
     {% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=form editor_fields=form.primary_fields only %}

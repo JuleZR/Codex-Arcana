@@ -632,6 +632,37 @@ class Item(models.Model):
         return cls.type_values("is_consumable")
 
 
+class OwnInventoryStat(models.Model):
+    """Optional inventory carried by each owned instance of an item."""
+
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    capacity_kg = models.PositiveIntegerField(
+        "Traglast (kg)", null=True, blank=True,
+        help_text="Leer bedeutet unbegrenzt.",
+    )
+    breaks_at = models.BooleanField("Breaks at", default=False)
+    breaks_at_kg = models.PositiveIntegerField(
+        "Bruchgrenze (kg)", null=True, blank=True,
+    )
+
+    def clean(self):
+        super().clean()
+        item = self._state.fields_cache.get("item")
+        if item is None and self.item_id:
+            item = self.item
+        if item is not None and item.stackable:
+            raise ValidationError(
+                "Gegenstände mit eigener Ablage dürfen nicht stapelbar sein."
+            )
+        if self.breaks_at and self.breaks_at_kg is None:
+            raise ValidationError({
+                "breaks_at_kg": "Bitte eine Bruchgrenze angeben.",
+            })
+
+    def __str__(self):
+        return str(self.item)
+
+
 class SubstanceStats(models.Model):
     """Sourcebook substance definitions, without executable effects or timers."""
 
