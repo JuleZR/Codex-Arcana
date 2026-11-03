@@ -1522,9 +1522,8 @@ class ModifierEngine:
             resolved_total = max(resolved_total, rank_minimum - minimum_base)
         return int(resolved_total)
 
-    @classmethod
     def _modifier_matches_target_key(
-        cls,
+        self,
         modifier: BaseModifier,
         *,
         target_domain: str,
@@ -1534,7 +1533,7 @@ class ModifierEngine:
         """Match direct target_key or concrete skill selections stored in metadata."""
         if modifier.target_key == target_key:
             return True
-        if cls._modifier_matches_weapon_maneuver_damage_alias(
+        if self._modifier_matches_weapon_maneuver_damage_alias(
             modifier,
             target_domain=target_domain,
             target_key=target_key,
@@ -1544,7 +1543,30 @@ class ModifierEngine:
         if target_domain not in {TargetDomain.SKILL, TargetDomain.SKILL_RANK, TargetDomain.SKILL_RANK_CAP}:
             return False
         selected_skill_slugs = modifier.metadata.get("target_skill_slugs") or []
-        return target_key in selected_skill_slugs
+        if target_key in selected_skill_slugs:
+            return True
+        parent_slugs = self._specified_skill_parent_slugs.get(target_key, set())
+        return bool(parent_slugs.intersection(
+            [modifier.target_key, *selected_skill_slugs],
+        ))
+
+    @cached_property
+    def _specified_skill_parent_slugs(self) -> dict[str, set[str]]:
+        """Link named variants such as Handwerk: Rüstungsmacher to Handwerk."""
+        skills = list(Skill.objects.values_list(
+            "slug", "name", "requires_specification",
+        ))
+        parents: dict[str, set[str]] = {}
+        for slug, name, requires_specification in skills:
+            if requires_specification:
+                key = name.rstrip(" :").strip().casefold()
+                parents.setdefault(key, set()).add(slug)
+        return {
+            slug: parents[name.partition(":")[0].strip().casefold()]
+            for slug, name, _requires_specification in skills
+            if ":" in name and name.partition(":")[2].strip()
+            and name.partition(":")[0].strip().casefold() in parents
+        }
 
     @staticmethod
     def _modifier_matches_weapon_maneuver_damage_alias(

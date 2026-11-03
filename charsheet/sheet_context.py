@@ -1888,9 +1888,12 @@ def _item_skill_target_display(target_key: str, metadata: dict[str, object] | No
     """Return the human-facing skill name for an item semantic-effect target."""
     metadata = metadata or {}
     if metadata.get("target_skill_slugs"):
-        names = list(Skill.objects.filter(
-            slug__in=metadata["target_skill_slugs"]
-        ).order_by("name").values_list("name", flat=True))
+        names = [
+            name.rstrip(" :")
+            for name in Skill.objects.filter(
+                slug__in=metadata["target_skill_slugs"]
+            ).order_by("name").values_list("name", flat=True)
+        ]
         if len(names) > 1:
             return f"{', '.join(names[:-1])} und {names[-1]}"
         return ", ".join(names)
@@ -1898,7 +1901,7 @@ def _item_skill_target_display(target_key: str, metadata: dict[str, object] | No
     if target_skill_id.isdigit():
         name = Skill.objects.filter(pk=int(target_skill_id)).values_list("name", flat=True).first()
         if name:
-            return str(name)
+            return str(name).rstrip(" :")
 
     raw_target = str(target_key or "").strip()
     target_tail = raw_target.rsplit("/", 1)[-1].strip()
@@ -1917,7 +1920,7 @@ def _item_skill_target_display(target_key: str, metadata: dict[str, object] | No
         }
         for candidate in candidates:
             if candidate in skills_by_slug:
-                return str(skills_by_slug[candidate])
+                return str(skills_by_slug[candidate]).rstrip(" :")
     return target_tail or raw_target
 
 
