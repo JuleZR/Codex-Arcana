@@ -254,9 +254,17 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         return None
 
     try:
-        value = int(raw_value or 0)
-    except (TypeError, ValueError, OverflowError):
-        value = 0
+        numeric_value = Decimal(str(raw_value or 0).replace(",", "."))
+        if not numeric_value.is_finite():
+            raise ValueError
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValidationError({
+            "magic_modifier_payloads": "Bitte einen gültigen Wert eingeben.",
+        }) from exc
+    value = (
+        int(numeric_value) if numeric_value == int(numeric_value)
+        else format(numeric_value, "f")
+    )
 
     payload: dict[str, object] = {
         "target_kind": target_kind,
@@ -501,7 +509,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
         )
         if payload is not None:
             if payload.get("target_kind") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
-                value = int(payload.get("value", 0) or 0)
+                value = payload.get("value", 0) or 0
                 effect_description = str(payload.get("effect_description") or "").strip()
                 rules_text = str(payload.get("rules_text") or "").strip()
                 scale_source = str(payload.get("scale_source") or "")
@@ -703,11 +711,15 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     target_slug = str(payload.get("target_slug") or "")
     target_domain = TargetDomain.METADATA
     target_key = target_slug
-    operator = ModifierOperator.FLAT_SUB if int(payload.get("value") or 0) < 0 else ModifierOperator.FLAT_ADD
-    value = abs(int(payload.get("value") or 0))
+    numeric_value = Decimal(str(payload.get("value") or 0).replace(",", "."))
+    operator = (
+        ModifierOperator.FLAT_SUB if numeric_value < 0
+        else ModifierOperator.FLAT_ADD
+    )
+    value = abs(numeric_value)
     if payload.get("operator") in MAGIC_VALUE_OPERATORS:
         operator = ModifierOperator(payload["operator"])
-        value = int(payload.get("value") or 0)
+        value = numeric_value
         if operator in DIVISION_OPERATORS and value == 0:
             raise ValidationError({
                 "magic_modifier_payloads": (
@@ -733,7 +745,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             })
         if target_slug in {value for value, _label in RULE_FLAG_CHOICES}:
             target_domain = TargetDomain.RULE_FLAG
-            operator = ModifierOperator.SET_FLAG if int(payload.get("value") or 0) else ModifierOperator.UNSET_FLAG
+            operator = (
+                ModifierOperator.SET_FLAG if numeric_value
+                else ModifierOperator.UNSET_FLAG
+            )
             value = True if operator == ModifierOperator.SET_FLAG else False
         elif target_slug in {MELEE_MANEUVERS, WEAPON_DAMAGE, WEAPON_DAMAGE_DICE} or target_slug.startswith("dmg_"):
             target_domain = TargetDomain.COMBAT

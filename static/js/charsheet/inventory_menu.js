@@ -723,6 +723,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (valueInput instanceof HTMLInputElement) {
       valueInput.setCustomValidity("");
       valueInput.min = selectedKind === "wound_stage" ? "1" : "";
+      valueInput.step = selectedKind === "wound_stage" ? "1" : "any";
       if (valueRow instanceof HTMLElement) {
         valueRow.hidden = isTextOnly || isRuleFlag;
       }

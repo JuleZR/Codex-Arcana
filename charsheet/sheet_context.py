@@ -2022,7 +2022,7 @@ def _movement_effect_value_display(raw_value: object, operator: str, target_key:
         except (TypeError, ValueError):
             return str(value)
         if operator == "multiply":
-            return f"x{format_compact_number(number)}"
+            return f"× {format_compact_number(number).replace('.', ',')}"
         if operator in DIVISION_OPERATORS:
             rounding = {
                 "divide": "normal",
@@ -2039,7 +2039,18 @@ def _movement_effect_value_display(raw_value: object, operator: str, target_key:
         sign = "+" if signed >= 0 else "-"
         return f"{sign}{format_compact_number(abs(signed))}"
 
-    return f"{_movement_effect_target_display(target_key)}: {' / '.join(_format_value(value) for value in values)}"
+    target_display = _movement_effect_target_display(target_key)
+    formatted_values = [_format_value(value) for value in values]
+    if operator == "multiply":
+        if len(set(formatted_values)) == 1:
+            return f"{target_display} {formatted_values[0]}"
+        labeled_values = (
+            f"{label} {value}" for label, value in zip(
+                ("Kampf", "Marsch", "Sprint"), formatted_values,
+            )
+        )
+        return f"{target_display}: {' · '.join(labeled_values)}"
+    return f"{target_display}: {' / '.join(formatted_values)}"
 
 
 def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -2052,8 +2063,10 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
         if str(payload.get("target_kind") or "") != "weapon_maneuver":
             collapsed_payloads.append(payload)
             continue
-        payload_value = int(payload.get("value", 0) or 0)
-        payload_effective_value = int(payload.get("effective_value", payload_value) or 0)
+        payload_value = payload.get("value", 0) or 0
+        payload_effective_value = (
+            payload.get("effective_value", payload_value) or 0
+        )
         payload_description = str(payload.get("effect_description") or "").strip()
         payload_rules_text = str(payload.get("rules_text") or "").strip()
         payload_scale_source = str(payload.get("scale_source") or "").strip()
@@ -2076,9 +2089,13 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 continue
             if candidate_kind not in {"stat", "weapon_damage"}:
                 continue
-            if int(candidate.get("value", 0) or 0) != payload_value:
+            if Decimal(str(candidate.get("value", 0) or 0)) != Decimal(
+                str(payload_value),
+            ):
                 continue
-            if int(candidate.get("effective_value", payload_value) or 0) != payload_effective_value:
+            if Decimal(str(
+                candidate.get("effective_value", payload_value) or 0,
+            )) != Decimal(str(payload_effective_value)):
                 continue
             if str(candidate.get("effect_description") or "").strip() != payload_description:
                 continue

@@ -241,7 +241,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = {
           target_kind: targetKind,
           operator: effectOperator(row),
-          value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
+          value: row.querySelector("[data-effect-value]")?.value || "0",
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
@@ -329,6 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (valueInput) {
         valueInput.disabled = !hasCalculation;
         valueInput.min = kind === "wound_stage" ? "1" : "";
+        valueInput.step = kind === "wound_stage" ? "1" : "any";
         valueInput.required = kind === "wound_stage";
       }
       const scaleSource = row.querySelector("[data-effect-scale-source]");
@@ -466,7 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = {
           target_kind: kind,
           operator: effectOperator(row),
-          value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
+          value: row.querySelector("[data-effect-value]")?.value || "0",
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
@@ -564,6 +565,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (value) {
         value.disabled = !calculated;
         value.min = kind === "wound_stage" ? "1" : "";
+        value.step = kind === "wound_stage" ? "1" : "any";
         value.required = kind === "wound_stage";
       }
       const scaleSource = row.querySelector("[data-effect-scale-source]");
