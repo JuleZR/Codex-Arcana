@@ -1082,10 +1082,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
           radio.checked = radio.value === (isDivision ? initialPayload.operator : "divide");
         });
       }
-      if (descriptionInput instanceof HTMLInputElement) {
+      if (descriptionInput instanceof HTMLTextAreaElement) {
         descriptionInput.value = String(initialPayload.effect_description || "");
       }
-      if (rulesTextInput instanceof HTMLInputElement) {
+      if (rulesTextInput instanceof HTMLTextAreaElement) {
         rulesTextInput.value = String(initialPayload.rules_text || "");
       }
       if (displayGroupInput instanceof HTMLInputElement) {

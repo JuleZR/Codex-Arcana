@@ -38,9 +38,9 @@
         <label class="shop_item_form_row" data-effect-scale-divisor-row data-magic-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor data-magic-scale-divisor></label>
       </div>
       {% if magic_editor_inspector %}<details class="workshop_accordion"><summary>Weitere Effektoptionen</summary>{% endif %}
-      {% if not magic_editor_inspector %}<label class="sl-editor-field shop_item_form_row"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description data-magic-effect-description></label>{% endif %}
-      <label class="sl-editor-field shop_item_form_row"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text data-magic-rules-text></label>
-      {% if magic_editor_inspector %}<label class="sl-editor-field shop_item_form_row"><span>Bedingung</span><input type="text" maxlength="255" placeholder="Wann gilt der Bonus? z. B. gegen Gift" data-effect-description data-magic-effect-description></label>{% endif %}
+      {% if not magic_editor_inspector %}<label class="sl-editor-field shop_item_form_row"><span>Beschreibung</span><textarea rows="2" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description data-magic-effect-description></textarea></label>{% endif %}
+      <label class="sl-editor-field shop_item_form_row"><span>Regeltext</span><textarea rows="2" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text data-magic-rules-text></textarea></label>
+      {% if magic_editor_inspector %}<label class="sl-editor-field shop_item_form_row"><span>Bedingung</span><textarea rows="2" maxlength="255" placeholder="Wann gilt der Bonus? z. B. gegen Gift" data-effect-description data-magic-effect-description></textarea></label>{% endif %}
       <div class="magic-condition-pickers">
         {% include "charsheet/partials/item_editor/_condition_picker.html" with condition_label="Nur für Spezies" condition_kind="races" condition_choices=magic_editor_race_choices only %}
         {% include "charsheet/partials/item_editor/_condition_picker.html" with condition_label="Nur mit Schulen" condition_kind="schools" condition_choices=magic_editor_school_choices only %}

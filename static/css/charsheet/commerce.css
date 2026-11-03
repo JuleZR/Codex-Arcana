@@ -3671,6 +3671,7 @@
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_stepper input { max-width: 80px; text-align: center; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_stepper button { width: 36px; height: 36px; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_editor { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_editor textarea { height: auto; resize: vertical; white-space: pre-wrap; overflow-wrap: anywhere; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_list { display: block; overflow: visible; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_card { padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .shop_magic_effect_card_header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
