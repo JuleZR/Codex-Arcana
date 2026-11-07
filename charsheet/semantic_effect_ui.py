@@ -1,6 +1,7 @@
 """Shared presentation order for semantic-effect and modifier editors."""
 
 from charsheet.constants import (
+    ADDITIONAL_ARCANE_POWER,
     ARTIFACT_RANK,
     MELEE_MANEUVERS,
     SCHOOL_ARCANE,
@@ -49,6 +50,7 @@ EFFECT_AREA_ALIASES = {
     "none": "choice",
     "creature_attack": "combat",
     ARTIFACT_RANK: "resource",
+    ADDITIONAL_ARCANE_POWER: "derived_stat",
     "stat": "derived_stat",
     "category": "skill_category",
     "creature_special_skill": "special_skill",

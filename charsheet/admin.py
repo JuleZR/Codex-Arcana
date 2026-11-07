@@ -27,6 +27,7 @@ from .attribute_flavor_admin import (
 )
 
 from .constants import (
+    ADDITIONAL_ARCANE_POWER,
     ALCHEMICAL_BREW_LEARNING_SLOT,
     ATTRIBUTE_CODE_CHOICES,
     COMA_IGNORE,
@@ -2774,6 +2775,10 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
     def _simple_target_choices(self):
         choices = [("", "-")]
         choices.append(("resource:artefact_rank", "Artefaktrang"))
+        choices.append((
+            f"derived_stat:{ADDITIONAL_ARCANE_POWER}",
+            "Zusätzlicher KP-Vorrat",
+        ))
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend(
             (f"derived_stat:{value}", label)
@@ -2800,6 +2805,9 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        if (target_domain == "resource"
+                and target_key == ADDITIONAL_ARCANE_POWER):
+            target_domain = "derived_stat"
         metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
         encoded_wound_stage_position = (
             target_key[len(WOUND_STAGE_TARGET_PREFIX):]
@@ -3916,6 +3924,10 @@ class RuleSemanticEffectAdminForm(
         choices.extend(
             (f"resource:{key}", label) for key, label in RESOURCE_KEY_CHOICES
         )
+        choices.append((
+            f"derived_stat:{ADDITIONAL_ARCANE_POWER}",
+            "Zusätzlicher KP-Vorrat",
+        ))
         choices.append(("economy:starting_funds", "Startgeld (KM)"))
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend(
@@ -3957,6 +3969,9 @@ class RuleSemanticEffectAdminForm(
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        if (target_domain == "resource"
+                and target_key == ADDITIONAL_ARCANE_POWER):
+            target_domain = "derived_stat"
         metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
         encoded_wound_stage_position = (
             target_key[len(WOUND_STAGE_TARGET_PREFIX):]

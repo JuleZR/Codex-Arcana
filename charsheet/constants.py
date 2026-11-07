@@ -223,6 +223,7 @@ RESOURCE_KEY_CHOICES = [
 ]
 
 ARTIFACT_RANK = "artefact_rank"
+ADDITIONAL_ARCANE_POWER = "additional_arcane_power"
 
 PROFICIENCY_GROUP_CHOICES = [
     (SKILL_FINE_MOTOR, "Feinmotorische Fertigkeiten"),

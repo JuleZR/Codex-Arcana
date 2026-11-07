@@ -318,6 +318,7 @@ def _effect_context(payloads):
             ("combat", "Kampf / Waffe"),
             ("wound_stage", "Wundstufe einfügen"),
             ("artefact_rank", "Artefaktrang"),
+            ("additional_arcane_power", "Zusätzlicher KP-Vorrat"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
             ("weapon_maneuver", "Bonus/Malus auf Manöver"),

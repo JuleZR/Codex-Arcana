@@ -183,6 +183,7 @@ from .passkeys import (
     verify_registration as verify_passkey_registration,
 )
 from .constants import (
+    ADDITIONAL_ARCANE_POWER,
     ARTIFACT_RANK,
     ATTRIBUTE_CODE_CHOICES,
     ATTRIBUTE_ORDER,
@@ -473,6 +474,14 @@ def _equipment_action_partial_keys(
     if effects:
         for key in _item_semantic_effect_toggle_partial_keys(effects):
             _append_partial_key(keys, key)
+
+    if character_item.item_runes.filter(
+        is_active=True,
+        rune__semantic_effects__active_flag=True,
+        rune__semantic_effects__target_domain__in=("resource", "derived_stat"),
+        rune__semantic_effects__target_key=ADDITIONAL_ARCANE_POWER,
+    ).exists():
+        _append_partial_key(keys, "damage_panel")
 
     if item_type.is_weapon:
         for key in ("weapon_panel", "battle_calculator"):
@@ -2050,6 +2059,10 @@ def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
         )
         if domain == "resource" and target_key == ARTIFACT_RANK:
             keys = ("fame_panel",)
+        elif domain in {"resource", "derived_stat"} and (
+            target_key == ADDITIONAL_ARCANE_POWER
+        ):
+            keys = ("damage_panel",)
         for key in keys:
             if key not in selected_set:
                 selected_set.add(key)
@@ -8281,6 +8294,34 @@ def adjust_current_arcane_power(request, character_id: int):
         amount = max(1, int(request.POST.get("amount", "1")))
     except (TypeError, ValueError):
         amount = 1
+
+    pool_key = request.POST.get("pool_key")
+    if pool_key is not None:
+        with transaction.atomic():
+            character = Character.objects.select_for_update().get(
+                pk=character.pk,
+            )
+            pool = next((
+                entry for entry in character.additional_arcane_pools
+                if entry["key"] == pool_key
+            ), None)
+            if pool is None or action not in {"spend", "restore"}:
+                return JsonResponse({"ok": False}, status=400)
+            delta = amount if action == "restore" else -amount
+            pool["current"] = max(
+                0, min(pool["capacity"], pool["current"] + delta),
+            )
+            pool["percent"] = (
+                f"{pool['current'] / pool['capacity'] * 100:.2f}"
+            )
+            character.additional_arcane_power_current = {
+                **(character.additional_arcane_power_current or {}),
+                pool_key: pool["current"],
+            }
+            character.save(update_fields=["additional_arcane_power_current"])
+        if _is_partial_request(request):
+            return JsonResponse({"ok": True, "pool": pool})
+        return redirect("character_sheet", character_id=character_id)
 
     from .engine.vampire_engine import VampireRules
 

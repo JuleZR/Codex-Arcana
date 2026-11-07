@@ -1698,6 +1698,51 @@
   margin: 6px auto 0;
 }
 
+.additional_arcane_pool {
+  width: 164px;
+  margin: 5px auto 0;
+}
+
+.arcane_pool_toast {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 10000;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgba(145, 64, 47, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 246, 231, 0.97);
+  box-shadow: 0 4px 16px rgba(58, 39, 21, 0.2);
+  color: #823c2d;
+  font: 0.9rem/1.4 "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.additional_arcane_pool .arcane_meter_row {
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+  gap: 5px;
+}
+
+.additional_arcane_pool .arcane_meter_track {
+  height: 15px;
+}
+
+.additional_arcane_pool .arcane_meter_value {
+  font-size: 0.72rem;
+}
+
+.additional_arcane_pool .damage_step_btn {
+  width: 18px;
+  height: 18px;
+  min-width: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.is-read-only .additional_arcane_pool .arcane_meter_row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .arcane_meter_label {
   margin: 0 0 4px;
   text-align: center;

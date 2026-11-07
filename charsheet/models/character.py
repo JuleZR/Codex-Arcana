@@ -83,6 +83,10 @@ class Character(models.Model):
         help_text="Bereits im tödlichen Schaden enthaltener schwer heilbarer Anteil.",
     )
     current_arcane_power = models.IntegerField(null=True, blank=True, default=0)
+    additional_arcane_power_current = models.JSONField(
+        default=dict, blank=True,
+    )
+
     vampire_age_cycle = models.PositiveSmallIntegerField(default=1)
     vampire_sacrament_age_bonus = models.PositiveSmallIntegerField(default=0)
     vampire_sacrament_rounds_remaining = models.PositiveSmallIntegerField(default=0)
@@ -279,6 +283,13 @@ class Character(models.Model):
     def engine(self):
         """Return the cached calculation engine for this character instance."""
         return self.get_engine()
+
+    @property
+    def additional_arcane_pools(self):
+        """Return separate KP stores granted by active semantic effects."""
+        from charsheet.arcane_pools import arcane_pools
+
+        return arcane_pools(self)
 
     def get_engine(
         self,

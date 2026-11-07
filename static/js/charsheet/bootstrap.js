@@ -12,7 +12,7 @@ import { initShopMenu } from "./shop_menu.js?v=20261017-subtypes";
 import { initLearningMenu } from "./learning_menu.js?v=20261019-inline-rank";
 import { initTooltips } from "./tooltip.js?v=20261107-quality-hover";
 import { initInventoryMenu } from "./inventory_menu.js?v=20261107-school-possession-grants";
-import { initDamagePanel } from "./damage_panel.js?v=20260919b";
+import { initDamagePanel } from "./damage_panel.js?v=20261107-kp-stores-fix";
 import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";
 import { initCharInfoCounter } from "./char_info_counter.js";

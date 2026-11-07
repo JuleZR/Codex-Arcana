@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from charsheet.constants import (
+    ADDITIONAL_ARCANE_POWER,
     ARCANE_POWER,
     ARTIFACT_RANK,
     DEADLY,
@@ -402,8 +403,8 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         payload["target_slug"] = f"{WOUND_STAGE_TARGET_PREFIX}{position}"
         payload["target_wound_stage_position"] = position
         payload["value"] = int(count)
-    elif target_kind == ARTIFACT_RANK:
-        payload["target_slug"] = ARTIFACT_RANK
+    elif target_kind in {ARTIFACT_RANK, ADDITIONAL_ARCANE_POWER}:
+        payload["target_slug"] = target_kind
     elif target_kind == TARGET_KIND_MOVEMENT:
         target_slug = str(row_data.get("target_movement") or "").strip()
         if not target_slug:
@@ -755,9 +756,13 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         target_domain = TargetDomain.ATTRIBUTE
     elif target_kind in {"school_level", "school_level_grant"}:
         target_domain = TargetDomain.SCHOOL_LEVEL
-    elif target_kind == ARTIFACT_RANK:
-        target_domain = TargetDomain.RESOURCE
-        target_key = ARTIFACT_RANK
+    elif target_kind in {ARTIFACT_RANK, ADDITIONAL_ARCANE_POWER}:
+        target_domain = (
+            TargetDomain.DERIVED_STAT
+            if target_kind == ADDITIONAL_ARCANE_POWER
+            else TargetDomain.RESOURCE
+        )
+        target_key = target_kind
     elif target_kind == "wound_stage":
         target_domain = TargetDomain.DERIVED_STAT
         operator = ModifierOperator.FLAT_ADD

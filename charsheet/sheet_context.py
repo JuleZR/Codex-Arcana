@@ -1803,9 +1803,17 @@ def _serialize_item_semantic_effect_payload(
         payload["target_kind"] = "attribute"
         payload["target_attribute"] = target_key
         payload["target_display"] = dict(ATTRIBUTE_ORDER).get(target_key, target_key)
-    elif target_domain == "resource" and target_key == ARTIFACT_RANK:
-        payload["target_kind"] = ARTIFACT_RANK
-        payload["target_display"] = "Artefaktrang"
+    elif (
+        target_domain == "resource" and target_key == ARTIFACT_RANK
+    ) or (
+        target_domain in {"resource", "derived_stat"}
+        and target_key == "additional_arcane_power"
+    ):
+        payload["target_kind"] = target_key
+        payload["target_display"] = (
+            "Artefaktrang" if target_key == ARTIFACT_RANK
+            else "Zusätzlicher KP-Vorrat"
+        )
     elif target_domain == "derived_stat":
         position = wound_stage_position(target_key, metadata)
         if position:
@@ -10846,6 +10854,7 @@ def build_character_sheet_context(
             ("combat", "Kampf / Waffe"),
             ("wound_stage", "Wundstufe einfügen"),
             (ARTIFACT_RANK, "Artefaktrang"),
+            ("additional_arcane_power", "Zusätzlicher KP-Vorrat"),
             ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
@@ -10861,6 +10870,7 @@ def build_character_sheet_context(
             ("combat", "Kampf / Waffe"),
             ("wound_stage", "Wundstufe einfügen"),
             (ARTIFACT_RANK, "Artefaktrang"),
+            ("additional_arcane_power", "Zusätzlicher KP-Vorrat"),
             ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),

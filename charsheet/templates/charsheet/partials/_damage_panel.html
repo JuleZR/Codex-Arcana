@@ -99,6 +99,20 @@
         </div>
         {% endif %}
       </div>
+      {% for pool in character.additional_arcane_pools %}
+      <form method="post" action="{% url 'adjust_current_arcane_power' character.id %}" class="additional_arcane_pool" data-arcane-pool>
+        {% csrf_token %}
+        <input type="hidden" name="pool_key" value="{{ pool.key }}">
+        <div class="arcane_meter_row">
+          {% if not read_only %}<button type="submit" name="action" value="spend" class="damage_step_btn" aria-label="KP-Vorrat {{ pool.label }} verringern">−</button>{% endif %}
+          <div class="arcane_meter_track" role="meter" aria-label="KP-Vorrat {{ pool.label }}" aria-valuemin="0" aria-valuemax="{{ pool.capacity }}" aria-valuenow="{{ pool.current }}">
+            <div class="arcane_meter_fill" style="width: {{ pool.percent }}%;"></div>
+            <span class="arcane_meter_value"><span data-pool-current>{{ pool.current }}</span> / {{ pool.capacity }}</span>
+          </div>
+          {% if not read_only %}<button type="submit" name="action" value="restore" class="damage_step_btn" aria-label="KP-Vorrat {{ pool.label }} erhöhen">+</button>{% endif %}
+        </div>
+      </form>
+      {% endfor %}
     </div>
   </div>
   <form method="post" action="{% url 'adjust_current_damage' character.id %}" class="damage_actions">

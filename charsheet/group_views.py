@@ -1308,6 +1308,7 @@ def game_master_screen(request, group_id: int):
                 ("combat", "Kampf / Waffe"),
                 ("wound_stage", "Wundstufe einfügen"),
                 ("artefact_rank", "Artefaktrang"),
+                ("additional_arcane_power", "Zusätzlicher KP-Vorrat"),
                 ("skill", "Einzelne Fertigkeit"),
                 ("category", "Fertigkeitskategorie"),
                 ("weapon_maneuver", "Bonus/Malus auf Manöver"),

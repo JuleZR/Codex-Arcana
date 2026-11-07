@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from charsheet.constants import ATTRIBUTE_CODE_CHOICES, VALID_STAT_SLUGS
+from charsheet.constants import (
+    ADDITIONAL_ARCANE_POWER, ATTRIBUTE_CODE_CHOICES, VALID_STAT_SLUGS,
+)
 from charsheet.modifiers.definitions import TargetDomain
 
 
@@ -58,6 +60,11 @@ class TargetResolver:
         metadata = metadata or {}
         raw_domain = str(target_domain or "").strip()
         raw_key = str(target_key or "").strip()
+
+        if raw_key == ADDITIONAL_ARCANE_POWER and raw_domain in {
+            "resource", "derived_stat", "stat",
+        }:
+            return ResolvedTarget(TargetDomain.DERIVED_STAT, raw_key)
 
         if raw_domain == cls.DAMAGE_VALUE or cls.is_damage_key(raw_key):
             return ResolvedTarget(TargetDomain.COMBAT, raw_key)

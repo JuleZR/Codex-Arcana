@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from copy import copy
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import Any
@@ -988,6 +989,22 @@ class ModifierEngine:
     def resolve_resource(self, resource_key: str, context: dict[str, Any] | None = None) -> int:
         """Resolve resource modifiers for one resource key."""
         return self.resolve_numeric_total(TargetDomain.RESOURCE, resource_key, context=context)
+
+    def resolve_separate_stores(self, target_domain, target_key):
+        """Resolve each granting effect independently with normal rule math."""
+        stores = []
+        for modifier in self.collect_active_modifiers():
+            if (modifier.target_domain != target_domain
+                    or modifier.target_key != target_key):
+                continue
+            resolver = copy(self)
+            resolver._active_modifiers_cache = [modifier]
+            capacity = max(0, resolver.resolve_numeric_total(
+                target_domain, target_key,
+            ))
+            if capacity:
+                stores.append((modifier, capacity))
+        return stores
 
     def resolve_resistances(self, context: dict[str, Any] | None = None) -> ResistanceProfile:
         """Resolve immunities, vulnerabilities, and numeric resistance modifiers."""

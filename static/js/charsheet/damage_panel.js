@@ -1,5 +1,22 @@
 import { applySheetPartials } from "./partial_updates.js";
 
+let arcanePoolToastTimer = 0;
+
+function showArcanePoolError() {
+  let toast = document.querySelector("[data-arcane-pool-toast]");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "arcane_pool_toast";
+    toast.dataset.arcanePoolToast = "";
+    toast.setAttribute("role", "alert");
+    document.body.append(toast);
+  }
+  window.clearTimeout(arcanePoolToastTimer);
+  toast.textContent = "KP-Vorrat konnte nicht gespeichert werden. Bitte erneut versuchen.";
+  toast.hidden = false;
+  arcanePoolToastTimer = window.setTimeout(() => { toast.hidden = true; }, 4000);
+}
+
 export function initDamagePanel() {
   const form = document.querySelector(".damage_actions");
   const arcaneForm = document.querySelector(".arcane_actions");
@@ -27,6 +44,36 @@ export function initDamagePanel() {
   }
   form.dataset.damageBound = "1";
   form.dataset.damageManaged = "1";
+
+  document.querySelectorAll("[data-arcane-pool]").forEach((poolForm) => {
+    let poolQueue = Promise.resolve();
+    poolForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const action = event.submitter?.value;
+      if (!["spend", "restore"].includes(action)) return;
+      const data = new FormData(poolForm);
+      data.set("action", action);
+      data.set("ajax", "1");
+      poolQueue = poolQueue.then(async () => {
+        const response = await fetch(poolForm.getAttribute("action"), {
+          method: "POST",
+          body: data,
+          headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error("KP-Vorrat konnte nicht gespeichert werden.");
+        const payload = await response.json();
+        if (!payload.ok || !payload.pool) throw new Error("Ungültiger KP-Vorrat.");
+        const pool = payload.pool;
+        poolForm.querySelector("[data-pool-current]").textContent = String(pool.current);
+        poolForm.querySelector(".arcane_meter_fill").style.width = `${pool.percent}%`;
+        poolForm.querySelector("[role='meter']").setAttribute("aria-valuenow", String(pool.current));
+      }).catch(() => {
+        showArcanePoolError();
+      });
+    });
+  });
 
   const requestUrl = form.getAttribute("action") || window.location.href;
   const arcaneRequestUrl = arcaneForm?.getAttribute("action") || window.location.href;
