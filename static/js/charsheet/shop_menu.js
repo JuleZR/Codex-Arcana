@@ -70,6 +70,9 @@ export function initShopMenu() {
   };
   const qualityChoices = readQualityChoices();
   const QUALITY_ORDER = qualityChoices.map((quality) => String(quality.value || ""));
+  const BUY_QUALITY_ORDER = qualityChoices
+    .filter((quality) => !quality.excluded_from_shop)
+    .map((quality) => String(quality.value || ""));
   const defaultQuality = qualityChoices.find((quality) => quality.is_default)?.value || QUALITY_ORDER[0] || "";
   const QUALITY_LABELS = Object.fromEntries(qualityChoices.map((quality) => [String(quality.value), String(quality.label)]));
   const QUALITY_COLORS = Object.fromEntries(qualityChoices.map((quality) => [String(quality.value), String(quality.color)]));
@@ -102,9 +105,9 @@ export function initShopMenu() {
     return QUALITY_ORDER.includes(normalized) ? normalized : defaultQuality;
   };
   const shiftQuality = (quality, delta) => {
-    const index = QUALITY_ORDER.indexOf(normalizeQuality(quality));
-    const nextIndex = Math.min(Math.max(index + delta, 0), QUALITY_ORDER.length - 1);
-    return QUALITY_ORDER[nextIndex];
+    const index = BUY_QUALITY_ORDER.indexOf(normalizeQuality(quality));
+    const nextIndex = Math.min(Math.max(index + delta, 0), BUY_QUALITY_ORDER.length - 1);
+    return BUY_QUALITY_ORDER[nextIndex];
   };
   const qualityBadge = (quality) => {
     const normalized = normalizeQuality(quality);
@@ -226,10 +229,10 @@ export function initShopMenu() {
     cart.forEach((entry, cartKey) => {
       const unitPrice = unitPriceForEntry(entry);
       const lineTotal = unitPrice * entry.qty;
-      const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
+      const qualityIndex = BUY_QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
       const qualityAdjustable = entry.mode === "buy" && entry.showsQuality;
       const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
-      const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
+      const disableUp = !qualityAdjustable || qualityIndex >= BUY_QUALITY_ORDER.length - 1 ? "disabled" : "";
       const qualityControls = qualityAdjustable
         ? `<div class="market_quality_stepper">
             <button type="button" data-cart-quality-inc aria-label="Qualität erhöhen" ${disableUp}>&#9650;</button>
@@ -378,6 +381,13 @@ export function initShopMenu() {
 
     if (!payload.id || !payload.name || payload.basePrice < 0) {
       return;
+    }
+    if (!BUY_QUALITY_ORDER.length) {
+      if (statusEl) statusEl.textContent = "Keine Qualität ist für den Kauf freigegeben.";
+      return;
+    }
+    if (!BUY_QUALITY_ORDER.includes(payload.quality)) {
+      payload.quality = BUY_QUALITY_ORDER.includes(defaultQuality) ? defaultQuality : BUY_QUALITY_ORDER[0];
     }
     let merged = false;
     if (payload.stackable) {

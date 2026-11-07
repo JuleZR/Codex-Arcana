@@ -54,6 +54,7 @@ from charsheet.models import (
     ItemType,
     ItemSemanticEffect,
     MagicItemStats,
+    Quality,
     Rune,
     ShieldStats,
     Skill,
@@ -1565,6 +1566,10 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
         if item.not_buyable:
             return {"ok": False, "error": "item_not_buyable"}, 400
         quality = ItemEngine.normalize_quality(entry.get("quality") or item.default_quality)
+        if Quality.objects.filter(
+            pk=quality, excluded_from_shop=True,
+        ).exists():
+            return {"ok": False, "error": "quality_not_buyable"}, 400
         if not item.stackable and qty != 1:
             return {"ok": False, "error": "non_stackable_qty"}, 400
         normalized.append((item, qty, quality))
@@ -1728,6 +1733,10 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
         if item.not_buyable:
             return {"ok": False, "error": "item_not_buyable"}, 400
         quality = ItemEngine.normalize_quality(entry.get("quality") or item.default_quality)
+        if Quality.objects.filter(
+            pk=quality, excluded_from_shop=True,
+        ).exists():
+            return {"ok": False, "error": "quality_not_buyable"}, 400
         if not item.stackable and qty != 1:
             return {"ok": False, "error": "non_stackable_qty"}, 400
         normalized_buys.append((item, qty, quality))

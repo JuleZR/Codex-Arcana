@@ -10342,6 +10342,7 @@ def build_character_sheet_context(
             "color": quality.hex_color,
             "price_multiplier": str(quality.price_multiplier),
             "is_default": quality.is_default,
+            "excluded_from_shop": quality.excluded_from_shop,
         }
         for quality in Quality.objects.all()
     ]

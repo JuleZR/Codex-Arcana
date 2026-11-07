@@ -57,6 +57,13 @@ class Quality(models.Model):
         ],
     )
     sort_order = models.SmallIntegerField(default=0)
+    excluded_from_shop = models.BooleanField(
+        default=False,
+        verbose_name="Vom Shop ausschließen",
+        help_text=(
+            "Nur im SL-Screen oder bei der Basis-Itemerstellung vergeben."
+        ),
+    )
 
     is_default = models.BooleanField(
         default=False,
