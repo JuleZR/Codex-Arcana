@@ -4,14 +4,14 @@ import { initStandardFloatingWindows } from "./window_manager.js?v=20261030-shop
 import { initLeftTools } from "./left_tools.js?v=20261027-mobile-glass-bar";
 import { initReputationPanel } from "./reputation_panel.js?v=20261004-artifact-investment";
 import { initFireflies } from "./fireflies.js";
-import { initItemForm } from "./item_form.js?v=20261017-multi-skills";
+import { initItemForm } from "./item_form.js?v=20261107-school-possession-grants";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js?v=20261018-specification-title";
 import { initTraitSpecModal } from "./trait_spec_modal.js?v=20261030-lineage-title";
 import { initShopMenu } from "./shop_menu.js?v=20261017-subtypes";
 import { initLearningMenu } from "./learning_menu.js?v=20261019-inline-rank";
 import { initTooltips } from "./tooltip.js?v=20261107-quality-hover";
-import { initInventoryMenu } from "./inventory_menu.js?v=20261103-decimal-effects";
+import { initInventoryMenu } from "./inventory_menu.js?v=20261107-school-possession-grants";
 import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js?v=20261004-sacrifice-rank";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";

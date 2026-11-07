@@ -661,11 +661,14 @@ def _reset_invalid_school_progression(character: Character) -> None:
     CharacterWeaponMasteryArcana.objects.filter(character=character).exclude(
         school_id__in=learned_school_ids
     ).delete()
+    effective_school_ids = character.get_engine(
+        refresh=True,
+    ).effective_school_entries().keys()
     CharacterSpell.objects.filter(
         character=character,
         spell__school_id__isnull=False,
     ).exclude(
-        spell__school_id__in=learned_school_ids
+        spell__school_id__in=effective_school_ids
     ).delete()
     invalid_druid_bindings = CharacterDruidCult.objects.filter(character=character).exclude(
         cult__school_id__in=learned_school_ids

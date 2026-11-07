@@ -936,6 +936,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_item_category = String(row.querySelector("[data-magic-target-select='item_category']")?.value || "").trim();
       } else if (targetKind === "specialization") {
         payload.target_specialization = String(row.querySelector("[data-magic-target-select='specialization']")?.value || "").trim();
+      } else if (["school_level", "school_level_grant"].includes(targetKind)) {
+        payload.target_school_level = String(row.querySelector(`[data-magic-target-select='${targetKind}']`)?.value || "").trim();
       }
       payloads.push(payload);
     });
@@ -1150,6 +1152,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         item: "target_item",
         item_category: "target_item_category",
         specialization: "target_specialization",
+        school_level: "target_school_level",
+        school_level_grant: "target_school_level",
       };
       Object.entries(targetFieldMap).forEach(([kind, fieldName]) => {
         const select = row.querySelector(`[data-magic-target-select='${kind}']`);

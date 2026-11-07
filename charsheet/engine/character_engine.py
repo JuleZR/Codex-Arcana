@@ -578,11 +578,13 @@ class CharacterEngine:
 
     @cached_property
     def _equipped_items_for_semantic_effects(self):
-        """Cache equipped effects and owned fame artefacts."""
+        """Cache equipped effects plus owned artefact and school effects."""
         return (
             CharacterItem.objects.filter(owner=self.character)
             .filter(
                 Q(equipped=True)
+                | Q(item__semantic_effects__target_domain="school_level")
+                | Q(semantic_effects__target_domain="school_level")
                 | Q(
                     item__semantic_effects__target_domain="resource",
                     item__semantic_effects__target_key=ARTIFACT_RANK,
@@ -830,6 +832,8 @@ class CharacterEngine:
 
     # Grouped domain methods live in sibling modules to keep this class readable.
     school_level = character_progression.school_level
+    effective_school_level = character_progression.effective_school_level
+    effective_school_entries = character_progression.effective_school_entries
     selected_school_path = character_progression.selected_school_path
     specialization_slot_count = character_progression.specialization_slot_count
     character_specializations = character_progression.character_specializations

@@ -1,5 +1,7 @@
 {% load semantic_effect_ui %}
 {% semantic_wound_positions as wound_positions %}
+{% semantic_school_level_targets as school_level_targets %}
+{% semantic_school_level_targets True as school_level_grant_targets %}
 <section class="sl-editor-card shop_magic_effect_editor" data-sl-magic-effect-editor{% if magic_editor_hidden %} hidden{% endif %}>
   {% if not magic_editor_inspector %}<header><span>{{ magic_editor_eyebrow|default:"Optional" }}</span><h4>Magische Effekte</h4></header>{% endif %}
   {% if magic_editor_show_cp %}
@@ -32,6 +34,8 @@
         <label class="sl-editor-field shop_item_form_row" data-effect-target="item" data-magic-target-row="item" hidden><span>Gegenstand</span><select data-magic-target-select="item">{% for item in magic_editor_item_choices %}<option value="{{ item.pk }}">{{ item.name }}</option>{% endfor %}</select></label>
         <label class="sl-editor-field shop_item_form_row" data-effect-target="item_category" data-magic-target-row="item_category" hidden><span>Gegenstandstyp</span><select data-magic-target-select="item_category">{% for value,label in magic_editor_item_category_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
         <label class="sl-editor-field shop_item_form_row" data-effect-target="specialization" data-magic-target-row="specialization" hidden><span>Spezialisierung</span><select data-magic-target-select="specialization">{% for specialization in magic_editor_specialization_choices %}<option value="{{ specialization.pk }}">{{ specialization.name }}</option>{% endfor %}</select></label>
+        <label class="sl-editor-field shop_item_form_row" data-effect-target="school_level" data-magic-target-row="school_level" hidden><span>Schule / Sammelziel</span><select data-magic-target-select="school_level">{% for value,label in school_level_targets %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+        <label class="sl-editor-field shop_item_form_row" data-effect-target="school_level_grant" data-magic-target-row="school_level_grant" hidden><span>Schule / Sammelziel</span><select data-magic-target-select="school_level_grant">{% for value,label in school_level_grant_targets %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
       </div>
       <div class="sl-editor-row sl-editor-row--effect">
         <label class="shop_item_form_row" data-effect-scale-source-row data-magic-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source data-magic-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>

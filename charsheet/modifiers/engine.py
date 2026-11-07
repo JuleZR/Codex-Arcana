@@ -333,7 +333,7 @@ class ModifierEngine:
 
     @cached_property
     def _active_item_semantic_modifiers(self) -> list[BaseModifier]:
-        """Build equipped effects and owned artefact-rank effects."""
+        """Build equipped effects plus owned artefact and school effects."""
         if self.character_engine is None:
             return []
         equipped_items = list(
@@ -384,8 +384,11 @@ class ModifierEngine:
         for character_item in equipped_items:
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
                 if not character_item.equipped and not (
-                    effect.target_domain == "resource"
-                    and effect.target_key == ARTIFACT_RANK
+                    effect.target_domain == TargetDomain.SCHOOL_LEVEL
+                    or (
+                        effect.target_domain == "resource"
+                        and effect.target_key == ARTIFACT_RANK
+                    )
                 ):
                     continue
                 if (int(character_item.id), int(effect.id)) in instance_base_effect_ids:
@@ -416,6 +419,7 @@ class ModifierEngine:
                 and is_character_item_effect_identified(effect.character_item, effect)
                 and (
                     effect.character_item.equipped
+                    or effect.target_domain == TargetDomain.SCHOOL_LEVEL
                     or (
                         effect.target_domain == "resource"
                         and effect.target_key == ARTIFACT_RANK
@@ -776,6 +780,7 @@ class ModifierEngine:
         context: dict[str, Any] | None = None,
         *,
         specification: str | None = None,
+        base_value: int = 0,
     ) -> int:
         """Resolve the summed numeric result for one target."""
         new_value = self._migrated_numeric_total(
@@ -783,6 +788,7 @@ class ModifierEngine:
             target_key,
             context=context,
             specification=specification,
+            initial_value=base_value,
         )
         return new_value
 
@@ -1430,6 +1436,7 @@ class ModifierEngine:
         specification: str | None = None,
         minimum_base: int = 0,
         additional_target_keys: tuple[str, ...] = (),
+        initial_value: int = 0,
     ) -> int:
         """Resolve one numeric target from migrated typed modifiers."""
         skill = (
@@ -1464,7 +1471,7 @@ class ModifierEngine:
             and TargetResolver.matches_context(modifier, context)
         ]
 
-        resolved_total = 0
+        resolved_total = int(initial_value)
         rank_minimum = None
         seen_unique_sources: set[tuple[str, str, str, str]] = set()
         for modifier in sorted(
@@ -1531,6 +1538,27 @@ class ModifierEngine:
         context: dict[str, Any] | None = None,
     ) -> bool:
         """Match direct target_key or concrete skill selections stored in metadata."""
+        if target_domain == TargetDomain.SCHOOL_LEVEL:
+            context = context or {}
+            if context.get("unlearned_school") and not modifier.metadata.get(
+                "include_unlearned_schools"
+            ):
+                return False
+            if modifier.target_key == target_key:
+                return True
+            if modifier.target_key == "*":
+                return True
+            if context.get("school_type_id"):
+                return modifier.target_key == (
+                    f"type:{context['school_type_id']}"
+                )
+            if self.character_engine is not None:
+                entry = self.character_engine._school_entries.get(
+                    self._coerce_source_id(target_key),
+                )
+                if entry is not None:
+                    type_key = f"type:{entry.school.type_id}"
+                    return modifier.target_key == type_key
         if modifier.target_key == target_key:
             return True
         if self._modifier_matches_weapon_maneuver_damage_alias(
@@ -1962,7 +1990,13 @@ class ModifierEngine:
             gate_school_id = self._modifier_gate_school_id(modifier)
             if not gate_school_id:
                 return None
-            exact_level = self.character_engine.school_level(gate_school_id)
+            # A school bonus scales from purchased ranks to avoid self-scaling.
+            level_resolver = (
+                self.character_engine.school_level
+                if modifier.target_domain == TargetDomain.SCHOOL_LEVEL
+                else self.character_engine.effective_school_level
+            )
+            exact_level = level_resolver(gate_school_id)
             if exact_level:
                 return exact_level
             gate_school = getattr(

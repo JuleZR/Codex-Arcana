@@ -4,7 +4,8 @@ from django import template
 
 from charsheet.constants import WOUND_STAGE_POSITION_CHOICES
 from charsheet.semantic_effect_ui import (
-    semantic_effect_area_optgroups, semantic_stat_choices,
+    school_level_target_choices, semantic_effect_area_optgroups,
+    semantic_stat_choices,
 )
 
 
@@ -24,3 +25,8 @@ def semantic_stat_targets(choices, area):
 @register.simple_tag
 def semantic_wound_positions():
     return WOUND_STAGE_POSITION_CHOICES
+
+
+@register.simple_tag
+def semantic_school_level_targets(include_unlearned=False):
+    return school_level_target_choices(include_unlearned=include_unlearned)

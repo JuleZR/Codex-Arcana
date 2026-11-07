@@ -27,6 +27,61 @@ def school_level(engine, school) -> int:
     )
 
 
+def effective_school_level(engine, school, *, learned_level=None) -> int:
+    """Resolve levels, including explicitly granted unlearned schools."""
+    from charsheet.models import School
+    from charsheet.modifiers.definitions import TargetDomain
+
+    school_id = engine._coerce_school_id(school)
+    entry = engine._school_entries.get(school_id)
+    definition = entry.school if entry else School.objects.filter(
+        pk=school_id,
+    ).first()
+    if definition is None:
+        return 0
+    if learned_level is None:
+        learned_level = int(entry.level or 0) if entry else 0
+    learned_level = max(0, int(learned_level))
+    level = engine.modifier_engine.resolve_numeric_total(
+        TargetDomain.SCHOOL_LEVEL, str(school_id), base_value=learned_level,
+        context={
+            "unlearned_school": learned_level <= 0,
+            "school_type_id": definition.type_id,
+        },
+    )
+    return max(0, level)
+
+
+def effective_school_entries(engine) -> dict:
+    """Return effective school entries without persisting temporary grants."""
+    from copy import copy
+
+    from charsheet.models import CharacterSchool, School
+    from charsheet.modifiers.definitions import TargetDomain
+
+    entries = dict(engine._school_entries)
+    if any(
+        modifier.target_domain == TargetDomain.SCHOOL_LEVEL
+        and modifier.metadata.get("include_unlearned_schools")
+        for modifier in engine.modifier_engine.collect_active_modifiers()
+    ):
+        for school in School.objects.exclude(pk__in=entries).select_related(
+            "type",
+        ):
+            level = engine.effective_school_level(school)
+            if level > 0:
+                entries[school.pk] = CharacterSchool(
+                    character=engine.character, school=school, level=level,
+                )
+    result = {}
+    for school_id, entry in entries.items():
+        effective_entry = copy(entry)
+        if entry.pk:
+            effective_entry.level = engine.effective_school_level(school_id)
+        result[school_id] = effective_entry
+    return result
+
+
 def selected_school_path(engine, school):
     """Return the selected path for a school if one exists."""
     school_id = engine._coerce_school_id(school)

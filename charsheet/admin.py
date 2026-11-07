@@ -80,7 +80,8 @@ from .admin_help import (
     WEAPON_CHOICE_HELP,
 )
 from .semantic_effect_ui import (
-    semantic_effect_area_optgroups, semantic_stat_choices,
+    school_level_target_choices, semantic_effect_area_optgroups,
+    semantic_stat_choices,
     semantic_stat_optgroups,
 )
 from .engine.item_engine import ItemEngine
@@ -2634,8 +2635,6 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         ("skill", "Fertigkeit"),
         ("multi_skill", "Mehrere Fertigkeiten"),
         ("skill_category", "Fertigkeitskategorie"),
-        ("item", "Item"),
-        ("item_category", "Item-Kategorie"),
         ("specialization", "Spezialisierung"),
         ("rule_flag", "Regelflag"),
     )
@@ -3723,6 +3722,8 @@ class RuleSemanticEffectAdminForm(
             return super().to_python(value)
 
     EFFECT_AREA_CHOICES = (
+        ("school_level", "Erlernte Schulstufen"),
+        ("school_level_grant", "Schulstufen"),
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("wound_stage", "Wundstufe einfügen"),
@@ -3739,8 +3740,6 @@ class RuleSemanticEffectAdminForm(
         ("multi_skill", "Mehrere Fertigkeiten"),
         ("skill_category", "Fertigkeitskategorie"),
         ("language", "Sprache"),
-        ("item", "Item"),
-        ("item_category", "Item-Kategorie"),
         ("specialization", "Spezialisierung"),
         ("rule_flag", "Regelflag"),
         ("learning_slot", "Lernslot"),
@@ -3907,6 +3906,13 @@ class RuleSemanticEffectAdminForm(
 
     def _simple_target_choices(self):
         choices = [("", "-")]
+        for area in ("school_level", "school_level_grant"):
+            choices.extend(
+                (f"{area}:{key}", label)
+                for key, label in school_level_target_choices(
+                    include_unlearned=area == "school_level_grant",
+                )
+            )
         choices.extend(
             (f"resource:{key}", label) for key, label in RESOURCE_KEY_CHOICES
         )
@@ -3968,6 +3974,7 @@ class RuleSemanticEffectAdminForm(
             and (target_key == WOUND_STAGE or target_key.startswith(WOUND_STAGE_TARGET_PREFIX))
         )
         area = {
+            "school_level": "school_level",
             "resource": "resource",
             "economy": "economy",
             "attribute": "attribute",
@@ -4003,6 +4010,10 @@ class RuleSemanticEffectAdminForm(
             and self.instance.operator == "min_value"
         ):
             self.initial.setdefault("simple_operator", "language_rank_minimum")
+        if target_domain == "school_level" and metadata.get(
+            "include_unlearned_schools"
+        ):
+            area = "school_level_grant"
         if positional_wound_stage:
             self.initial.setdefault("effect_area", "wound_stage")
             self.initial.setdefault("simple_target", f"wound_stage:{wound_stage_position}")
@@ -4267,6 +4278,10 @@ class RuleSemanticEffectAdminForm(
         else:
             metadata.pop("target_weapon_category", None)
             metadata.pop("target_weapon_id", None)
+        if area == "school_level_grant":
+            metadata["include_unlearned_schools"] = True
+        else:
+            metadata.pop("include_unlearned_schools", None)
         cleaned_data["metadata"] = metadata
         return cleaned_data
 
@@ -4285,6 +4300,8 @@ class RuleSemanticEffectAdminForm(
         if prefix != area:
             return "", ""
         mapping = {
+            "school_level": "school_level",
+            "school_level_grant": "school_level",
             "resource": "resource",
             "economy": "economy",
             "attribute": "attribute",

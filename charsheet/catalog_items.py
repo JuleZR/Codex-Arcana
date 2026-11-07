@@ -312,6 +312,8 @@ def _effect_context(payloads):
         "magic_editor_payloads": payloads,
         "magic_editor_effect_kinds": [
             ("text", "Nur Beschreibung"), ("rule_flag", "Regel aktivieren"),
+            ("school_level", "Erlernte Schulstufen"),
+            ("school_level_grant", "Schulstufen"),
             ("attribute", "Attribut"), ("stat", "Abgeleiteter Wert"),
             ("combat", "Kampf / Waffe"),
             ("wound_stage", "Wundstufe einfügen"),
@@ -323,8 +325,7 @@ def _effect_context(payloads):
             ("weapon_damage_dice", "Zusätzliche Schadenswürfel"),
             (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
             (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
-            ("movement", "Bewegung"), ("item", "Konkreter Gegenstand"),
-            ("item_category", "Alle Gegenstände eines Typs"),
+            ("movement", "Bewegung"),
             ("specialization", "Spezialisierung"),
         ],
         "magic_editor_attribute_choices": ATTRIBUTE_CODE_CHOICES,

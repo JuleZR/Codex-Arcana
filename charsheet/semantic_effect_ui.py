@@ -3,6 +3,9 @@
 from charsheet.constants import (
     ARTIFACT_RANK,
     MELEE_MANEUVERS,
+    SCHOOL_ARCANE,
+    SCHOOL_COMBAT,
+    SCHOOL_DIVINE,
     STAT_SLUG_CHOICES,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
@@ -35,7 +38,9 @@ SEMANTIC_EFFECT_AREA_GROUPS = (
     ("Auswahl & Zuweisung", (
         "choice_binding", "choice", "creature_card", "entity",
     )),
-    ("Lernen & Progression", ("learning_slot",)),
+    ("Lernen & Progression", (
+        "learning_slot", "school_level", "school_level_grant",
+    )),
     ("Mächte & Spezialsysteme", ("daemonic_power", "disallow_schools")),
     ("Regeln & Sonderlogik", ("rule_flag",)),
 )
@@ -56,6 +61,34 @@ EFFECT_AREA_ALIASES = {
     WEAPON_MANEUVER_DAMAGE: "combat",
     WEAPON_MASTERY_BONUS: "combat",
 }
+
+
+def school_level_target_choices(*, include_unlearned=False):
+    """Shared school targets for workshop selectors and effect labels."""
+    from charsheet.models import School, SchoolType
+
+    collective_labels = {
+        SCHOOL_ARCANE: "Arkane Schulen",
+        SCHOOL_DIVINE: "Klerikale Schulen",
+        SCHOOL_COMBAT: "Kampfschulen",
+    }
+    prefix = "" if include_unlearned else "erlernte "
+    return [
+        ("*", "Alle Schulen" if include_unlearned else "erlernte Schulen"),
+        *[
+            (
+                f"type:{school_type.pk}",
+                prefix + collective_labels.get(
+                    school_type.slug, school_type.name,
+                ),
+            )
+            for school_type in SchoolType.objects.order_by("name")
+        ],
+        *[
+            (str(school.pk), school.name)
+            for school in School.objects.order_by("name")
+        ],
+    ]
 
 
 def semantic_effect_area_optgroups(area_choices):

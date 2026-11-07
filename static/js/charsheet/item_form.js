@@ -291,6 +291,12 @@ export function initItemForm() {
         payload.target_item_category = String(itemCategorySelect?.value || "").trim();
       } else if (targetKind === "specialization") {
         payload.target_specialization = String(specializationSelect?.value || "").trim();
+      } else if (["school_level", "school_level_grant"].includes(targetKind)) {
+        payload.target_school_level = String(row.querySelector(`[data-magic-target-select='${targetKind}']`)?.value || "").trim();
+        const operator = row.querySelector("[data-magic-operator]")?.value || "";
+        payload.operator = operator === "divide"
+          ? row.querySelector("[data-division-mode]:checked")?.value || "divide"
+          : operator;
       }
 
       payloads.push(payload);

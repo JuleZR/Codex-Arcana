@@ -299,6 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (targetKind === "item") payload.target_item = target?.value || "";
         if (targetKind === "item_category") payload.target_item_category = target?.value || "";
         if (targetKind === "specialization") payload.target_specialization = target?.value || "";
+        if (["school_level", "school_level_grant"].includes(targetKind)) payload.target_school_level = target?.value || "";
         return payload;
       });
       effectPayloads.value = JSON.stringify(payloads);
@@ -535,6 +536,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (kind === "item") payload.target_item = target;
         if (kind === "item_category") payload.target_item_category = target;
         if (kind === "specialization") payload.target_specialization = target;
+        if (["school_level", "school_level_grant"].includes(kind)) payload.target_school_level = target;
         return payload;
       });
       payloadInput.value = JSON.stringify(payloads);
@@ -660,6 +662,8 @@ document.addEventListener("DOMContentLoaded", () => {
         item: payload.target_item,
         item_category: payload.target_item_category,
         specialization: payload.target_specialization,
+        school_level: payload.target_school_level,
+        school_level_grant: payload.target_school_level,
       };
       const targetSelect = row.querySelector(`[data-effect-target='${selectedKind}'] select`);
       if (targetSelect && targetValues[selectedKind] !== undefined && targetValues[selectedKind] !== null) {

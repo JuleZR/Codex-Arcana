@@ -58,7 +58,7 @@ from charsheet.constants import (
     WOUND_STAGE_POSITION_CHOICES,
 )
 from charsheet.semantic_effect_ui import (
-    is_combat_stat, wound_stage_position,
+    is_combat_stat, school_level_target_choices, wound_stage_position,
 )
 from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
 from charsheet.engine.character_carry import CARRY_ATTRIBUTES
@@ -1865,6 +1865,16 @@ def _serialize_item_semantic_effect_payload(
         payload["target_kind"] = "item"
         payload["target_item"] = str(metadata.get("target_item_id") or target_key)
         payload["target_display"] = target_key
+    elif target_domain == "school_level":
+        include_unlearned = bool(metadata.get("include_unlearned_schools"))
+        payload["target_kind"] = (
+            "school_level_grant" if include_unlearned else "school_level"
+        )
+        payload["target_school_level"] = target_key
+        targets = school_level_target_choices(
+            include_unlearned=include_unlearned,
+        )
+        payload["target_display"] = dict(targets).get(target_key, target_key)
     elif target_domain == "specialization":
         payload["target_kind"] = "specialization"
         payload["target_specialization"] = str(metadata.get("target_specialization_id") or target_key)
@@ -7727,6 +7737,14 @@ def _group_school_technique_rows(
     {school_name, max_level, max_level_label, rows: [...]}.
     """
     race_rows: list[dict] = []
+    engine = character.get_engine()
+    school_levels = dict(school_levels)
+    school_levels.update({
+        school_id: entry.level
+        for school_id, entry in engine.effective_school_entries().items()
+        if school_id not in school_levels
+        and school_id not in engine._school_entries
+    })
     groups: OrderedDict[str, dict] = OrderedDict()
     schools_by_id = {
         int(school.id): school
@@ -7815,7 +7833,9 @@ def _group_school_technique_rows(
         if school_name not in groups:
             # Determine the character's current max level in this school.
             school_id = row.get("school_id")
-            current_level = school_levels.get(school_id, 0) if school_id else 0
+            current_level = (
+                engine.effective_school_level(school_id) if school_id else 0
+            )
             groups[school_name] = {
                 "school_id": school_id,
                 "school_name": school_name,
@@ -7868,7 +7888,7 @@ def _group_school_technique_rows(
             key=lambda school: (school.type.name, school.name),
         )
         for school in missing_schools:
-            current_level = int(school_levels.get(school.id, 0) or 0)
+            current_level = engine.effective_school_level(school.id)
             groups[school.name] = {
                 "school_id": school.id,
                 "school_name": school.name,
@@ -10818,6 +10838,8 @@ def build_character_sheet_context(
         ],
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            ("school_level", "Erlernte Schulstufen"),
+            ("school_level_grant", "Schulstufen"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Abgeleiteter Wert"),
@@ -10827,12 +10849,12 @@ def build_character_sheet_context(
             ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
-            ("item", "Konkreter Gegenstand"),
-            ("item_category", "Alle Gegenst\u00e4nde eines Typs"),
             ("specialization", "Spezialisierung"),
         ],
         "item_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            ("school_level", "Erlernte Schulstufen"),
+            ("school_level_grant", "Schulstufen"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Abgeleiteter Wert"),
@@ -10847,8 +10869,6 @@ def build_character_sheet_context(
             ("weapon_damage_dice", "+ X W10"),
             (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Man\u00f6ver und Schaden"),
             (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
-            ("item", "Konkreter Gegenstand"),
-            ("item_category", "Alle Gegenst\u00e4nde eines Typs"),
             ("specialization", "Spezialisierung"),
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,

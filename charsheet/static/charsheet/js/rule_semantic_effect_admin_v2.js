@@ -137,6 +137,8 @@
     }
     var allowed = area.value === "rule_flag"
       ? ["", "set_flag", "unset_flag"]
+      : area.value === "school_level"
+        ? ["", "flat_add", "flat_sub"]
       : area.value === "wound_stage"
         ? ["", "flat_add"]
         : ["", "flat_add", "flat_sub", "multiply", "divide", "floor_divide", "ceil_divide", "override", "min_value", "max_value"];

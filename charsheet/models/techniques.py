@@ -2704,13 +2704,17 @@ class CharacterSpell(models.Model):
                 )
 
         if self.character_id and self.spell_id and self.spell.school_id:
-            if (not is_divine_arcane_grant) and not CharacterSchool.objects.filter(
-                character_id=self.character_id,
-                school_id=self.spell.school_id,
-            ).exists():
-                raise ValidationError(
-                    {"spell": "A character can only know arcane spells from learned schools."}
-                )
+            if not is_divine_arcane_grant:
+                level = self.character.get_engine(
+                    refresh=True,
+                ).effective_school_level(self.spell.school_id)
+                if level <= 0 or int(self.spell.grade) > level:
+                    raise ValidationError({
+                        "spell": (
+                            "Der Zaubergrad überschreitet die wirksame "
+                            "Schulstufe des Charakters."
+                        ),
+                    })
 
         if self.character_id and self.spell_id and self.spell.aspect_id:
             if not CharacterAspect.objects.filter(

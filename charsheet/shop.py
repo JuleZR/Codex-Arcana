@@ -56,6 +56,8 @@ from charsheet.models import (
     MagicItemStats,
     Quality,
     Rune,
+    School,
+    SchoolType,
     ShieldStats,
     Skill,
     SkillCategory,
@@ -447,6 +449,23 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
+    elif target_kind in {"school_level", "school_level_grant"}:
+        key = str(row_data.get("target_school_level") or "").strip()
+        valid = key == "*"
+        if key.startswith("type:"):
+            type_id = key.removeprefix("type:")
+            valid = type_id.isdecimal() and SchoolType.objects.filter(
+                pk=type_id,
+            ).exists()
+        elif key.isdecimal():
+            valid = School.objects.filter(pk=key).exists()
+        if not valid:
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Bitte ein gültiges Schulziel wählen."
+                ),
+            })
+        payload["target_slug"] = key
     elif target_kind == TARGET_KIND_SPECIALIZATION:
         specialization_id = int(row_data.get("target_specialization") or 0)
         if specialization_id <= 0:
@@ -476,6 +495,9 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
             "target_item": post_data.get("magic_modifier_target_item"),
             "target_item_category": post_data.get("magic_modifier_target_item_category"),
             "target_specialization": post_data.get("magic_modifier_target_specialization"),
+            "target_school_level": post_data.get(
+                "magic_modifier_target_school_level"
+            ),
             "effect_description": post_data.get("magic_modifier_effect_description"),
             "rules_text": post_data.get("magic_modifier_rules_text"),
             "toggleable": post_data.get("magic_modifier_toggleable"),
@@ -731,6 +753,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
 
     if target_kind == TARGET_KIND_ATTRIBUTE:
         target_domain = TargetDomain.ATTRIBUTE
+    elif target_kind in {"school_level", "school_level_grant"}:
+        target_domain = TargetDomain.SCHOOL_LEVEL
     elif target_kind == ARTIFACT_RANK:
         target_domain = TargetDomain.RESOURCE
         target_key = ARTIFACT_RANK
@@ -787,6 +811,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "legacy_target_slug": target_slug,
         "base_item_effect_id": payload.get("base_item_effect_id"),
     }
+    if target_kind == "school_level_grant":
+        metadata["include_unlearned_schools"] = True
     if payload.get("target_skills"):
         skills = payload["target_skills"]
         metadata["target_skill_ids"] = [skill.pk for skill in skills]
@@ -860,6 +886,10 @@ def _semantic_effect_matches_magic_payload(
 
     current_metadata = dict(effect.metadata or {})
     incoming_metadata = dict(kwargs.get("metadata") or {})
+    if bool(current_metadata.get("include_unlearned_schools")) != bool(
+        incoming_metadata.get("include_unlearned_schools")
+    ):
+        return False
     if effect.target_domain == TargetDomain.SKILL:
         current_skills = (
             current_metadata.get("target_skill_slugs") or [effect.target_key]
@@ -1007,6 +1037,7 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
             "target_specialization_id",
             "legacy_target_kind",
             "legacy_target_slug",
+            "include_unlearned_schools",
             "base_item_effect_id",
             "condition_text",
         ):

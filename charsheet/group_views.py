@@ -1300,6 +1300,8 @@ def game_master_screen(request, group_id: int):
             "group_inventory_runes": Rune.objects.order_by("name"),
             "group_inventory_effect_kinds": [
                 ("text", "Nur Beschreibung"),
+                ("school_level", "Erlernte Schulstufen"),
+                ("school_level_grant", "Schulstufen"),
                 ("rule_flag", "Regel aktivieren"),
                 ("attribute", "Attribut"),
                 ("stat", "Abgeleiteter Wert"),
@@ -1314,8 +1316,6 @@ def game_master_screen(request, group_id: int):
                 (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
                 (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
                 ("movement", "Bewegung"),
-                ("item", "Konkreter Gegenstand"),
-                ("item_category", "Alle Gegenstände eines Typs"),
                 ("specialization", "Spezialisierung"),
             ],
             "group_inventory_effect_attributes": ATTRIBUTE_CODE_CHOICES,
