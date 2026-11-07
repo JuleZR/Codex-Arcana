@@ -3109,23 +3109,9 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   min-width: var(--equipped-tile-size);
   height: var(--equipped-tile-size);
   min-height: var(--equipped-tile-size);
-  border: 1px solid color-mix(in srgb, var(--row-quality-color, #39d84a) 68%, rgba(28, 22, 16, 0.82) 32%);
+  border: 1px solid rgba(74, 55, 38, 0.4);
   border-radius: 6px;
-  background-color: color-mix(in srgb, var(--row-quality-color, #39d84a) 76%, #d9c27f 24%);
-  background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.44) 0%,
-      rgba(255, 255, 255, 0.22) 34%,
-      rgba(255, 255, 255, 0.06) 56%,
-      rgba(40, 28, 13, 0.14) 100%
-    ),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--row-quality-color, #39d84a) 78%, #fff0b7 22%) 0%,
-      color-mix(in srgb, var(--row-quality-color, #39d84a) 88%, #ceb46d 12%) 54%,
-      color-mix(in srgb, var(--row-quality-color, #39d84a) 72%, #4f3c25 28%) 100%
-    );
+  background: var(--row-quality-color, #f5ead4);
   overflow: hidden;
   cursor: pointer;
   touch-action: pan-x;
@@ -3137,24 +3123,6 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     0 1px 2px rgba(69, 50, 27, 0.14);
 }
 
-.armor_worn li.armor_row.quality_tinted_row {
-  background-color: color-mix(in srgb, var(--row-quality-color, #39d84a) 76%, #d9c27f 24%);
-  background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.44) 0%,
-      rgba(255, 255, 255, 0.22) 34%,
-      rgba(255, 255, 255, 0.06) 56%,
-      rgba(40, 28, 13, 0.14) 100%
-    ),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--row-quality-color, #39d84a) 78%, #fff0b7 22%) 0%,
-      color-mix(in srgb, var(--row-quality-color, #39d84a) 88%, #ceb46d 12%) 54%,
-      color-mix(in srgb, var(--row-quality-color, #39d84a) 72%, #4f3c25 28%) 100%
-    );
-}
-
 .armor_worn li.armor_row.quality_tinted_row::before {
   content: none;
 }
@@ -3163,13 +3131,6 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   --card-holo-bg-x: 0%;
   --card-holo-bg-y: 0%;
   isolation: isolate;
-  border-color: rgba(18, 15, 12, 0.62);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.3),
-    inset -1px -1px 0 rgba(0, 0, 0, 0.1),
-    0 0 0 0.5px rgba(255, 247, 219, 0.06),
-    0 0 8px rgba(135, 210, 255, 0.24),
-    0 1px 2px rgba(69, 50, 27, 0.11);
 }
 
 .armor_worn li.armor_row.equipped_item_tile--magic::before {
