@@ -109,12 +109,35 @@ document.addEventListener("DOMContentLoaded", () => {
     closeButtons: Array.from(document.querySelectorAll("[data-close-sl-item-add]")),
   });
 
-  floating({
+  const catalogFrame = document.querySelector("[data-sl-catalog-frame]");
+  const catalogWindow = document.querySelector("[data-sl-item-create-window]");
+  const catalogController = floating({
     win: document.querySelector("[data-sl-item-create-window]"),
     backdrop: document.querySelector("[data-sl-item-create-backdrop]"),
     handle: document.querySelector("[data-sl-item-create-handle]"),
     opener: document.querySelector("[data-open-sl-item-create]"),
     closeButtons: Array.from(document.querySelectorAll("[data-close-sl-item-create]")),
+    beforeOpen: () => {
+      if (catalogFrame && !catalogFrame.getAttribute("src")) catalogFrame.src = catalogFrame.dataset.src;
+    },
+  });
+  catalogFrame?.addEventListener("load", () => {
+    if (catalogFrame.contentWindow.location.pathname === window.location.pathname) {
+      window.location.reload();
+      return;
+    }
+    catalogFrame.contentDocument?.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") catalogController?.hide();
+    });
+  });
+  window.addEventListener("message", (event) => {
+    if (event.origin !== window.location.origin || event.source !== catalogFrame?.contentWindow
+        || event.data?.type !== "staff-item-workshop-status") return;
+    const price = Number(event.data.price);
+    const count = Number(event.data.runeCount);
+    if (!Number.isFinite(price) || !Number.isInteger(count)) return;
+    catalogWindow.querySelector("[data-sl-catalog-price]").textContent = `${new Intl.NumberFormat("de-DE").format(price)} KS`;
+    catalogWindow.querySelector("[data-sl-catalog-runes]").textContent = `${count} / 5`;
   });
 
   const typeCapabilities = JSON.parse(
@@ -1140,6 +1163,8 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedId.value = option.dataset.itemId;
         query.value = option.dataset.itemName;
         query.dataset.selectedName = option.dataset.itemName;
+        const quality = picker.closest("form")?.querySelector("select[name='quality']");
+        if (quality) quality.value = option.dataset.itemQuality || "common";
         query.setCustomValidity("");
         results.hidden = true;
       });
@@ -1253,6 +1278,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const updateTransferState = async () => {
       if (document.hidden || requestInFlight || reloadStarted
+          || catalogWindow?.getAttribute("aria-hidden") === "false"
           || document.getElementById("runeRetrofitWindow")?.getAttribute("aria-hidden") === "false") return;
       requestInFlight = true;
       try {
@@ -1267,6 +1293,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (nextSignature !== signature) {
           // Do not interrupt editing if a poll completed after the workshop opened.
           if (document.getElementById("runeRetrofitWindow")?.getAttribute("aria-hidden") === "false") return;
+          if (catalogWindow?.getAttribute("aria-hidden") === "false") return;
           signature = nextSignature;
           reloadStarted = true;
           window.location.reload();

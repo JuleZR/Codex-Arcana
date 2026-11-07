@@ -249,10 +249,10 @@
                   data-sl-item-search-query>
                 <div class="sl-item-search__results" data-sl-item-search-results hidden>
                   {% for item in group_inventory_global_items %}
-                    <button type="button" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-item-search="{{ item.name|lower }}"><strong>{{ item.name }}</strong><span>Global</span></button>
+                    <button type="button" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-item-quality="{{ item.default_quality_id }}" data-item-search="{{ item.name|lower }}"><strong>{{ item.name }}</strong><span>Global</span></button>
                   {% endfor %}
                   {% for item in group_row.catalog_items %}
-                    <button type="button" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-item-search="{{ item.name|lower }}"><strong>{{ item.name }}</strong><span>Gruppenkatalog</span></button>
+                    <button type="button" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-item-quality="{{ item.default_quality_id }}" data-item-search="{{ item.name|lower }}"><strong>{{ item.name }}</strong><span>Gruppenkatalog</span></button>
                   {% endfor %}
                   <p data-sl-item-search-empty hidden>Kein passender Gegenstand.</p>
                 </div>
@@ -269,23 +269,17 @@
         </div>
       </section>
       <div class="sl-item-create-backdrop" data-sl-item-create-backdrop aria-hidden="true"></div>
-      <section class="payday-window payday-window--large sl-item-create-window" data-sl-item-create-window aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="slItemCreateTitle">
-        <div class="payday-window__titlebar" data-sl-item-create-handle>
-          <h3 class="payday-window__title" id="slItemCreateTitle">Gruppeneigenes Basisitem erstellen</h3>
-          <button type="button" class="payday-window__close" data-close-sl-item-create aria-label="Fenster schließen">x</button>
+      <section class="payday-window sheet-window sheet-window--editor-modal sl-item-create-window sl-workshop-window" data-sl-item-create-window aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="slItemCreateTitle">
+        <div class="payday-window__titlebar sheet-window__header workshop_header" data-sl-item-create-handle>
+          <div class="sheet-window__heading"><h3 class="sheet-window__title" id="slItemCreateTitle">Gruppeneigenes Basisitem erstellen</h3><p>Basisitem und Instanz für das SL-Inventar anlegen.</p></div>
+          <div class="workshop_resources">
+            <div><span>Gegenstandswert</span><strong data-sl-catalog-price>0 KS</strong></div>
+            <div><span>Runenplätze</span><strong data-sl-catalog-runes>0 / 5</strong></div>
+          </div>
+          <div class="sheet-window__actions"><button type="button" class="payday-window__close sheet-window__close" data-close-sl-item-create aria-label="Fenster schließen">&#215;</button></div>
         </div>
-        <div class="payday-window__body sl-item-create-window__body">
-          <form class="sl-item-create-form sl-editor-form" method="post" enctype="multipart/form-data" action="{% url 'create_group_catalog_item' group_row.group.id %}" data-sl-base-item-form>
-            {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
-            <div class="sl-editor-top-actions">
-              <button type="button" class="dashboard_button" data-close-sl-item-create>Abbrechen</button>
-              <button class="dashboard_button dashboard_button--primary">Basisitem und Instanz anlegen</button>
-            </div>
-            <div class="sl-editor-columns shop_item_form_layout">
-              {% include "charsheet/partials/item_editor/_item_base_form.html" with item_editor_show_amount=True item_editor_type_choices=group_inventory_item_types item_editor_default_type="misc" item_editor_quality_choices=group_inventory_qualities item_editor_default_quality="common" item_editor_size_choices=group_inventory_size_class_options item_editor_default_size="M" item_editor_runes=group_inventory_runes %}
-              {% include "charsheet/partials/item_editor/_item_modifications.html" with item_editor_damage_sources=group_inventory_damage_sources item_editor_damage_type_choices=group_inventory_damage_types item_editor_maneuver_attribute_choices=group_inventory_maneuver_attributes item_editor_effect_kinds=group_inventory_effect_kinds item_editor_attribute_choices=group_inventory_effect_attributes item_editor_stat_choices=group_inventory_effect_stats item_editor_movement_choices=group_inventory_effect_movements item_editor_rule_choices=group_inventory_effect_rules item_editor_skill_choices=group_inventory_weapon_skills item_editor_category_choices=group_inventory_skill_categories item_editor_item_choices=group_inventory_effect_items item_editor_item_category_choices=group_inventory_item_types item_editor_specialization_choices=group_inventory_specializations item_editor_race_choices=group_inventory_races item_editor_school_choices=group_inventory_schools %}
-            </div>
-          </form>
+        <div class="sheet-window__body">
+          <iframe class="dashboard-item-frame" data-sl-catalog-frame data-src="{% url 'create_group_catalog_item' group_row.group.id %}?embedded=1" title="Basisitem erstellen"></iframe>
         </div>
       </section>
       <div class="sl-item-action-backdrop" data-sl-item-action-backdrop aria-hidden="true"></div>

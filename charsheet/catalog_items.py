@@ -167,10 +167,13 @@ class CatalogItemForm(forms.ModelForm):
 
     @property
     def primary_fields(self):
-        return [self[name] for name in (
+        names = (
             "name", "item_type", "price", "default_quality", "weight",
             "size_class", "description",
-        )]
+        )
+        if "amount" in self.fields:
+            names = ("amount", *names)
+        return [self[name] for name in names]
 
     @property
     def additional_sections(self):
@@ -509,12 +512,17 @@ def staff_items(request):
 @require_http_methods(["GET", "POST"])
 def staff_item_editor(request, item_id=None):
     _require_staff_permission(request.user, "change" if item_id else "add")
+    return catalog_item_editor(request, item_id=item_id)
+
+
+def catalog_item_editor(request, item_id=None, group=None):
+    """Shared workshop; callers authorize staff or group access."""
     item = get_object_or_404(
         Item, pk=item_id, catalog_group__isnull=True,
     ) if item_id else Item(item_type=(
         ItemType.objects.filter(pk="misc", is_active=True).first()
         or ItemType.objects.filter(is_active=True).first()
-    ))
+    ), catalog_group=group)
     if request.method == "POST" and request.GET.get("preview") == "1":
         try:
             previews, effects = build_item_effect_previews(request.POST)
@@ -529,6 +537,10 @@ def staff_item_editor(request, item_id=None):
     data = request.POST if request.method == "POST" else None
     files = request.FILES if data is not None else None
     form = CatalogItemForm(data, files, instance=item)
+    if group is not None:
+        form.fields["amount"] = forms.IntegerField(
+            label="Instanzmenge", min_value=1, initial=1,
+        )
     sections = _stat_formsets(item, data, files)
     brew = (
         AlchemicalBrewStats.objects.filter(item=item).first()
@@ -593,6 +605,25 @@ def staff_item_editor(request, item_id=None):
                         source_model=Item, source_id=item.pk,
                         magic_modifier_payloads=effects,
                     )
+                    if group is not None:
+                        instance = CharacterItem(
+                            item=item, group_owner=group,
+                            original_owner_group=group,
+                            amount=(form.cleaned_data["amount"]
+                                    if item.stackable else 1),
+                            quality=item.default_quality,
+                        )
+                        instance.full_clean()
+                        instance.save()
+                if group is not None:
+                    messages.success(
+                        request,
+                        "Gruppenprivates Basisitem und Instanz angelegt.",
+                    )
+                    return redirect(
+                        reverse("game_master_screen", args=[group.pk])
+                        + "#sl-inventar",
+                    )
                 messages.success(request, "Item gespeichert.")
                 if request.user.has_perm("charsheet.change_item"):
                     url = reverse("staff_item_edit", args=[item.pk])
@@ -614,6 +645,7 @@ def staff_item_editor(request, item_id=None):
             )
     return render(request, "charsheet/staff_item_editor.html", {
         "item": item, "form": form, "stat_sections": sections,
+        "catalog_group": group,
         "requirements": requirements, **_effect_context(payloads),
         "embedded": request.GET.get("embedded") == "1",
         "catalog_rune_payloads": (

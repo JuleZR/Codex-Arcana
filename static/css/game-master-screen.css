@@ -956,10 +956,11 @@
     inset 0 1px 0 rgba(255, 253, 241, 0.5);
 }
 
-.sl-item-create-window {
-  width: min(1180px, calc(100vw - 28px));
-  height: min(860px, calc(100vh - 28px));
-  max-height: min(860px, calc(100vh - 28px));
+.sl-item-create-window.sl-workshop-window {
+  width: min(1680px, calc(100vw - 40px));
+  height: calc(100dvh - 48px);
+  max-height: calc(100dvh - 48px);
+  background: transparent;
 }
 
 .sl-item-action-window {
@@ -1065,7 +1066,7 @@
   backdrop-filter: blur(8px);
 }
 
-.sl-item-action-window.is-send .payday-window__titlebar {
+:is(.sl-item-action-window.is-send, .sl-item-add-window) .payday-window__titlebar {
   position: relative;
   inset: auto;
   flex: 0 0 auto;
@@ -1080,14 +1081,14 @@
   color: #f7e9ce;
 }
 
-.sl-item-action-window.is-send .payday-window__title {
+:is(.sl-item-action-window.is-send, .sl-item-add-window) .payday-window__title {
   display: block;
   margin: 0;
   color: inherit;
   font: 700 28px/1.1 "Cormorant Garamond", Georgia, serif;
 }
 
-.sl-item-action-window.is-send .payday-window__close {
+:is(.sl-item-action-window.is-send, .sl-item-add-window) .payday-window__close {
   border: 1px solid #c5a16a66;
   border-radius: 3px;
   background: #21171126;

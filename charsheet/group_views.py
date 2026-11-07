@@ -18,7 +18,11 @@ from django.db.models import F, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import (
+    require_GET, require_POST, require_http_methods,
+)
+
+from charsheet.catalog_items import catalog_item_editor
 
 from charsheet.game_groups import (
     GroupError,
@@ -3196,12 +3200,15 @@ def add_group_inventory_item(request, group_id: int):
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 @_group_action
 def create_group_catalog_item(request, group_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
+        if (request.method == "GET" or request.GET.get("preview") == "1"
+                or request.POST.get("catalog_workshop") == "1"):
+            return catalog_item_editor(request, group=group)
         category = ItemType.objects.filter(
             pk=request.POST.get("item_type"),
         ).first()

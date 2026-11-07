@@ -17,6 +17,7 @@
   <section id="runeRetrofitWindow" class="sheet-window--editor-modal">
   <form id="runeRetrofitForm" method="post" enctype="multipart/form-data" class="shop_item_form sheet-window__editor-form" data-catalog-item-form data-effect-preview-url="{{ request.path }}?preview=1">
     {% csrf_token %}
+    {% if catalog_group %}<input type="hidden" name="catalog_workshop" value="1">{% endif %}
     {{ form.runes }}{{ form.runes.errors }}
     <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="{{ catalog_rune_payloads }}">
     {{ form.non_field_errors }}
