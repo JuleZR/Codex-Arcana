@@ -1329,15 +1329,23 @@
 }
 
 .wallet_coin {
+  --coin-light: #fff0ad;
+  --coin-face: #c7a14e;
+  --coin-shade: #886023;
+  --coin-edge: #6c491c;
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 1px solid rgba(74, 55, 38, 0.42);
+  border: 1px solid var(--coin-edge);
+  background:
+    radial-gradient(ellipse at 28% 20%, rgba(255, 255, 255, 0.64), transparent 48%),
+    conic-gradient(from 20deg, var(--coin-face), var(--coin-light), var(--coin-shade), var(--coin-face), var(--coin-light), var(--coin-shade), var(--coin-face));
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.65),
-    inset 0 -2px 3px rgba(53, 34, 15, 0.28),
-    0 1px 2px rgba(0, 0, 0, 0.18);
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 1px var(--coin-shade),
+    0 1px 0 var(--coin-edge),
+    0 2px 2px rgba(43, 29, 16, 0.3);
   position: relative;
 }
 
@@ -1346,30 +1354,45 @@
   height: 18px;
 }
 
+.wallet_coin::before {
+  /* Original compass relief, with offset light and dark engraving. */
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3Cpath id='relief' d='M32 10 37 26 48 32 37 37 32 54 27 37 16 32 27 26Z M32 23 38 32 32 41 26 32Z M20 15Q5 31 20 49M44 15Q59 31 44 49M16 21 12 18M14 28 9 26M14 36 9 38M17 43 13 47M48 21 52 18M50 28 55 26M50 36 55 38M47 43 51 47'/%3E%3C/defs%3E%3Cg fill='none' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='32' cy='32' r='29' stroke='%23241409' stroke-opacity='.5' stroke-width='2' stroke-dasharray='1 3'/%3E%3Cuse href='%23relief' transform='translate(.8 1)' stroke='%23fff6d9' stroke-opacity='.85' stroke-width='2.2'/%3E%3Cuse href='%23relief' stroke='%23241409' stroke-opacity='.65' stroke-width='2.2'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  mix-blend-mode: soft-light;
+}
+
 .wallet_coin::after {
   content: "";
   position: absolute;
-  inset: 2px;
+  inset: 1px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(47, 29, 12, 0.35);
 }
 
 .wallet_coin--gold {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 248, 198, 0.96) 0%, rgba(255, 233, 127, 0.75) 24%, rgba(188, 137, 25, 0.9) 74%),
-    linear-gradient(145deg, rgba(255, 214, 95, 0.95), rgba(146, 102, 14, 0.98));
+  --coin-light: #fff0ad;
+  --coin-face: #c7a14e;
+  --coin-shade: #886023;
+  --coin-edge: #6c491c;
 }
 
 .wallet_coin--silver {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95) 0%, rgba(233, 239, 246, 0.85) 26%, rgba(129, 141, 153, 0.92) 74%),
-    linear-gradient(145deg, rgba(241, 246, 252, 0.98), rgba(125, 138, 151, 0.96));
+  --coin-light: #f3f6f7;
+  --coin-face: #b4bdc3;
+  --coin-shade: #717c86;
+  --coin-edge: #515d67;
 }
 
 .wallet_coin--copper {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 229, 205, 0.95) 0%, rgba(230, 163, 120, 0.82) 24%, rgba(133, 73, 45, 0.92) 74%),
-    linear-gradient(145deg, rgba(214, 130, 83, 0.96), rgba(116, 59, 34, 0.98));
+  --coin-light: #f2c4a0;
+  --coin-face: #bc805b;
+  --coin-shade: #794730;
+  --coin-edge: #623923;
 }
 
 .wallet_adjust_form {
