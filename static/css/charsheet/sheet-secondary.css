@@ -2937,6 +2937,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     linear-gradient(180deg, rgba(250, 245, 235, 0.96), rgba(239, 230, 214, 0.92));
 }
 
+.inv_menu_panel [data-container-form] .inv_menu_btn {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .inv_menu_btn--danger {
   border-color: rgba(144, 88, 66, 0.3);
   background:

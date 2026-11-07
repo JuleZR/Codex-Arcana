@@ -121,19 +121,22 @@
   </div>
 </section>
 
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="inventoryDeleteWarningWindow" aria-hidden="true">
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal character-info-window specification-window" id="inventoryDeleteWarningWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="inventoryDeleteWarningWindowHandle">
-    <h3 class="payday-window__title sheet-window__title">Achtung</h3>
-    <button type="button" class="payday-window__close" id="inventoryDeleteWarningWindowClose" aria-label="Fenster schlie?en">x</button>
+    <div class="character-info-window__heading">
+      <span class="character-info-window__eyebrow">Inventar · Hinweis</span>
+      <h3 class="payday-window__title sheet-window__title">Achtung</h3>
+    </div>
+    <button type="button" class="payday-window__close sheet-window__close" id="inventoryDeleteWarningWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">
       <div class="sheet-window__editor-pane">
         <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-          <p class="skill_spec_hint">Zum Entfernen eines Stapels bitte mit <strong>Shift</strong> klicken.</p>
+          <p class="skill_spec_hint" id="inventoryWarningMessage">Zum Entfernen eines Stapels bitte mit <strong>Shift</strong> klicken.</p>
         </div>
-        <div class="shop_item_form_actions sheet-window__actions--center">
-          <button type="button" id="inventoryDeleteWarningOkBtn" class="wax_seal_btn" aria-label="Bestaetigen" title="Bestaetigen"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+        <div class="shop_item_form_actions">
+          <button type="button" id="inventoryDeleteWarningOkBtn" class="shop_item_save_btn">Verstanden</button>
         </div>
       </div>
     </div>

@@ -142,13 +142,10 @@ function resolveInventoryDropAction(zone, row) {
     if (rowEquipped || !containerId || row.dataset.inventoryContainer === containerId) {
       return null;
     }
-    const form = row.querySelector("[data-container-form]");
-    const select = form?.querySelector("select[name='inventory_container']");
-    if (!(form instanceof HTMLFormElement) || !(select instanceof HTMLSelectElement)) {
-      return null;
-    }
-    select.value = containerId;
-    return select.value ? { form, kind: "storage" } : null;
+    const form = Array.from(row.querySelectorAll("[data-container-form]")).find((entry) => (
+      entry.querySelector("input[name='inventory_container']")?.value === containerId
+    ));
+    return form instanceof HTMLFormElement ? { form, kind: "storage" } : null;
   }
   if (zoneType === "stored") {
     if (rowEquipped) {
@@ -301,6 +298,16 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     return;
   }
   document.body.dataset.inventoryMenuBound = "1";
+
+  const warningMessage = document.getElementById("inventoryWarningMessage");
+  const deleteWarningMarkup = warningMessage?.innerHTML || "";
+  document.addEventListener("inventory:storage-failed", (event) => {
+    if (warningMessage) {
+      warningMessage.textContent = event.detail?.error || "Verschieben fehlgeschlagen.";
+    }
+    document.querySelectorAll(".inv_menu.is-open").forEach((menu) => closeMenu(menu));
+    warningWindowController?.open?.();
+  });
 
   document.addEventListener("click", (event) => {
     const trigger = event.target instanceof Element
@@ -1389,6 +1396,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       return;
     }
     event.preventDefault();
+    if (warningMessage) warningMessage.innerHTML = deleteWarningMarkup;
     warningWindowController?.open?.();
   });
 

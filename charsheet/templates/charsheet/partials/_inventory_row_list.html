@@ -71,15 +71,17 @@
             </form>
           {% endif %}
           {% if own_inventories and not row.character_item.own_inventory_stat %}
+            {% with item_size_class=row.character_item.size_class_override|default:row.item.size_class %}
+            {% for inventory in own_inventories %}
+            {% if not inventory.allowed_size_classes or item_size_class in inventory.allowed_size_classes %}
             <form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="equip_form" data-sheet-action data-container-form>
               {% csrf_token %}
-              <select name="inventory_container" aria-label="Eigene Ablage" required>
-                {% for inventory in own_inventories %}
-                  <option value="{{ inventory.container.pk }}"{% if row.character_item.inventory_container_id == inventory.container.pk %} selected{% endif %}>{{ inventory.container.effective_name }}</option>
-                {% endfor %}
-              </select>
-              <button type="submit" class="inv_menu_btn">Einlagern</button>
+              <input type="hidden" name="inventory_container" value="{{ inventory.container.pk }}">
+              <button type="submit" class="inv_menu_btn">In {{ inventory.container.effective_name }} einlagern</button>
             </form>
+            {% endif %}
+            {% endfor %}
+            {% endwith %}
           {% endif %}
           {% endif %}
           {% if row.can_consume %}

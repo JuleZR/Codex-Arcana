@@ -222,6 +222,10 @@ export function initSheetActions() {
       return;
     }
     form.dataset.sheetActionPending = "1";
+    const isInventoryStorageAction = Boolean(
+      form.closest("[data-inventory-row]")
+      && form.querySelector("[name='inventory_container'], [name='stored']")
+    );
 
     let submitter = null;
     let submitterWasDisabled = false;
@@ -255,6 +259,9 @@ export function initSheetActions() {
         credentials: "same-origin",
       });
       const payload = await response.json().catch(() => null);
+      if (isInventoryStorageAction && (!response.ok || !payload?.ok)) {
+        throw new Error(payload?.error || "Verschieben fehlgeschlagen. Bitte erneut versuchen.");
+      }
       if (!response.ok) {
         if (form.hasAttribute("data-consumable")) {
           throw new Error(payload?.error || "Verbrauch fehlgeschlagen.");
@@ -308,6 +315,13 @@ export function initSheetActions() {
         form.reset();
       }
     } catch (_error) {
+      if (isInventoryStorageAction) {
+        flashSheetFeedback("error");
+        document.dispatchEvent(new CustomEvent("inventory:storage-failed", {
+          detail: { error: _error.message || "Verschieben fehlgeschlagen. Bitte erneut versuchen." },
+        }));
+        return;
+      }
       if (form.hasAttribute("data-consumable")) {
         flashSheetFeedback("error");
         window.alert(_error.message || "Verbrauch fehlgeschlagen.");

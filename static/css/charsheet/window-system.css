@@ -736,10 +736,6 @@ body.sheet-feedback--error::after {
   width: min(660px, calc(100vw - 24px));
 }
 
-.sheet-window--editor-modal#inventoryDeleteWarningWindow {
-  width: min(320px, calc(100vw - 24px));
-}
-
 .sheet-window__actions--center {
   justify-content: center;
 }
