@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from functools import lru_cache
 
 from charsheet.constants import QUALITY_CHOICES, QUALITY_COLOR_MAP
 from charsheet.engine import ItemEngine
@@ -13,7 +12,6 @@ from charsheet.models import Quality
 QUALITY_LABELS = dict(QUALITY_CHOICES)
 
 
-@lru_cache(maxsize=64)
 def _quality_model_payload(code: str) -> tuple[str, str] | None:
     try:
         quality = Quality.objects.only("name", "hex_color").filter(pk=code).first()
