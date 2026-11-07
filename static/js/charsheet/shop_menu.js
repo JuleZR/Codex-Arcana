@@ -113,7 +113,7 @@ export function initShopMenu() {
     const normalized = normalizeQuality(quality);
     const label = QUALITY_LABELS[normalized] || "Qualität unbekannt";
     const rawColor = QUALITY_COLORS[normalized] || "";
-    const color = /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : "#777777";
+    const color = /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : "transparent";
     return `<span class="market_quality_dot" style="--quality-color: ${color};" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">&#11044;</span>`;
   };
   const createEntryKey = () => {

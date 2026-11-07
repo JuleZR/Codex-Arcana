@@ -48,7 +48,9 @@ class Quality(models.Model):
 
     hex_color = models.CharField(
         max_length=7,
+        blank=True,
         default="#33CC33",
+        help_text="Leer lassen für farblos.",
         validators=[
             RegexValidator(
                 r"^#[0-9A-Fa-f]{6}$",

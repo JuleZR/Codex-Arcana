@@ -635,11 +635,14 @@ admin.site.get_app_list = _get_sorted_app_list
 def _quality_badge(quality):
     """Render one quality tier with configured RPG color coding."""
     resolved_quality = ItemEngine.normalize_quality(quality)
-    color = getattr(quality, "hex_color", None) or QUALITY_COLOR_MAP.get(
+    color = getattr(quality, "hex_color", None)
+    label = getattr(quality, "name", None) or resolved_quality
+    if color == "":
+        return format_html("<strong>{}</strong>", label)
+    color = color or QUALITY_COLOR_MAP.get(
         resolved_quality,
         QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)],
     )
-    label = getattr(quality, "name", None) or resolved_quality
     return format_html(
         (
             '<strong style="color:{};'

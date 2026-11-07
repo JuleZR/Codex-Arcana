@@ -48,7 +48,7 @@
             <tr{% if instance.sl_pending_transfer %} class="sl-inventory-row--pending"{% endif %}>
               <td class="sl-inventory-select-column">{% if not group_row.group.is_archived and not instance.sl_pending_transfer and not instance.sl_edit_access %}<input type="checkbox" value="{{ instance.id }}" data-sl-inventory-select aria-label="{{ instance.effective_name }} auswählen">{% endif %}</td>
               <td><strong>{{ instance.effective_name }}</strong>{% if instance.sl_edit_access %}<span>von {{ instance.sl_edit_owner_name }}</span>{% elif instance.sl_pending_transfer %}<span>unterwegs zu {{ instance.sl_pending_transfer.recipient.name }}</span>{% endif %}</td>
-              <td class="sl-inventory-quality-cell"><span class="sl-inventory-quality-swatch" style="--sl-quality-color: {{ instance.quality.hex_color|default:'#777777' }};" title="{{ instance.quality }}" aria-label="{{ instance.quality }}"></span></td>
+              <td class="sl-inventory-quality-cell"><span class="sl-inventory-quality-swatch" style="--sl-quality-color: {{ instance.quality.hex_color|default:'transparent' }};" title="{{ instance.quality }}" aria-label="{{ instance.quality }}"></span></td>
               <td>{{ instance.amount }}</td>
               <td>
                 {% if not group_row.group.is_archived and instance.sl_pending_transfer %}
