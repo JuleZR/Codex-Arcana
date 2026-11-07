@@ -1,5 +1,6 @@
+{% load item_types %}
 {% for row in rows %}
-  <li class="inv_row{% if row.item_card.structure_status == 'destroyed' %} inv_row--destroyed{% elif row.item_card.crack_level %} inv_row--damaged{% endif %}{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}{% if row.is_transfer_pending %} inv_row--underway{% endif %}{% if row.is_gm_edit_pending %} inv_row--gm-edit{% endif %}{% if row.is_foreign_held %} inv_row--foreign-held{% endif %}"
+  <li class="inv_row{% if row.item_card.structure_status == 'destroyed' %} inv_row--destroyed{% elif row.item_card.crack_level %} inv_row--damaged{% endif %}{% if row.quality_color and row.quality != 'common' %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}{% if row.is_transfer_pending %} inv_row--underway{% endif %}{% if row.is_gm_edit_pending %} inv_row--gm-edit{% endif %}{% if row.is_foreign_held %} inv_row--foreign-held{% endif %}"
       data-crack-level="{{ row.item_card.crack_level }}"
       {% if row.item_card.structure_status == 'destroyed' %}aria-label="{{ row.display_name }} – Zerstört"{% endif %}
       data-inventory-row
@@ -10,8 +11,15 @@
       data-item-type="{{ row.item.item_type_id }}"
       data-equip-drop-zone="{{ row.equip_drop_zone }}"
       data-equip-drop-zones="{{ row.equip_drop_zones }}"
-      {% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}
+      {% if row.quality_color and row.quality != 'common' %} style="--row-quality-color: {{ row.quality_color }}; --row-quality-text-color: {{ row.quality_color|quality_text_color }};"{% endif %}
       {% if row.tooltip_text %} data-tooltip-side="right" data-tooltip-mode="card" data-tooltip-card-key="item:{{ row.character_item.pk }}" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}"{% if row.sl_reveal_url %} data-tooltip-reveal-url="{{ row.sl_reveal_url }}"{% endif %}{% if row.sl_hide_url %} data-tooltip-hide-url="{{ row.sl_hide_url }}"{% endif %}{% if row.tooltip_hidden_fields %} data-tooltip-hidden-fields="{{ row.tooltip_hidden_fields }}"{% endif %} data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+    {% if row.quality_label %}
+    {% if row.quality == 'common' or row.quality_color %}
+      <span class="inv_quality_strip tooltip_target" role="img" tabindex="0" aria-label="{{ row.quality_label }}" data-tooltip="{{ row.quality_label }}" data-tooltip-side="right" data-tooltip-variant="quality">
+        {% include "charsheet/partials/_inventory_quality_icon.html" with quality=row.quality only %}
+      </span>
+    {% endif %}
+    {% endif %}
     {% if row.can_manage_storage %}<form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="inv_storage_form" data-sheet-action data-storage-form hidden>
       {% csrf_token %}
       <input type="hidden" name="stored" value="{% if row.is_stored %}0{% else %}1{% endif %}">
@@ -22,7 +30,7 @@
       </form>
     {% endif %}
     <span class="inv_name_wrap"{% if row.item.item_type.is_weapon and not read_only %} draggable="true" data-quickslot-source="weapon" data-quickslot-id="{{ row.character_item.pk }}"{% endif %}>
-      {% if row.can_manage_storage %}<span class="inv_drag_handle" draggable="true" data-drag-handle aria-label="Item verschieben" title="Zum Verschieben ziehen">
+      {% if row.can_manage_storage %}<span class="inv_drag_handle" draggable="true" data-drag-handle aria-label="Gegenstand verschieben" title="Gegenstand verschieben">
         <span class="inv_drag_handle_dots" aria-hidden="true"></span>
       </span>{% endif %}
       <span class="inv_name">{{ row.display_name }}{% if row.is_foreign_held %}<small class="inv_transfer_state">Fremdgehalten von {{ row.foreign_holder_name }}</small>{% endif %}{% if row.pending_transfer %}<small class="inv_transfer_state">{% if row.is_gm_edit_pending %}Zur Bearbeitung bei SL @ {{ row.pending_transfer.recipient_group.name }}{% else %}Versendet – unterwegs zu {{ row.pending_transfer.recipient.name }}{% endif %}</small>{% endif %}
@@ -47,7 +55,7 @@
         >&#x16B1;</button>
       {% endif %}
       <div class="inv_menu">
-        <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
+        <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" aria-label="Gegenstandsaktionen" title="Gegenstandsaktionen"><span class="inv_menu_lines" aria-hidden="true"></span></button>
         <div class="inv_menu_panel" hidden>
           {% if row.can_manage_storage %}{% include 'charsheet/partials/_item_damage_action.html' with item_card=row.item_card character_item=row.character_item %}{% endif %}
           {% if row.can_manage_storage %}<form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="equip_form" data-sheet-action>

@@ -1845,9 +1845,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
-  margin: 3px 4px;
-  padding: 2px 8px;
+  gap: 4px;
+  margin: 2px 4px;
+  padding: 2px 8px 2px 22px;
   border: 1px solid rgba(74, 55, 38, 0.36);
   border-radius: 6px;
   background: rgba(255, 250, 236, 0.58);
@@ -2249,6 +2249,17 @@
   border-radius: 5px;
 }
 
+.p2_lines li.inv_row > .inv_name_wrap {
+  box-sizing: border-box;
+  display: flex;
+  gap: 3px;
+  padding: 1px 2px 1px 0;
+}
+
+.p2_lines li.inv_row .inv_name {
+  flex: 1 1 0;
+}
+
 .inv_drag_handle {
   display: inline-flex;
   align-items: center;
@@ -2274,6 +2285,26 @@
   box-shadow:
     0 -5px 0 rgba(106, 78, 50, 0.78),
     0 5px 0 rgba(106, 78, 50, 0.78);
+}
+
+.p2_lines li.inv_row .inv_drag_handle_dots,
+.weapon_name_cell .inv_drag_handle_dots {
+  width: 2px;
+  height: 2px;
+  transform: translateX(-2px);
+  color: rgba(106, 78, 50, 0.52);
+  background: currentColor;
+  box-shadow:
+    0 -4px 0 currentColor,
+    0 4px 0 currentColor,
+    4px -4px 0 currentColor,
+    4px 0 0 currentColor,
+    4px 4px 0 currentColor;
+  pointer-events: none;
+}
+
+.p2_lines li.inv_row.is-dragging .inv_drag_handle {
+  cursor: grabbing;
 }
 
 .inventory_list {
@@ -2604,7 +2635,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   background: rgba(122, 78, 24, 0.04);
 }
 
-.quality_tinted_row {
+.quality_tinted_row:not(.inv_row) {
   background:
     linear-gradient(
       90deg,
@@ -2613,23 +2644,32 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     );
 }
 
-.p2_lines li.inv_row.quality_tinted_row::before {
-  content: "";
+.weapons_table .inv_quality_strip,
+.p2_lines li.inv_row > .inv_quality_strip,
+.p2_lines li.inv_row.quality_tinted_row > .inv_quality_strip {
   position: absolute;
-  top: 1px;
-  right: 42px;
-  bottom: 1px;
-  left: 1px;
-  border-radius: 5px;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 24%, rgba(255, 248, 235, 0.98) 76%) 0%,
-      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
-      rgba(255, 250, 240, 0) 100%
-    );
-  pointer-events: none;
+  display: grid;
+  place-items: center;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 18px;
+  border-radius: 5px 0 0 5px;
+  background: var(--row-quality-color, transparent);
+  color: var(--row-quality-text-color, #6a4e32);
+  cursor: help;
   z-index: 0;
+}
+
+.p2_lines li.inv_row .inv_quality_strip svg,
+.weapons_table .inv_quality_strip svg {
+  pointer-events: none;
+}
+
+.p2_lines li.inv_row .inv_quality_strip:focus-visible,
+.weapons_table .inv_quality_strip:focus-visible {
+  outline: 2px solid #715439;
+  outline-offset: 2px;
 }
 
 .p2_lines li.inv_row.quality_tinted_row > * {
@@ -2684,6 +2724,41 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   line-height: 1;
   font-weight: 600;
   cursor: pointer;
+}
+
+.p2_lines li.inv_row .inv_menu_trigger {
+  width: 24px;
+  min-width: 24px;
+  max-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  border-radius: 4px;
+  border-color: rgba(126, 98, 63, 0.16);
+  background: rgba(255, 250, 238, 0.16);
+  box-shadow: none;
+  color: rgba(92, 66, 41, 0.68);
+}
+
+.p2_lines li.inv_row .inv_menu_trigger:is(:hover, [aria-expanded="true"]) {
+  border-color: rgba(126, 98, 63, 0.28);
+  background: rgba(126, 98, 63, 0.07);
+  box-shadow: none;
+}
+
+.p2_lines li.inv_row .inv_menu_trigger:focus-visible {
+  outline: 2px solid #715439;
+  outline-offset: 2px;
+}
+
+.p2_lines li.inv_row .inv_menu_lines {
+  display: block;
+  width: 11px;
+  height: 1px;
+  border-radius: 1px;
+  background: currentColor;
+  box-shadow: 0 -3px 0 currentColor, 0 3px 0 currentColor;
+  pointer-events: none;
 }
 
 .inv_menu_trigger:hover {
@@ -3452,6 +3527,20 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
+}
+
+.floating-tooltip--quality {
+  max-width: min(260px, calc(100vw - 24px));
+  padding: 6px 10px;
+  border-color: rgba(107, 78, 43, 0.4);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #fff8e8, #eee0c5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 3px 9px rgba(52, 35, 18, 0.18);
+  color: #49351f;
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .floating-tooltip .tooltip_language {
@@ -5746,7 +5835,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .weapon_name_cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
   width: 100%;
 }
@@ -5805,14 +5894,18 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   margin-right: 0;
 }
 
-.weapons_table tr.quality_tinted_row td:first-child {
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 24%, rgba(255, 248, 235, 0.98) 76%) 0%,
-      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
-      rgba(255, 250, 240, 0) 100%
-    );
+.weapons_table tr.weapon_quality_row td:first-child {
+  position: relative;
+  padding-left: 22px;
+}
+
+.weapons_table .inv_quality_strip {
+  border-radius: 0;
+  z-index: 2;
+}
+
+.weapons_table .inv_quality_strip:focus-visible {
+  outline-offset: -2px;
 }
 
 .weapons_table tr:is(.equipped_item--damaged, .equipped_item--destroyed) td:first-child {

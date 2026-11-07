@@ -1,0 +1,26 @@
+<svg viewBox="0 0 16 24" width="12" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" data-quality-symbol="{{ quality }}">
+  {% if quality == 'wretched' %}
+    <path d="m3 5 5 4 5-4M3 10l5 4 5-4M3 15l5 4 5-4"/>
+  {% elif quality == 'very_poor' %}
+    <path d="m3 7 5 4 5-4M3 13l5 4 5-4"/>
+  {% elif quality == 'poor' %}
+    <path d="m3 10 5 4 5-4"/>
+  {% elif quality == 'common' %}
+    <path d="M3 12h10"/>
+  {% elif quality == 'fine' %}
+    <path d="m3 14 5-4 5 4"/>
+  {% elif quality == 'excellent' %}
+    <path d="m3 11 5-4 5 4M3 17l5-4 5 4"/>
+  {% elif quality == 'legendary' %}
+    <path d="m3 9 5-4 5 4M3 14l5-4 5 4M3 19l5-4 5 4"/>
+  {% elif quality == 'unique' %}
+    <circle cx="8" cy="12" r="3"/>
+    <path d="M8 5v2m0 10v2M1 12h2m10 0h2M3 7l1.5 1.5m7 7L13 17M3 17l1.5-1.5m7-7L13 7"/>
+  {% elif quality == 'magic' %}
+    <path d="m8 5 1.85 4.45 4.81.39L11 12.97l1.11 4.69L8 15.15l-4.11 2.51L5 12.97 1.34 9.84l4.81-.39L8 5Z"/>
+  {% elif quality == 'artifact' %}
+    <path d="M8 11C2 8 4 3 8 3s6 5 0 8ZM8 11v10M3 14h10"/>
+  {% else %}
+    <path d="m8 5 5 7-5 7-5-7 5-7Z"/>
+  {% endif %}
+</svg>

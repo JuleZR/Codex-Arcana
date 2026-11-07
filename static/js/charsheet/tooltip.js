@@ -2189,6 +2189,25 @@ export function initTooltips() {
   card.addEventListener("pointerup", finishDrag);
   card.addEventListener("pointercancel", finishDrag);
 
+  document.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)
+      || !target.matches(".inv_quality_strip[data-tooltip]")) return;
+    clearShowTimer();
+    if (hideTimeoutId) {
+      window.clearTimeout(hideTimeoutId);
+      hideTimeoutId = null;
+    }
+    showInlineTooltip(target);
+  });
+
+  document.addEventListener("focusout", (event) => {
+    if (event.target instanceof HTMLElement
+      && event.target.matches(".inv_quality_strip[data-tooltip]")) {
+      scheduleHide();
+    }
+  });
+
   document.addEventListener("mouseover", (event) => {
     if (window.matchMedia("(max-width: 900px)").matches) return;
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
