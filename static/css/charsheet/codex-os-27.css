@@ -434,6 +434,10 @@ body.charsheet-page .skills_table td.skill_name {
   font-size: 0.84rem;
 }
 
+body.charsheet-page .skills_table .skill_name_text {
+  padding-block: 2px;
+}
+
 body.charsheet-page .skills_table th.skills_title {
   padding-left: 9px;
 }
