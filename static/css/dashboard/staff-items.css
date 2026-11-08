@@ -58,6 +58,47 @@
 .staff-items #runeRetrofitWindow .catalog-field small { color: #806950; font-size: 11px; line-height: 1.4; }
 .staff-items #runeRetrofitWindow .catalog-field--check small { flex-basis: 100%; }
 .staff-items #runeRetrofitWindow .workshop_stat_fields fieldset { margin: 0 0 16px; padding: 12px; min-width: 0; border: 1px solid #c8a983; border-radius: 3px; }
+.catalog-weapon-sections { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 12px; }
+.catalog-weapon-section { min-width: 0; overflow-x: auto; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section h3 { margin: 0 0 8px; padding-bottom: 5px; border-bottom: 1px solid #c8a98370; color: #806044; font: 600 13px "Segoe UI", sans-serif; }
+.catalog-weapon-section .catalog-fields { gap: 8px 10px; align-items: start; }
+.catalog-weapon-section--profile .catalog-fields,
+.catalog-weapon-section--requirements .catalog-fields { display: flex; flex-wrap: wrap; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section--profile .catalog-field { flex: 0 1 180px; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section--profile .catalog-field--profile_name { flex-basis: 220px; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section--profile .catalog-field--new_weapon_type { flex-basis: 130px; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section--requirements .catalog-field { flex: 0 0 140px; }
+.catalog-weapon-section--damage .catalog-fields { grid-template-columns: 180px 64px 64px 100px 70px 100px; }
+.catalog-weapon-section--two-handed .catalog-fields { grid-template-columns: 64px 64px 100px 70px 100px; }
+.catalog-weapon-section--range .catalog-fields { grid-template-columns: 100px 100px 100px max-content 110px 110px; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section--range .catalog-field--check { align-self: end; min-height: 34px; }
+.staff-items #runeRetrofitWindow .catalog-new-weapon-type summary { margin-top: 19px; padding: 7px 9px; border: 1px solid #bb9b77; border-radius: 3px; cursor: pointer; font: 13px "Segoe UI", sans-serif; list-style: none; }
+.catalog-new-weapon-type summary::-webkit-details-marker { display: none; }
+.catalog-new-weapon-type[open] { min-width: 220px; }
+.catalog-new-weapon-type[open] summary { margin-bottom: 8px; }
+.catalog-new-weapon-type small { display: block; margin-top: 5px; }
+.staff-items #runeRetrofitWindow .catalog-weapon-section--assignments .catalog-field { grid-column: auto; }
+.catalog-weapon-section--assignments .catalog-fields { grid-template-columns: minmax(0, 1fr); }
+.staff-items #runeRetrofitWindow .selector { display: grid; grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr); gap: 10px; }
+.staff-items #runeRetrofitWindow .selector-available,
+.staff-items #runeRetrofitWindow .selector-chosen { min-width: 0; }
+.staff-items #runeRetrofitWindow .selector .helptext { margin: 6px 0; min-height: 3em; color: #806950; font-size: 11px; }
+.staff-items #runeRetrofitWindow .selector-filter { margin: 8px 0; }
+.staff-items #runeRetrofitWindow .selector-filter label { display: none; }
+.staff-items #runeRetrofitWindow .selector select { height: 200px; padding: 6px; border: 1px solid #bb9b77; background: #fffaf2; }
+.staff-items #runeRetrofitWindow .selector button { margin: 6px 0; padding: 6px; font: 12px "Segoe UI", sans-serif; cursor: pointer; }
+.staff-items #runeRetrofitWindow .selector button:disabled { opacity: .4; cursor: default; }
+.staff-items #runeRetrofitWindow .selector-chooser { display: flex; flex-direction: column; justify-content: center; list-style: none; margin: 0; padding: 0; }
+.staff-items #runeRetrofitWindow .selector-chooser button { width: 100%; font-size: 0; }
+.staff-items #runeRetrofitWindow .selector-add::before { content: "→"; font-size: 20px; }
+.staff-items #runeRetrofitWindow .selector-remove::before { content: "←"; font-size: 20px; }
+.staff-items #runeRetrofitWindow .list-footer-display { display: none; }
+.staff-items #runeRetrofitWindow .selector-chosen--with-filtered .list-footer-display { display: block; font-size: 11px; cursor: pointer; }
+.staff-items #runeRetrofitWindow .catalog-weapon-sections:has(.catalog-field--wield_mode option[value="1h"]:checked) .catalog-weapon-section--two-handed,
+.staff-items #runeRetrofitWindow .catalog-weapon-sections:has(.catalog-field--wield_mode option[value="1h"]:checked) .catalog-field--min_st_2h,
+.staff-items #runeRetrofitWindow .catalog-weapon-sections:has(.catalog-field--wield_mode option[value="1h"]:checked) .catalog-field--min_ge_2h,
+.staff-items #runeRetrofitWindow .catalog-weapon-sections:has(.catalog-field--wield_mode option[value="2h"]:checked) .catalog-field--min_st_1h,
+.staff-items #runeRetrofitWindow .catalog-weapon-sections:has(.catalog-field--wield_mode option[value="2h"]:checked) .catalog-field--min_ge_1h { display: none; }
 .catalog-stat-count { margin-left: 8px; font: 600 12px "Segoe UI", sans-serif; color: #806950; }
 .staff-items .errorlist { margin: 4px 0; padding-left: 18px; color: #8b2018; font-size: 12px; }
 .staff-items #runeRetrofitWindow .catalog-back { color: #f3dab0; font: 600 12px "Segoe UI", sans-serif; text-decoration: none; padding: 8px; }
@@ -82,6 +123,7 @@
 .staff-catalog__pagination { display: flex; justify-content: center; align-items: center; gap: 20px; padding: 12px 20px; border-top: 1px solid #c8a983; font-size: 12px; }
 .staff-catalog__pagination a { color: #813d36; text-decoration: none; }
 @media (max-width: 760px) {
+  .catalog-weapon-sections { grid-template-columns: minmax(0, 1fr); }
   #runeRetrofitWindow[data-dashboard-item-window] { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
   #runeRetrofitWindow[data-dashboard-item-window] .workshop_header p { display: none; }
   #runeRetrofitWindow[data-dashboard-item-window] .sheet-window__title { font-size: 22px; }
@@ -91,4 +133,9 @@
   .staff-catalog__toolbar { padding: 12px; }
   .staff-catalog__table th, .staff-catalog__table td { padding: 10px 12px; }
   .staff-catalog__table th:nth-child(3), .staff-catalog__table td:nth-child(3) { display: none; }
+}
+@media (max-width: 480px) {
+  .catalog-weapon-section--profile .catalog-fields,
+  .catalog-weapon-section--requirements .catalog-fields,
+  .catalog-weapon-section--assignments .catalog-fields { grid-template-columns: minmax(0, 1fr); }
 }

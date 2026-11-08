@@ -1,11 +1,31 @@
 {% if not editor_fields %}{{ editor_form.non_field_errors }}{% endif %}
+{% if editor_form.weapon_sections and not editor_fields %}
+<div class="catalog-weapon-sections">
+  {% for section in editor_form.weapon_sections %}
+    <section class="catalog-weapon-section catalog-weapon-section--{{ section.layout }}" aria-label="{{ section.title }}">
+      <h3>{{ section.title }}</h3>
+      {% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=editor_form editor_fields=section.fields only %}
+    </section>
+  {% endfor %}
+</div>
+{% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=editor_form editor_fields=editor_form.weapon_management_fields only %}
+{% else %}
 <div class="catalog-fields">
 {% for field in editor_fields|default:editor_form %}
   {% if field.is_hidden %}{{ field }}{{ field.errors }}{% else %}
     <div class="shop_item_form_row catalog-field catalog-field--{{ field.name }}{% if field.widget_type == 'checkbox' %} catalog-field--check{% endif %}">
+      {% if field.name == 'new_weapon_type' %}
+      <details class="catalog-new-weapon-type"{% if field.value or field.errors %} open{% endif %}>
+        <summary>+ Waffentyp</summary>
+        {{ field.label_tag }}{{ field }}{{ field.errors }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+      </details>
+      {% else %}
       {% if field.widget_type == 'checkbox' %}{{ field }}{% if field.name == 'DELETE' %}<label for="{{ field.id_for_label }}">Datensatz entfernen</label>{% else %}{{ field.label_tag }}{% endif %}{% else %}{{ field.label_tag }}{{ field }}{% endif %}{{ field.errors }}
       {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+      {% endif %}
     </div>
   {% endif %}
 {% endfor %}
 </div>
+{% endif %}

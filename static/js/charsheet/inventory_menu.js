@@ -1904,6 +1904,14 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   // Catalog definitions share the inline workshop's effect catalog and
   // inspector, but have no inventory owner, crafting costs or sheet action.
   if (catalogEditor && runeForm) {
+    runeForm.addEventListener("formdata", (event) => {
+      runeForm.querySelectorAll(".selector-chosen select").forEach((select) => {
+        const choices = window.SelectBox?.cache[select.id];
+        if (!choices) return;
+        event.formData.delete(select.name);
+        choices.forEach((choice) => event.formData.append(select.name, choice.value));
+      });
+    });
     const capabilities = JSON.parse(document.getElementById("item-type-capabilities")?.textContent || "{}");
     const type = runeForm.querySelector("[name='item_type']");
     const magic = runeForm.querySelector("[name='is_magic']");
@@ -1949,6 +1957,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         if (!total || !template || Number(total.value) >= maximum) return;
         section.querySelector("[data-catalog-forms]")?.insertAdjacentHTML("beforeend", template.innerHTML.replaceAll("__prefix__", total.value));
         total.value = String(Number(total.value) + 1);
+        section.querySelectorAll("select.selectfilter").forEach((select) => {
+          window.SelectFilter.init(select.id, select.dataset.fieldName, 0);
+        });
       });
     });
     const errorPanel = runeForm.querySelector(".errorlist")?.closest("[data-workshop-panel]");

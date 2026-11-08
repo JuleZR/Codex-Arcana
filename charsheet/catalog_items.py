@@ -5,6 +5,7 @@ from copy import copy, deepcopy
 
 from django import forms
 from django.contrib import messages
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -15,10 +16,11 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_http_methods
 
 from charsheet.constants import (
-    ATTRIBUTE_CODE_CHOICES, RULE_FLAG_CHOICES, STAT_SLUG_CHOICES,
+    ATTRIBUTE_CODE_CHOICES, RULE_FLAG_CHOICES, SKILL_COMBAT, STAT_SLUG_CHOICES,
     WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
@@ -28,7 +30,7 @@ from charsheet.models import (
     CharacterItem, ConsumableEffectStats, Item, ItemSemanticEffect, ItemType,
     MagicItemStats, Race, RangedWeaponStats, Rune, School, ShieldStats, Skill,
     SkillCategory,
-    Specialization, SubstanceStats, WeaponStats, OwnInventoryStat,
+    Specialization, SubstanceStats, WeaponStats, WeaponType, OwnInventoryStat,
 )
 from charsheet.own_inventory import (
     OwnInventorySettingsForm, reconcile_inventory,
@@ -129,6 +131,43 @@ def _catalog_formfield(model_field, **kwargs):
         if isinstance(field.widget, forms.Textarea):
             field.widget.attrs.update(rows=3, cols=30)
     return field
+
+
+class CatalogWeaponStatsForm(forms.ModelForm):
+    new_weapon_type = forms.CharField(
+        label="Neuen Waffentyp anlegen", required=False, max_length=100,
+        help_text=(
+            "Ersetzt die Auswahl; wird beim Speichern angelegt."
+        ),
+    )
+
+    class Meta:
+        model = WeaponStats
+        fields = "__all__"
+        exclude = ("damage_bonus_attribute", "damage_bonus_mode")
+        formfield_callback = _catalog_formfield
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        name = self.cleaned_data.get("new_weapon_type")
+        if name:
+            weapon_type = WeaponType.objects.filter(name__iexact=name).first()
+            if weapon_type is None:
+                base_slug = slugify(name)[:50] or "waffentyp"
+                slug = base_slug
+                suffix = 1
+                while WeaponType.objects.filter(slug=slug).exists():
+                    ending = f"-{suffix}"
+                    slug = base_slug[:50 - len(ending)] + ending
+                    suffix += 1
+                weapon_type = WeaponType(name=name, slug=slug)
+                if commit:
+                    weapon_type.save()
+            instance.weapon_type = weapon_type
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class CatalogItemForm(forms.ModelForm):
@@ -291,15 +330,62 @@ def _stat_formsets(item, data=None, files=None):
     for model, label, capability in STAT_SECTIONS:
         factory = inlineformset_factory(
             Item, model, fields="__all__", extra=1, can_delete=True,
+            form=(CatalogWeaponStatsForm if model is WeaponStats
+                  else forms.ModelForm),
             formfield_callback=_catalog_formfield,
         )
         formset = factory(
             data=data, files=files, instance=item,
             prefix=model._meta.model_name,
         )
+        formset.catalog_empty_form = formset.empty_form
         # Armor components may only refer to independent catalog definitions.
-        for form in [*formset.forms, formset.empty_form]:
+        for form in [*formset.forms, formset.catalog_empty_form]:
             form.fields["DELETE"].label = "Datensatz entfernen"
+            if model is WeaponStats:
+                form.fields["skills"].queryset = Skill.objects.filter(
+                    category__slug=SKILL_COMBAT,
+                ).order_by("name")
+                for name in ("flags", "skills"):
+                    field = form.fields[name]
+                    field.widget = FilteredSelectMultiple(
+                        field.label, is_stacked=False,
+                        choices=field.choices,
+                    )
+                for prefix in ("damage_", "h2_"):
+                    for suffix, field_label in (
+                        ("dice_amount", "Würfel"), ("dice_faces", "W"),
+                        ("flat_operator", "Operator"), ("flat_bonus", "Bonus"),
+                        ("damage_type" if prefix == "h2_" else "type",
+                         "Schadenstyp"),
+                    ):
+                        form.fields[f"{prefix}{suffix}"].label = field_label
+                form.weapon_sections = [
+                    {"title": title, "layout": layout,
+                     "fields": [form[name] for name in names.split()]}
+                    for title, layout, names in (
+                        ("Profil", "profile",
+                         "profile_name weapon_type new_weapon_type wield_mode "
+                         "maneuver_attribute_mode"),
+                        ("Voraussetzungen", "requirements",
+                         "min_st min_st_1h min_st_2h min_ge_1h min_ge_2h"),
+                        ("Schaden", "damage",
+                         "damage_source damage_dice_amount "
+                         "damage_dice_faces damage_flat_operator "
+                         "damage_flat_bonus damage_type"),
+                        ("Zweihandschaden", "two-handed",
+                         "h2_dice_amount h2_dice_faces h2_flat_operator "
+                         "h2_flat_bonus h2_damage_type"),
+                        ("Reichweite & Schussfolge", "range",
+                         "range_short range_medium range_long "
+                         "range_strength_multiplier reload_time shot_count"),
+                        ("Eigenschaften & Fertigkeiten", "assignments",
+                         "flags skills"),
+                    )
+                ]
+                form.weapon_management_fields = [
+                    *form.hidden_fields(), form["DELETE"],
+                ]
             if "parent_set" in form.fields:
                 form.fields["parent_set"].queryset = ArmorStats.objects.filter(
                     item__catalog_group__isnull=True,

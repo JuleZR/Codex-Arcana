@@ -12,7 +12,7 @@
   </div>
   {% if formset.max_num > 1 %}
     <template data-catalog-empty-form>
-      <fieldset>{% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=formset.empty_form only %}</fieldset>
+      <fieldset>{% include "charsheet/partials/item_editor/_model_fields.html" with editor_form=formset.catalog_empty_form|default:formset.empty_form only %}</fieldset>
     </template>
     <button type="button" class="dashboard_button" data-catalog-add-form>Weiteren Datensatz hinzufügen</button>
   {% endif %}
