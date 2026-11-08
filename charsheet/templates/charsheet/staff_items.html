@@ -7,7 +7,7 @@
   <title>Itemverwaltung | Codex Arcana</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'css/dashboard/staff-items.css' %}?v=20261108-admin-weapon-fields">
+  <link rel="stylesheet" href="{% static 'css/dashboard/staff-items.css' %}?v=20261108-workshop-feedback-error-dots">
   <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261103-division-compact">
   {% block editor_scripts %}{% endblock %}
 </head>
@@ -21,7 +21,7 @@
         <a class="dashboard_button" href="{% url 'dashboard' %}">Zum Dashboard</a>
       </div>
     </header>{% endif %}
-    {% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}
+    {% block messages %}{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}{% endblock %}
     {% block content %}
       <section class="staff-catalog">
         <form method="get" class="staff-catalog__toolbar">

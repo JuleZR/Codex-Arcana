@@ -34,8 +34,21 @@
 .staff-items-embedded .staff-items { display: flex; flex-direction: column; width: 100%; height: 100%; margin: 0; padding: 0; background: transparent; }
 .staff-items-embedded #runeRetrofitWindow { flex: 1; height: 100%; min-height: 0; min-width: 0; }
 .staff-items [role="status"] { flex: 0 0 auto; margin: 0; padding: 8px 20px; background: #e6eddb; color: #34472a; }
+.staff-items #runeRetrofitWindow .workshop_feedback { position: relative; flex: 1; align-self: stretch; min-width: 0; margin: 0; padding: 0; background: transparent; pointer-events: none; }
+.staff-items #runeRetrofitWindow #workshopStatus:empty { display: none; }
+.staff-items #runeRetrofitWindow #workshopStatus,
+.staff-items #runeRetrofitWindow .workshop_toast { position: absolute; bottom: 0; left: 0; z-index: 2; display: block; width: max-content; max-width: 100%; box-sizing: border-box; margin: 0; padding: 8px 12px; border-radius: 4px; background: #e6eddb; color: #34472a; font: 13px "Segoe UI", sans-serif; box-shadow: 0 4px 16px #0003; animation: workshop-toast 6s both; }
+.staff-items #runeRetrofitWindow .workshop_toast[hidden] { display: none; }
+.staff-items #runeRetrofitWindow #workshopStatus.is-error { background: #fbe7e4; color: #8b2018; }
+@keyframes workshop-toast {
+  0% { opacity: 0; transform: translateY(24px); visibility: visible; }
+  8%, 88% { opacity: 1; transform: translateY(0); visibility: visible; }
+  100% { opacity: 0; transform: translateY(24px); visibility: hidden; }
+}
+.staff-items #runeRetrofitWindow [aria-invalid="true"] { border: 2px solid #b52d25 !important; outline: 1px solid #b52d25; outline-offset: 1px; }
+.staff-items #runeRetrofitWindow .workshop_nav button.has-errors::after { content: ""; position: absolute; top: 7px; right: 7px; display: block; width: 9px; height: 9px; border: 1px solid #ffd3cf; border-radius: 50%; background: #e43d35; box-shadow: 0 0 0 2px #281f1a; }
 .staff-items #runeRetrofitWindow .workshop_layout { grid-template-columns: 112px minmax(0, 1fr); }
-.staff-items #runeRetrofitWindow .workshop_nav button { font-size: 12px; overflow-wrap: normal; }
+.staff-items #runeRetrofitWindow .workshop_nav button { position: relative; font-size: 12px; overflow-wrap: normal; }
 .staff-items #runeRetrofitWindow .workshop_panel { overflow: auto; }
 .staff-items #runeRetrofitWindow .workshop_section_heading { margin-bottom: 14px; }
 .staff-items #runeRetrofitWindow .catalog-base { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); }

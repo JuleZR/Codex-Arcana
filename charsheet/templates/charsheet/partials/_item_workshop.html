@@ -25,7 +25,15 @@
 {% endif %}
 </div>
           <footer class="workshop_footer">
+{% if catalog_editor %}
+            <div class="workshop_feedback" aria-live="polite" aria-atomic="true">
+              <span id="workshopStatus" role="status"></span>
+              {% for message in messages %}<span class="workshop_toast" data-workshop-toast>{{ message }}</span>{% endfor %}
+              {{ form.non_field_errors }}
+            </div>
+{% else %}
             <span {% if not workshop_instance %}id="workshopStatus"{% endif %} role="status">{% if workshop_instance %}Grau dargestellte Angaben sind die aktuell wirksamen Werte.{% endif %}</span>
+{% endif %}
 {% if catalog_editor %}
             {% if catalog_group %}
               <a class="catalog-back" href="{% url 'game_master_screen' catalog_group.pk %}#sl-inventar">Abbrechen</a>

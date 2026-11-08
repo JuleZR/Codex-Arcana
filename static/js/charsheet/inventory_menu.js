@@ -1772,8 +1772,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   runeInvestedCpSelect?.addEventListener("change", syncWorkshopEffects);
   runeForm?.addEventListener("invalid", (event) => {
     const field = event.target;
-    // SelectFilter probes its optional lists with required + checkValidity().
-    if (catalogEditor && field.matches(".selector-available select, .selector-chosen select")) return;
+    if (catalogEditor) return;
     const panel = field.closest("[data-workshop-panel]");
     if (panel) showWorkshopPanel(panel.dataset.workshopPanel);
     const effect = field.closest("[data-magic-effect-row]");
@@ -1906,6 +1905,76 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   // Catalog definitions share the inline workshop's effect catalog and
   // inspector, but have no inventory owner, crafting costs or sheet action.
   if (catalogEditor && runeForm) {
+    let toastTimer;
+    const showCatalogToast = (message) => {
+      runeForm.querySelectorAll("[data-workshop-toast]").forEach((toast) => { toast.hidden = true; });
+      if (!workshopStatus) return;
+      clearTimeout(toastTimer);
+      workshopStatus.textContent = message;
+      workshopStatus.classList.add("is-error");
+      workshopStatus.getAnimations?.().forEach((animation) => {
+        animation.cancel();
+        animation.play();
+      });
+      toastTimer = setTimeout(() => {
+        workshopStatus.textContent = "";
+        workshopStatus.classList.remove("is-error");
+      }, 6000);
+    };
+    const updateCatalogErrors = () => {
+      workshopTabs.forEach((tab) => {
+        const panel = runeForm.querySelector(`[data-workshop-panel="${tab.dataset.workshopTab}"]`);
+        const invalid = Boolean(panel?.querySelector(".errorlist, [aria-invalid='true']"));
+        tab.classList.toggle("has-errors", invalid);
+        if (invalid) tab.setAttribute("aria-description", "Enthält fehlerhafte Felder");
+        else tab.removeAttribute("aria-description");
+      });
+    };
+    const openCatalogField = (field) => {
+      let parent = field.parentElement;
+      while (parent && parent !== runeForm) {
+        if (parent instanceof HTMLDetailsElement) parent.open = true;
+        parent = parent.parentElement;
+      }
+    };
+    const handleCatalogInvalid = (event) => {
+      const field = event.target;
+      // SelectFilter probes its optional lists with required + checkValidity().
+      if (field.matches(".selector-available select, .selector-chosen select")) return;
+      event.preventDefault();
+      field.setAttribute("aria-invalid", "true");
+      openCatalogField(field);
+      updateCatalogErrors();
+      showCatalogToast("Bitte die rot markierten Felder prüfen.");
+    };
+    runeForm.addEventListener("invalid", handleCatalogInvalid, true);
+    const clearCatalogError = (event) => {
+      const field = event.target;
+      if (!field.matches("input, select, textarea")
+          || field.matches(".selector-available select, .selector-chosen select")) return;
+      if (field.validity.valid) {
+        field.removeAttribute("aria-invalid");
+        const row = field.closest(".catalog-field");
+        row?.querySelectorAll(".errorlist").forEach((error) => error.remove());
+      } else {
+        field.setAttribute("aria-invalid", "true");
+        openCatalogField(field);
+      }
+      updateCatalogErrors();
+    };
+    runeForm.addEventListener("input", clearCatalogError);
+    runeForm.addEventListener("change", clearCatalogError);
+    runeForm.querySelectorAll(".errorlist").forEach((error) => {
+      openCatalogField(error);
+      error.closest(".catalog-field")?.querySelectorAll("input, select, textarea").forEach((field) => {
+        if (field.type !== "hidden") field.setAttribute("aria-invalid", "true");
+      });
+    });
+    updateCatalogErrors();
+    if (runeForm.querySelector(".errorlist")) showCatalogToast("Bitte die rot markierten Felder prüfen.");
+    runeForm.querySelectorAll("[data-workshop-toast]").forEach((toast) => {
+      setTimeout(() => { toast.hidden = true; }, 6000);
+    });
     runeForm.addEventListener("formdata", (event) => {
       runeForm.querySelectorAll(".selector-chosen select").forEach((select) => {
         const choices = window.SelectBox?.cache[select.id];
@@ -1964,7 +2033,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         });
       });
     });
-    const errorPanel = runeForm.querySelector(".errorlist")?.closest("[data-workshop-panel]");
-    showWorkshopPanel(errorPanel?.dataset.workshopPanel || "base");
+    showWorkshopPanel("base");
   }
 }
