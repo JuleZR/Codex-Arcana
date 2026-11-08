@@ -599,6 +599,9 @@ def create_transfer(
     item_snapshot["creature_choices"] = _creature_choice_snapshot(item)
     item_snapshot["requested_permissions"] = requested_permissions
     item_snapshot["transfer_original_ownership"] = transfer_original_ownership
+    item.stored = True
+    item.inventory_container = None
+    item.save(update_fields=["stored", "inventory_container"])
     transfer = ItemTransfer.objects.create(
         item=item,
         item_provenance_id=item.provenance_id,
@@ -861,6 +864,9 @@ def create_group_transfer(
     item_snapshot["requested_permissions"] = []
     item_snapshot["transfer_original_ownership"] = True
     item_snapshot["include_outside_group"] = include_outside_group
+    item.stored = True
+    item.inventory_container = None
+    item.save(update_fields=["stored", "inventory_container"])
     transfer = ItemTransfer.objects.create(
         item=item,
         item_provenance_id=item.provenance_id,

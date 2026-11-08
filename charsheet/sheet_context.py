@@ -6646,7 +6646,10 @@ def _build_inventory_rows(
                     else tooltip_text
                 ),
                 "is_stored": (
-                    bool(character_item.stored)
+                    bool(
+                        character_item.stored
+                        or (pending_transfer and not is_gm_edit_pending)
+                    )
                     if is_current_holder
                     else False
                 ),

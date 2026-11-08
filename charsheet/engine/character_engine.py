@@ -39,6 +39,7 @@ from charsheet.models import (
     CharacterTechniqueChoice,
     CharacterTraitChoice,
     Item,
+    ItemTransfer,
     Language,
     ProgressionRule,
     RaceChoiceDefinition,
@@ -581,6 +582,13 @@ class CharacterEngine:
         """Cache equipped effects plus owned artefact and school effects."""
         return (
             CharacterItem.objects.filter(owner=self.character)
+            .exclude(
+                pk__in=ItemTransfer.objects.filter(
+                    status=ItemTransfer.Status.PENDING,
+                    transfer_kind=ItemTransfer.TransferKind.OWNERSHIP,
+                    item_id__isnull=False,
+                ).values("item_id")
+            )
             .filter(
                 Q(equipped=True)
                 | Q(item__semantic_effects__target_domain="school_level")
