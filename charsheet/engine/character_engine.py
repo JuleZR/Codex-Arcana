@@ -597,7 +597,7 @@ class CharacterEngine:
 
     @cached_property
     def _equipped_items_for_semantic_effects(self):
-        """Cache equipped effects plus owned artefact and school effects."""
+        """Cache active item effects plus owned artefact effects."""
         return (
             CharacterItem.objects.filter(owner=self.character)
             .exclude(
@@ -609,8 +609,6 @@ class CharacterEngine:
             )
             .filter(
                 CharacterItem.magic_effects_active_filter()
-                | Q(item__semantic_effects__target_domain="school_level")
-                | Q(semantic_effects__target_domain="school_level")
                 | Q(
                     item__semantic_effects__target_domain="resource",
                     item__semantic_effects__target_key=ARTIFACT_RANK,

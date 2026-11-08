@@ -336,7 +336,7 @@ class ModifierEngine:
 
     @cached_property
     def _active_item_semantic_modifiers(self) -> list[BaseModifier]:
-        """Build equipped effects plus owned artefact and school effects."""
+        """Build active item effects plus owned artefact effects."""
         if self.character_engine is None:
             return []
         equipped_items = list(
@@ -388,7 +388,6 @@ class ModifierEngine:
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
                 if not character_item.equipped and not (
                     character_item.magic_effects_without_equipping
-                    or effect.target_domain == TargetDomain.SCHOOL_LEVEL
                     or (
                         effect.target_domain == "resource"
                         and effect.target_key == ARTIFACT_RANK
@@ -424,7 +423,6 @@ class ModifierEngine:
                 and (
                     effect.character_item.equipped
                     or effect.character_item.magic_effects_without_equipping
-                    or effect.target_domain == TargetDomain.SCHOOL_LEVEL
                     or (
                         effect.target_domain == "resource"
                         and effect.target_key == ARTIFACT_RANK
