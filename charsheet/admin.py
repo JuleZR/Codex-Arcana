@@ -847,6 +847,20 @@ class ItemBulkActionForm(ActionForm):
         required=False,
         choices=(),
     )
+    target_size_class = forms.ChoiceField(
+        label="Neue GK",
+        required=False,
+        choices=(
+            ("", "GK wählen"),
+            *Item._meta.get_field("size_class").choices,
+        ),
+    )
+    target_quality = forms.ModelChoiceField(
+        label="Neue Qualität",
+        required=False,
+        queryset=Quality.objects.all(),
+        empty_label="Qualität wählen",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -6461,7 +6475,11 @@ class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
 
     action_form = ItemBulkActionForm
-    actions = ("change_item_type_action",)
+    actions = (
+        "change_item_type_action",
+        "change_size_class_action",
+        "change_quality_action",
+    )
     change_form_template = "admin/charsheet/item/change_form.html"
     list_display = (
         "name",
@@ -6624,6 +6642,53 @@ class ItemAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"{updated_count} Item(s) wurden auf die Kategorie '{target_label}' gesetzt.",
+        )
+
+    @admin.action(
+        description="GK der ausgewählten Items ändern", permissions=["change"],
+    )
+    def change_size_class_action(self, request, queryset):
+        """Set the selected catalog items to a valid size class."""
+        target = request.POST.get("target_size_class", "").strip()
+        choices = dict(Item._meta.get_field("size_class").choices)
+        if target not in choices:
+            self.message_user(
+                request, "Bitte oben eine gültige Ziel-GK auswählen.",
+                level="warning",
+            )
+            return
+        updated_count = queryset.exclude(size_class=target).update(
+            size_class=target,
+        )
+        self.message_user(
+            request,
+            f"{updated_count} Item(s) wurden auf GK "
+            f"'{choices[target]}' gesetzt.",
+        )
+
+    @admin.action(
+        description="Qualität der ausgewählten Items ändern",
+        permissions=["change"],
+    )
+    def change_quality_action(self, request, queryset):
+        """Set the selected catalog items to an existing default quality."""
+        field = self.action_form.base_fields["target_quality"]
+        try:
+            target = field.clean(request.POST.get("target_quality"))
+        except forms.ValidationError:
+            target = None
+        if target is None:
+            self.message_user(
+                request, "Bitte oben eine gültige Ziel-Qualität auswählen.",
+                level="warning",
+            )
+            return
+        updated_count = queryset.exclude(default_quality=target).update(
+            default_quality=target,
+        )
+        self.message_user(
+            request,
+            f"{updated_count} Item(s) wurden auf Qualität '{target}' gesetzt.",
         )
 
 
