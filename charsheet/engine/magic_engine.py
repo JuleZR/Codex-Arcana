@@ -126,6 +126,22 @@ def _effective_spell_level(
     return 0
 
 
+def _spell_range_supplement(spell: Spell) -> str:
+    """Keep range qualifiers without repeating the structured range formula."""
+    text = str(spell.range_text or "").strip()
+    if spell.range_number is None or not spell.range_unit:
+        return text
+    units = {spell.range_unit, spell.get_range_unit_display()}
+    if spell.range_unit == Spell.RangeUnit.PERSON:
+        units.add("Personen")
+    unit_pattern = "|".join(re.escape(unit) for unit in sorted(units))
+    pattern = (
+        rf"^{spell.range_number}\s*(?:{unit_pattern})(?!\w)"
+        rf"(?:\s*(?:/|pro)\s*Stufe\b)?"
+    )
+    return re.sub(pattern, "", text, count=1, flags=re.IGNORECASE).strip()
+
+
 def _build_spell_tooltip(
     entry: CharacterSpell,
     *,
@@ -212,7 +228,7 @@ def _build_spell_tooltip(
     elif spell.cast_time:
         rows.append(("Zeitaufwand", spell.cast_time))
 
-    range_text = str(spell.range_text or "").strip()
+    range_text = _spell_range_supplement(spell)
     if spell.range_number is not None and spell.range_unit:
         unit = spell.get_range_unit_display()
         if spell.range_per_grade:

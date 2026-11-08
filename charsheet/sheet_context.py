@@ -3891,6 +3891,11 @@ def _build_item_tooltip_rows(
             else None
         )
         base_range_label = item_engine.get_weapon_range_label()
+        range_stats = item_engine._get_ranged_weapon_stats() or weapon_stats
+        if base_range_label and getattr(
+            range_stats, "range_strength_multiplier", False,
+        ):
+            base_range_label = f"ST × {base_range_label}"
         range_label = item_engine.get_weapon_range_label(
             strength=strength,
             modifier_engine=character_engine.modifier_engine if character_engine is not None else None,
