@@ -80,6 +80,11 @@ export function initExternalSheetRefresh() {
   let inFlight = false;
   let queuedRefresh = null;
   let learningRefreshPending = false;
+  let partialRevision = 0;
+
+  document.addEventListener("charsheet:partials-applied", () => {
+    partialRevision += 1;
+  });
 
   const getNotificationAudio = () => {
     const soundUrl = String(body.dataset.itemTransferNotificationSound || "").trim();
@@ -186,6 +191,7 @@ export function initExternalSheetRefresh() {
     inFlight = true;
     signature = String(body.dataset.externalRefreshSignature || signature);
     const requestedSignature = signature;
+    const requestedRevision = partialRevision;
     try {
       const refreshUrl = new URL(url, window.location.origin);
       if (signature && !force) {
@@ -216,7 +222,10 @@ export function initExternalSheetRefresh() {
       if (!payload?.ok) {
         return;
       }
-      if (String(body.dataset.externalRefreshSignature || "") !== requestedSignature) {
+      if (
+        partialRevision !== requestedRevision
+        || String(body.dataset.externalRefreshSignature || "") !== requestedSignature
+      ) {
         return;
       }
       syncItemTransferCount(payload);
