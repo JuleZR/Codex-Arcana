@@ -3642,7 +3642,9 @@ def build_character_item_card_context(
             character_item,
             include_controls=include_controls,
         ),
-        modifier_payloads=stored_modifier_payloads,
+        modifier_payloads=_collapse_weapon_mastery_bonus_payloads(
+            stored_modifier_payloads,
+        ),
     )
     hidden_field_keys = player_display.hidden_field_keys if include_controls else display.hidden_field_keys
 
