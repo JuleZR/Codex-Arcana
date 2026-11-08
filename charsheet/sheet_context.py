@@ -3838,7 +3838,9 @@ def _build_item_tooltip_rows(
     modifier_payloads: list[dict[str, object]] | None = None,
 ) -> list[tuple[str, object]]:
     """Return structured item values for inventory-like tooltips."""
-    rows: list[tuple[str, object]] = [("Kaufpreis", f"{format_thousands(item_engine.get_price())} KM")]
+    rows: list[tuple[str, object]] = []
+    if not item.not_sellable:
+        rows.append(("Kaufpreis", f"{format_thousands(item_engine.get_price())} KM"))
 
     hardness = item_engine.get_hardness()
     structure = item_engine.get_structure_points()
