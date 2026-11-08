@@ -9193,6 +9193,22 @@ def _build_learning_rows(
     }
 
 
+def _build_attribute_calculation_tooltip(
+    engine, short_name: str, value: int,
+) -> str:
+    """Explain an effective attribute using the shared calculation table."""
+    adjustment = int(engine.runtime_attribute_adjustments.get(short_name, 0))
+    bonus = int(engine.resolve_attribute_bonus(short_name))
+    return _build_core_stat_tooltip([
+        {"label": "Grundwert", "value": value - bonus - adjustment},
+        *_build_modifier_breakdown_rows(
+            engine, short_name, target_domain="attribute",
+        ),
+        {"label": "Temporäre Änderung", "value": format_modifier(adjustment)},
+        {"label": "Gesamt", "value": value, "tone": "total"},
+    ])
+
+
 def build_temporary_attribute_context(
     character: Character,
     *,
@@ -9214,6 +9230,9 @@ def build_temporary_attribute_context(
             "value": attributes.get(short_name, 0),
             "modifier": attr_mods[short_name],
             "runtime_adjustment": int(engine.runtime_attribute_adjustments.get(short_name, 0)),
+            "calculation_tooltip": _build_attribute_calculation_tooltip(
+                engine, short_name, attributes.get(short_name, 0),
+            ),
         }
         for short_name, label in ATTRIBUTE_ORDER
     ]
@@ -9923,6 +9942,9 @@ def build_character_sheet_context(
             "value": attributes.get(short_name, 0),
             "modifier": attr_mods[short_name],
             "runtime_adjustment": int(engine.runtime_attribute_adjustments.get(short_name, 0)),
+            "calculation_tooltip": _build_attribute_calculation_tooltip(
+                engine, short_name, attributes.get(short_name, 0),
+            ),
         }
         for short_name, label in ATTRIBUTE_ORDER
     ]

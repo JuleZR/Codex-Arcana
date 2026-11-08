@@ -52,7 +52,7 @@
               >+</button>
             </div>
           </td>
-          <td class="value" data-attribute-value data-attribute-flavor role="button" tabindex="0" aria-label="{{ row.label }}: Beschreibung anzeigen" aria-haspopup="dialog" aria-live="polite">{{ row.value }}</td>
+          <td class="value tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.calculation_tooltip }}" data-attribute-value data-attribute-flavor role="button" tabindex="0" aria-label="{{ row.label }}: Beschreibung anzeigen" aria-haspopup="dialog" aria-live="polite">{{ row.value }}</td>
           <td class="mod"><span class="mod-badge">{{ row.modifier }}</span></td>
         </tr>
       {% endfor %}
