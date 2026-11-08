@@ -19,7 +19,7 @@
         </h3>
         {% if item_card.subtitle or item_card.controls %}
           <p class="floating-tooltip-card__subtitle">
-            {% if item_card.item_type_label %}<span data-sl-disclosure-target="item_type" data-actual="{{ item_card.item_type_label }}" data-hidden="Verborgen">{{ item_card.item_type_label }}</span>{% endif %}{% if item_card.item_type_label and item_card.quality_label %} - {% endif %}{% if item_card.quality_label %}<span data-sl-disclosure-target="quality" data-actual="{{ item_card.quality_label }}" data-hidden="Verborgen">{{ item_card.quality_label }}</span>{% endif %}
+            {% if item_card.item_type_label %}<span data-sl-disclosure-target="item_type" data-actual="{{ item_card.item_type_label }}" data-hidden="Verborgen">{{ item_card.item_type_label }}</span>{% endif %}{% if item_card.item_type_label and item_card.quality_label %}<span data-sl-subtitle-separator{% if item_card.item_type_label == item_card.quality_label %} hidden{% endif %}> - </span>{% endif %}{% if item_card.quality_label %}<span data-sl-disclosure-target="quality" data-actual="{{ item_card.quality_label }}" data-hidden="Verborgen"{% if item_card.item_type_label == item_card.quality_label %} hidden{% endif %}>{{ item_card.quality_label }}</span>{% endif %}
             {% if item_card.controls and item_card.field_controls.item_type %}
               <span class="sl-card-lock-control sl-card-lock-control--meta">
                 <input type="hidden" name="disclosure_present_item_type" value="1" form="{{ disclosure_form_id }}">

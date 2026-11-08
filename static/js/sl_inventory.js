@@ -971,6 +971,14 @@ document.addEventListener("DOMContentLoaded", () => {
         target.textContent = lockedValue;
       }
     });
+    if (fieldKey === "item_type" || fieldKey === "quality") {
+      const itemType = card.querySelector("[data-sl-disclosure-target='item_type']");
+      const quality = card.querySelector("[data-sl-disclosure-target='quality']");
+      const separator = card.querySelector("[data-sl-subtitle-separator]");
+      const duplicate = Boolean(itemType && quality && itemType.textContent === quality.textContent);
+      if (quality) quality.hidden = duplicate;
+      if (separator) separator.hidden = duplicate;
+    }
   };
 
   const syncEffectControl = (control) => {

@@ -3591,6 +3591,11 @@ def _item_structure_context(character_item: CharacterItem) -> dict:
     }
 
 
+def _item_type_quality_subtitle(item_type: str, quality: str) -> str:
+    parts = dict.fromkeys(part for part in (item_type, quality) if part)
+    return " - ".join(parts)
+
+
 def build_character_item_card_context(
     character_item: CharacterItem,
     viewer=None,
@@ -3652,7 +3657,7 @@ def build_character_item_card_context(
             if part
         )
 
-    quality_label = "" if "quality" in hidden_field_keys and not include_controls else display.quality_label
+    quality_label = display.quality_label
     quality_color = (
         quality["color"] if item.item_type.shows_quality
         and ("quality" not in hidden_field_keys or include_controls) else ""
@@ -3717,7 +3722,9 @@ def build_character_item_card_context(
         "title": display.name,
         "item_type_label": display.item_type,
         "quality_label": quality_label,
-        "subtitle": " - ".join(part for part in [display.item_type, quality_label] if part),
+        "subtitle": _item_type_quality_subtitle(
+            display.item_type, quality_label,
+        ),
         "image_url": player_display.image_url if include_controls else display.image_url,
         "actual_image_url": display.image_url,
         "accent": quality_color,
@@ -6623,17 +6630,9 @@ def _build_inventory_rows(
                     if is_race_item or "quality" in display.hidden_field_keys
                     else quality["color"]
                 ),
-                "tooltip_subtitle": " - ".join(
-                    part
-                    for part in [
-                        display.item_type,
-                        (
-                            ""
-                            if is_race_item
-                            else display.quality_label
-                        ),
-                    ]
-                    if part
+                "tooltip_subtitle": _item_type_quality_subtitle(
+                    display.item_type,
+                    "" if is_race_item else display.quality_label,
                 ),
                 "item_image_url": item_image_url,
                 "tooltip_text": (
@@ -7022,8 +7021,9 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
                 "show_maneuver_badge": len(display_options) > 1,
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "tooltip_subtitle": " - ".join(
-                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
+                "tooltip_subtitle": _item_type_quality_subtitle(
+                    display.item_type,
+                    "" if is_race_item else display.quality_label,
                 ),
                 "item_image_url": item_image_url,
                 "sl_reveal_url": sl_reveal_url,
@@ -7201,8 +7201,9 @@ def _build_armor_rows(engine, *, sl_effect_group_id: int | None = None) -> list[
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "tooltip_subtitle": " - ".join(
-                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
+                "tooltip_subtitle": _item_type_quality_subtitle(
+                    display.item_type,
+                    "" if is_race_item else display.quality_label,
                 ),
                 "item_image_url": item_image_url,
                 "sl_reveal_url": sl_reveal_url,
@@ -7281,8 +7282,9 @@ def _build_armor_rows(engine, *, sl_effect_group_id: int | None = None) -> list[
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "tooltip_subtitle": " - ".join(
-                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
+                "tooltip_subtitle": _item_type_quality_subtitle(
+                    display.item_type,
+                    "" if is_race_item else display.quality_label,
                 ),
                 "item_image_url": item_image_url,
                 "sl_reveal_url": sl_reveal_url,
@@ -7352,8 +7354,9 @@ def _build_armor_rows(engine, *, sl_effect_group_id: int | None = None) -> list[
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "tooltip_subtitle": " - ".join(
-                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
+                "tooltip_subtitle": _item_type_quality_subtitle(
+                    display.item_type,
+                    "" if is_race_item else display.quality_label,
                 ),
                 "item_image_url": item_image_url,
                 "sl_reveal_url": sl_reveal_url,
@@ -7423,8 +7426,9 @@ def _build_armor_rows(engine, *, sl_effect_group_id: int | None = None) -> list[
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "tooltip_subtitle": " - ".join(
-                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
+                "tooltip_subtitle": _item_type_quality_subtitle(
+                    display.item_type,
+                    "" if is_race_item else display.quality_label,
                 ),
                 "item_image_url": item_image_url,
                 "sl_reveal_url": sl_reveal_url,
