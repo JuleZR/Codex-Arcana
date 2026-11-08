@@ -2093,6 +2093,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
         payload_rules_text = str(payload.get("rules_text") or "").strip()
         payload_scale_source = str(payload.get("scale_source") or "").strip()
         payload_scale_divisor = payload.get("scale_divisor") or ""
+        payload_operator = str(payload.get("operator") or "")
         payload_active_flag = bool(payload.get("active_flag", True))
         payload_toggleable = bool(payload.get("toggleable", False))
         payload_toggle_state_inverted = bool(payload.get("toggle_state_inverted", False))
@@ -2126,6 +2127,8 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             if str(candidate.get("scale_source") or "").strip() != payload_scale_source:
                 continue
             if (candidate.get("scale_divisor") or "") != payload_scale_divisor:
+                continue
+            if str(candidate.get("operator") or "") != payload_operator:
                 continue
             if bool(candidate.get("active_flag", True)) != payload_active_flag:
                 continue
@@ -2176,6 +2179,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "display_order": int(payload.get("display_order", 0) or 0),
                 "scale_source": payload_scale_source,
                 "scale_divisor": payload_scale_divisor,
+                "operator": payload_operator,
                 "active_flag": payload_active_flag,
                 "toggleable": payload_toggleable,
                 "toggle_state_inverted": payload_toggle_state_inverted,

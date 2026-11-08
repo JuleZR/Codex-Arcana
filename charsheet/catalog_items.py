@@ -36,7 +36,8 @@ from charsheet.own_inventory import (
     OwnInventorySettingsForm, reconcile_inventory,
 )
 from charsheet.sheet_context import (
-    _rune_image_url, _rune_inline_description,
+    _collapse_weapon_mastery_bonus_payloads, _rune_image_url,
+    _rune_inline_description,
     _serialize_item_semantic_effect_payload, build_character_item_card_context,
 )
 from charsheet.shop import (
@@ -690,12 +691,12 @@ def catalog_item_editor(request, item_id=None, group=None):
     )
     for requirement in requirements.forms:
         requirement.fields["DELETE"].label = "Voraussetzung entfernen"
-    payloads = json.dumps([
+    payloads = json.dumps(_collapse_weapon_mastery_bonus_payloads([
         _serialize_item_semantic_effect_payload(effect)
         for effect in ItemSemanticEffect.objects.filter(item=item).order_by(
             "sort_order", "id",
         ).prefetch_related("condition_races", "condition_schools")
-    ]) if item.pk else "[]"
+    ])) if item.pk else "[]"
     if data is not None:
         payloads = data.get("magic_modifier_payloads", "[]")
         valid = form.is_valid()
