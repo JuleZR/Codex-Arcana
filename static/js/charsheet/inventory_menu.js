@@ -1772,6 +1772,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   runeInvestedCpSelect?.addEventListener("change", syncWorkshopEffects);
   runeForm?.addEventListener("invalid", (event) => {
     const field = event.target;
+    // SelectFilter probes its optional lists with required + checkValidity().
+    if (catalogEditor && field.matches(".selector-available select, .selector-chosen select")) return;
     const panel = field.closest("[data-workshop-panel]");
     if (panel) showWorkshopPanel(panel.dataset.workshopPanel);
     const effect = field.closest("[data-magic-effect-row]");
