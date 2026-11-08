@@ -50,6 +50,8 @@ CATALOG_FIELD_LABELS = {
     "image": "Gegenstandsbild", "stackable": "Stapelbar",
     "hardness": "Härte", "structure_points": "Strukturpunkte",
     "is_consumable": "Verbrauchsgegenstand", "is_magic": "Magisch",
+    "magic_effects_without_equipping": "Magische Effekte auch ohne Ausrüsten",
+    "rune_effects_without_equipping": "Runeneffekte auch ohne Ausrüsten",
     "not_buyable": "Nicht kaufbar", "not_sellable": "Nicht verkaufbar",
     "invested_cp": "Investierte CP", "invested_cp_steps": "CP-Schritte",
     "default_quality": "Standardqualität", "material": "Material",
@@ -224,6 +226,8 @@ class CatalogItemForm(forms.ModelForm):
                     )),
                     ("Eigenschaften & Handel", (
                         "stackable", "is_consumable", "is_magic",
+                        "magic_effects_without_equipping",
+                        "rune_effects_without_equipping",
                         "not_buyable", "not_sellable",
                     )),
                     ("Investierte CP", ("invested_cp", "invested_cp_steps")),

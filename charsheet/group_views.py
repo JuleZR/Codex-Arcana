@@ -969,6 +969,12 @@ def game_master_screen(request, group_id: int):
             "invested_cp_steps": item.invested_cp_steps or "",
             "not_buyable": item.not_buyable,
             "not_sellable": item.not_sellable,
+            "magic_effects_without_equipping": (
+                inventory_item.magic_effects_without_equipping
+            ),
+            "rune_effects_without_equipping": (
+                inventory_item.rune_effects_without_equipping
+            ),
             "amount": inventory_item.amount,
         }
         for prefix, stats in (
@@ -3273,6 +3279,12 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
         )
         item.not_buyable = bool(request.POST.get("not_buyable"))
         item.not_sellable = bool(request.POST.get("not_sellable"))
+        item.magic_effects_without_equipping = bool(
+            request.POST.get("magic_effects_without_equipping")
+        )
+        item.rune_effects_without_equipping = bool(
+            request.POST.get("rune_effects_without_equipping")
+        )
         try:
             item.price = max(0, int(request.POST.get("price") or 0))
             item.weight = max(Decimal("0"), Decimal(str(request.POST.get("weight") or "0")))
@@ -3458,6 +3470,19 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
         instance.description = "" if description == str(instance.item.description or "").strip() else description
         instance.magic_effect_summary = ""
         instance.is_magic = bool(magic_modifier_payloads)
+        for field in (
+            "magic_effects_without_equipping",
+            "rune_effects_without_equipping",
+        ):
+            if (
+                "magic_effect_settings" in request.POST
+                or field in request.POST
+            ):
+                enabled = bool(request.POST.get(field))
+                setattr(instance, f"{field}_override", (
+                    enabled
+                    if enabled != getattr(instance.item, field) else None
+                ))
         if request.FILES.get("image_override"):
             instance.image_override = request.FILES["image_override"]
         raw_price = str(request.POST.get("price_override") or "").strip()
@@ -3531,6 +3556,8 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             update_fields=[
                 "amount", "quality", "name_override", "description",
                 "magic_effect_summary", "is_magic", "price_override",
+                "magic_effects_without_equipping_override",
+                "rune_effects_without_equipping_override",
                 "weight_override", "invested_cp", "size_class_override", "image_override",
                 "own_inventory_enabled", "own_inventory_capacity_kg",
                 "own_inventory_allowed_size_classes",

@@ -511,6 +511,12 @@ class CharacterItem(models.Model):
     description = models.TextField(blank=True, default="")
     image_override = models.ImageField(upload_to="character_items/", blank=True, null=True)
     is_magic = models.BooleanField(default=False)
+    magic_effects_without_equipping_override = models.BooleanField(
+        null=True, blank=True,
+    )
+    rune_effects_without_equipping_override = models.BooleanField(
+        null=True, blank=True,
+    )
     magic_effect_summary = models.TextField(blank=True, default="")
     invested_cp = models.PositiveSmallIntegerField(
         null=True,
@@ -732,6 +738,21 @@ class CharacterItem(models.Model):
         return self.item_type_override or self.item.item_type
 
     @staticmethod
+    def magic_effects_active_filter(*, runes=False):
+        field = (
+            "rune_effects_without_equipping" if runes
+            else "magic_effects_without_equipping"
+        )
+        return (
+            models.Q(equipped=True)
+            | models.Q(**{f"{field}_override": True})
+            | models.Q(**{
+                f"{field}_override__isnull": True,
+                f"item__{field}": True,
+            })
+        )
+
+    @staticmethod
     def type_filter(**capabilities):
         """Match the instance type, falling back to its catalog type."""
         return models.Q(**{
@@ -755,6 +776,18 @@ class CharacterItem(models.Model):
         if item.item_type.forbids_stacking:
             item.stackable = False
         return item
+
+    @property
+    def magic_effects_without_equipping(self):
+        if self.magic_effects_without_equipping_override is not None:
+            return self.magic_effects_without_equipping_override
+        return self.item.magic_effects_without_equipping
+
+    @property
+    def rune_effects_without_equipping(self):
+        if self.rune_effects_without_equipping_override is not None:
+            return self.rune_effects_without_equipping_override
+        return self.item.rune_effects_without_equipping
 
     @property
     def is_magic_effective(self) -> bool:

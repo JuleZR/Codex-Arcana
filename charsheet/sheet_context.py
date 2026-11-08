@@ -6776,6 +6776,12 @@ def _build_inventory_rows(
                         "size_class": item_engine.get_size_class(),
                         "not_buyable": bool(item.not_buyable),
                         "not_sellable": bool(item.not_sellable),
+                        "magic_effects_without_equipping": (
+                            character_item.magic_effects_without_equipping
+                        ),
+                        "rune_effects_without_equipping": (
+                            character_item.rune_effects_without_equipping
+                        ),
                         "weapon_type": item_engine.get_weapon_type(),
                         "weapon_min_st": item_engine.get_weapon_min_st(),
                         "weapon_maneuver_attribute": (

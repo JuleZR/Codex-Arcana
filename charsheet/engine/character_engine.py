@@ -578,6 +578,24 @@ class CharacterEngine:
         )
 
     @cached_property
+    def _active_item_runes_for_semantic_effects(self):
+        items = CharacterItem.objects.filter(
+            CharacterItem.magic_effects_active_filter(runes=True),
+            owner=self.character,
+        ).exclude(
+            pk__in=ItemTransfer.objects.filter(
+                status=ItemTransfer.Status.PENDING,
+                transfer_kind=ItemTransfer.TransferKind.OWNERSHIP,
+                item_id__isnull=False,
+            ).values("item_id"),
+        )
+        return (
+            ItemRune.objects.filter(item__in=items, is_active=True)
+            .select_related("item", "item__item", "rune")
+            .prefetch_related("rune__semantic_effects")
+        )
+
+    @cached_property
     def _equipped_items_for_semantic_effects(self):
         """Cache equipped effects plus owned artefact and school effects."""
         return (
@@ -590,7 +608,7 @@ class CharacterEngine:
                 ).values("item_id")
             )
             .filter(
-                Q(equipped=True)
+                CharacterItem.magic_effects_active_filter()
                 | Q(item__semantic_effects__target_domain="school_level")
                 | Q(semantic_effects__target_domain="school_level")
                 | Q(

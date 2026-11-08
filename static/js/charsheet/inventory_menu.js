@@ -1580,6 +1580,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       "shield_parade_bonus",
       "not_buyable",
       "not_sellable",
+      "magic_effects_without_equipping",
+      "rune_effects_without_equipping",
     ].forEach((fieldName) => {
       setFormValue(fieldName, modifyPayload[fieldName]);
     });

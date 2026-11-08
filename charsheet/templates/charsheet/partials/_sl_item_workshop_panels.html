@@ -28,6 +28,14 @@
                     </section>
                     <section class="workshop_panel" id="workshopPanel-advanced-{{ instance.id }}" data-sl-workshop-panel="advanced" role="tabpanel" aria-labelledby="workshopTab-advanced-{{ instance.id }}" hidden>
                     <h2>Erweitert</h2>
+                    <details class="workshop_accordion">
+                      <summary>Eigenschaften &amp; Handel</summary>
+                      <div class="workshop_accordion_body">
+                        <input type="hidden" name="magic_effect_settings" value="1">
+                        <label class="shop_item_form_check"><input type="checkbox" name="magic_effects_without_equipping" value="1"{% if instance.magic_effects_without_equipping %} checked{% endif %}><span>Magische Effekte auch ohne Ausrüsten</span></label>
+                        <label class="shop_item_form_check"><input type="checkbox" name="rune_effects_without_equipping" value="1"{% if instance.rune_effects_without_equipping %} checked{% endif %}><span>Runeneffekte auch ohne Ausrüsten</span></label>
+                      </div>
+                    </details>
                     {% include "charsheet/partials/item_editor/_own_inventory_fields.html" with inventory_stat=instance.own_inventory_stat %}
                     <details class="workshop_accordion">
                       <summary>Investierte CP und CP-Schritte</summary>

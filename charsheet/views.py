@@ -129,6 +129,7 @@ from .models import (
     Lesson,
     Organization,
     Rune,
+    RuneSemanticEffect,
     School,
     ShamanPatron,
     Skill,
@@ -473,6 +474,16 @@ def _equipment_action_partial_keys(
         ]
     if effects:
         for key in _item_semantic_effect_toggle_partial_keys(effects):
+            _append_partial_key(keys, key)
+
+    if character_item.rune_effects_without_equipping:
+        rune_effects = RuneSemanticEffect.objects.filter(
+            rune_id__in=character_item.item_runes.filter(
+                is_active=True,
+            ).values("rune_id"),
+            active_flag=True,
+        )
+        for key in _item_semantic_effect_toggle_partial_keys(rune_effects):
             _append_partial_key(keys, key)
 
     if character_item.item_runes.filter(
@@ -8928,7 +8939,10 @@ def _shop_cart_partial_keys(character, payload, buy_key, sell_key):
         if item.item_type.is_armor or item.item_type.is_shield:
             _append_partial_key(keys, "armor_panel")
     for owned in sold_items:
-        if owned.equipped:
+        if (
+            owned.equipped or owned.magic_effects_without_equipping
+            or owned.rune_effects_without_equipping
+        ):
             for key in _equipment_action_partial_keys(owned):
                 _append_partial_key(keys, key)
     effects = [

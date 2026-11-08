@@ -289,12 +289,14 @@ class ModifierEngine:
 
     @cached_property
     def _active_item_rune_modifiers(self) -> list[BaseModifier]:
-        """Resolve active equipped ItemRune assignments into semantic modifiers."""
+        """Resolve active ItemRune assignments into semantic modifiers."""
         if self.character_engine is None:
             return []
         modifiers: list[BaseModifier] = []
         first_item_id_by_rune_id: dict[int, int] = {}
-        for item_rune in self.character_engine._equipped_item_runes:
+        for item_rune in (
+            self.character_engine._active_item_runes_for_semantic_effects
+        ):
             rune = item_rune.rune
             first_item_id = first_item_id_by_rune_id.get(rune.id)
             if first_item_id is None:
@@ -385,7 +387,8 @@ class ModifierEngine:
         for character_item in equipped_items:
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
                 if not character_item.equipped and not (
-                    effect.target_domain == TargetDomain.SCHOOL_LEVEL
+                    character_item.magic_effects_without_equipping
+                    or effect.target_domain == TargetDomain.SCHOOL_LEVEL
                     or (
                         effect.target_domain == "resource"
                         and effect.target_key == ARTIFACT_RANK
@@ -420,6 +423,7 @@ class ModifierEngine:
                 and is_character_item_effect_identified(effect.character_item, effect)
                 and (
                     effect.character_item.equipped
+                    or effect.character_item.magic_effects_without_equipping
                     or effect.target_domain == TargetDomain.SCHOOL_LEVEL
                     or (
                         effect.target_domain == "resource"
@@ -1244,9 +1248,9 @@ class ModifierEngine:
                 return False
 
             return CharacterItem.objects.filter(
+                CharacterItem.magic_effects_active_filter(),
                 pk=character_item_id,
                 owner=self.character_engine.character,
-                equipped=True,
             ).exists()
 
         if source_type == "item":
@@ -1260,9 +1264,9 @@ class ModifierEngine:
                 return False
 
             return CharacterItem.objects.filter(
+                CharacterItem.magic_effects_active_filter(),
                 pk=character_item_id,
                 owner=self.character_engine.character,
-                equipped=True,
             ).exists()
 
         return True
@@ -1864,7 +1868,8 @@ class ModifierEngine:
             return source_id is not None and source_id in self.character_engine._trait_levels
         if source_type == SOURCE_ITEM_RUNE:
             return source_id is not None and any(
-                item_rune.id == source_id for item_rune in self.character_engine._equipped_item_runes
+                item_rune.id == source_id for item_rune in
+                self.character_engine._active_item_runes_for_semantic_effects
             )
         if source_type == "rune":
             return source_id is not None and self.character_engine.is_rune_equipped(source_id)
@@ -2045,7 +2050,9 @@ class ModifierEngine:
             item_rune_id = self._coerce_source_id(modifier.source_id)
             if item_rune_id is None:
                 return None
-            for item_rune in self.character_engine._equipped_item_runes:
+            for item_rune in (
+                self.character_engine._active_item_runes_for_semantic_effects
+            ):
                 if int(item_rune.id) == item_rune_id:
                     return int(item_rune.crafter_level)
             return None

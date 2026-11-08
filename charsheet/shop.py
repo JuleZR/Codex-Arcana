@@ -1278,6 +1278,16 @@ def apply_character_item_modifications(
             character_item.quality_id = quality
             character_item.runes.set(unique_runes)
             character_item.description = description
+            for field in (
+                "magic_effects_without_equipping",
+                "rune_effects_without_equipping",
+            ):
+                if "magic_effect_settings" in post_data or field in post_data:
+                    without_equipping = bool(post_data.get(field))
+                    setattr(character_item, f"{field}_override", (
+                        without_equipping
+                        if without_equipping != getattr(item, field) else None
+                    ))
             character_item.is_magic = is_magic
             character_item.magic_effect_summary = magic_effect_summary
             character_item.invested_cp = invested_cp or None

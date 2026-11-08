@@ -112,9 +112,18 @@
 {% else %}
               {% include "charsheet/partials/item_editor/_own_inventory_fields.html" %}
               <details class="workshop_accordion">
-                <summary>Handel und Verfügbarkeit</summary>
+                <summary>Eigenschaften &amp; Handel</summary>
                 <div class="workshop_accordion_body">
+                  <input type="hidden" name="magic_effect_settings" value="1">
                   <div class="shop_item_form_grid shop_item_form_grid--equal">
+                    <label class="shop_item_form_check">
+                      <input type="checkbox" name="magic_effects_without_equipping" value="1">
+                      <span>Magische Effekte auch ohne Ausrüsten</span>
+                    </label>
+                    <label class="shop_item_form_check">
+                      <input type="checkbox" name="rune_effects_without_equipping" value="1">
+                      <span>Runeneffekte auch ohne Ausrüsten</span>
+                    </label>
                     <label class="shop_item_form_check">
                       <input type="checkbox" name="not_buyable" id="runeRetrofitNotBuyableInput" value="1">
                       <span>Nicht kaufbar</span>

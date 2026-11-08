@@ -505,6 +505,12 @@ class Item(models.Model):
     structure_points = models.PositiveIntegerField(null=True, blank=True)
     is_consumable = models.BooleanField(default=False)
     is_magic = models.BooleanField(default=False)
+    magic_effects_without_equipping = models.BooleanField(
+        "Magische Effekte auch ohne Ausrüsten", default=False,
+    )
+    rune_effects_without_equipping = models.BooleanField(
+        "Runeneffekte auch ohne Ausrüsten", default=False,
+    )
     not_buyable = models.BooleanField(default=False)
     not_sellable = models.BooleanField(default=False)
     invested_cp = models.PositiveSmallIntegerField(
