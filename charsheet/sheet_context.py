@@ -2809,6 +2809,11 @@ def _build_character_item_magic_tooltip_rows(
         effect_description = _single_line(str(payload.get("effect_description") or ""))
         rules_text = _single_line(str(payload.get("rules_text") or ""))
         invested_cp = payload.get("invested_cp", "")
+        if not rules_text and _magic_pipe_parts(
+            effect_description, invested_cp=invested_cp,
+        )[0]:
+            rules_text = effect_description
+            effect_description = ""
         try:
             value = Decimal(
                 str(payload.get("effective_value", payload.get("value")) or 0)
