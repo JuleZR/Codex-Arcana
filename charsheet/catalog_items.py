@@ -386,6 +386,43 @@ def _stat_formsets(item, data=None, files=None):
                 form.weapon_management_fields = [
                     *form.hidden_fields(), form["DELETE"],
                 ]
+            if model is RangedWeaponStats:
+                form.fields["skills"].queryset = Skill.objects.filter(
+                    category__slug=SKILL_COMBAT,
+                ).order_by("name")
+                for name in ("flags", "skills"):
+                    field = form.fields[name]
+                    field.widget = FilteredSelectMultiple(
+                        field.label, is_stacked=False, choices=field.choices,
+                    )
+                for name, label in (
+                    ("damage_dice_amount", "Würfel"),
+                    ("damage_dice_faces", "W"),
+                    ("damage_flat_operator", "Operator"),
+                    ("damage_flat_bonus", "Bonus"),
+                ):
+                    form.fields[name].label = label
+                form.weapon_sections = [
+                    {"title": title, "layout": layout,
+                     "fields": [form[name] for name in names.split()]}
+                    for title, layout, names in (
+                        ("Profil", "profile",
+                         "weapon_type maneuver_attribute_mode"),
+                        ("Voraussetzungen", "requirements",
+                         "minimum_strength"),
+                        ("Schaden", "damage",
+                         "damage_label damage_dice_amount damage_dice_faces "
+                         "damage_flat_operator damage_flat_bonus damage_type"),
+                        ("Reichweite & Schussfolge", "range",
+                         "range_short range_medium range_long "
+                         "range_strength_multiplier reload_time shots"),
+                        ("Eigenschaften & Fertigkeiten", "assignments",
+                         "flags skills"),
+                    )
+                ]
+                form.weapon_management_fields = [
+                    *form.hidden_fields(), form["DELETE"],
+                ]
             if "parent_set" in form.fields:
                 form.fields["parent_set"].queryset = ArmorStats.objects.filter(
                     item__catalog_group__isnull=True,
@@ -576,10 +613,16 @@ def _catalog_card_preview(item, post, effects, viewer):
 @login_required
 @require_GET
 def staff_items(request):
-    _require_staff_permission(request.user, "change")
+    if not (request.user.is_staff and (
+        request.user.has_perm("charsheet.change_item")
+        or request.user.has_perm("charsheet.add_item")
+    )):
+        raise PermissionDenied
     items = Item.objects.filter(catalog_group__isnull=True).select_related(
         "item_type", "default_quality",
     ).order_by("name", "pk")
+    if not request.user.has_perm("charsheet.change_item"):
+        items = items.none()
     query = str(request.GET.get("q") or "").strip()
     if query:
         items = items.filter(name__icontains=query)

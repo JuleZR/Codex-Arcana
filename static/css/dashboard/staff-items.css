@@ -135,7 +135,33 @@
 .staff-catalog__empty { text-align: center; padding: 40px !important; color: #806950; }
 .staff-catalog__pagination { display: flex; justify-content: center; align-items: center; gap: 20px; padding: 12px 20px; border-top: 1px solid #c8a983; font-size: 12px; }
 .staff-catalog__pagination a { color: #813d36; text-decoration: none; }
+.workshop_resources[hidden] { display: none; }
+.staff-workshop { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; min-height: 0; height: 82dvh; overflow: hidden; }
+.staff-workshop .staff-catalog { min-width: 0; border-right: 1px solid #95734f; background: linear-gradient(145deg, #ede0cbd9, #d8c5a9e8); }
+.staff-catalog__heading { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.staff-catalog__heading h2 { margin: 0; color: #503524; font: 600 16px "Segoe UI", sans-serif; }
+.staff-catalog__heading .dashboard_button { min-height: 32px; padding: 7px 12px; border: 1px solid #718eae; border-radius: 3px; background: linear-gradient(110deg, #2b4160, #4d729a, #2c456c); color: #f9e7c7; text-align: center; text-decoration: none; font: 600 12px "Segoe UI", sans-serif; }
+.staff-workshop .staff-catalog__toolbar { display: grid; gap: 10px; padding: 0 16px 14px; }
+.staff-workshop .staff-catalog__search { min-width: 0; }
+.staff-workshop .staff-catalog__toolbar input,
+.staff-workshop .staff-catalog__toolbar select { width: 100%; min-width: 0; box-sizing: border-box; }
+.staff-catalog__results { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.staff-workshop .staff-catalog__count { margin: 0; padding: 9px 16px; background: transparent; color: #806950; font-size: 12px; }
+.staff-catalog__list { margin: 0; padding: 0; list-style: none; }
+.staff-catalog__list a { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 12px 16px; border-bottom: 1px solid #c8a98370; color: #503524; text-decoration: none; overflow-wrap: anywhere; }
+.staff-catalog__list a:hover { background: #fffaf070; }
+.staff-catalog__list a[aria-current] { background: #fffaf0b0; box-shadow: inset 3px 0 #4d729a; }
+.staff-catalog__list a:focus-visible { outline: 2px solid #4d729a; outline-offset: -2px; }
+.staff-catalog__meta { font-size: 11px; line-height: 1.5; color: #806950; }
+.staff-catalog__list .staff-catalog__badge { margin-left: 0; }
+.staff-workshop .staff-catalog__pagination { justify-content: space-between; gap: 8px; padding: 12px; }
+.staff-catalog__error { margin: 0; padding: 12px 16px; color: #8b2018; }
+.staff-workshop__editor { position: relative; min-width: 0; min-height: 0; background: #fffaf018; }
+.staff-workshop__frame { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
+.staff-workshop__frame[hidden], .staff-workshop__empty[hidden] { display: none; }
+.staff-workshop__empty { margin: 0; padding: 32px; color: #806950; font-size: 14px; }
 @media (max-width: 760px) {
+  .staff-workshop { grid-template-columns: 210px minmax(0, 1fr); }
   .catalog-weapon-sections { grid-template-columns: minmax(0, 1fr); }
   #runeRetrofitWindow[data-dashboard-item-window] { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
   #runeRetrofitWindow[data-dashboard-item-window] .workshop_header p { display: none; }
@@ -148,6 +174,10 @@
   .staff-catalog__table th:nth-child(3), .staff-catalog__table td:nth-child(3) { display: none; }
 }
 @media (max-width: 480px) {
+  .staff-workshop { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(150px, 30%) minmax(0, 1fr); }
+  .staff-workshop .staff-catalog { border-right: 0; border-bottom: 1px solid #95734f; }
+  .staff-catalog__heading { flex-direction: row; align-items: center; justify-content: space-between; padding: 8px 12px; }
+  .staff-workshop .staff-catalog__toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 0 12px 8px; }
   .catalog-weapon-section--profile .catalog-fields,
   .catalog-weapon-section--requirements .catalog-fields,
   .catalog-weapon-section--assignments .catalog-fields { grid-template-columns: minmax(0, 1fr); }

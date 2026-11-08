@@ -33,7 +33,7 @@ if (win && frame && backdrop && closeButton) {
       if (!win.classList.contains("is-open")) previousFocus = button;
       const url = new URL(button.dataset.openStaffItems, window.location.origin);
       url.searchParams.set("embedded", "1");
-      frame.src = url.href;
+      if (!frame.getAttribute("src")) frame.src = url.href;
       document.getElementById("dashboardItemWindowTitle").textContent = button.dataset.itemWindowTitle;
       backdrop.hidden = false;
       document.body.classList.add("staff-items-open");
@@ -56,6 +56,7 @@ if (win && frame && backdrop && closeButton) {
     const price = Number(event.data.price);
     const count = Number(event.data.runeCount);
     if (!Number.isFinite(price) || !Number.isInteger(count)) return;
+    document.querySelector("[data-staff-item-resources]").hidden = false;
     document.querySelector("[data-staff-item-price]").textContent = `${new Intl.NumberFormat("de-DE").format(price)} KS`;
     document.querySelector("[data-staff-item-runes]").textContent = `${count} / 5`;
   });

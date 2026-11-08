@@ -19,8 +19,8 @@
     <link rel="stylesheet" href="{% static 'css/dashboard/refit.css' %}?v=20261026-version-position">
     <script defer src="{% static 'js/dashboard_register.js' %}?v=20261016a"></script>
     {% if request.user.is_staff %}
-      <link rel="stylesheet" href="{% static 'css/dashboard/staff-items.css' %}?v=20261102-item-button-blue">
-      <script type="module" src="{% static 'js/dashboard_items.js' %}?v=20261102-overlay-workshop4"></script>
+      <link rel="stylesheet" href="{% static 'css/dashboard/staff-items.css' %}?v=20261108-integrated-catalog">
+      <script type="module" src="{% static 'js/dashboard_items.js' %}?v=20261108-integrated-catalog"></script>
     {% endif %}
     <script type="module" src="{% static 'js/dddice.js' %}?v=20261007-single-result"></script>
 
@@ -43,14 +43,7 @@
               <button type="button" class="dashboard_button dashboard_button--sidebar" id="openAccountSettings">Kontoeinstellungen</button>
               {% if request.user.is_staff %}
                 {% if perms.charsheet.add_item or perms.charsheet.change_item %}
-                <div class="dashboard_user_actions_row">
-                {% if perms.charsheet.add_item %}
-                  <button type="button" class="dashboard_button dashboard_button--sidebar" data-open-staff-items="{% url 'staff_item_create' %}" data-item-window-title="Item erstellen">Item erstellen</button>
-                {% endif %}
-                {% if perms.charsheet.change_item %}
-                  <button type="button" class="dashboard_button dashboard_button--sidebar" data-open-staff-items="{% url 'staff_items' %}" data-item-window-title="Items verwalten">Items verwalten</button>
-                {% endif %}
-                </div>
+                <button type="button" class="dashboard_button dashboard_button--sidebar" data-open-staff-items="{% url 'staff_items' %}" data-item-window-title="Item-Werkstatt">Item-Werkstatt</button>
                 {% endif %}
               {% endif %}
               <div class="dashboard_user_actions_row">
@@ -228,13 +221,11 @@
         <section class="payday-window sheet-window sheet-window--editor-modal" id="runeRetrofitWindow" data-dashboard-item-window aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dashboardItemWindowTitle">
           <div class="payday-window__titlebar sheet-window__header workshop_header" data-staff-items-handle>
             <div class="sheet-window__heading"><h3 class="sheet-window__title" id="dashboardItemWindowTitle">Itemwerkstatt</h3><p>Gruppenunabhängige Items erstellen und bearbeiten.</p></div>
-            <div class="workshop_resources" data-staff-item-resources>
+            <div class="workshop_resources" data-staff-item-resources hidden>
               <div><span>Gegenstandswert</span><strong data-staff-item-price>0 KS</strong></div>
               <div><span>Runenplätze</span><strong data-staff-item-runes>0 / 5</strong></div>
             </div>
             <div class="sheet-window__actions">
-              {% if perms.charsheet.add_item %}<button type="button" class="dashboard_button" data-open-staff-items="{% url 'staff_item_create' %}" data-item-window-title="Item erstellen">Item erstellen</button>{% endif %}
-              {% if perms.charsheet.change_item %}<button type="button" class="dashboard_button" data-open-staff-items="{% url 'staff_items' %}" data-item-window-title="Items verwalten">Items verwalten</button>{% endif %}
               <button type="button" class="payday-window__close sheet-window__close" data-close-staff-items aria-label="Itemwerkstatt schließen">&#215;</button>
             </div>
           </div>
