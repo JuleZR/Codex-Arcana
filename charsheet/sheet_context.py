@@ -6,6 +6,7 @@ from collections import OrderedDict, defaultdict
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_FLOOR
 import json
 import math
+import re
 
 from django.db.models import F, Prefetch, Q
 from django.urls import reverse
@@ -2543,6 +2544,17 @@ def _build_character_item_magic_tooltip_rows(
     def grouped_line_for(group_entries: list[dict[str, object]], main_entry: dict[str, object]) -> str:
         titles = _unique_text([entry.get("group_title") for entry in group_entries])
         effects = _unique_text([entry.get("group_effect") for entry in group_entries])
+        weapon_values: dict[str, list[tuple[int, str]]] = defaultdict(list)
+        for index, effect in enumerate(effects):
+            match = re.fullmatch(r"([+-]\d+(?:,\d+)?) (Manöver|Schaden)", effect)
+            if match:
+                weapon_values[match[2]].append((index, match[1]))
+        if len(weapon_values["Manöver"]) == len(weapon_values["Schaden"]) == 1:
+            maneuver_index, maneuver_value = weapon_values["Manöver"][0]
+            damage_index, damage_value = weapon_values["Schaden"][0]
+            first_index = min(maneuver_index, damage_index)
+            effects[first_index] = f"{maneuver_value} / {damage_value}"
+            effects.pop(max(maneuver_index, damage_index))
         suffixes = _unique_text(
             [
                 *[entry.get("group_suffix") for entry in group_entries],
