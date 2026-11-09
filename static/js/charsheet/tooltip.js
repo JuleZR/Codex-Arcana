@@ -971,7 +971,7 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   }
 
   return {
-    leadHtml: createTooltipCardTableMarkup(table, topRows) || table.outerHTML,
+    leadHtml: createTooltipCardTableMarkup(table, topRows),
     extraHtml: extras.join(""),
   };
 }
