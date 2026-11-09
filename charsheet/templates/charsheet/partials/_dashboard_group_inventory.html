@@ -172,59 +172,10 @@
             <div class="sl-inventory-catalog-item">
               <span><strong>{{ item.name }}</strong><small>{{ item.get_item_type_display }}</small></span>
               {% if not group_row.group.is_archived %}
-                <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="catalog-edit-{{ item.id }}" aria-label="Basisitem bearbeiten" title="Basisitem bearbeiten">
+                <button type="button" class="sl-inventory-icon-button" data-open-sl-catalog-editor="{% url 'edit_group_catalog_item' group_row.group.id item.id %}?embedded=1" aria-label="Basisitem bearbeiten" title="Basisitem bearbeiten">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Zm12.5-16.5 4 4 1-1a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-1 1Z"/></svg>
                 </button>
               {% endif %}
-            </div>
-            <div class="sl-inventory-action-row" id="catalog-edit-{{ item.id }}" hidden>
-              <form method="post" enctype="multipart/form-data" action="{% url 'edit_group_catalog_item' group_row.group.id item.id %}" class="sl-inventory-catalog-form sl-editor-form">
-                {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
-                <section class="sl-editor-card">
-                  <header><span>Basisitem</span><h4>Grunddaten</h4></header>
-                  <div class="sl-editor-grid">
-                    <label class="sl-editor-grid__wide"><span>Name</span><input name="name" required maxlength="200" value="{{ item.name }}"></label>
-                    <label><span>Typ</span><select name="item_type">{% if not item.item_type.is_active %}<option value="{{ item.item_type_id }}" selected>{{ item.item_type.name }}</option>{% endif %}{% for value,label in group_inventory_item_types %}<option value="{{ value }}"{% if value == item.item_type_id %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-                    <label><span>Standardqualität</span><select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == item.default_quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
-                    <label><span>Preis (KS)</span><input name="price" type="number" min="0" value="{{ item.price }}"></label>
-                    <label><span>Gewicht</span><input name="weight" type="number" min="0" step=".001" value="{{ item.weight }}"></label>
-                    <label data-item-size-field{% if not item.item_type.supports_GK %} hidden{% endif %}><span>Größenklasse</span><select name="size_class">{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if value == item.size_class %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-                    <label><span>Investierte CP</span><input name="invested_cp" type="number" min="0" step="1" value="{{ item.invested_cp|default_if_none:'' }}"></label>
-                    <label><span>CP-Schritte</span><input name="invested_cp_steps" type="text" maxlength="200" value="{{ item.invested_cp_steps }}" placeholder="z. B. 2/4/6/8/10"></label>
-                    <label class="sl-editor-grid__wide"><span>Bild</span><input name="image" type="file" accept="image/*"></label>
-                    <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="5">{{ item.description }}</textarea></label>
-                    {% if item.item_type.supports_substance_stats %}
-                      {% substance_stats_form item as substance_form %}
-                      {% for field in substance_form %}
-                        <label class="sl-editor-grid__wide"><span>{{ field.label }}</span>{{ field }}</label>
-                      {% endfor %}
-                    {% endif %}
-                  </div>
-                  <div class="sl-editor-checks">
-                    <label><input name="stackable" type="checkbox"{% if item.stackable %} checked{% endif %}> Stapelbar</label>
-                    <label><input name="is_consumable" type="checkbox"{% if item.is_consumable %} checked{% endif %}> Verbrauchbar</label>
-                    <label><input name="is_magic" type="checkbox"{% if item.is_magic %} checked{% endif %}> Magisch</label>
-                    <label><input name="not_buyable" type="checkbox"{% if item.not_buyable %} checked{% endif %}> Nicht kaufbar</label>
-                    <label><input name="not_sellable" type="checkbox"{% if item.not_sellable %} checked{% endif %}> Nicht verkaufbar</label>
-                    <label><input name="remove_catalog_group" type="checkbox" value="1"> Aus Gruppenkatalog l&ouml;sen</label>
-                  </div>
-                </section>
-                <section class="sl-editor-card">
-                  <header><span>Basisitem</span><h4>Runen</h4></header>
-                  <input type="hidden" name="rune_ids_present" value="1">
-                  <div class="sl-rune-picker" data-sl-rune-picker>
-                    <button type="button" class="sl-rune-picker__trigger" data-sl-rune-trigger aria-expanded="false"><span data-sl-rune-label>Keine Runen ausgewählt</span><strong data-sl-rune-count>0</strong></button>
-                    <div class="sl-rune-picker__panel" data-sl-rune-panel hidden>
-                      <input type="search" placeholder="Runen durchsuchen ..." aria-label="Runen durchsuchen" data-sl-rune-search>
-                      <div class="sl-rune-picker__list" data-sl-rune-list>{% for rune in group_inventory_runes %}<label data-rune-search="{{ rune.name|lower }} {{ rune.description|default:''|lower }}"><input type="checkbox" name="rune_ids" value="{{ rune.pk }}"{% if rune in item.runes.all %} checked{% endif %}> <span><strong>{{ rune.name }}</strong><small>{{ rune.description|default:"Keine Beschreibung vorhanden." }}</small></span></label>{% empty %}<p>Keine Runen verfügbar.</p>{% endfor %}</div>
-                    </div>
-                  </div>
-                </section>
-                <div data-sl-catalog-magic-editor>
-                  {% include "charsheet/partials/item_editor/_item_magic_effect_editor.html" with magic_editor_eyebrow="Basisitem" magic_editor_payloads=item.magic_modifier_payloads_json magic_editor_effect_kinds=group_inventory_effect_kinds magic_editor_attribute_choices=group_inventory_effect_attributes magic_editor_stat_choices=group_inventory_effect_stats magic_editor_movement_choices=group_inventory_effect_movements magic_editor_rule_choices=group_inventory_effect_rules magic_editor_skill_choices=group_inventory_weapon_skills magic_editor_category_choices=group_inventory_skill_categories magic_editor_item_choices=group_inventory_effect_items magic_editor_item_category_choices=group_inventory_item_types magic_editor_specialization_choices=group_inventory_specializations magic_editor_race_choices=group_inventory_races magic_editor_school_choices=group_inventory_schools %}
-                </div>
-                {% if not group_row.group.is_archived %}<footer class="sl-editor-actions"><p>Änderungen gelten für das Basisitem im Gruppenkatalog.</p><button class="dashboard_button dashboard_button--primary">Basisitem speichern</button></footer>{% endif %}
-              </form>
             </div>
           {% endfor %}
         </div>
@@ -279,7 +230,7 @@
           <div class="sheet-window__actions"><button type="button" class="payday-window__close sheet-window__close" data-close-sl-item-create aria-label="Fenster schließen">&#215;</button></div>
         </div>
         <div class="sheet-window__body">
-          <iframe class="dashboard-item-frame" data-sl-catalog-frame data-src="{% url 'create_group_catalog_item' group_row.group.id %}?embedded=1" title="Basisitem erstellen"></iframe>
+          <iframe class="dashboard-item-frame" data-sl-catalog-frame data-return-url="{% url 'game_master_screen' group_row.group.id %}#sl-inventar" data-src="{% url 'create_group_catalog_item' group_row.group.id %}?embedded=1" title="Basisitem erstellen"></iframe>
         </div>
       </section>
       <div class="sl-item-action-backdrop" data-sl-item-action-backdrop aria-hidden="true"></div>

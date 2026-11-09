@@ -3248,7 +3248,7 @@ def create_group_catalog_item(request, group_id: int):
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 @_group_action
 def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
     """Edit group-owned master data on Item and its existing detail models."""
@@ -3260,6 +3260,9 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
             pk=catalog_item_id,
             catalog_group=group,
         )
+        if (request.method == "GET" or request.GET.get("preview") == "1"
+                or request.POST.get("catalog_workshop") == "1"):
+            return catalog_item_editor(request, item_id=item.pk, group=group)
         item.name = str(request.POST.get("name") or item.name).strip()[:200]
         item.description = str(request.POST.get("description") or "").strip()
         type_slug = str(request.POST.get("item_type")
@@ -3513,7 +3516,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 "weapon_h2_dice_faces_override",
                 "weapon_h2_flat_bonus_override",
             )
-        if getattr(instance.item, "armorstats", None) is not None:
+        if instance.effective_item_type.supports_armor_stats:
             active_override_fields += (
                 "armor_rs_total_override",
                 "armor_encumbrance_override",

@@ -117,9 +117,23 @@ document.addEventListener("DOMContentLoaded", () => {
     handle: document.querySelector("[data-sl-item-create-handle]"),
     opener: document.querySelector("[data-open-sl-item-create]"),
     closeButtons: Array.from(document.querySelectorAll("[data-close-sl-item-create]")),
-    beforeOpen: () => {
-      if (catalogFrame && !catalogFrame.getAttribute("src")) catalogFrame.src = catalogFrame.dataset.src;
+    beforeOpen: (button) => {
+      const editUrl = button?.dataset.openSlCatalogEditor;
+      const url = editUrl || catalogFrame?.dataset.src;
+      if (catalogFrame && catalogFrame.getAttribute("src") !== url) catalogFrame.src = url;
+      const title = editUrl ? "Gruppeneigenes Basisitem bearbeiten" : "Gruppeneigenes Basisitem erstellen";
+      const heading = catalogWindow?.querySelector(".sheet-window__heading");
+      if (heading) {
+        heading.querySelector("h3").textContent = title;
+        heading.querySelector("p").textContent = editUrl
+          ? "Stammdaten des Basisitems im Gruppenkatalog bearbeiten."
+          : "Basisitem und Instanz für das SL-Inventar anlegen.";
+      }
+      if (catalogFrame) catalogFrame.title = title;
     },
+  });
+  document.querySelectorAll("[data-open-sl-catalog-editor]").forEach((button) => {
+    button.addEventListener("click", () => catalogController?.show(button));
   });
   catalogFrame?.addEventListener("load", () => {
     if (catalogFrame.contentWindow.location.pathname === window.location.pathname) {
@@ -131,8 +145,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
   window.addEventListener("message", (event) => {
-    if (event.origin !== window.location.origin || event.source !== catalogFrame?.contentWindow
-        || event.data?.type !== "staff-item-workshop-status") return;
+    if (event.origin !== window.location.origin || event.source !== catalogFrame?.contentWindow) return;
+    if (event.data?.type === "group-catalog-item-saved") {
+      catalogController?.hide();
+      const returnUrl = new URL(catalogFrame.dataset.returnUrl, window.location.href);
+      if (returnUrl.pathname === window.location.pathname) {
+        window.location.hash = returnUrl.hash;
+        window.location.reload();
+      } else {
+        window.location.assign(returnUrl.href);
+      }
+      return;
+    }
+    if (event.data?.type !== "staff-item-workshop-status") return;
     const price = Number(event.data.price);
     const count = Number(event.data.runeCount);
     if (!Number.isFinite(price) || !Number.isInteger(count)) return;

@@ -70,6 +70,15 @@ def _preview_item_card(owned, post, effect_payloads, viewer):
     draft.invested_cp = _read_int(post, "invested_cp", minimum=0)
     draft.is_magic = bool(effect_payloads)
     draft.magic_effect_summary = ""
+    if draft.effective_item_type.supports_armor_stats:
+        for field, minimum in (
+            ("armor_rs_total", 0), ("armor_encumbrance", 0),
+            ("armor_min_st", 1),
+        ):
+            if field in post:
+                setattr(draft, f"{field}_override", _read_int(
+                    post, field, minimum=minimum,
+                ))
     if post.get("remove_image"):
         draft.image_override = None
     if "rune_payloads" in post:

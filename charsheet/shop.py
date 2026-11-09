@@ -1192,6 +1192,8 @@ def apply_character_item_modifications(
         return False
     weapon_stats = getattr(item, "weaponstats", None)
     armor_stats = getattr(item, "armorstats", None)
+    if armor_stats is None and category.supports_armor_stats:
+        armor_stats = ArmorStats()
     shield_stats = getattr(item, "shieldstats", None)
     weapon_damage_source = None
     if weapon_stats is not None:

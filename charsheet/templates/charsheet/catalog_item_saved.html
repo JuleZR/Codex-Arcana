@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="de">
+  <meta charset="utf-8">
+  <title>Basisitem gespeichert</title>
+  <p>Basisitem gespeichert. <a href="{{ return_url }}" target="_top">Zurück zum SL-Screen</a></p>
+  {{ return_url|json_script:"catalog-return-url" }}
+  <script>
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "group-catalog-item-saved" }, window.location.origin);
+    } else {
+      window.location.replace(JSON.parse(document.getElementById("catalog-return-url").textContent));
+    }
+  </script>
+</html>

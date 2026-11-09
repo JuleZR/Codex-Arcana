@@ -36,12 +36,12 @@
 {% endif %}
 {% if catalog_editor %}
             {% if catalog_group %}
-              <a class="catalog-back" href="{% url 'game_master_screen' catalog_group.pk %}#sl-inventar">Abbrechen</a>
+              <a class="catalog-back" href="{% url 'game_master_screen' catalog_group.pk %}#sl-inventar"{% if embedded %} target="_top"{% endif %}>Abbrechen</a>
             {% elif not embedded %}<a class="catalog-back" href="{% url 'dashboard' %}">Zum Dashboard</a>{% endif %}
 {% else %}
             <button type="button" {% if workshop_instance %}data-close-sl-item-action{% else %}id="runeRetrofitCancelBtn"{% endif %}>Verwerfen</button>
 {% endif %}
-            <button type="submit" class="workshop_submit">{% if catalog_group %}Basisitem und Instanz anlegen{% else %}Änderungen übernehmen{% endif %}</button>
+            <button type="submit" class="workshop_submit">{% if catalog_group and not item.pk %}Basisitem und Instanz anlegen{% else %}Änderungen übernehmen{% endif %}</button>
           </footer>
         </div>
       </div>

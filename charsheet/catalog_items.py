@@ -230,6 +230,8 @@ class CatalogItemForm(forms.ModelForm):
                         "magic_effects_without_equipping",
                         "rune_effects_without_equipping",
                         "not_buyable", "not_sellable",
+                        *(("remove_catalog_group",)
+                          if "remove_catalog_group" in self.fields else ()),
                     )),
                     ("Investierte CP", ("invested_cp", "invested_cp_steps")),
                     ("Gegenstandsbild", ("image",)),
@@ -652,7 +654,7 @@ def staff_item_editor(request, item_id=None):
 def catalog_item_editor(request, item_id=None, group=None):
     """Shared workshop; callers authorize staff or group access."""
     item = get_object_or_404(
-        Item, pk=item_id, catalog_group__isnull=True,
+        Item, pk=item_id, catalog_group=group,
     ) if item_id else Item(item_type=(
         ItemType.objects.filter(pk="misc", is_active=True).first()
         or ItemType.objects.filter(is_active=True).first()
@@ -671,9 +673,13 @@ def catalog_item_editor(request, item_id=None, group=None):
     data = request.POST if request.method == "POST" else None
     files = request.FILES if data is not None else None
     form = CatalogItemForm(data, files, instance=item)
-    if group is not None:
+    if group is not None and item_id is None:
         form.fields["amount"] = forms.IntegerField(
             label="Instanzmenge", min_value=1, initial=1,
+        )
+    elif group is not None:
+        form.fields["remove_catalog_group"] = forms.BooleanField(
+            label="Aus Gruppenkatalog lösen", required=False,
         )
     sections = _stat_formsets(item, data, files)
     brew = (
@@ -718,6 +724,10 @@ def catalog_item_editor(request, item_id=None, group=None):
                 )
             if valid:
                 with transaction.atomic():
+                    if form.cleaned_data.get("remove_catalog_group"):
+                        item.catalog_group = None
+                        item.validate_unique()
+                        item.validate_constraints()
                     item = form.save()
                     for section in sections:
                         section["formset"].save()
@@ -739,7 +749,7 @@ def catalog_item_editor(request, item_id=None, group=None):
                         source_model=Item, source_id=item.pk,
                         magic_modifier_payloads=effects,
                     )
-                    if group is not None:
+                    if group is not None and item_id is None:
                         instance = CharacterItem(
                             item=item, group_owner=group,
                             original_owner_group=group,
@@ -752,8 +762,17 @@ def catalog_item_editor(request, item_id=None, group=None):
                 if group is not None:
                     messages.success(
                         request,
+                        "Basisitem-Stammdaten gespeichert." if item_id else
                         "Gruppenprivates Basisitem und Instanz angelegt.",
                     )
+                    if request.GET.get("embedded") == "1":
+                        return render(
+                            request, "charsheet/catalog_item_saved.html", {
+                                "return_url": reverse(
+                                    "game_master_screen", args=[group.pk],
+                                ) + "#sl-inventar",
+                            },
+                        )
                     return redirect(
                         reverse("game_master_screen", args=[group.pk])
                         + "#sl-inventar",

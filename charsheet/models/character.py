@@ -10,7 +10,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from uuid import uuid4
 from .items import (
-    Item, Rune, default_quality_pk, validate_inventory_size_classes,
+    ArmorStats, Item, Rune, default_quality_pk, validate_inventory_size_classes,
 )
 
 from ..constants import (
@@ -769,10 +769,26 @@ class CharacterItem(models.Model):
     @property
     def effective_item(self):
         """Resolve instance metadata without changing the catalog item."""
-        if not self.item_type_override_id:
+        instance_armor = (
+            self.effective_item_type.supports_armor_stats
+            and getattr(self.item, "armorstats", None) is None
+            and any(value is not None for value in (
+                self.armor_rs_total_override, self.armor_encumbrance_override,
+                self.armor_min_st_override,
+            ))
+        )
+        if not self.item_type_override_id and not instance_armor:
             return self.item
         item = copy(self.item)
-        item.item_type = self.item_type_override
+        if self.item_type_override_id:
+            item.item_type = self.item_type_override
+        if instance_armor:
+            item.armorstats = ArmorStats(
+                item=item, rs_total=self.armor_rs_total_override or 0,
+                encumbrance=self.armor_encumbrance_override or 0,
+                min_st=self.armor_min_st_override or 1,
+                suppress_component_generation=True,
+            )
         if item.item_type.forbids_stacking:
             item.stackable = False
         return item
