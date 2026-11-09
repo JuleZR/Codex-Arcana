@@ -476,23 +476,14 @@ def _equipment_action_partial_keys(
         for key in _item_semantic_effect_toggle_partial_keys(effects):
             _append_partial_key(keys, key)
 
-    if character_item.rune_effects_without_equipping:
-        rune_effects = RuneSemanticEffect.objects.filter(
-            rune_id__in=character_item.item_runes.filter(
-                is_active=True,
-            ).values("rune_id"),
-            active_flag=True,
-        )
-        for key in _item_semantic_effect_toggle_partial_keys(rune_effects):
-            _append_partial_key(keys, key)
-
-    if character_item.item_runes.filter(
-        is_active=True,
-        rune__semantic_effects__active_flag=True,
-        rune__semantic_effects__target_domain__in=("resource", "derived_stat"),
-        rune__semantic_effects__target_key=ADDITIONAL_ARCANE_POWER,
-    ).exists():
-        _append_partial_key(keys, "damage_panel")
+    rune_effects = RuneSemanticEffect.objects.filter(
+        rune_id__in=character_item.item_runes.filter(
+            is_active=True,
+        ).values("rune_id"),
+        active_flag=True,
+    )
+    for key in _item_semantic_effect_toggle_partial_keys(rune_effects):
+        _append_partial_key(keys, key)
 
     if item_type.is_weapon:
         for key in ("weapon_panel", "battle_calculator"):
