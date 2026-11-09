@@ -755,7 +755,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     [runeArmorFields, runeWeaponFields, runeShieldFields].forEach((section) => {
       section?.querySelectorAll("input, select").forEach((field) => {
-        field.disabled = section.hidden || Boolean(field.closest("[hidden]"));
+        const hiddenParent = field.closest("[hidden]");
+        // Hidden tabs/windows must not disable otherwise applicable fields.
+        field.disabled = section.hidden || Boolean(hiddenParent && section.contains(hiddenParent));
       });
     });
   };
