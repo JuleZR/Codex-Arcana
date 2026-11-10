@@ -27,6 +27,7 @@ function enforceReadOnlyControls() {
       !control.closest("[data-card-hand]")
       && control.getAttribute("role") !== "tab"
       && !control.matches("[data-school-group-toggle]")
+      && !control.matches("[data-spell-group-toggle]")
       && !control.matches("[data-temporary-attribute-control]")
       && !control.matches("[data-attribute-flavor-control]")
     ) {
