@@ -386,10 +386,18 @@ export function initSchoolsPanel() {
         }
 
         replaceDruidCards(payload);
+        const cultName = String(payload.druidCultDisplayName || "").split(",", 1)[0].trim();
+        const schoolName = form.closest(".school_group_header")?.querySelector("[data-druid-school-name]");
+        if (schoolName instanceof HTMLElement) {
+          schoolName.textContent = `${payload.druidCultId && cultName ? `${cultName}-` : ""}${schoolName.dataset.druidSchoolName}`;
+        }
         const display = form.querySelector(".school_group_binding_display");
         if (display instanceof HTMLElement) {
-          display.textContent = String(payload.druidCultDisplayName || "Druidenzirkel wählen");
-          display.classList.toggle("school_group_binding_display--missing", !payload.druidCultId);
+          if (payload.druidCultId) {
+            display.remove();
+          } else {
+            display.textContent = "Druidenzirkel wählen";
+          }
         }
         form.setAttribute("data-current-binding-id", String(payload.druidCultId || ""));
         if (bindingToggle instanceof HTMLButtonElement) {

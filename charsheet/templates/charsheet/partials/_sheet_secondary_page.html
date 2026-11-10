@@ -1136,7 +1136,7 @@
                     {% elif group.symbol %}
                       <span class="school_group_symbol" aria-hidden="true">{{ group.symbol }}</span>
                     {% endif %}
-                    {{ group.school_name }}{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
+                    <span{% if group.druid_cult_options %} data-druid-school-name="{{ group.school_name }}"{% endif %}>{% if group.selected_druid_cult_name %}{{ group.selected_druid_cult_name }}-{% endif %}{{ group.school_name }}</span>{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
                     {% if group.priest_aspects %}
                     <span class="school_group_aspects" aria-label="Aspekte">
                       {% for aspect in group.priest_aspects %}
@@ -1158,9 +1158,11 @@
                 <form method="post" action="{% url 'update_druid_cult' character.id %}" class="school_group_binding_form" data-school-group-binding data-current-binding-id="{{ group.selected_druid_cult_id|default:'' }}"{% if group.druid_cult_reset_warning %} data-binding-reset-warning="Beim Wechseln oder Entfernen des Druidenzirkels werden alle gewählten Aspekt-Zauberslots und zusätzlich erworbenen Aspekte zurückgesetzt."{% endif %} data-binding-edit-label="Druidenzirkel bearbeiten" data-binding-lock-label="Druidenzirkel sperren">
                   {% csrf_token %}
                   <input type="hidden" name="school_id" value="{{ group.school_id }}">
-                  <span class="school_group_binding_display{% if not group.selected_druid_cult_name %} school_group_binding_display--missing{% endif %}">
-                    {{ group.selected_druid_cult_name|default:"Druidenzirkel wählen" }}
+                  {% if not group.selected_druid_cult_id %}
+                  <span class="school_group_binding_display school_group_binding_display--missing">
+                    Druidenzirkel wählen
                   </span>
+                  {% endif %}
                   <button type="button" class="school_group_binding_unlock" data-school-binding-edit-toggle aria-label="Druidenzirkel bearbeiten" title="Druidenzirkel bearbeiten">
                     <span aria-hidden="true">&#x22EF;</span>
                   </button>

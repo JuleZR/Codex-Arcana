@@ -368,6 +368,11 @@ function bindGodCardEditor(card) {
         }
       }
     });
+    if (cardKey === "shaman") {
+      document.dispatchEvent(new CustomEvent("charsheet:external-refresh-requested", {
+        detail: { force: true, scope: "magic" },
+      }));
+    }
   };
 
   const saveCardFields = async () => {

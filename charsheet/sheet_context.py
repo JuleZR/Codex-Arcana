@@ -7773,6 +7773,7 @@ def _group_school_technique_rows(
     selected_druid_cult_id = int(druid_binding.cult_id) if druid_binding is not None else None
     selected_druid_cult_name = (
         str(druid_binding.tradition_name or druid_binding.cult.name)
+        .split(",", 1)[0].strip()
         if druid_binding is not None
         else ""
     )
@@ -10071,6 +10072,20 @@ def build_character_sheet_context(
     spell_panel_data = magic_engine.get_spell_panel_data()
     spell_panel_divine_summary = dict(spell_panel_data["divine_summary"])
 
+    for group in school_technique_groups:
+        if group.get("selected_druid_cult_id"):
+            group["priest_aspects"] = list(
+                spell_panel_divine_summary.get("aspects", [])
+            )
+            tooltip_lines = [group["selected_druid_cult_name"]]
+            if group["priest_aspects"]:
+                tooltip_lines.extend(["", "Aspekte:"])
+                tooltip_lines.extend(
+                    f"- {aspect['name']} {aspect['level']}"
+                    for aspect in group["priest_aspects"]
+                )
+            group["priest_tooltip"] = "\n".join(tooltip_lines)
+
     divine_binding = magic_engine._divine_binding()
 
     if (
@@ -10346,6 +10361,30 @@ def build_character_sheet_context(
             open_aspect_slots = max(0, int(shaman_patron.starting_aspect_count) - len(shaman_card_aspects))
             shaman_card_aspect_placeholders = list(range(open_aspect_slots))
             shaman_card_show_aspect_placeholder = bool(shaman_card_aspect_placeholders)
+        for group in school_technique_groups:
+            if group.get("school_id") != shaman_patron.school_id:
+                continue
+            group["priest_aspects"] = [
+                {
+                    "name": aspect.name,
+                    "level": int(
+                        school_levels.get(shaman_patron.school_id, 0)
+                    ),
+                    "image_url": _aspect_image_url(aspect),
+                }
+                for aspect in shaman_card_aspects
+            ]
+            tooltip_lines = [
+                f"{shaman_card_title} | {shaman_card_kind_label}",
+            ]
+            if group["priest_aspects"]:
+                tooltip_lines.extend(["", "Aspekte:"])
+                tooltip_lines.extend(
+                    f"- {aspect['name']} {aspect['level']}"
+                    for aspect in group["priest_aspects"]
+                )
+            group["priest_tooltip"] = "\n".join(tooltip_lines)
+            break
         if shaman_card_editable and shaman_patron.aspect_selection_mode == "choose_from_entity":
             shaman_card_aspect_options = list(shaman_patron.aspects.all().order_by("name", "id"))
         elif shaman_card_editable and shaman_patron.aspect_selection_mode == "free":
