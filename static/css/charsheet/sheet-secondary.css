@@ -5435,8 +5435,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .school_group_header--with-binding .school_group_toggle_btn {
-  flex: 0 0 auto;
-  max-width: 11rem;
+  flex: 0 1 auto;
 }
 
 .school_group_binding_form {
@@ -5451,6 +5450,10 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   margin-left: 0.4rem;
   margin-right: auto;
   line-height: 1;
+}
+
+.school_group_binding_form:not(.is-edit-unlocked) {
+  flex-basis: auto;
 }
 
 .school_group_binding_display {

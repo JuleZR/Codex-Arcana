@@ -98,6 +98,7 @@ from charsheet.lesson_rules import (
 from charsheet.religion_rules import (
     divine_entities_for_school,
     is_clerical_school,
+    is_cult_school,
     is_divine_entity_school,
     selected_divine_entity,
 )
@@ -7771,6 +7772,7 @@ def _group_school_technique_rows(
         .first()
     )
     selected_druid_cult_id = int(druid_binding.cult_id) if druid_binding is not None else None
+    druid_school_id = druid_binding.cult.school_id if druid_binding else None
     selected_druid_cult_name = (
         str(druid_binding.tradition_name or druid_binding.cult.name)
         .split(",", 1)[0].strip()
@@ -7829,14 +7831,17 @@ def _group_school_technique_rows(
                 "max_level": current_level,
                 "max_level_label": _to_roman(current_level) if current_level else "",
                 "druid_cult_options": druid_options_by_school_id.get(int(school_id or 0), []),
-                "selected_druid_cult_id": selected_druid_cult_id,
+                "selected_druid_cult_id": (
+                    selected_druid_cult_id
+                    if school_id == druid_school_id else None
+                ),
                 "selected_druid_cult_name": (
                     selected_druid_cult_name
-                    if selected_druid_cult_id
-                    and any(cult.id == selected_druid_cult_id for cult in druid_options_by_school_id.get(int(school_id or 0), []))
-                    else ""
+                    if school_id == druid_school_id else ""
                 ),
-                "druid_cult_reset_warning": druid_cult_reset_warning,
+                "druid_cult_reset_warning": (
+                    druid_cult_reset_warning and school_id == druid_school_id
+                ),
                 "daemonic_patron_options": daemonic_patron_options_by_school_id.get(int(school_id or 0), []),
                 "selected_daemonic_patron_id": selected_daemonic_patron_id,
                 "selected_daemonic_patron_name": (
@@ -7880,14 +7885,17 @@ def _group_school_technique_rows(
                 "max_level": current_level,
                 "max_level_label": _to_roman(current_level) if current_level else "",
                 "druid_cult_options": druid_options_by_school_id.get(int(school.id), []),
-                "selected_druid_cult_id": selected_druid_cult_id,
+                "selected_druid_cult_id": (
+                    selected_druid_cult_id
+                    if school.id == druid_school_id else None
+                ),
                 "selected_druid_cult_name": (
                     selected_druid_cult_name
-                    if selected_druid_cult_id
-                    and any(cult.id == selected_druid_cult_id for cult in druid_options_by_school_id.get(int(school.id), []))
-                    else ""
+                    if school.id == druid_school_id else ""
                 ),
-                "druid_cult_reset_warning": druid_cult_reset_warning,
+                "druid_cult_reset_warning": (
+                    druid_cult_reset_warning and school.id == druid_school_id
+                ),
                 "daemonic_patron_options": daemonic_patron_options_by_school_id.get(int(school.id), []),
                 "selected_daemonic_patron_id": selected_daemonic_patron_id,
                 "selected_daemonic_patron_name": (
@@ -10071,11 +10079,34 @@ def build_character_sheet_context(
 
     spell_panel_data = magic_engine.get_spell_panel_data()
     spell_panel_divine_summary = dict(spell_panel_data["divine_summary"])
+    divine_binding = magic_engine._divine_binding()
+    divine_school = divine_binding.school if divine_binding else None
+    has_divine_entity_school = is_divine_entity_school(divine_school)
+    priest_school_id = (
+        divine_school.pk
+        if has_divine_entity_school and not is_cult_school(divine_school)
+        else None
+    )
+    # Purchased aspects have no source school. Use the active tradition.
+    bonus_aspect_school_id = next(
+        (
+            group["school_id"] for group in school_technique_groups
+            if group.get("selected_druid_cult_id") and group["max_level"] > 0
+        ),
+        priest_school_id,
+    )
+    aspects_by_school = {}
+    for aspect in spell_panel_divine_summary.get("aspects", []):
+        source_school_id = aspect["source_school_id"]
+        if source_school_id is None and aspect["is_bonus_aspect"]:
+            source_school_id = bonus_aspect_school_id
+        if source_school_id is not None:
+            aspects_by_school.setdefault(source_school_id, []).append(aspect)
 
     for group in school_technique_groups:
         if group.get("selected_druid_cult_id"):
-            group["priest_aspects"] = list(
-                spell_panel_divine_summary.get("aspects", [])
+            group["priest_aspects"] = aspects_by_school.get(
+                group["school_id"], [],
             )
             tooltip_lines = [group["selected_druid_cult_name"]]
             if group["priest_aspects"]:
@@ -10086,16 +10117,9 @@ def build_character_sheet_context(
                 )
             group["priest_tooltip"] = "\n".join(tooltip_lines)
 
-    divine_binding = magic_engine._divine_binding()
-
-    if (
-        divine_binding is not None
-        and is_clerical_school(divine_binding.school)
-    ):
-        divine_school_id = int(divine_binding.school_id)
-        priest_aspects = list(
-            spell_panel_divine_summary.get("aspects", [])
-        )
+    if has_divine_entity_school:
+        divine_school_id = divine_school.pk
+        priest_aspects = aspects_by_school.get(priest_school_id, [])
 
         tooltip_lines = []
 

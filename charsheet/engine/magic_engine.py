@@ -1418,6 +1418,7 @@ class MagicEngine:
             aspect_rows.append(
                 {
                     "aspect_id": entry.aspect_id,
+                    "source_school_id": entry.source_school_id,
                     "name": entry.aspect.name,
                     "level": int(entry.level),
                     "is_bonus_aspect": bool(entry.is_bonus_aspect),
