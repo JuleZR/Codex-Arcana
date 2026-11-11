@@ -963,6 +963,10 @@ def game_master_screen(request, group_id: int):
                 "weight_override", item.weight,
             )),
             "size_class": engine.get_size_class(),
+            "base_values_are_size_adjusted": engine._get_override_value(
+                "base_values_are_size_adjusted_override",
+                item.base_values_are_size_adjusted,
+            ),
             "invested_cp": (
                 inventory_item.invested_cp or item.invested_cp or ""
             ),
@@ -1006,6 +1010,7 @@ def game_master_screen(request, group_id: int):
         from charsheet.own_inventory import inventory_settings_payload
 
         workshop_values.update(inventory_settings_payload(inventory_item))
+        inventory_item.workshop_values = workshop_values
         inventory_item.workshop_payload_json = json.dumps(workshop_values)
         inventory_item.workshop_rune_specs_json = json.dumps(
             _serialize_character_item_rune_specs(inventory_item)
@@ -3299,6 +3304,10 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
             raise GroupError("invalid_item", "Investierte CP passen nicht zu den CP-Schritten.")
         item.invested_cp = invested_cp or None
         item.size_class = str(request.POST.get("size_class") or item.size_class)
+        if "size_adjustment_settings" in request.POST:
+            item.base_values_are_size_adjusted = bool(
+                request.POST.get("base_values_are_size_adjusted")
+            )
         item.default_quality = get_object_or_404(
             Quality, pk=request.POST.get("default_quality") or item.default_quality_id
         )
@@ -3504,6 +3513,13 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             raise GroupError("invalid_item", "Investierte CP passen nicht zu den CP-Schritten.")
         instance.invested_cp = None if not invested_cp or invested_cp == int(instance.item.invested_cp or 0) else invested_cp
         instance.size_class_override = str(request.POST.get("size_class_override") or "")
+        if "size_adjustment_settings" in request.POST:
+            adjusted = bool(request.POST.get("base_values_are_size_adjusted"))
+            instance.base_values_are_size_adjusted_override = (
+                adjusted
+                if adjusted != instance.item.base_values_are_size_adjusted
+                else None
+            )
 
         active_override_fields = ()
         if instance.item.item_type.supports_weapon_stats:
@@ -3561,6 +3577,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 "magic_effect_summary", "is_magic", "price_override",
                 "magic_effects_without_equipping_override",
                 "rune_effects_without_equipping_override",
+                "base_values_are_size_adjusted_override",
                 "weight_override", "invested_cp", "size_class_override", "image_override",
                 "own_inventory_enabled", "own_inventory_capacity_kg",
                 "own_inventory_allowed_size_classes",

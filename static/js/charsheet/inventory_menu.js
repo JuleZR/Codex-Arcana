@@ -376,6 +376,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       price: runePriceInput?.value || "0",
       weight: runeWeightInput?.value || "0",
       size_class: runeSizeClassSelect?.value || "",
+      size_adjustment_settings: "1",
+      base_values_are_size_adjusted: runeForm?.elements.namedItem("base_values_are_size_adjusted")?.checked ? "1" : "",
       quality: runeQualitySelect?.value || "",
       item_type: runeItemTypeSelect?.value || "",
       description: runeDescriptionInput?.value || "",
@@ -1584,6 +1586,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       "not_sellable",
       "magic_effects_without_equipping",
       "rune_effects_without_equipping",
+      "base_values_are_size_adjusted",
     ].forEach((fieldName) => {
       setFormValue(fieldName, modifyPayload[fieldName]);
     });

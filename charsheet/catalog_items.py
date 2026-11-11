@@ -57,7 +57,7 @@ CATALOG_FIELD_LABELS = {
     "invested_cp": "Investierte CP", "invested_cp_steps": "CP-Schritte",
     "default_quality": "Standardqualität", "material": "Material",
     "weight": "Gewicht", "size_class": "Größenklasse",
-    "base_values_are_size_adjusted": "Basiswerte bereits an GK angepasst",
+    "base_values_are_size_adjusted": "Ohne GK-Faktor",
     "runes": "Runen", "profile_name": "Profilname",
     "min_st": "Mindeststärke", "min_st_1h": "Mindeststärke (1H)",
     "min_st_2h": "Mindeststärke (2H)", "min_ge_1h": "Mindestgeschick (1H)",
@@ -199,6 +199,7 @@ class CatalogItemForm(forms.ModelForm):
             "name": "runeRetrofitCustomName", "price": "runeRetrofitPrice",
             "weight": "runeRetrofitWeight",
             "size_class": "runeRetrofitSizeClass",
+            "base_values_are_size_adjusted": "runeRetrofitSizeAdjusted",
             "default_quality": "runeRetrofitQuality",
             "description": "runeRetrofitDescription",
             "invested_cp": "runeRetrofitInvestedCp",
@@ -206,12 +207,17 @@ class CatalogItemForm(forms.ModelForm):
         }.items():
             self.fields[name].widget.attrs["id"] = widget_id
         self.fields["runes"].widget = forms.MultipleHiddenInput()
+        size_adjusted = self.fields["base_values_are_size_adjusted"]
+        size_adjusted.widget.attrs["title"] = (
+            "Gewicht und Preis werden nicht mit dem GK-Faktor multipliziert."
+        )
+        size_adjusted.help_text = ""
 
     @property
     def primary_fields(self):
         names = (
             "name", "item_type", "price", "default_quality", "weight",
-            "size_class", "description",
+            "size_class", "base_values_are_size_adjusted", "description",
         )
         if "amount" in self.fields:
             names = ("amount", *names)
@@ -223,7 +229,6 @@ class CatalogItemForm(forms.ModelForm):
                 for title, names in (
                     ("Material & Widerstand", (
                         "subtype", "material", "hardness", "structure_points",
-                        "base_values_are_size_adjusted",
                     )),
                     ("Eigenschaften & Handel", (
                         "stackable", "is_consumable", "is_magic",

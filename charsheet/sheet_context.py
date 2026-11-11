@@ -6721,6 +6721,12 @@ def _build_inventory_rows(
                             or ""
                         ),
                         "size_class": item_engine.get_size_class(),
+                        "base_values_are_size_adjusted": (
+                            item_engine._get_override_value(
+                                "base_values_are_size_adjusted_override",
+                                item.base_values_are_size_adjusted,
+                            )
+                        ),
                         "not_buyable": bool(item.not_buyable),
                         "not_sellable": bool(item.not_sellable),
                         "magic_effects_without_equipping": (

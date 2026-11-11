@@ -1277,6 +1277,12 @@ def apply_character_item_modifications(
             character_item.price_override = price
             character_item.weight_override = weight
             character_item.size_class_override = size_class
+            if "size_adjustment_settings" in post_data:
+                adjusted = bool(post_data.get("base_values_are_size_adjusted"))
+                character_item.base_values_are_size_adjusted_override = (
+                    adjusted
+                    if adjusted != item.base_values_are_size_adjusted else None
+                )
             character_item.quality_id = quality
             character_item.runes.set(unique_runes)
             character_item.description = description

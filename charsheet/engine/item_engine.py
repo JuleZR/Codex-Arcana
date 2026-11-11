@@ -172,7 +172,10 @@ class ItemEngine:
     ) -> Decimal:
         """Return the GRW equipment multiplier for the effective size."""
         item = self._get_item()
-        if item.base_values_are_size_adjusted:
+        if self._get_override_value(
+            "base_values_are_size_adjusted_override",
+            item.base_values_are_size_adjusted,
+        ):
             return Decimal("1")
         return multipliers.get(
             self.get_size_class(),

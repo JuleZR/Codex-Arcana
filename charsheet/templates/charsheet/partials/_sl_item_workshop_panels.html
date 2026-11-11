@@ -7,6 +7,8 @@
                         <label><span>Preis</span><input name="price_override" type="number" min="0" value="{{ instance.price_override|default_if_none:'' }}" placeholder="{{ instance.base_values.price }}"></label>
                         <label><span>Gewicht</span><input name="weight_override" type="number" min="0" step=".01" value="{{ instance.weight_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weight }}"></label>
                         <label data-item-size-field{% if not instance.item.item_type.supports_GK %} hidden{% endif %}><span>Größenklasse</span><select name="size_class_override"><option value="">{{ instance.base_values.size_class }}</option>{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if instance.size_class_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        <input type="hidden" name="size_adjustment_settings" value="1">
+                        <label class="shop_item_form_check" title="Gewicht und Preis werden nicht mit dem GK-Faktor multipliziert."><input type="checkbox" name="base_values_are_size_adjusted" value="1"{% if instance.workshop_values.base_values_are_size_adjusted %} checked{% endif %}><span>Ohne GK-Faktor</span></label>
                         <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="3">{{ instance.description }}</textarea></label>
                       </div>
                     </section>

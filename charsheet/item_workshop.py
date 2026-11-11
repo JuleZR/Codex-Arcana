@@ -60,6 +60,10 @@ def _preview_item_card(owned, post, effect_payloads, viewer):
         post, "price", owned.item.price, minimum=0,
     )
     draft.weight_override = _read_decimal(post, "weight", owned.item.weight)
+    if "size_adjustment_settings" in post:
+        draft.base_values_are_size_adjusted_override = bool(
+            post.get("base_values_are_size_adjusted")
+        )
     draft.size_class_override = str(
         post.get("size_class") or owned.item.size_class,
     )

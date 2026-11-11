@@ -525,6 +525,9 @@ class CharacterItem(models.Model):
     )
     name_override = models.CharField(max_length=200, blank=True, default="")
     price_override = models.IntegerField(null=True, blank=True)
+    base_values_are_size_adjusted_override = models.BooleanField(
+        null=True, blank=True,
+    )
     weight_override = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     size_class_override = models.CharField(max_length=5, choices=GK_CHOICES, blank=True, default="")
     weapon_type_override = models.ForeignKey(

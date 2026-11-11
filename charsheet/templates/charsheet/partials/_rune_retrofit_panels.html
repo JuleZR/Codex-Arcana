@@ -35,14 +35,21 @@
                       <input type="number" name="weight" id="runeRetrofitWeight" min="0" step="0.01" value="0">
                     </label>
                   </div>
-                  <label class="shop_item_form_row">
-                    <span>Größenklasse</span>
-                    <select name="size_class" id="runeRetrofitSizeClass">
-                      {% for option in shop_size_class_options %}
-                        <option value="{{ option.value }}">{{ option.display_label }}</option>
-                      {% endfor %}
-                    </select>
-                  </label>
+                  <div class="shop_item_form_grid shop_item_form_grid--equal">
+                    <label class="shop_item_form_row">
+                      <span>Größenklasse</span>
+                      <select name="size_class" id="runeRetrofitSizeClass">
+                        {% for option in shop_size_class_options %}
+                          <option value="{{ option.value }}">{{ option.display_label }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+                    <input type="hidden" name="size_adjustment_settings" value="1">
+                    <label class="shop_item_form_check" title="Gewicht und Preis werden nicht mit dem GK-Faktor multipliziert.">
+                      <input type="checkbox" name="base_values_are_size_adjusted" id="runeRetrofitSizeAdjusted" value="1">
+                      <span>Ohne GK-Faktor</span>
+                    </label>
+                  </div>
                   <label class="shop_item_form_row">
                     <span>Qualit&auml;t</span>
                     <select name="quality" id="runeRetrofitQuality">
