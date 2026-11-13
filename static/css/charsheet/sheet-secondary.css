@@ -4930,6 +4930,37 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   color: rgba(97, 68, 37, 0.88);
 }
 
+.tooltip_effect_counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tooltip_effect_counter button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(88, 48, 18, 0.34);
+  border-radius: 4px;
+  background: rgba(88, 48, 18, 0.12);
+  color: inherit;
+  cursor: pointer;
+}
+
+.tooltip_effect_counter button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tooltip_effect_counter output {
+  min-width: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .floating-tooltip-card__section_body .tooltip_effect_toggle {
   position: relative;
   display: inline-flex;

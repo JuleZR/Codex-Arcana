@@ -1730,6 +1730,10 @@ def _serialize_item_semantic_effect_payload(
             "scale_divisor": "",
             "active_flag": bool(effect.active_flag),
             "toggleable": bool(getattr(effect, "toggleable", False)),
+            "counter_enabled": bool(effect.counter_enabled),
+            "counter_value": effect.bounded_counter_value(),
+            "counter_min": effect.counter_min,
+            "counter_max": effect.counter_max,
             "toggle_state_inverted": bool(getattr(effect, "toggle_state_inverted", False)),
             "display_group": int(effect.display_group) if effect.display_group is not None else None,
             "display_group_append": bool(getattr(effect, "display_group_append", False)),
@@ -1785,6 +1789,10 @@ def _serialize_item_semantic_effect_payload(
         "scale_divisor": int(effect.scale_divisor or 0) if effect.scale_divisor else "",
         "active_flag": bool(effect.active_flag),
         "toggleable": bool(getattr(effect, "toggleable", False)),
+        "counter_enabled": bool(effect.counter_enabled),
+        "counter_value": effect.bounded_counter_value(),
+        "counter_min": effect.counter_min,
+        "counter_max": effect.counter_max,
         "toggle_state_inverted": bool(getattr(effect, "toggle_state_inverted", False)),
         "display_group": int(effect.display_group) if effect.display_group is not None else None,
         "display_group_append": bool(getattr(effect, "display_group_append", False)),
@@ -2143,6 +2151,11 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 continue
             if bool(candidate.get("active_flag", True)) != payload_active_flag:
                 continue
+            if any(candidate.get(field) != payload.get(field) for field in (
+                "counter_enabled", "counter_value",
+                "counter_min", "counter_max",
+            )):
+                continue
             if bool(candidate.get("toggleable", False)) != payload_toggleable:
                 continue
             if bool(candidate.get("toggle_state_inverted", False)) != payload_toggle_state_inverted:
@@ -2193,6 +2206,10 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "operator": payload_operator,
                 "active_flag": payload_active_flag,
                 "toggleable": payload_toggleable,
+                "counter_enabled": payload.get("counter_enabled"),
+                "counter_value": payload.get("counter_value"),
+                "counter_min": payload.get("counter_min"),
+                "counter_max": payload.get("counter_max"),
                 "toggle_state_inverted": payload_toggle_state_inverted,
                 "inactive_due_to_race": payload_inactive_due_to_race,
                 "inactive_due_to_school": payload_inactive_due_to_school,
@@ -2427,6 +2444,26 @@ def _build_character_item_magic_tooltip_rows(
         display_active = inverted != active
         return f"[[EFFECTTOGGLE:{url};{source};{ids};{'1' if display_active else '0'};{'1' if inverted else '0'}]] "
 
+    def counter_marker_for(entry: dict[str, object]) -> str:
+        if not (entry.get("counter_enabled")
+                and entry.get("character_item_id")):
+            return ""
+        source = str(entry.get("semantic_effect_source") or "")
+        ids = ",".join(str(v) for v in entry.get("semantic_effect_ids") or [])
+        if source not in {"item", "character_item"} or not ids:
+            return ""
+        url = reverse("adjust_character_item_effect_counter", args=[
+            int(entry["character_item_id"]),
+        ])
+        value = int(entry.get("counter_value") or 0)
+        lower = entry.get("counter_min")
+        upper = entry.get("counter_max")
+        lower = "" if lower is None else int(lower)
+        upper = "" if upper is None else int(upper)
+        return (
+            f"[[EFFECTCOUNTER:{url};{source};{ids};{value};{lower};{upper}]] "
+        )
+
     def identification_marker_for(entry: dict[str, object]) -> str:
         url = str(entry.get("effect_identification_url") or "")
         source = str(entry.get("semantic_effect_source") or "")
@@ -2513,6 +2550,7 @@ def _build_character_item_magic_tooltip_rows(
             if not (
                 visible_line.startswith("[[EFFECTTOGGLE:")
                 or visible_line.startswith("[[EFFECTIDENTIFY:")
+                or visible_line.startswith("[[EFFECTCOUNTER:")
             ):
                 break
             marker_end = visible_line.find("]]")
@@ -2576,7 +2614,7 @@ def _build_character_item_magic_tooltip_rows(
             if effects:
                 detail_sections.append(", ".join(effects))
             if suffixes:
-                detail_sections.append(" ".join(suffixes))
+                detail_sections.append(" und ".join(suffixes))
             if title_section and detail_sections:
                 return f"{title_section} · {' '.join(detail_sections)}"
             if title_section:
@@ -2616,7 +2654,11 @@ def _build_character_item_magic_tooltip_rows(
                 signature = entry_duplicate_signature(entry)
                 if signature in grouped_signatures:
                     continue
-                lines.append(f"{toggle_marker_for(payload)}{identification_marker_for(payload)}{entry['line']}")
+                lines.append(
+                    f"{counter_marker_for(payload)}"
+                    f"{toggle_marker_for(payload)}"
+                    f"{identification_marker_for(payload)}{entry['line']}"
+                )
                 continue
             if group in rendered_groups:
                 continue
@@ -2643,7 +2685,14 @@ def _build_character_item_magic_tooltip_rows(
                 line = f"[[INACTIVERACE:{line}]]"
 
             marker_payload = grouped_toggle_payload(main_entry, associated_entries)
-            lines.append(f"{toggle_marker_for(marker_payload)}{identification_marker_for(marker_payload)}{line}")
+            counters = "".join(dict.fromkeys(
+                counter_marker_for(dict(candidate.get("payload") or {}))
+                for candidate in [main_entry, *associated_entries]
+            ))
+            lines.append(
+                f"{counters}{toggle_marker_for(marker_payload)}"
+                f"{identification_marker_for(marker_payload)}{line}"
+            )
         return lines
 
     def numeric_value_display(
@@ -2854,6 +2903,8 @@ def _build_character_item_magic_tooltip_rows(
         key = (
             target_kind,
             target_display,
+            tuple(payload.get("semantic_effect_ids") or [])
+            if payload.get("counter_enabled") else (),
             str(payload.get("operator") or ""),
             " ".join(rules_text.replace("@", str(invested_cp)).lower().split()),
             " ".join(effect_description.lower().split()),
@@ -2877,6 +2928,10 @@ def _build_character_item_magic_tooltip_rows(
                 "value": 0,
                 "active_flag": bool(payload.get("active_flag", True)),
                 "toggleable": bool(payload.get("toggleable", False)),
+                "counter_enabled": payload.get("counter_enabled"),
+                "counter_value": payload.get("counter_value"),
+                "counter_min": payload.get("counter_min"),
+                "counter_max": payload.get("counter_max"),
                 "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
                 "display_group": payload.get("display_group"),
                 "display_group_append": bool(payload.get("display_group_append", False)),
@@ -2976,7 +3031,7 @@ def _load_character_item_modifier_payloads(
     )
     if not include_inactive:
         base_effect_query = base_effect_query.filter(
-            Q(active_flag=True) | Q(toggleable=True)
+            Q(active_flag=True) | Q(toggleable=True) | Q(counter_enabled=True)
         )
     for effect in base_effect_query:
         base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
@@ -2992,7 +3047,7 @@ def _load_character_item_modifier_payloads(
     )
     if not include_inactive:
         instance_effect_query = instance_effect_query.filter(
-            Q(active_flag=True) | Q(toggleable=True)
+            Q(active_flag=True) | Q(toggleable=True) | Q(counter_enabled=True)
         )
     instance_effects = list(instance_effect_query)
     instance_effects_by_base: dict[tuple[int, int], CharacterItemSemanticEffect] = {}
@@ -3048,6 +3103,7 @@ def _load_character_item_modifier_payloads(
             "hidden",
             "sheet_relevant",
             "toggleable",
+            "counter_enabled",
             "toggle_state_inverted",
             "display_group",
             "display_group_append",
@@ -3294,7 +3350,9 @@ def _has_visible_item_weight(value: object) -> bool:
 def _strip_item_card_effect_markers(value: object) -> tuple[str, bool]:
     """Return display text and whether the tooltip row was condition-blocked."""
     text = str(value).replace("[[EMPTY]]", "").strip()
-    while text.startswith("[[EFFECTTOGGLE:") or text.startswith("[[EFFECTIDENTIFY:"):
+    while text.startswith((
+        "[[EFFECTTOGGLE:", "[[EFFECTIDENTIFY:", "[[EFFECTCOUNTER:",
+    )):
         marker_end = text.find("]]")
         if marker_end == -1:
             break
@@ -3358,6 +3416,19 @@ def _shared_item_card_effect_rows(
             {
                 "label": label_text.replace("**", "").strip(),
                 "value": value_text.strip(),
+                "counters": [
+                    {
+                        "url": match[0], "source": match[1], "ids": match[2],
+                        "value": int(match[3]),
+                        "min": int(match[4]) if match[4] else None,
+                        "max": int(match[5]) if match[5] else None,
+                    }
+                    for match in re.findall(
+                        r"\[\[EFFECTCOUNTER:([^;\]]+);([^;\]]+);([0-9,]+);"
+                        r"(-?\d+);(-?\d*);(-?\d*)\]\]",
+                        str(value),
+                    )
+                ],
                 "inactive": inactive,
                 "condition_note": remaining_condition_notes.pop(0) if inactive and remaining_condition_notes else "",
             }

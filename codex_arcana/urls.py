@@ -479,6 +479,11 @@ urlpatterns = [
         name="toggle_character_item_semantic_effects",
     ),
     path(
+        "character-item/<int:pk>/semantic-effects/counter/",
+        views.adjust_character_item_effect_counter,
+        name="adjust_character_item_effect_counter",
+    ),
+    path(
         "character-item/<int:pk>/semantic-effects/partials/",
         views.character_item_semantic_effect_partials,
         name="character_item_semantic_effect_partials",

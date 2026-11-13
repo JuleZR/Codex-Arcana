@@ -294,6 +294,10 @@ document.addEventListener("DOMContentLoaded", () => {
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
+          counter_enabled: Boolean(row.querySelector("[data-effect-counter-enabled]")?.checked),
+          counter_value: Number(row.dataset.counterValue || 0),
+          counter_min: row.querySelector("[data-effect-counter-min]")?.value || null,
+          counter_max: row.querySelector("[data-effect-counter-max]")?.value || null,
           toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
         const semanticEffectIds = String(row.dataset.semanticEffectIds || "")
@@ -522,6 +526,10 @@ document.addEventListener("DOMContentLoaded", () => {
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
+          counter_enabled: Boolean(row.querySelector("[data-effect-counter-enabled]")?.checked),
+          counter_value: Number(row.dataset.counterValue || 0),
+          counter_min: row.querySelector("[data-effect-counter-min]")?.value || null,
+          counter_max: row.querySelector("[data-effect-counter-max]")?.value || null,
           toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
         const semanticEffectIds = String(row.dataset.semanticEffectIds || "")
@@ -680,6 +688,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (displayGroup) displayGroup.value = payload.display_group == null ? "" : String(payload.display_group);
       if (displayGroupAppend) displayGroupAppend.checked = Boolean(payload.display_group_append);
       if (toggleable) toggleable.checked = Boolean(payload.toggleable);
+      row.dataset.counterValue = String(payload.counter_value || 0);
+      const counterEnabled = row.querySelector("[data-effect-counter-enabled]");
+      if (counterEnabled) counterEnabled.checked = Boolean(payload.counter_enabled);
+      for (const bound of ["min", "max"]) {
+        const input = row.querySelector(`[data-effect-counter-${bound}]`);
+        if (input) input.value = payload[`counter_${bound}`] ?? "";
+      }
       if (toggleInverted) toggleInverted.checked = Boolean(payload.toggle_state_inverted);
       [
         ["[data-effect-condition-races]", payload.condition_races],

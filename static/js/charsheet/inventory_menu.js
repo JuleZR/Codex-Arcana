@@ -874,6 +874,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         rules_text: String(row.querySelector("[data-magic-rules-text]")?.value || "").trim(),
         active_flag: row.dataset.magicActiveFlag !== "0",
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
+        counter_enabled: Boolean(row.querySelector("[data-magic-counter-enabled]")?.checked),
+        counter_value: Number(row.dataset.counterValue || 0),
+        counter_min: row.querySelector("[data-magic-counter-min]")?.value || null,
+        counter_max: row.querySelector("[data-magic-counter-max]")?.value || null,
         toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
       const semanticEffectIds = parseIdList(row.dataset.semanticEffectIds || "");
@@ -1123,6 +1127,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       if (toggleableInput instanceof HTMLInputElement) {
         toggleableInput.checked = Boolean(initialPayload.toggleable);
       }
+      row.dataset.counterValue = String(initialPayload.counter_value || 0);
+      const counterEnabled = row.querySelector("[data-magic-counter-enabled]");
+      if (counterEnabled) counterEnabled.checked = Boolean(initialPayload.counter_enabled);
+      for (const bound of ["min", "max"]) {
+        const input = row.querySelector(`[data-magic-counter-${bound}]`);
+        if (input) input.value = initialPayload[`counter_${bound}`] ?? "";
+      }
       if (toggleInvertedInput instanceof HTMLInputElement) {
         toggleInvertedInput.checked = Boolean(initialPayload.toggle_state_inverted);
       }
@@ -1191,6 +1202,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelectorAll("[data-magic-counter-enabled], [data-magic-counter-min], [data-magic-counter-max]")
+      .forEach((input) => input.addEventListener("input", serializeMagicEffects));
     row.querySelector("[data-magic-toggle-inverted]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-condition-races]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-condition-schools]")?.addEventListener("change", serializeMagicEffects);

@@ -266,6 +266,17 @@ export function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(/\[\[BR\]\]/g, "<br>");
   html = html.replace(
+    /\[\[EFFECTCOUNTER:([^;\]]+);([^;\]]+);([0-9,]+);(-?\d+);(-?\d*);(-?\d*)\]\]/g,
+    (_match, url, source, ids, value, min, max) => (
+      `<span class="tooltip_effect_counter" data-item-effect-counter `
+      + `data-counter-url="${escapeHtml(url)}" data-effect-source="${escapeHtml(source)}" `
+      + `data-effect-ids="${ids}" data-counter-min="${min}" data-counter-max="${max}">`
+      + `<button type="button" data-counter-delta="-1" aria-label="Zähler verringern"${min !== "" && Number(value) <= Number(min) ? " disabled" : ""}>−</button>`
+      + `<output aria-live="polite">${value}</output>`
+      + `<button type="button" data-counter-delta="1" aria-label="Zähler erhöhen"${max !== "" && Number(value) >= Number(max) ? " disabled" : ""}>+</button></span>`
+    ),
+  );
+  html = html.replace(
     /\[\[EFFECTTOGGLE:([^;\]]+);([^;\]]+);([0-9,]+);([01])(?:;([01]))?\]\]/g,
     (_match, url, source, ids, active, inverted = "0") => {
       const isActive = active === "1";
@@ -1714,6 +1725,60 @@ export function initTooltips() {
         window.alert("Effektfreigabe fehlgeschlagen.");
       } finally {
         identifyButton.disabled = false;
+      }
+      return;
+    }
+
+    const counterButton = event.target instanceof Element ? event.target.closest("[data-counter-delta]") : null;
+    if (counterButton instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      const counter = counterButton.closest("[data-item-effect-counter]");
+      if (!counter || counterButton.disabled || counter.dataset.busy === "1") return;
+      counter.dataset.busy = "1";
+      counter.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+      const targetKey = activeCardTarget?.getAttribute("data-tooltip-card-key") || "";
+      const targetSignature = activeCardTarget ? buildCardTargetSignature(activeCardTarget) : "";
+      const previousLeft = card.style.left;
+      const previousTop = card.style.top;
+      const formData = new FormData();
+      formData.set("source_type", counter.dataset.effectSource || "");
+      formData.set("effect_ids", counter.dataset.effectIds || "");
+      formData.set("delta", counterButton.dataset.counterDelta || "");
+      try {
+        const response = await fetch(counter.dataset.counterUrl, {
+          method: "POST",
+          body: formData,
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error("counter update failed");
+        const payload = await response.json();
+        if (!payload?.ok) throw new Error("counter update invalid");
+        counter.querySelector("output").textContent = String(payload.value);
+        applySheetPartials(payload);
+        const nextTarget = Array.from(document.querySelectorAll(".tooltip_target[data-tooltip][data-tooltip-mode='card']"))
+          .find((target) => targetKey
+            ? target.getAttribute("data-tooltip-card-key") === targetKey
+            : targetSignature && buildCardTargetSignature(target) === targetSignature);
+        if (nextTarget) {
+          activeCardTarget = nextTarget;
+          saveCardState(nextTarget);
+          openCard(nextTarget, { preservePosition: true, previousLeft, previousTop });
+        }
+      } catch (_error) {
+        window.alert("Zähler konnte nicht gespeichert werden.");
+      } finally {
+        counter.dataset.busy = "0";
+        const value = Number(counter.querySelector("output").textContent);
+        counter.querySelectorAll("button").forEach((button) => {
+          const bound = button.dataset.counterDelta === "-1" ? counter.dataset.counterMin : counter.dataset.counterMax;
+          button.disabled = bound !== "" && (button.dataset.counterDelta === "-1" ? value <= Number(bound) : value >= Number(bound));
+        });
       }
       return;
     }

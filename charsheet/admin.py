@@ -3171,6 +3171,8 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     "active_flag",
                     "toggleable",
                     "toggle_state_inverted",
+                    "counter_enabled",
+                    ("counter_min", "counter_max"),
                     ("display_group", "display_group_append"),
                 )
             },

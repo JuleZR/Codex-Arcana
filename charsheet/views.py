@@ -6048,6 +6048,12 @@ ITEM_SEMANTIC_EFFECT_COPY_FIELDS = (
     "active_flag",
     "toggleable",
     "toggle_state_inverted",
+    "round_up",
+    "round_down",
+    "counter_enabled",
+    "counter_value",
+    "counter_min",
+    "counter_max",
     "display_group",
     "display_group_append",
     "priority",
@@ -6092,6 +6098,7 @@ def _ensure_character_item_effect_copies(
         effect.full_clean()
         effect.save()
         effect.condition_races.set(base_effect.condition_races.all())
+        effect.condition_schools.set(base_effect.condition_schools.all())
         existing_by_base_id[int(base_effect.id)] = effect
     return existing_by_base_id
 
@@ -6151,6 +6158,56 @@ def _character_item_effects_for_request(
         .filter(character_item=character_item, id__in=effect_ids, toggleable=True)
         .order_by("sort_order", "id")
     )
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def adjust_character_item_effect_counter(request, pk):
+    """Adjust a per-item reminder counter without changing its modifier."""
+    ci = _owned_character_item_or_404(request, pk)
+    ci = CharacterItem.objects.select_for_update().get(pk=ci.pk)
+    source = str(request.POST.get("source_type") or "")
+    raw_ids = str(request.POST.get("effect_ids") or "").split(",")
+    if (source not in {"item", "character_item"}
+            or not all(value.isdigit() for value in raw_ids)
+            or request.POST.get("delta") not in {"-1", "1"}):
+        return JsonResponse(
+            {"ok": False, "error": "invalid_counter"}, status=400,
+        )
+    ids = {int(value) for value in raw_ids}
+    if source == "item":
+        valid_ids = set(ItemSemanticEffect.objects.filter(
+            item_id=ci.item_id, pk__in=ids, counter_enabled=True,
+        ).values_list("pk", flat=True))
+        if valid_ids != ids:
+            return JsonResponse({"ok": False}, status=404)
+        copies = _ensure_character_item_effect_copies(ci, base_effect_ids=ids)
+        effects = [copies[effect_id] for effect_id in sorted(ids)]
+    else:
+        effects = list(CharacterItemSemanticEffect.objects.select_for_update()
+                       .filter(character_item=ci, pk__in=ids))
+        if len(effects) != len(ids):
+            return JsonResponse({"ok": False}, status=404)
+    if not all(effect.counter_enabled for effect in effects):
+        return JsonResponse({"ok": False}, status=404)
+    delta = int(request.POST["delta"])
+    for effect in effects:
+        effect.counter_value = effect.bounded_counter_value(
+            effect.bounded_counter_value() + delta,
+        )
+        effect.save(update_fields=["counter_value"])
+    keys = ("inventory_panel",)
+    if ci.equipped:
+        keys += ("weapon_panel", "armor_panel")
+    context = _build_item_semantic_effect_partial_context_for_request(
+        request, ci.owner, keys,
+    )
+    return JsonResponse({
+        "ok": True,
+        "value": effects[0].counter_value,
+        "partials": _render_sheet_partials(request, context, keys),
+    })
 
 
 @login_required

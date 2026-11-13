@@ -135,6 +135,22 @@
   padding: 8px 10px;
 }
 
+.magic-item-card-options {
+  flex-wrap: wrap;
+}
+
+.magic-item-card-options .shop_item_form_row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.magic-item-card-options input[type="number"] {
+  width: 5em;
+  min-width: 0;
+}
+
 .shop_magic_effect_card .magic-effect-group .sl-editor-field,
 .shop_magic_effect_card .magic-item-card-options .sl-editor-field {
   display: flex;

@@ -1389,6 +1389,18 @@ class ItemSemanticEffectFields(models.Model):
     active_flag = models.BooleanField(default=True)
     toggleable = models.BooleanField(default=False)
     toggle_state_inverted = models.BooleanField(default=False)
+    counter_enabled = models.BooleanField(
+        default=False, verbose_name="Zähler auf Itemkarte",
+    )
+    counter_value = models.IntegerField(
+        default=0, editable=False, verbose_name="Zählerstand",
+    )
+    counter_min = models.IntegerField(
+        null=True, blank=True, verbose_name="Zähler Minimum",
+    )
+    counter_max = models.IntegerField(
+        null=True, blank=True, verbose_name="Zähler Maximum",
+    )
     display_group = models.PositiveSmallIntegerField(null=True, blank=True)
     display_group_append = models.BooleanField(default=False)
     priority = models.IntegerField(default=0)
@@ -1430,8 +1442,23 @@ class ItemSemanticEffectFields(models.Model):
             pass
         return text
 
+    def bounded_counter_value(self, value=None):
+        value = self.counter_value if value is None else value
+        if self.counter_min is not None:
+            value = max(self.counter_min, value)
+        if self.counter_max is not None:
+            value = min(self.counter_max, value)
+        return value
+
     def clean(self):
         super().clean()
+        if (self.counter_min is not None and self.counter_max is not None
+                and self.counter_min > self.counter_max):
+            raise ValidationError({
+                "counter_max": (
+                    "Maximum muss mindestens dem Minimum entsprechen."
+                ),
+            })
         for field_name in ("scaling", "condition_set", "metadata"):
             value = getattr(self, field_name)
             if value is not None and not isinstance(value, dict):

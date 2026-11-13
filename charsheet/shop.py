@@ -343,6 +343,34 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         payload["toggleable"] = True
     if str(row_data.get("toggle_state_inverted") or "").lower() in {"1", "true", "on", "yes"}:
         payload["toggle_state_inverted"] = True
+    payload["counter_enabled"] = str(
+        row_data.get("counter_enabled") or ""
+    ).lower() in {"1", "true", "on", "yes"}
+    try:
+        payload["counter_value"] = int(row_data.get("counter_value") or 0)
+    except (TypeError, ValueError):
+        payload["counter_value"] = 0
+    for field in ("counter_min", "counter_max"):
+        raw = row_data.get(field)
+        try:
+            payload[field] = int(raw) if raw not in (None, "") else None
+        except (TypeError, ValueError):
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Zählergrenzen müssen ganze Zahlen sein."
+                ),
+            })
+    lower, upper = payload["counter_min"], payload["counter_max"]
+    if lower is not None and upper is not None and lower > upper:
+        raise ValidationError({
+            "magic_modifier_payloads": (
+                "Zähler: Minimum ist größer als Maximum."
+            ),
+        })
+    if lower is not None:
+        payload["counter_value"] = max(lower, payload["counter_value"])
+    if upper is not None:
+        payload["counter_value"] = min(upper, payload["counter_value"])
     scale_source = str(row_data.get("scale_source") or "").strip()
     if scale_source == "item_invested_cp":
         try:
@@ -623,6 +651,12 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_item": None,
                             "target_specialization": None,
                             **grouping_payload,
+                            "counter_enabled": bool(
+                                payload.get("counter_enabled", False)),
+                            "counter_min": payload.get("counter_min"),
+                            "counter_max": payload.get("counter_max"),
+                            "counter_value": int(
+                                payload.get("counter_value") or 0),
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
                             **({"toggle_state_inverted": bool(
@@ -643,6 +677,12 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_item": None,
                             "target_specialization": None,
                             **grouping_payload,
+                            "counter_enabled": bool(
+                                payload.get("counter_enabled", False)),
+                            "counter_min": payload.get("counter_min"),
+                            "counter_max": payload.get("counter_max"),
+                            "counter_value": int(
+                                payload.get("counter_value") or 0),
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
                             **({"toggle_state_inverted": bool(
@@ -737,6 +777,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             "notes": "",
             "rules_text": rules_text,
             "active_flag": bool(payload.get("active_flag", True)),
+            "counter_enabled": bool(payload.get("counter_enabled", False)),
+            "counter_min": payload.get("counter_min"),
+            "counter_max": payload.get("counter_max"),
+            "counter_value": int(payload.get("counter_value") or 0),
             "toggleable": bool(payload.get("toggleable", False)),
             "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
             **grouping_kwargs,
@@ -876,6 +920,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "notes": "" if metadata.get("condition_text") else effect_description,
         "rules_text": rules_text,
         "active_flag": bool(payload.get("active_flag", True)),
+        "counter_enabled": bool(payload.get("counter_enabled", False)),
+        "counter_min": payload.get("counter_min"),
+        "counter_max": payload.get("counter_max"),
+        "counter_value": int(payload.get("counter_value") or 0),
         "toggleable": bool(payload.get("toggleable", False)),
         "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
         **grouping_kwargs,
@@ -1010,6 +1058,24 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         except (TypeError, ValueError):
             base_item_effect_id = 0
         base_effect = base_effects.get(base_item_effect_id)
+        counter_effect = existing_effects_by_base_id.get(base_item_effect_id)
+        if counter_effect is None and (
+            source_model is Item
+            or payload.get("semantic_effect_source") == "character_item"
+        ):
+            counter_effect = next((
+                existing_effects[int(effect_id)]
+                for effect_id in payload.get("semantic_effect_ids", [])
+                if str(effect_id).isdigit()
+                and int(effect_id) in existing_effects
+            ), None)
+        if counter_effect is not None:
+            count = counter_effect.counter_value
+            if kwargs["counter_min"] is not None:
+                count = max(count, kwargs["counter_min"])
+            if kwargs["counter_max"] is not None:
+                count = min(count, kwargs["counter_max"])
+            kwargs["counter_value"] = count
         if source_model is Item or base_effect is None:
             kwargs["metadata"].pop("base_item_effect_id", None)
             base_item_effect_id = 0
