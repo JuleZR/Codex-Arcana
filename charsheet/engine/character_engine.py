@@ -558,6 +558,12 @@ class CharacterEngine:
             for entry in self.character.charactertrait_set.select_related("trait")
         }
 
+    def effective_trait_level(self, trait) -> int:
+        """Return the purchased rank plus active semantic trait effects."""
+        self.modifier_engine.collect_active_modifiers()
+        slug = getattr(trait, "slug", trait)
+        return self.modifier_engine.effective_trait_levels.get(str(slug), 0)
+
     @cached_property
     def _equipped_rune_ids(self) -> set[int]:
         """Cache unique rune ids attached to equipped owned items."""

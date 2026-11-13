@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from copy import copy
 from dataclasses import dataclass, field, replace
@@ -49,6 +50,7 @@ from charsheet.models import (
     Skill,
     Technique,
     TechniqueSemanticEffect,
+    Trait,
     VampireTraitSemanticEffect,
     SpecializationSemanticEffect,
 )
@@ -698,7 +700,6 @@ class ModifierEngine:
             collected.extend(self._active_school_semantic_modifiers)
             collected.extend(self._active_divine_entity_semantic_modifiers)
             collected.extend(self._active_specialization_semantic_modifiers)
-            collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)
             from charsheet.advanced_bonus_specializations import modifiers
 
@@ -707,6 +708,7 @@ class ModifierEngine:
             collected.extend(self._active_vampire_trait_modifiers)
             collected.extend(self._active_item_semantic_modifiers)
             collected.extend(self._active_item_rune_modifiers)
+            collected.extend(self._effective_trait_modifiers(collected))
         expanded = self._expand_choice_bound_modifiers(collected)
         result = [
             modifier
@@ -719,6 +721,92 @@ class ModifierEngine:
         if not context:
             self._active_modifiers_cache = result
         return result
+
+    def _effective_trait_modifiers(self, base_modifiers):
+        """Resolve temporary trait ranks without changing purchased traits."""
+        purchased = {
+            entry.trait.slug: entry.trait_level
+            for entry in self.character_engine.character.charactertrait_set
+            .select_related("trait")
+        }
+        definitions = {}
+        effects = {}
+        pending = set(purchased) | {
+            modifier.target_key for modifier in base_modifiers
+            if modifier.target_domain == TargetDomain.TRAIT
+        }
+        while pending:
+            rows = Trait.objects.filter(slug__in=pending).prefetch_related(
+                "semantic_effects", "semantic_effects__target_skills",
+                "semantic_effects__condition_races",
+                "semantic_effects__condition_schools",
+            )
+            pending = set()
+            for trait in rows:
+                definitions[trait.slug] = trait
+                effects[trait.slug] = build_trait_semantic_modifiers(
+                    trait_slug=trait.slug, level=1, trait=trait,
+                )
+                pending.update(
+                    modifier.target_key for modifier in effects[trait.slug]
+                    if modifier.target_domain == TargetDomain.TRAIT
+                    and modifier.target_key not in definitions
+                )
+            pending.difference_update(definitions)
+
+        levels = {}
+        resolving = set()
+
+        def at_level(modifier, level):
+            return replace(modifier, scaling={
+                **modifier.scaling, "_effective_trait_level": level,
+            })
+
+        def resolve(slug):
+            if slug in levels:
+                return levels[slug]
+            resolving.add(slug)
+            candidates = list(base_modifiers)
+            for source, source_effects in effects.items():
+                grants = [
+                    effect for effect in source_effects
+                    if effect.target_domain == TargetDomain.TRAIT
+                    and effect.target_key == slug
+                ]
+                # Cyclic grants never feed their own rank back into scaling.
+                if not grants or source in resolving:
+                    continue
+                level = resolve(source)
+                if level > 0:
+                    candidates.extend(
+                        at_level(effect, level) for effect in grants
+                    )
+            resolver = ModifierEngine(self.character_engine)
+            resolver._active_modifiers_cache = [
+                effect for effect in candidates
+                if effect.applies({})
+                and resolver._modifier_matches_race_condition(effect)
+                and resolver._modifier_matches_school_condition(effect)
+            ]
+            levels[slug] = max(0, resolver.resolve_numeric_total(
+                TargetDomain.TRAIT, slug, base_value=purchased.get(slug, 0),
+            ))
+            resolving.remove(slug)
+            return levels[slug]
+
+        modifiers = []
+        for slug, trait in definitions.items():
+            level = resolve(slug)
+            if level > 0:
+                modifiers.extend(
+                    at_level(effect, level)
+                    for effect in build_trait_semantic_modifiers(
+                        trait_slug=slug, level=level, trait=trait,
+                    )
+                )
+        self.effective_trait_levels = levels
+        self.effective_trait_definitions = definitions
+        return modifiers
 
     def _career_max_modifiers(self, modifiers, *, context=None):
         """Keep the higher applicable bonus across careers."""
@@ -1388,6 +1476,8 @@ class ModifierEngine:
         numeric_value = self._resolve_numeric_value(modifier)
         if numeric_value is None:
             return None
+        if math.isinf(numeric_value):
+            return numeric_value
 
         if modifier.operator in {
             ModifierOperator.SET_FLAG,
@@ -1414,6 +1504,12 @@ class ModifierEngine:
         """Resolve the numeric magnitude of one typed modifier before the operator sign is applied."""
         numeric_value = self._coerce_numeric(modifier.value)
         if numeric_value is None:
+            return None
+        if not math.isfinite(numeric_value):
+            if (numeric_value == math.inf
+                    and modifier.target_domain == TargetDomain.DERIVED_STAT
+                    and modifier.operator == ModifierOperator.OVERRIDE):
+                return math.inf
             return None
 
         if str(modifier.mode or "flat") == "scaled":
@@ -1489,6 +1585,13 @@ class ModifierEngine:
             and self._modifier_matches_condition_text(modifier, context)
             and TargetResolver.matches_context(modifier, context)
         ]
+
+        if target_domain == TargetDomain.DERIVED_STAT and any(
+            modifier.operator == ModifierOperator.OVERRIDE
+            and str(modifier.value).lower() in {"inf", "infinity", "∞"}
+            for modifier in relevant_modifiers
+        ):
+            return math.inf
 
         resolved_total = int(initial_value)
         rank_minimum = None
@@ -1990,6 +2093,9 @@ class ModifierEngine:
         """Resolve the raw numeric input used for scaled typed modifier math."""
         if not scale_source:
             return None
+        if (scale_source == "trait_level"
+                and "_effective_trait_level" in modifier.scaling):
+            return modifier.scaling["_effective_trait_level"]
         if scale_source == "vampire_trait_rank":
             return int(modifier.scaling.get("_vampire_trait_rank") or 0)
         if scale_source == "vampire_age_cycle":

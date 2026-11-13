@@ -19,7 +19,7 @@
         <a class="dashboard_button" href="{% url 'dashboard' %}">Zum Dashboard</a>
       </div>
     </header>{% endif %}
-    {% block messages %}{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}{% endblock %}
+    {% block messages %}{% endblock %}
     {% block content %}
       <div class="staff-workshop" data-staff-workshop>
         <aside class="staff-catalog" aria-label="Basisitems">

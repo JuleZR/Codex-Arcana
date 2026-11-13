@@ -8334,7 +8334,18 @@ def adjust_current_arcane_power(request, character_id: int):
         current_arcane_power = resource.intelligent
         resource_field = "vampire_intelligent_blood"
     else:
-        calculated_arcane_power = max(0, int(character.engine.calculate_arcane_power()))
+        calculated_arcane_power = max(
+            0, character.engine.calculate_arcane_power(),
+        )
+        if calculated_arcane_power == float("inf"):
+            if _is_partial_request(request):
+                return JsonResponse({
+                    "ok": True,
+                    "current_arcane_power": "∞",
+                    "current_arcane_power_max": "∞",
+                    "resource_type": "arcane_power",
+                })
+            return redirect("character_sheet", character_id=character_id)
         current_arcane_power = character.current_arcane_power
         resource_field = "current_arcane_power"
     if current_arcane_power is None:

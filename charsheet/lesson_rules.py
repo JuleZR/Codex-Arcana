@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+import math
 from typing import Iterable, Mapping
 
 from django.db import transaction
@@ -55,13 +56,15 @@ class ArcanePowerLessonCostHandler(LessonCostHandler):
             else "KP"
         )
         return (
-            int(context["current_arcane_power"]) >= amount,
+            context["current_arcane_power"] >= amount,
             f"Nicht genug {label} für diese Lektion.",
         )
 
     def deduct(
         self, character, costs: list[LessonCost], context: dict
     ) -> None:
+        if math.isinf(context["current_arcane_power"]):
+            return
         amount = sum(int(cost.value) for cost in costs)
         context["current_arcane_power"] = (
             int(context["current_arcane_power"]) - amount
@@ -762,10 +765,11 @@ def activate_lesson(
                 ),
             }
     else:
-        current_max = max(0, int(engine.calculate_arcane_power()))
+        current_max = max(0, engine.calculate_arcane_power())
         current = (
             current_max
-            if character.current_arcane_power is None
+            if (character.current_arcane_power is None
+                or math.isinf(current_max))
             else max(0, int(character.current_arcane_power))
         )
         resource_type = "arcane_power"
@@ -817,8 +821,13 @@ def activate_lesson(
         "lesson_id": int(entry.lesson_id),
         "lesson_name": entry.lesson.name,
         "spent_kp": kp_cost,
-        "current_arcane_power": int(handler_context["current_arcane_power"]),
-        "current_arcane_power_max": current_max,
+        "current_arcane_power": (
+            "∞" if math.isinf(current_max)
+            else int(handler_context["current_arcane_power"])
+        ),
+        "current_arcane_power_max": (
+            "∞" if math.isinf(current_max) else current_max
+        ),
         "resource_type": resource_type,
         "automatic_costs": [format_cost(cost) for cost in automatic],
         "manual_costs": [format_cost(cost) for cost in manual],

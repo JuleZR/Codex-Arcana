@@ -148,6 +148,11 @@ function renderOptimisticArcaneMeter(nextValue) {
   if (!(arcaneMeter instanceof HTMLElement) || !(fill instanceof HTMLElement) || !(valueNode instanceof HTMLElement)) {
     return null;
   }
+  if (["inf", "∞"].includes(arcaneMeter.dataset.arcaneMax)) {
+    valueNode.textContent = "∞";
+    fill.style.width = "100%";
+    return null;
+  }
 
   const previous = {
     current: readInt(arcaneMeter.dataset.arcaneCurrent, readInt(valueNode.textContent, 0)),

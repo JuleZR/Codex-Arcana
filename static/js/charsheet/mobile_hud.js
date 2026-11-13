@@ -59,6 +59,12 @@ export function initMobileHud() {
   function syncArcane() {
     const meter = document.querySelector(".arcane_meter");
     if (!meter) return;
+    if (["inf", "∞"].includes(meter.dataset.arcaneMax)) {
+      if (arcaneCurEl) arcaneCurEl.textContent = "∞";
+      if (arcaneMaxEl) arcaneMaxEl.textContent = "∞";
+      if (arcaneFill) arcaneFill.style.width = "100%";
+      return;
+    }
     const cur = readInt(meter.dataset.arcaneCurrent, 0);
     const max = readInt(meter.dataset.arcaneMax, 1);
     if (arcaneCurEl) arcaneCurEl.textContent = cur;

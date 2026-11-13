@@ -346,6 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (targetKind === "movement") payload.target_movement = target?.value || "";
         if (targetKind === "item") payload.target_item = target?.value || "";
         if (targetKind === "item_category") payload.target_item_category = target?.value || "";
+        if (targetKind === "trait") payload.target_trait = target?.value || "";
         if (targetKind === "specialization") payload.target_specialization = target?.value || "";
         if (["school_level", "school_level_grant"].includes(targetKind)) payload.target_school_level = target?.value || "";
         return payload;
@@ -583,6 +584,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (kind === "movement") payload.target_movement = target;
         if (kind === "item") payload.target_item = target;
         if (kind === "item_category") payload.target_item_category = target;
+        if (kind === "trait") payload.target_trait = target;
         if (kind === "specialization") payload.target_specialization = target;
         if (["school_level", "school_level_grant"].includes(kind)) payload.target_school_level = target;
         return payload;
@@ -709,6 +711,7 @@ document.addEventListener("DOMContentLoaded", () => {
         movement: payload.target_movement,
         item: payload.target_item,
         item_category: payload.target_item_category,
+        trait: payload.target_trait,
         specialization: payload.target_specialization,
         school_level: payload.target_school_level,
         school_level_grant: payload.target_school_level,

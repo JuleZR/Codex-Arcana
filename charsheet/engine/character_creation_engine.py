@@ -2101,11 +2101,12 @@ class CharacterCreationEngine:
                 character.save(update_fields=["money"])
 
             self.grant_starting_items(character)
-            character.current_arcane_power = max(
-                0,
-                int(
-                    character.get_engine(refresh=True).calculate_arcane_power()
-                ),
+            arcane_power = (
+                character.get_engine(refresh=True).calculate_arcane_power()
+            )
+            character.current_arcane_power = (
+                None if arcane_power == float("inf")
+                else max(0, int(arcane_power))
             )
             character.save(update_fields=["current_arcane_power"])
             self.draft.delete()

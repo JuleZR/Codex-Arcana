@@ -215,6 +215,11 @@ export function initDamagePanel() {
     if (!arcaneMeter || !arcaneFillEl) {
       return;
     }
+    if (["inf", "∞"].includes(String(arcaneMeter.dataset.arcaneMax))) {
+      arcaneFillEl.style.width = "100%";
+      if (currentArcaneEl) currentArcaneEl.textContent = "∞";
+      return;
+    }
     const { animate = true } = options;
     const safeMax = Math.max(0, readInt(maxValue ?? arcaneMeter.dataset.arcaneMax, 0));
     const isSharedBloodMeter = arcaneMeter.classList.contains("arcane_meter--blood-shared");

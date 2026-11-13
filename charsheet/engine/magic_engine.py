@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import math
 import re
 
 from django.db import models, transaction
@@ -1501,14 +1502,23 @@ class MagicEngine:
                 "changed": False,
                 "resource_type": "blood",
             }
-        current_max = max(0, int(self.character.get_engine(refresh=True).calculate_arcane_power()))
+        current_max = max(
+            0,
+            self.character.get_engine(refresh=True).calculate_arcane_power(),
+        )
+        if math.isinf(current_max):
+            return {
+                "current_arcane_power": math.inf,
+                "current_arcane_power_max": math.inf,
+                "changed": False,
+            }
         stored_current = self.character.current_arcane_power
 
         if stored_current is None:
             normalized_current = current_max
         else:
             normalized_current = max(0, int(stored_current))
-            if previous_max is not None:
+            if previous_max is not None and not math.isinf(previous_max):
                 max_delta = current_max - max(0, int(previous_max))
                 normalized_current += max_delta
             normalized_current = min(normalized_current, current_max)
@@ -1570,7 +1580,7 @@ class MagicEngine:
                 }
             return {"ok": True, "spell": spell_obj}
         normalized_resource = self.normalize_current_arcane_power()
-        current_arcane_power = int(normalized_resource["current_arcane_power"])
+        current_arcane_power = normalized_resource["current_arcane_power"]
         if current_arcane_power < int(spell_obj.kp_cost):
             return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
         if normalized_resource.get("resource_type") == "blood":
@@ -1627,8 +1637,12 @@ class MagicEngine:
                     "spent_ep": spent_ep,
                 }
             normalized_arcane_power = engine.normalize_current_arcane_power(persist=False)
-            calculated_arcane_power = int(normalized_arcane_power["current_arcane_power_max"])
-            current_arcane_power = int(normalized_arcane_power["current_arcane_power"])
+            calculated_arcane_power = (
+                normalized_arcane_power["current_arcane_power_max"]
+            )
+            current_arcane_power = (
+                normalized_arcane_power["current_arcane_power"]
+            )
             spent_kp = int(spell_obj.kp_cost)
             if normalized_arcane_power.get("resource_type") == "blood":
                 from .vampire_engine import VampireRules
@@ -1639,7 +1653,7 @@ class MagicEngine:
                 )
                 current_arcane_power = vampire_state.intelligent
                 calculated_arcane_power = vampire_state.maximum
-            else:
+            elif not math.isinf(calculated_arcane_power):
                 projected_arcane_power = current_arcane_power - spent_kp
                 if projected_arcane_power < 0:
                     return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
@@ -1652,8 +1666,14 @@ class MagicEngine:
                 "spell_id": spell_obj.id,
                 "spell_name": spell_obj.name,
                 "roll_load_penalty": roll_load_penalty,
-                "current_arcane_power": current_arcane_power,
-                "current_arcane_power_max": display_arcane_power_max,
+                "current_arcane_power": (
+                    "∞" if math.isinf(current_arcane_power)
+                    else current_arcane_power
+                ),
+                "current_arcane_power_max": (
+                    "∞" if math.isinf(display_arcane_power_max)
+                    else display_arcane_power_max
+                ),
                 "spent_kp": spent_kp,
                 "spent_ep": 0,
                 "resource_type": normalized_arcane_power.get("resource_type", "arcane_power"),

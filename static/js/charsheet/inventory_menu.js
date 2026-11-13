@@ -938,6 +938,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_item = String(row.querySelector("[data-magic-target-select='item']")?.value || "").trim();
       } else if (targetKind === "item_category") {
         payload.target_item_category = String(row.querySelector("[data-magic-target-select='item_category']")?.value || "").trim();
+      } else if (targetKind === "trait") {
+        payload.target_trait = row.querySelector("[data-magic-target-select='trait']")?.value || "";
       } else if (targetKind === "specialization") {
         payload.target_specialization = String(row.querySelector("[data-magic-target-select='specialization']")?.value || "").trim();
       } else if (["school_level", "school_level_grant"].includes(targetKind)) {
@@ -1155,6 +1157,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         movement: "target_movement",
         item: "target_item",
         item_category: "target_item_category",
+        trait: "target_trait",
         specialization: "target_specialization",
         school_level: "target_school_level",
         school_level_grant: "target_school_level",

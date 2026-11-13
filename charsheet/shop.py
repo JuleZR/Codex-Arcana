@@ -63,6 +63,7 @@ from charsheet.models import (
     Skill,
     SkillCategory,
     Specialization,
+    Trait,
     WeaponType,
     WeaponStats,
 )
@@ -258,8 +259,19 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     if not target_kind:
         return None
 
+    infinite = str(raw_value).strip().lower() == "inf"
+    if infinite and (
+        target_kind != TARGET_KIND_STAT
+        or row_data.get("operator") != "override"
+    ):
+        raise ValidationError({
+            "magic_modifier_payloads":
+                "Unendlich gilt nur für abgeleitete Werte.",
+        })
     try:
-        numeric_value = Decimal(str(raw_value or 0).replace(",", "."))
+        numeric_value = Decimal(
+            "0" if infinite else str(raw_value or 0).replace(",", "."),
+        )
         if not numeric_value.is_finite():
             raise ValueError
     except (InvalidOperation, TypeError, ValueError) as exc:
@@ -277,7 +289,7 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
             row_data.get("operator")
             if row_data.get("operator") in MAGIC_VALUE_OPERATORS else ""
         ),
-        "value": value,
+        "value": "inf" if infinite else value,
         "effect_description": str(row_data.get("effect_description") or "").strip(),
         "display_order": int(row_data.get("display_order") or 0),
         "target_slug": "",
@@ -424,6 +436,13 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     elif target_kind == WEAPON_MASTERY_BONUS:
         payload["target_kind"] = WEAPON_MASTERY_BONUS
         payload["effect_description"] = payload["effect_description"] or WEAPON_MASTERY_EFFECT_DESCRIPTION
+    elif target_kind == "trait":
+        slug = str(row_data.get("target_trait") or "").strip()
+        if not Trait.objects.filter(slug=slug).exists():
+            raise ValidationError({
+                "magic_modifier_payloads": "Bitte einen Trait auswählen.",
+            })
+        payload["target_slug"] = slug
     elif target_kind == TARGET_KIND_SKILL:
         skill_ids = _positive_int_list(row_data.get("target_skills"))
         if not skill_ids:
@@ -736,7 +755,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     target_slug = str(payload.get("target_slug") or "")
     target_domain = TargetDomain.METADATA
     target_key = target_slug
-    numeric_value = Decimal(str(payload.get("value") or 0).replace(",", "."))
+    infinite = str(payload.get("value")).lower() == "inf"
+    numeric_value = Decimal(
+        "0" if infinite else str(payload.get("value") or 0).replace(",", "."),
+    )
     operator = (
         ModifierOperator.FLAT_SUB if numeric_value < 0
         else ModifierOperator.FLAT_ADD
@@ -787,6 +809,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             target_domain = TargetDomain.DERIVED_STAT
     elif target_kind == TARGET_KIND_MOVEMENT:
         target_domain = TargetDomain.MOVEMENT
+    elif target_kind == "trait":
+        target_domain = TargetDomain.TRAIT
     elif target_kind == TARGET_KIND_SKILL:
         target_domain = TargetDomain.SKILL
         target_skill = payload.get("target_skill")
@@ -805,6 +829,16 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         target_domain = TargetDomain.ITEM
         target_item = payload.get("target_item")
         target_key = str(getattr(target_item, "id", "") or target_slug)
+
+    if infinite:
+        if (target_domain != TargetDomain.DERIVED_STAT
+                or operator != ModifierOperator.OVERRIDE):
+            raise ValidationError({
+                "magic_modifier_payloads":
+                    "Unendlich gilt nur für abgeleitete Werte.",
+            })
+        operator = ModifierOperator.OVERRIDE
+        value = "inf"
 
     metadata = {
         "ui_target_kind": target_kind,

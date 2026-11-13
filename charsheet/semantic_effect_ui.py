@@ -23,7 +23,7 @@ SEMANTIC_EFFECT_AREA_GROUPS = (
     ("Text / Anzeige", ("text",)),
     ("Eigenschaften & Zustände", (
         "attribute", "derived_stat", "attribute_cap", "defense",
-        "wound_stage", "resource",
+        "wound_stage", "resource", "trait",
     )),
     ("Geld", ("economy",)),
     ("Fertigkeiten", (

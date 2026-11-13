@@ -225,6 +225,9 @@ export function initItemForm() {
       const rulesText = String(row.querySelector("[data-magic-rules-text]")?.value || "").trim();
       const payload = {
         target_kind: targetKind,
+        operator: row.querySelector("[data-magic-operator]")?.value === "divide"
+          ? row.querySelector("[data-division-mode]:checked")?.value || "divide"
+          : row.querySelector("[data-magic-operator]")?.value || "",
         value: isTextOnly || isRuleFlag ? "0" : value,
         effect_description: effectDescription,
         rules_text: rulesText,
@@ -278,6 +281,8 @@ export function initItemForm() {
         payload.target_wound_stage_position = String(row.querySelector("[data-magic-target-select='wound_stage']")?.value || "").trim();
       } else if (targetKind === "rule_flag") {
         payload.target_rule_flag = String(ruleFlagSelect?.value || "").trim();
+      } else if (targetKind === "trait") {
+        payload.target_trait = row.querySelector("[data-magic-target-select='trait']")?.value || "";
       } else if (targetKind === "skill") {
         payload.target_skill = String(skillSelect?.value || "").trim();
         payload.target_skills = Array.from(skillSelect?.selectedOptions || [], option => option.value);

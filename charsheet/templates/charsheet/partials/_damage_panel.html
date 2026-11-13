@@ -90,12 +90,12 @@
         {% else %}
         <div class="arcane_meter_label">{{ resource_label }}</div>
         <div class="arcane_meter_row">
-          <button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--decrease" data-action="spend" data-amount="1" aria-label="Arkane Macht verringern">-</button>
-          <div class="arcane_meter_track">
+          {% if current_arcane_power_max != "∞" %}<button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--decrease" data-action="spend" data-amount="1" aria-label="Arkane Macht verringern">-</button>{% endif %}
+          <div class="arcane_meter_track"{% if current_arcane_power_max == "∞" %} style="grid-column: 2;"{% endif %}>
             <div class="arcane_meter_fill" style="width: {{ arcane_meter_percent }}%;"></div>
             <span class="arcane_meter_value"><span class="arcane_meter_current">{{ current_arcane_power }}</span></span>
           </div>
-          <button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--increase" data-action="restore" data-amount="1" aria-label="Arkane Macht erh&ouml;hen">+</button>
+          {% if current_arcane_power_max != "∞" %}<button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--increase" data-action="restore" data-amount="1" aria-label="Arkane Macht erh&ouml;hen">+</button>{% endif %}
         </div>
         {% endif %}
       </div>

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import math
 
 from charsheet.constants import QUALITY_CHOICES, QUALITY_COLOR_MAP
 from charsheet.engine import ItemEngine
@@ -10,6 +11,11 @@ from charsheet.models import Quality
 
 
 QUALITY_LABELS = dict(QUALITY_CHOICES)
+
+
+def format_infinite_number(value):
+    """Keep finite numeric payloads numeric and render infinity as text."""
+    return "∞" if math.isinf(value) else value
 
 
 def _quality_model_payload(code: str) -> tuple[str, str] | None:
@@ -24,6 +30,8 @@ def _quality_model_payload(code: str) -> tuple[str, str] | None:
 
 def format_modifier(value: int) -> str:
     """Format signed modifier values for UI display."""
+    if math.isinf(value):
+        return "∞"
     if value > 0:
         return f"+{value}"
     return str(value)
@@ -38,6 +46,8 @@ def format_compact_number(value) -> str:
     """Format whole-looking numbers without trailing decimal zeros."""
     if value is None:
         return "-"
+    if isinstance(value, (int, float, Decimal)) and math.isinf(value):
+        return "∞"
     if isinstance(value, Decimal):
         normalized = value.normalize()
         return format(normalized, "f").rstrip("0").rstrip(".") if normalized.as_tuple().exponent < 0 else format(normalized, "f")

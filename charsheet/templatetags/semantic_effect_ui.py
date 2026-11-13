@@ -28,5 +28,12 @@ def semantic_wound_positions():
 
 
 @register.simple_tag
+def semantic_trait_targets():
+    from charsheet.models import Trait
+
+    return Trait.objects.order_by("name").values_list("slug", "name")
+
+
+@register.simple_tag
 def semantic_school_level_targets(include_unlearned=False):
     return school_level_target_choices(include_unlearned=include_unlearned)

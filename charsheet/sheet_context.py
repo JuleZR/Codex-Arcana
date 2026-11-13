@@ -165,7 +165,10 @@ from charsheet.models import (
     Race,
 )
 from charsheet.models.lessons import is_arcane_lesson_school
-from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
+from charsheet.view_utils import (
+    format_compact_number, format_infinite_number, format_modifier,
+    format_thousands, quality_payload,
+)
 
 
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
@@ -1750,13 +1753,14 @@ def _serialize_item_semantic_effect_payload(
         value = Decimal(str(raw_value or 0))
     except (InvalidOperation, TypeError, ValueError):
         value = Decimal("0")
+    infinite = value.is_infinite()
     scaling_value = value
     if str(effect.operator or "") == "flat_sub":
         value = -abs(value)
 
     resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
     effective_value = value
-    if str(effect.scale_source or "") == "item_invested_cp":
+    if not infinite and str(effect.scale_source or "") == "item_invested_cp":
         divisor = int(effect.scale_divisor or 1)
         from charsheet.modifiers.rounding import round_scaled_value
 
@@ -1769,8 +1773,8 @@ def _serialize_item_semantic_effect_payload(
 
     payload: dict[str, object] = {
         "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
-        "value": format(value, "f"),
-        "effective_value": format(effective_value, "f"),
+        "value": "inf" if infinite else format(value, "f"),
+        "effective_value": "inf" if infinite else format(effective_value, "f"),
         "effect_description": str(metadata.get("condition_text") or effect.notes or ""),
         "rules_text": str(effect.rules_text or ""),
         "invested_cp": resolved_invested_cp,
@@ -1801,6 +1805,11 @@ def _serialize_item_semantic_effect_payload(
         payload["target_rule_flag"] = target_key
         payload["target_display"] = dict(RULE_FLAG_CHOICES).get(target_key, target_key)
         payload["value"] = 1
+    elif target_domain == "trait":
+        payload["target_kind"] = "trait"
+        payload["target_trait"] = target_key
+        trait = Trait.objects.filter(slug=target_key).first()
+        payload["target_display"] = trait.name if trait else target_key
     elif target_domain == "attribute":
         payload["target_kind"] = "attribute"
         payload["target_attribute"] = target_key
@@ -2645,6 +2654,10 @@ def _build_character_item_magic_tooltip_rows(
         target_display = str(entry["target_display"])
         operator = str(entry.get("operator") or "")
 
+        if value.is_infinite():
+            if str(entry.get("target_stat") or "") == ARCANE_POWER:
+                return "Unendliche Arkane Macht", "Unendliche Arkane Macht"
+            return f"{target_display} ∞", "∞"
         formatted_value = format_compact_number(value).replace(".", ",")
         signed_value = (
             formatted_value
@@ -5040,7 +5053,7 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
     grouped_rows: OrderedDict[tuple[str, str], dict[str, object]] = OrderedDict()
     for entry in explanation:
         resolved_value = entry.get("resolved_value")
-        if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+        if not isinstance(resolved_value, (int, float)) or resolved_value == 0:
             continue
         source_type = str(entry.get("source_type") or "").strip().lower()
         source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
@@ -5064,13 +5077,13 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
         if existing is None:
             grouped_rows[group_key] = {
                 "label": row_label,
-                "value": int(resolved_value),
+                "value": resolved_value,
                 "source": source_display,
                 "tone": "modifier",
                 "count": 1,
             }
             continue
-        existing["value"] = int(existing["value"]) + int(resolved_value)
+        existing["value"] = existing["value"] + resolved_value
         existing["count"] = int(existing.get("count", 1)) + 1
 
     rows: list[dict[str, object]] = []
@@ -5082,7 +5095,7 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
         rows.append(
             {
                 "label": label,
-                "value": format_modifier(int(row["value"])),
+                "value": format_modifier(row["value"]),
                 "source": row["source"],
                 "tone": row["tone"],
             }
@@ -6012,9 +6025,23 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         )
         .order_by("trait__trait_type", "trait__name")
     )
+    entries = list(traits_qs)
+    modifier_engine = character.get_engine().modifier_engine
+    modifier_engine.collect_active_modifiers()
+    levels = modifier_engine.effective_trait_levels
+    owned = {entry.trait.slug for entry in entries}
+    for entry in entries:
+        entry.trait_level = levels.get(entry.trait.slug, entry.trait_level)
+    entries.extend(
+        CharacterTrait(owner=character, trait=trait, trait_level=levels[slug])
+        for slug, trait in modifier_engine.effective_trait_definitions.items()
+        if slug not in owned and levels[slug] > 0
+    )
     advantage_rows: list[dict] = []
     disadvantage_rows: list[dict] = []
-    for entry in traits_qs:
+    for entry in entries:
+        if entry.trait_level <= 0:
+            continue
         specification = (
             entry.specification_option.name
             if entry.specification_option_id
@@ -6081,7 +6108,7 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             row["tooltip"] = row["description"]
         affiliations = []
         guild_tooltip_labels = []
-        for choice in entry.choices.all():
+        for choice in entry.choices.all() if entry.pk else ():
             if (
                 choice.selected_object_id is None
                 and not choice.custom_organization_name
@@ -9307,16 +9334,22 @@ def build_temporary_attribute_context(
     else:
         arcane_power_value = engine.calculate_arcane_power()
         potential_value = engine.calculate_potential()
-        current_arcane_power = character.current_arcane_power
+        current_arcane_power = (
+            math.inf if math.isinf(arcane_power_value)
+            else character.current_arcane_power
+        )
         if current_arcane_power is None:
             current_arcane_power = arcane_power_value
-        current_arcane_power = min(max(0, int(current_arcane_power)), int(arcane_power_value))
+        current_arcane_power = min(
+            max(0, current_arcane_power), arcane_power_value,
+        )
         resource_label = "Arkane Macht"
         vampire_panel = None
     arcane_meter_percent = (
         0
         if arcane_power_value <= 0
-        else (current_arcane_power / int(arcane_power_value)) * 100.0
+        else 100.0 if math.isinf(arcane_power_value)
+        else (current_arcane_power / arcane_power_value) * 100.0
     )
     if is_vampire:
         resource_tooltip_rows = [
@@ -9326,14 +9359,22 @@ def build_temporary_attribute_context(
             {"label": "Alterszyklus", "value": vampire_rules.age_cycle()},
             {"label": "Zusatzkapazität", "value": vampire_rules.capacity_bonus()},
             {"label": "Permanenter Verlust", "value": -vampire_rules.capacity_loss()},
-            {"label": "= Blutvorrat", "value": arcane_power_value, "tone": "total"},
+            {
+                "label": "= Blutvorrat",
+                "value": format_compact_number(arcane_power_value),
+                "tone": "total",
+            },
         ]
     else:
         resource_tooltip_rows = [
             {"label": "Will", "value": willpower},
             {"label": "Stufen in Schulen", "value": school_level_total},
             *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
-            {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
+            {
+                "label": "= Gesamt",
+                "value": format_compact_number(arcane_power_value),
+                "tone": "total",
+            },
         ]
 
     return {
@@ -9427,19 +9468,23 @@ def build_temporary_attribute_context(
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_GW),
             ),
-            "arcane_power": arcane_power_value,
+            "arcane_power": format_infinite_number(arcane_power_value),
             "arcane_power_condition_badge": _build_core_stat_condition_badge(engine, ARCANE_POWER),
             "arcane_power_tooltip": _build_core_stat_tooltip(
                 resource_tooltip_rows,
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, ARCANE_POWER),
             ),
-            "potential": potential_value,
+            "potential": format_infinite_number(potential_value),
             "potential_condition_badge": _build_core_stat_condition_badge(engine, POTENTIAL),
             "potential_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Will / 2", "value": willpower // 2},
                     *_build_modifier_breakdown_rows(engine, POTENTIAL),
-                    {"label": "= Gesamt", "value": potential_value, "tone": "total"},
+                    {
+                        "label": "= Gesamt",
+                        "value": format_compact_number(potential_value),
+                        "tone": "total",
+                    },
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, POTENTIAL),
             ),
@@ -9460,8 +9505,8 @@ def build_temporary_attribute_context(
         "damage_gauge_segments": damage_gauge["segments"],
         "damage_gauge_gradient_stops": damage_gauge["gradient_stops"],
         "wound_threshold_rows": wound_threshold_rows,
-        "current_arcane_power": current_arcane_power,
-        "current_arcane_power_max": int(arcane_power_value),
+        "current_arcane_power": format_infinite_number(current_arcane_power),
+        "current_arcane_power_max": format_infinite_number(arcane_power_value),
         "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
         "resource_label": resource_label,
         "resource_type": "blood" if is_vampire else "arcane_power",
@@ -9558,19 +9603,23 @@ def build_item_semantic_effect_partial_context(
             }
         else:
             arcane_power_value = engine.calculate_arcane_power()
-            current_arcane_power = character.current_arcane_power
+            current_arcane_power = (
+                math.inf if math.isinf(arcane_power_value)
+                else character.current_arcane_power
+            )
             if current_arcane_power is None:
                 current_arcane_power = arcane_power_value
             current_arcane_power = min(
-                max(0, int(current_arcane_power)),
-                int(arcane_power_value),
+                max(0, current_arcane_power),
+                arcane_power_value,
             )
             resource_label = "Arkane Macht"
             vampire_panel = None
         arcane_meter_percent = (
             0
             if arcane_power_value <= 0
-            else (current_arcane_power / int(arcane_power_value)) * 100.0
+            else 100.0 if math.isinf(arcane_power_value)
+            else (current_arcane_power / arcane_power_value) * 100.0
         )
         context.update(
             {
@@ -9592,8 +9641,12 @@ def build_item_semantic_effect_partial_context(
                 "damage_gauge_segments": damage_gauge["segments"],
                 "damage_gauge_gradient_stops": damage_gauge["gradient_stops"],
                 "wound_threshold_rows": wound_threshold_rows,
-                "current_arcane_power": current_arcane_power,
-                "current_arcane_power_max": int(arcane_power_value),
+                "current_arcane_power": format_infinite_number(
+                    current_arcane_power,
+                ),
+                "current_arcane_power_max": format_infinite_number(
+                    arcane_power_value,
+                ),
                 "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
                 "resource_label": resource_label,
                 "resource_type": "blood" if is_vampire else "arcane_power",
@@ -10051,15 +10104,22 @@ def build_character_sheet_context(
     else:
         arcane_power_value = engine.calculate_arcane_power()
         potential_value = engine.calculate_potential()
-        current_arcane_power = character.current_arcane_power
+        current_arcane_power = (
+            math.inf if math.isinf(arcane_power_value)
+            else character.current_arcane_power
+        )
         if current_arcane_power is None:
             current_arcane_power = arcane_power_value
-        current_arcane_power = max(0, int(current_arcane_power))
-        current_arcane_power = min(current_arcane_power, int(arcane_power_value))
+        current_arcane_power = max(0, current_arcane_power)
+        current_arcane_power = min(current_arcane_power, arcane_power_value)
         resource_label = "Arkane Macht"
         vampire_panel = None
-    arcane_power_display_max = int(arcane_power_value)
-    arcane_meter_percent = 0 if arcane_power_display_max <= 0 else (current_arcane_power / arcane_power_display_max) * 100.0
+    arcane_power_display_max = arcane_power_value
+    arcane_meter_percent = (
+        100.0 if math.isinf(arcane_power_display_max)
+        else 0 if arcane_power_display_max <= 0
+        else current_arcane_power / arcane_power_display_max * 100.0
+    )
     vw_value = engine.vw()
 
     race = character.race
@@ -10809,7 +10869,7 @@ def build_character_sheet_context(
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_GW),
             ),
-            "arcane_power": arcane_power_value,
+            "arcane_power": format_infinite_number(arcane_power_value),
             "arcane_power_condition_badge": _build_core_stat_condition_badge(engine, ARCANE_POWER),
             "arcane_power_tooltip": _build_core_stat_tooltip(
                 [
@@ -10819,24 +10879,36 @@ def build_character_sheet_context(
                     {"label": "Alterszyklus", "value": vampire_rules.age_cycle()},
                     {"label": "Zusatzkapazität", "value": vampire_rules.capacity_bonus()},
                     {"label": "Permanenter Verlust", "value": -vampire_rules.capacity_loss()},
-                    {"label": "= Blutvorrat", "value": arcane_power_value, "tone": "total"},
+                    {
+                        "label": "= Blutvorrat",
+                        "value": format_compact_number(arcane_power_value),
+                        "tone": "total",
+                    },
                 ]
                 if is_vampire
                 else [
                     {"label": "Will", "value": willpower},
                     {"label": "Stufen in Schulen", "value": school_level_total},
                     *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
-                    {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
+                    {
+                        "label": "= Gesamt",
+                        "value": format_compact_number(arcane_power_value),
+                        "tone": "total",
+                    },
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, ARCANE_POWER),
             ),
-            "potential": potential_value,
+            "potential": format_infinite_number(potential_value),
             "potential_condition_badge": _build_core_stat_condition_badge(engine, POTENTIAL),
             "potential_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Will / 2", "value": willpower // 2},
                     *_build_modifier_breakdown_rows(engine, POTENTIAL),
-                    {"label": "= Gesamt", "value": potential_value, "tone": "total"},
+                    {
+                        "label": "= Gesamt",
+                        "value": format_compact_number(potential_value),
+                        "tone": "total",
+                    },
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, POTENTIAL),
             ),
@@ -10866,8 +10938,10 @@ def build_character_sheet_context(
         "damage_gauge_segments": damage_gauge["segments"],
         "damage_gauge_gradient_stops": damage_gauge["gradient_stops"],
         "wound_threshold_rows": wound_threshold_rows,
-        "current_arcane_power": current_arcane_power,
-        "current_arcane_power_max": arcane_power_display_max,
+        "current_arcane_power": format_infinite_number(current_arcane_power),
+        "current_arcane_power_max": format_infinite_number(
+            arcane_power_display_max,
+        ),
         "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
         "resource_label": resource_label,
         "resource_type": "blood" if is_vampire else "arcane_power",
@@ -10907,6 +10981,7 @@ def build_character_sheet_context(
             *[(weapon_type.slug, weapon_type.name) for weapon_type in WeaponType.objects.order_by("sort_order", "name")],
         ],
         "shop_modifier_target_kind_choices": [
+            ("trait", "Trait vergeben / erhöhen"),
             (TEXT_TARGET_KIND, "Text"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),
@@ -10923,6 +10998,7 @@ def build_character_sheet_context(
             ("specialization", "Spezialisierung"),
         ],
         "item_modifier_target_kind_choices": [
+            ("trait", "Trait vergeben / erhöhen"),
             (TEXT_TARGET_KIND, "Text"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),

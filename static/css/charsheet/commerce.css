@@ -4080,3 +4080,22 @@
     box-sizing: border-box;
   }
 }
+.arcane_meter[data-arcane-max="∞"] .arcane_meter_value {
+  font-family: "Cambria Math", "STIX Two Math", Georgia, serif;
+  font-size: 1.6em;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: -.08em;
+}
+
+.arcane_meter[data-arcane-max="∞"] .arcane_meter_fill {
+  width: 100% !important;
+}
+
+.arcane_meter[data-arcane-max="∞"] .arcane_meter_track {
+  height: 26px;
+}
+
+.arcane_meter[data-arcane-max="∞"] .arcane_step_btn {
+  display: none;
+}

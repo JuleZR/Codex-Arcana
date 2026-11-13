@@ -449,6 +449,7 @@ def _effect_context(payloads):
     context = {
         "magic_editor_payloads": payloads,
         "magic_editor_effect_kinds": [
+            ("trait", "Trait vergeben / erhöhen"),
             ("text", "Nur Beschreibung"), ("rule_flag", "Regel aktivieren"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),

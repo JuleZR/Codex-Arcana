@@ -2641,6 +2641,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         ("text", "Text"),
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
+        ("trait", "Trait vergeben / erhöhen"),
         ("wound_stage", "Wundstufe einfügen"),
         ("resource", "Ressource"),
         ("movement", "Bewegung"),
@@ -2806,6 +2807,10 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
         choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
         choices.extend((f"weapon_range:{value}", label) for value, label in self.WEAPON_RANGE_TARGET_CHOICES)
+        choices.extend(
+            (f"trait:{trait.slug}", trait.name)
+            for trait in Trait.objects.order_by("name")
+        )
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
@@ -2848,6 +2853,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             "resource": "resource",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
+            "trait": "trait",
             "movement": "movement",
             "creature_movement": "creature_movement",
             "combat": "combat",
@@ -2865,7 +2871,9 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             self.initial.setdefault("simple_target", f"{area}:{target_key}")
         self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
         value = self.initial.get("value", getattr(self.instance, "value", ""))
-        if self._is_numberish(value):
+        if target_domain == "derived_stat" and str(value) == "inf":
+            self.initial["simple_value"] = "inf"
+        elif self._is_numberish(value):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
         elif (
             target_domain in {"movement", "creature_movement"}
@@ -2960,7 +2968,20 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             operator = "flat_add"
         if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
             operator = "set_flag"
-        if operator in {"set_flag", "unset_flag"}:
+        infinite = (
+            str(cleaned_data.get("simple_value") or "")
+            .strip().lower() == "inf"
+        )
+        if infinite:
+            if target_domain != "derived_stat" or operator != "override":
+                self.add_error(
+                    "simple_value",
+                    "inf erfordert einen abgeleiteten Wert "
+                    "und auf Wert setzen.",
+                )
+            cleaned_data["operator"] = "override"
+            cleaned_data["value"] = "inf"
+        elif operator in {"set_flag", "unset_flag"}:
             cleaned_data["operator"] = operator
             cleaned_data["value"] = "true" if operator == "set_flag" else "false"
         else:
@@ -3046,6 +3067,7 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
             "resource": "resource",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
+            "trait": "trait",
             "movement": "movement",
             "creature_movement": "creature_movement",
             "combat": "combat",
@@ -3074,6 +3096,8 @@ class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
                 text = text[len(prefix):].strip()
                 break
         number = float(text)
+        if not float("-inf") < number < float("inf"):
+            raise ValueError("Eine endliche Zahl eingeben.")
         return str(int(number)) if number.is_integer() else str(number)
 
     @classmethod
@@ -3748,6 +3772,7 @@ class RuleSemanticEffectAdminForm(
         ("school_level_grant", "Schulstufen"),
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
+        ("trait", "Trait vergeben / erhöhen"),
         ("wound_stage", "Wundstufe einfügen"),
         ("resource", "Ressource"),
         ("economy", "Geld"),
@@ -3833,7 +3858,7 @@ class RuleSemanticEffectAdminForm(
     )
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
-    simple_value = CommaFloatField(label="Zahl", required=False)
+    simple_value = forms.CharField(label="Zahl", required=False)
     simple_weapon_category_filter = forms.ChoiceField(
         label="Waffenfilter",
         choices=WEAPON_CATEGORY_FILTER_CHOICES,
@@ -3964,6 +3989,10 @@ class RuleSemanticEffectAdminForm(
             Q(weapon_stats__isnull=False) | Q(rangedweaponstats__isnull=False) | Q(shieldstats__isnull=False)
         ).distinct().order_by("name", "id")
         choices.extend((f"weapon:{item.pk}", item.name) for item in weapon_items)
+        choices.extend(
+            (f"trait:{trait.slug}", trait.name)
+            for trait in Trait.objects.order_by("name")
+        )
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.append(("language:foreign_languages", "Alle Fremdsprachen"))
@@ -4008,6 +4037,7 @@ class RuleSemanticEffectAdminForm(
             "economy": "economy",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
+            "trait": "trait",
             "combat": "combat",
             "damage": "combat",
             "movement": "movement",
@@ -4068,7 +4098,9 @@ class RuleSemanticEffectAdminForm(
                 self.initial.setdefault("simple_target", f"{area}:{target_key}")
         self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
         value = self.initial.get("value", getattr(self.instance, "value", ""))
-        if self._is_numberish(value):
+        if target_domain == "derived_stat" and str(value) == "inf":
+            self.initial["simple_value"] = "inf"
+        elif self._is_numberish(value):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
         elif (
             target_domain in {"movement", "creature_movement"}
@@ -4212,7 +4244,20 @@ class RuleSemanticEffectAdminForm(
             operator = "flat_add"
         if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
             operator = "set_flag"
-        if operator in {"set_flag", "unset_flag"}:
+        infinite = (
+            str(cleaned_data.get("simple_value") or "")
+            .strip().lower() == "inf"
+        )
+        if infinite:
+            if target_domain != "derived_stat" or operator != "override":
+                self.add_error(
+                    "simple_value",
+                    "inf erfordert einen abgeleiteten Wert "
+                    "und auf Wert setzen.",
+                )
+            cleaned_data["operator"] = "override"
+            cleaned_data["value"] = "inf"
+        elif operator in {"set_flag", "unset_flag"}:
             cleaned_data["operator"] = operator
             cleaned_data["value"] = "true" if operator == "set_flag" else "false"
         else:
@@ -4221,9 +4266,16 @@ class RuleSemanticEffectAdminForm(
                 self.add_error("simple_value", "Bitte eine Zahl eintragen.")
             else:
                 cleaned_data["operator"] = operator
-                cleaned_data["value"] = self._format_simple_number(value)
+                try:
+                    cleaned_data["value"] = (
+                        self._format_simple_number(value)
+                    )
+                except (TypeError, ValueError, OverflowError):
+                    self.add_error(
+                        "simple_value", "Bitte eine Zahl eintragen.",
+                    )
                 if area == "wound_stage":
-                    numeric_value = float(str(value).replace(",", "."))
+                    numeric_value = float(cleaned_data.get("value") or 0)
                     if numeric_value < 1 or not numeric_value.is_integer():
                         self.add_error("simple_value", "Zusätzliche Wundstufen müssen eine positive ganze Zahl sein.")
 
@@ -4335,6 +4387,7 @@ class RuleSemanticEffectAdminForm(
             "economy": "economy",
             "attribute": "attribute",
             "derived_stat": "derived_stat",
+            "trait": "trait",
             "combat": "combat",
             "damage_source": "damage",
             "movement": "movement",
@@ -4364,6 +4417,8 @@ class RuleSemanticEffectAdminForm(
     @staticmethod
     def _format_simple_number(value) -> str:
         number = float(str(value).replace(",", "."))
+        if not float("-inf") < number < float("inf"):
+            raise ValueError("Eine endliche Zahl eingeben.")
         return str(int(number)) if number.is_integer() else str(number)
 
     @staticmethod
