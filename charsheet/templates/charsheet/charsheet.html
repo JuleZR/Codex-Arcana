@@ -41,9 +41,9 @@
     {% endif %}
     <link
       rel="stylesheet"
-      href="{% static 'css/charsheet.css' %}?v=20261113-semantic-infinity"
+      href="{% static 'css/charsheet.css' %}?v=20261113-counter-preview2"
     />
-    <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261103-division-compact">
+    <link rel="stylesheet" href="{% static 'css/charsheet/condition-picker.css' %}?v=20261113-counter-preview2">
     <link rel="stylesheet" href="{% static 'css/charsheet/consumables.css' %}?v=20261005">
     <link rel="stylesheet" href="{% static 'css/charsheet/attribute-flavor.css' %}?v=20261015-hyphenation">
     {% if request.user.settings.charsheet_design == "codex_os_27" %}
@@ -187,7 +187,7 @@
     {% endif %}
 
     <script defer src="{% static 'js/charsheet/condition_picker.js' %}?v=20261004c"></script>
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261113-semantic-infinity"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20261113-counter-preview2"></script>
     <script type="module" src="{% static 'js/charsheet_diary.js' %}?v=20261009-journal-page-targets"></script>
     {% if read_only %}
     <script>

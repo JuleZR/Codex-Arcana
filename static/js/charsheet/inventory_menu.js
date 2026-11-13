@@ -1,6 +1,6 @@
 import { applySheetPartials } from "./partial_updates.js";
 import { createFloatingWindowController } from "./window_manager.js";
-import { createItemEffectPreview } from "./item_effect_preview.js?v=20261102-overlay-workshop4";
+import { createItemEffectPreview } from "./item_effect_preview.js?v=20261113-counter-preview2";
 
 let divisionGroupId = 0;
 const openOwnInventories = new Map();
@@ -779,7 +779,15 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
     const scaleDivisorRow = row.querySelector("[data-magic-scale-divisor-row]");
     const selectedKind = String(targetKindSelect?.value || "");
-    const isTextOnly = selectedKind === "text";
+    const isTextOnly = ["text", "counter"].includes(selectedKind);
+    const isCounter = selectedKind === "counter";
+    const counterFields = row.querySelector("[data-magic-counter-fields]");
+    if (counterFields) {
+      counterFields.hidden = !isCounter;
+      counterFields.querySelectorAll("input, textarea").forEach((input) => { input.disabled = !isCounter; });
+    }
+    const effectOptions = row.querySelector("[data-magic-effect-options]");
+    if (effectOptions) effectOptions.hidden = isCounter;
     const isRuleFlag = selectedKind === "rule_flag";
     const operator = row.querySelector("[data-magic-operator]");
     const canSet = !isTextOnly && !isRuleFlag && selectedKind !== "wound_stage";
@@ -862,7 +870,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       if (!targetKind) {
         return;
       }
-      const isTextOnly = targetKind === "text";
+      const isTextOnly = ["text", "counter"].includes(targetKind);
       const isRuleFlag = targetKind === "rule_flag";
       const payload = {
         target_kind: targetKind,
@@ -871,10 +879,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
           : String(row.querySelector("[data-magic-operator]")?.value || ""),
         value: isTextOnly || isRuleFlag ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
-        rules_text: String(row.querySelector("[data-magic-rules-text]")?.value || "").trim(),
+        rules_text: String(row.querySelector(targetKind === "counter"
+          ? "[data-magic-counter-label]" : "[data-magic-rules-text]")?.value || "").trim(),
         active_flag: row.dataset.magicActiveFlag !== "0",
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
-        counter_enabled: Boolean(row.querySelector("[data-magic-counter-enabled]")?.checked),
+        counter_enabled: targetKind === "counter",
         counter_value: Number(row.dataset.counterValue || 0),
         counter_min: row.querySelector("[data-magic-counter-min]")?.value || null,
         counter_max: row.querySelector("[data-magic-counter-max]")?.value || null,
@@ -1128,8 +1137,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         toggleableInput.checked = Boolean(initialPayload.toggleable);
       }
       row.dataset.counterValue = String(initialPayload.counter_value || 0);
-      const counterEnabled = row.querySelector("[data-magic-counter-enabled]");
-      if (counterEnabled) counterEnabled.checked = Boolean(initialPayload.counter_enabled);
+      const counterLabel = row.querySelector("[data-magic-counter-label]");
+      if (counterLabel) counterLabel.value = initialPayload.rules_text || "";
       for (const bound of ["min", "max"]) {
         const input = row.querySelector(`[data-magic-counter-${bound}]`);
         if (input) input.value = initialPayload[`counter_${bound}`] ?? "";
@@ -1202,7 +1211,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
-    row.querySelectorAll("[data-magic-counter-enabled], [data-magic-counter-min], [data-magic-counter-max]")
+    row.querySelectorAll("[data-magic-counter-label], [data-magic-counter-min], [data-magic-counter-max]")
       .forEach((input) => input.addEventListener("input", serializeMagicEffects));
     row.querySelector("[data-magic-toggle-inverted]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-condition-races]")?.addEventListener("change", serializeMagicEffects);

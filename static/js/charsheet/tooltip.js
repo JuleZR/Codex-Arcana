@@ -271,9 +271,9 @@ export function renderInlineMarkdown(text) {
       `<span class="tooltip_effect_counter" data-item-effect-counter `
       + `data-counter-url="${escapeHtml(url)}" data-effect-source="${escapeHtml(source)}" `
       + `data-effect-ids="${ids}" data-counter-min="${min}" data-counter-max="${max}">`
-      + `<button type="button" data-counter-delta="-1" aria-label="Zähler verringern"${min !== "" && Number(value) <= Number(min) ? " disabled" : ""}>−</button>`
+      + `<button type="button" data-counter-delta="1" aria-label="Zähler erhöhen"${source === "preview" || max !== "" && Number(value) >= Number(max) ? " disabled" : ""}></button>`
       + `<output aria-live="polite">${value}</output>`
-      + `<button type="button" data-counter-delta="1" aria-label="Zähler erhöhen"${max !== "" && Number(value) >= Number(max) ? " disabled" : ""}>+</button></span>`
+      + `<button type="button" data-counter-delta="-1" aria-label="Zähler verringern"${source === "preview" || min !== "" && Number(value) <= Number(min) ? " disabled" : ""}></button></span>`
     ),
   );
   html = html.replace(
@@ -1348,7 +1348,7 @@ function syncTooltipCardMediaHeight(card) {
   media.style.height = "";
 }
 
-function syncTooltipCardLayout(card) {
+export function syncTooltipCardLayout(card, { maxHeight } = {}) {
   if (!(card instanceof HTMLElement)) {
     return;
   }
@@ -1363,7 +1363,7 @@ function syncTooltipCardLayout(card) {
   lore.style.height = "";
   lore.style.maxHeight = "";
 
-  const maxFrameHeight = Math.min(760 * 1.4142, window.innerHeight - 24);
+  const maxFrameHeight = maxHeight ?? Math.min(760 * 1.4142, window.innerHeight - 24);
   const naturalFrameHeight = frame.scrollHeight;
   if (naturalFrameHeight <= maxFrameHeight + 1) {
     return;

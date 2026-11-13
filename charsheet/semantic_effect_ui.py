@@ -20,7 +20,7 @@ from charsheet.constants import (
 
 
 SEMANTIC_EFFECT_AREA_GROUPS = (
-    ("Text / Anzeige", ("text",)),
+    ("Text / Anzeige", ("text", "counter")),
     ("Eigenschaften & Zustände", (
         "attribute", "derived_stat", "attribute_cap", "defense",
         "wound_stage", "resource", "trait",

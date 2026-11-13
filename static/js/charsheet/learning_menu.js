@@ -1,6 +1,6 @@
 import { createChoiceModalController } from "./choice_modal.js?v=20261017-decisions";
 import { clamp, escapeHtml, readInt } from "./utils.js?v=20260622a";
-import { initLearningChronicle } from "./learning_chronicle.js?v=20261018-choice-sync";
+import { initLearningChronicle } from "./learning_chronicle.js?v=20261113-counter-preview2";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
 const renderOpenSpellSlotMarkup = (remaining) => {

@@ -20,6 +20,17 @@ document.addEventListener("DOMContentLoaded", () => {
       : operator;
   };
 
+  const syncCounterFields = (row, kind) => {
+    const isCounter = kind === "counter";
+    const fields = row.querySelector("[data-effect-counter-fields]");
+    if (fields) {
+      fields.hidden = !isCounter;
+      fields.querySelectorAll("input, textarea").forEach((input) => { input.disabled = !isCounter; });
+    }
+    const options = row.querySelector("[data-effect-options]");
+    if (options) options.hidden = isCounter;
+  };
+
   const floating = ({ win, backdrop, handle, opener, closeButtons, beforeOpen, afterClose }) => {
     if (!win || !backdrop || !handle) return null;
 
@@ -291,10 +302,11 @@ document.addEventListener("DOMContentLoaded", () => {
           operator: effectOperator(row),
           value: row.querySelector("[data-effect-value]")?.value || "0",
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
-          rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
+          rules_text: row.querySelector(targetKind === "counter"
+            ? "[data-effect-counter-label]" : "[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
-          counter_enabled: Boolean(row.querySelector("[data-effect-counter-enabled]")?.checked),
+          counter_enabled: targetKind === "counter",
           counter_value: Number(row.dataset.counterValue || 0),
           counter_min: row.querySelector("[data-effect-counter-min]")?.value || null,
           counter_max: row.querySelector("[data-effect-counter-max]")?.value || null,
@@ -332,7 +344,7 @@ document.addEventListener("DOMContentLoaded", () => {
           payload.display_group_append = true;
         }
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
-        if (!["text", "rule_flag"].includes(targetKind) && scaleSource) {
+        if (!["text", "counter", "rule_flag"].includes(targetKind) && scaleSource) {
           payload.scale_source = scaleSource;
           payload.scale_divisor = Number.parseInt(row.querySelector("[data-effect-scale-divisor]")?.value || "0", 10) || 0;
         }
@@ -360,6 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const syncEffectRow = (row) => {
       const kind = row.querySelector("[data-effect-kind]")?.value || "text";
+      syncCounterFields(row, kind);
       row.querySelectorAll("[data-effect-target]").forEach((targetRow) => {
         const active = targetRow.dataset.effectTarget === kind;
         targetRow.hidden = !active;
@@ -371,13 +384,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const valueLabel = row.querySelector("[data-effect-value-label]");
       const operator = row.querySelector("[data-effect-operator]");
       if (operator) {
-        operator.disabled = ["text", "rule_flag", "wound_stage"].includes(kind);
+        operator.disabled = ["text", "counter", "rule_flag", "wound_stage"].includes(kind);
         operator.closest("label").hidden = operator.disabled;
         if (operator.disabled) operator.value = "";
       }
       syncDivisionRounding(row);
       if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Wert";
-      const hasCalculation = !["text", "rule_flag"].includes(kind);
+      const hasCalculation = !["text", "counter", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !hasCalculation;
       const valueInput = row.querySelector("[data-effect-value]");
       if (valueInput) {
@@ -414,7 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
       row.querySelector("[data-effect-kind]")?.addEventListener("change", () => syncEffectRow(row));
       row.querySelector("[data-effect-operator]")?.addEventListener("change", () => syncEffectRow(row));
       row.querySelector("[data-effect-scale-source]")?.addEventListener("change", () => syncEffectRow(row));
-      row.querySelectorAll("input, select").forEach((field) => {
+      row.querySelectorAll("input, select, textarea").forEach((field) => {
         field.addEventListener("input", serializeEffects);
         field.addEventListener("change", serializeEffects);
       });
@@ -523,10 +536,11 @@ document.addEventListener("DOMContentLoaded", () => {
           operator: effectOperator(row),
           value: row.querySelector("[data-effect-value]")?.value || "0",
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
-          rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
+          rules_text: row.querySelector(kind === "counter"
+            ? "[data-effect-counter-label]" : "[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
-          counter_enabled: Boolean(row.querySelector("[data-effect-counter-enabled]")?.checked),
+          counter_enabled: kind === "counter",
           counter_value: Number(row.dataset.counterValue || 0),
           counter_min: row.querySelector("[data-effect-counter-min]")?.value || null,
           counter_max: row.querySelector("[data-effect-counter-max]")?.value || null,
@@ -574,7 +588,7 @@ document.addEventListener("DOMContentLoaded", () => {
           payload.display_group_append = true;
         }
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
-        if (!["text", "rule_flag"].includes(kind) && scaleSource) {
+        if (!["text", "counter", "rule_flag"].includes(kind) && scaleSource) {
           payload.scale_source = scaleSource;
           payload.scale_divisor = Number.parseInt(row.querySelector("[data-effect-scale-divisor]")?.value || "0", 10) || 0;
         }
@@ -602,6 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sync = (row) => {
       const kind = row.querySelector("[data-effect-kind]")?.value || "text";
+      syncCounterFields(row, kind);
       row.querySelectorAll("[data-effect-target]").forEach((targetRow) => {
         const active = targetRow.dataset.effectTarget === kind;
         targetRow.hidden = !active;
@@ -613,13 +628,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const valueLabel = row.querySelector("[data-effect-value-label]");
       const operator = row.querySelector("[data-effect-operator]");
       if (operator) {
-        operator.disabled = ["text", "rule_flag", "wound_stage"].includes(kind);
+        operator.disabled = ["text", "counter", "rule_flag", "wound_stage"].includes(kind);
         operator.closest("label").hidden = operator.disabled;
         if (operator.disabled) operator.value = "";
       }
       syncDivisionRounding(row);
       if (valueLabel) valueLabel.textContent = kind === "wound_stage" ? "Anzahl" : "Wert";
-      const calculated = !["text", "rule_flag"].includes(kind);
+      const calculated = !["text", "counter", "rule_flag"].includes(kind);
       if (valueRow) valueRow.hidden = !calculated;
       const value = row.querySelector("[data-effect-value]");
       if (value) {
@@ -689,8 +704,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (displayGroupAppend) displayGroupAppend.checked = Boolean(payload.display_group_append);
       if (toggleable) toggleable.checked = Boolean(payload.toggleable);
       row.dataset.counterValue = String(payload.counter_value || 0);
-      const counterEnabled = row.querySelector("[data-effect-counter-enabled]");
-      if (counterEnabled) counterEnabled.checked = Boolean(payload.counter_enabled);
+      const counterLabel = row.querySelector("[data-effect-counter-label]");
+      if (counterLabel) counterLabel.value = payload.rules_text || "";
       for (const bound of ["min", "max"]) {
         const input = row.querySelector(`[data-effect-counter-${bound}]`);
         if (input) input.value = payload[`counter_${bound}`] ?? "";
@@ -739,7 +754,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const ids = new Set((payload.target_skills || [payload.target_skill]).map(String));
         Array.from(targetSelect.options).forEach(option => { option.selected = ids.has(option.value); });
       }
-      row.querySelectorAll("input, select").forEach((field) => {
+      row.querySelectorAll("input, select, textarea").forEach((field) => {
         field.addEventListener("input", serialize);
         field.addEventListener("change", serialize);
       });

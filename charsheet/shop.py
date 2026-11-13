@@ -383,7 +383,22 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
 
     rule_flag_keys = {value for value, _label in RULE_FLAG_CHOICES}
 
-    if target_kind == TEXT_TARGET_KIND:
+    if target_kind == "counter":
+        payload.update({
+            "value": 0,
+            "rules_text": str(row_data.get("rules_text") or "").strip()
+            or "Zähler",
+            "effect_description": "",
+            "counter_enabled": True,
+            "active_flag": True,
+            "toggleable": False,
+            "toggle_state_inverted": False,
+            "display_group": None,
+            "display_group_append": False,
+        })
+        payload.pop("scale_source", None)
+        payload.pop("scale_divisor", None)
+    elif target_kind == TEXT_TARGET_KIND:
         rules_text = str(row_data.get("rules_text") or "").strip()
         if not payload["effect_description"] and not rules_text:
             return None
@@ -763,21 +778,25 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     if bool(payload.get("display_group_append", False)):
         grouping_kwargs["display_group_append"] = True
 
-    if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+    target_kind = str(payload.get("target_kind") or "")
+    is_counter = target_kind == "counter"
+    if target_kind in {TEXT_TARGET_KIND, "counter"}:
         rules_text = str(payload.get("rules_text") or payload.get("effect_description") or "").strip()
         if not rules_text:
             return None
         return {
             "sort_order": int(payload.get("display_order") or 0),
             "target_domain": str(TargetDomain.METADATA.value),
-            "target_key": "rules_text",
+            "target_key": "counter" if is_counter else "rules_text",
             "operator": str(ModifierOperator.OVERRIDE.value),
             "mode": "flat",
             "value": "",
             "notes": "",
             "rules_text": rules_text,
             "active_flag": bool(payload.get("active_flag", True)),
-            "counter_enabled": bool(payload.get("counter_enabled", False)),
+            "counter_enabled": is_counter or bool(
+                payload.get("counter_enabled", False)
+            ),
             "counter_min": payload.get("counter_min"),
             "counter_max": payload.get("counter_max"),
             "counter_value": int(payload.get("counter_value") or 0),
@@ -785,8 +804,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
             **grouping_kwargs,
             "metadata": {
-                "ui_target_kind": TEXT_TARGET_KIND,
-                "legacy_target_kind": TEXT_TARGET_KIND,
+                "ui_target_kind": target_kind,
+                "legacy_target_kind": target_kind,
                 **(
                     {"base_item_effect_id": int(payload["base_item_effect_id"])}
                     if payload.get("base_item_effect_id")

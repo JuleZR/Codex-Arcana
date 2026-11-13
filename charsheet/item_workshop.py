@@ -155,6 +155,8 @@ def build_item_effect_previews(post, *, character_item=None):
                 pk__in=payload.get("condition_schools", []),
             )),
         )
+        if serialized.get("counter_enabled"):
+            serialized["counter_preview"] = True
         grouped[payload["display_order"]].append(serialized)
         card_payloads.append(serialized)
         if serialized.get("display_group") is not None:

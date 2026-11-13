@@ -4931,32 +4931,55 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .tooltip_effect_counter {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-right: 6px;
+  display: inline-grid;
+  grid-template-rows: 14px auto 14px;
+  justify-items: center;
+  width: 24px;
   vertical-align: middle;
   white-space: nowrap;
 }
 
 .tooltip_effect_counter button {
-  width: 22px;
-  height: 22px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 14px;
   padding: 0;
-  border: 1px solid rgba(88, 48, 18, 0.34);
-  border-radius: 4px;
-  background: rgba(88, 48, 18, 0.12);
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
   color: inherit;
+  opacity: 0.55;
   cursor: pointer;
 }
 
+.tooltip_effect_counter button::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border: solid currentColor;
+  border-width: 1px 1px 0 0;
+  transform: rotate(-45deg);
+}
+
+.tooltip_effect_counter button[data-counter-delta="-1"]::before {
+  transform: rotate(135deg);
+}
+
+.tooltip_effect_counter button:hover:not(:disabled),
+.tooltip_effect_counter button:focus-visible {
+  opacity: 1;
+}
+
 .tooltip_effect_counter button:disabled {
-  opacity: 0.45;
+  opacity: 0.2;
   cursor: default;
 }
 
 .tooltip_effect_counter output {
   min-width: 2ch;
+  line-height: 1;
+  font-size: 1em;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -5115,7 +5138,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: none;
 }
 
-.floating-tooltip-card__section_body td:nth-child(2) .tooltip_effect_toggle {
+.floating-tooltip-card__section_body td:nth-child(2) .tooltip_effect_toggle,
+.floating-tooltip-card__section_body td:nth-child(2) .tooltip_effect_counter {
   float: right;
   margin-left: 10px;
 }

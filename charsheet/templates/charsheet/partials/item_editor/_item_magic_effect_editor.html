@@ -43,6 +43,14 @@
         <label class="shop_item_form_row" data-effect-scale-source-row data-magic-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source data-magic-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>
         <label class="shop_item_form_row" data-effect-scale-divisor-row data-magic-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor data-magic-scale-divisor></label>
       </div>
+      <div data-effect-counter-fields data-magic-counter-fields hidden>
+        <label class="sl-editor-field shop_item_form_row"><span>Beschreibung</span><textarea rows="2" placeholder="Zähler" data-effect-counter-label data-magic-counter-label></textarea></label>
+        <div class="magic-item-card-options">
+        <label class="shop_item_form_row"><span>Min.</span><input type="number" step="1" placeholder="offen" data-effect-counter-min data-magic-counter-min></label>
+        <label class="shop_item_form_row"><span>Max.</span><input type="number" step="1" placeholder="offen" data-effect-counter-max data-magic-counter-max></label>
+        </div>
+      </div>
+      <div data-effect-options data-magic-effect-options>
       {% if magic_editor_inspector %}<details class="workshop_accordion"><summary>Weitere Effektoptionen</summary>{% endif %}
       {% if not magic_editor_inspector %}<label class="sl-editor-field shop_item_form_row"><span>Beschreibung</span><textarea rows="2" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description data-magic-effect-description></textarea></label>{% endif %}
       <label class="sl-editor-field shop_item_form_row"><span>Regeltext</span><textarea rows="2" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text data-magic-rules-text></textarea></label>
@@ -61,11 +69,9 @@
         <span>Itemkarte</span>
         <label class="sl-editor-field sl-editor-field--check shop_item_form_check shop_item_form_check--inline"><input type="checkbox" value="1" data-effect-toggleable data-magic-toggleable> <em>umschaltbar</em></label>
         <label class="sl-editor-field sl-editor-field--check shop_item_form_check shop_item_form_check--inline"><input type="checkbox" value="1" data-effect-toggle-inverted data-magic-toggle-inverted> <em>invertiert</em></label>
-        <label class="sl-editor-field sl-editor-field--check shop_item_form_check shop_item_form_check--inline" title="Einfacher Merkzähler ohne Einfluss auf die Effektwirkung"><input type="checkbox" value="1" data-effect-counter-enabled data-magic-counter-enabled> <em>Zähler</em></label>
-        <label class="shop_item_form_row"><span>Min.</span><input type="number" step="1" placeholder="offen" data-effect-counter-min data-magic-counter-min></label>
-        <label class="shop_item_form_row"><span>Max.</span><input type="number" step="1" placeholder="offen" data-effect-counter-max data-magic-counter-max></label>
       </div>
       {% if magic_editor_inspector %}</details>{% endif %}
+      </div>
     </article>
   </template>
 </section>

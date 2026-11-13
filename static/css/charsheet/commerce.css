@@ -3647,7 +3647,7 @@
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview .floating-tooltip-card__close { display: none; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_card_inspector { display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview > .floating-tooltip-card { transform-origin: top center; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_item_card_preview > .floating-tooltip-card { width: 760px; left: 50%; margin-left: -380px; transform-origin: top center; }
 :is(#runeRetrofitWindow, .sl-workshop-window) #workshopItemCardStatus:empty { display: none; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_catalog_entry { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid #c8a983; }
 :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_rune_image { display: grid; place-items: center; width: 46px; height: 46px; color: #73462d; font-size: 28px; }

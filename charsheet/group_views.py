@@ -1316,6 +1316,7 @@ def game_master_screen(request, group_id: int):
             "group_inventory_effect_kinds": [
                 ("trait", "Trait vergeben / erhöhen"),
                 ("text", "Nur Beschreibung"),
+                ("counter", "Zähler"),
                 ("school_level", "Erlernte Schulstufen"),
                 ("school_level_grant", "Schulstufen"),
                 ("rule_flag", "Regel aktivieren"),

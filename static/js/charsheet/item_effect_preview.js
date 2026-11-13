@@ -1,4 +1,4 @@
-import { renderInlineMarkdown } from "./tooltip.js?v=20261015-effect-preview";
+import { renderInlineMarkdown, syncTooltipCardLayout } from "./tooltip.js?v=20261113-counter-preview2";
 
 export function createItemEffectPreview({ form, payloadInput, getInvestedCp, cardTarget, cardStatus, getCardFields = () => ({}) }) {
   let targets = [];
@@ -12,7 +12,14 @@ export function createItemEffectPreview({ form, payloadInput, getInvestedCp, car
   let previewCard;
   const fitCard = () => {
     if (!previewCard || !cardTarget.clientHeight) return;
-    const scale = Math.min(1, cardTarget.clientHeight / previewCard.offsetHeight);
+    syncTooltipCardLayout(previewCard, {
+      maxHeight: previewCard.offsetWidth * 297 / 210,
+    });
+    const scale = Math.min(
+      1,
+      cardTarget.clientWidth / previewCard.offsetWidth,
+      cardTarget.clientHeight / previewCard.offsetHeight,
+    );
     previewCard.style.transform = `scale(${scale})`;
   };
   const cardResizeObserver = cardTarget && typeof ResizeObserver !== "undefined"

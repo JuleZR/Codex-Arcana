@@ -152,9 +152,9 @@
                     <td>
                       {% for counter in row.counters %}
                         <span class="tooltip_effect_counter" data-item-effect-counter data-counter-url="{{ counter.url }}" data-effect-source="{{ counter.source }}" data-effect-ids="{{ counter.ids }}" data-counter-min="{{ counter.min|default_if_none:'' }}" data-counter-max="{{ counter.max|default_if_none:'' }}">
-                          <button type="button" data-counter-delta="-1" aria-label="Zähler verringern"{% if item_card.controls or counter.min != None and counter.value <= counter.min %} disabled{% endif %}>−</button>
+                          <button type="button" data-counter-delta="1" aria-label="Zähler erhöhen"{% if item_card.controls or counter.read_only or counter.max != None and counter.value >= counter.max %} disabled{% endif %}></button>
                           <output aria-live="polite">{{ counter.value }}</output>
-                          <button type="button" data-counter-delta="1" aria-label="Zähler erhöhen"{% if item_card.controls or counter.max != None and counter.value >= counter.max %} disabled{% endif %}>+</button>
+                          <button type="button" data-counter-delta="-1" aria-label="Zähler verringern"{% if item_card.controls or counter.read_only or counter.min != None and counter.value <= counter.min %} disabled{% endif %}></button>
                         </span>
                       {% endfor %}
                       <span data-sl-effect-display data-actual="{{ row.value }}">{{ row.value|card_markdown }}</span>

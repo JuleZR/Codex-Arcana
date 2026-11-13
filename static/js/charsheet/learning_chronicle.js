@@ -1,5 +1,5 @@
 import { escapeHtml, readInt } from "./utils.js?v=20260622a";
-import { renderTooltipMarkup } from "./tooltip.js?v=20261113-tooltip-values";
+import { renderTooltipMarkup } from "./tooltip.js?v=20261113-counter-preview2";
 
 // Presentation only: the cart controller owns costs, limits and submitted fields.
 export function initLearningChronicle(form, cartBody, controller) {

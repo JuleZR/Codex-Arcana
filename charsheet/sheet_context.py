@@ -1714,11 +1714,13 @@ def _serialize_item_semantic_effect_payload(
         base_item_effect_id = None
     if base_item_effect_id is None and isinstance(effect, ItemSemanticEffect) and effect.pk:
         base_item_effect_id = int(effect.pk)
-    if target_domain == "metadata" and target_key == "rules_text":
+    if target_domain == "metadata" and target_key in {"rules_text", "counter"}:
         text = str(effect.rules_text or effect.notes or "")
         resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
         return {
-            "target_kind": TEXT_TARGET_KIND,
+            "target_kind": (
+                "counter" if target_key == "counter" else TEXT_TARGET_KIND
+            ),
             "value": 0,
             "effect_description": "",
             "rules_text": text,
@@ -2445,16 +2447,21 @@ def _build_character_item_magic_tooltip_rows(
         return f"[[EFFECTTOGGLE:{url};{source};{ids};{'1' if display_active else '0'};{'1' if inverted else '0'}]] "
 
     def counter_marker_for(entry: dict[str, object]) -> str:
-        if not (entry.get("counter_enabled")
-                and entry.get("character_item_id")):
+        if not entry.get("counter_enabled"):
             return ""
-        source = str(entry.get("semantic_effect_source") or "")
-        ids = ",".join(str(v) for v in entry.get("semantic_effect_ids") or [])
-        if source not in {"item", "character_item"} or not ids:
-            return ""
-        url = reverse("adjust_character_item_effect_counter", args=[
-            int(entry["character_item_id"]),
-        ])
+        if entry.get("counter_preview"):
+            url, source, ids = "#", "preview", "0"
+        else:
+            source = str(entry.get("semantic_effect_source") or "")
+            ids = ",".join(
+                str(v) for v in entry.get("semantic_effect_ids") or []
+            )
+            if (source not in {"item", "character_item"} or not ids
+                    or not entry.get("character_item_id")):
+                return ""
+            url = reverse("adjust_character_item_effect_counter", args=[
+                int(entry["character_item_id"]),
+            ])
         value = int(entry.get("counter_value") or 0)
         lower = entry.get("counter_min")
         upper = entry.get("counter_max")
@@ -2834,7 +2841,7 @@ def _build_character_item_magic_tooltip_rows(
                 add_display_entry(entry, value_display, group_effect=value_display)
 
     for payload in merged_payloads:
-        if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+        if payload.get("target_kind") in {TEXT_TARGET_KIND, "counter"}:
             flush_numeric_effects()
             numeric_effects.clear()
             effect_description = _format_magic_text_effect_line(
@@ -3422,6 +3429,7 @@ def _shared_item_card_effect_rows(
                         "value": int(match[3]),
                         "min": int(match[4]) if match[4] else None,
                         "max": int(match[5]) if match[5] else None,
+                        "read_only": match[1] == "preview",
                     }
                     for match in re.findall(
                         r"\[\[EFFECTCOUNTER:([^;\]]+);([^;\]]+);([0-9,]+);"
@@ -11070,6 +11078,7 @@ def build_character_sheet_context(
         "item_modifier_target_kind_choices": [
             ("trait", "Trait vergeben / erhöhen"),
             (TEXT_TARGET_KIND, "Text"),
+            ("counter", "Zähler"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
