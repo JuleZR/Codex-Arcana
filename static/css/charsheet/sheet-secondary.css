@@ -4808,6 +4808,15 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   text-align: right;
 }
 
+.floating-tooltip table.tooltip_value_table th:nth-child(2),
+.floating-tooltip table.tooltip_value_table td:nth-child(2) {
+  min-width: 4ch;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-align: right;
+}
+
 .floating-tooltip table.tooltip_conditional_modifiers th:first-child,
 .floating-tooltip table.tooltip_conditional_modifiers td:first-child {
   width: 42px;

@@ -4603,8 +4603,7 @@ def _clean_modifier_note_text(note_text: object, *, invested_cp: object = "") ->
         closing_index = text.find("|", 1)
         if closing_index > 1:
             label = text[1:closing_index].replace("@", invested_cp_text).strip()
-            suffix = text[closing_index + 1:].strip().replace("@", invested_cp_text)
-            text = " ".join(part for part in (label, suffix) if part)
+            text = label
     elif invested_cp_text:
         text = text.replace("@", invested_cp_text)
     for marker in ("**", "__", "`"):

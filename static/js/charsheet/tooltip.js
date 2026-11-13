@@ -672,6 +672,9 @@ export function renderTooltipMarkup(rawText) {
       }
 
       const tableClasses = ["tooltip_markdown_table"];
+      if (header.length === 2 && String(header[1] || "").trim() === "Wert") {
+        tableClasses.push("tooltip_value_table");
+      }
       if (
         header.length === 2
         && String(header[0] || "").trim() === "Mod."
