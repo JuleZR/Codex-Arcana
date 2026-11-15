@@ -70,7 +70,8 @@
 .staff-items #runeRetrofitWindow .catalog-field--check label { flex: 1; }
 .staff-items #runeRetrofitWindow .catalog-field small { color: #806950; font-size: 11px; line-height: 1.4; }
 .staff-items #runeRetrofitWindow .catalog-field--check small { flex-basis: 100%; }
-.staff-items #runeRetrofitWindow .workshop_stat_fields fieldset { margin: 0 0 16px; padding: 12px; min-width: 0; border: 1px solid #c8a983; border-radius: 3px; }
+.staff-items #runeRetrofitWindow .workshop_stat_fields fieldset { position: relative; margin: 0 0 16px; padding: 42px 12px 12px; min-width: 0; border: 1px solid #c8a983; border-radius: 3px; }
+.staff-items #runeRetrofitWindow .workshop_stat_fields .catalog-field--DELETE { position: absolute; top: 4px; right: 12px; }
 .catalog-weapon-sections { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 12px; }
 .catalog-weapon-section { min-width: 0; overflow-x: auto; }
 .staff-items #runeRetrofitWindow .catalog-weapon-section h3 { margin: 0 0 8px; padding-bottom: 5px; border-bottom: 1px solid #c8a98370; color: #806044; font: 600 13px "Segoe UI", sans-serif; }
