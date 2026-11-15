@@ -1169,8 +1169,6 @@ class ArmorStats(models.Model):
                     "does not support armor stats."
                 ),
             })
-        if not self.rs_total:
-            raise ValidationError({"rs_total": "Armor must have RS greater than zero."})
         if self.parent_set_id and not self.component_type:
             raise ValidationError({"component_type": "Generated armor components require a component type."})
         if self.component_type and not self.parent_set_id:

@@ -1620,7 +1620,9 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                 }
                 armor_stats = ArmorStats(
                     item=item,
-                    rs_total=_read_int(post_data, "armor_rs_total", 0, minimum=1),
+                    rs_total=_read_int(
+                        post_data, "armor_rs_total", 0, minimum=0,
+                    ),
                     encumbrance=armor_encumbrance,
                     min_st=armor_min_st,
                     suppress_component_generation=(

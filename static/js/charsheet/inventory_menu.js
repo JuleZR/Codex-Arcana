@@ -2053,6 +2053,26 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     } catch (_error) { /* The server renders the validation error. */ }
     populateMagicEffects(effects);
     runeForm.querySelectorAll("[data-catalog-formset]").forEach((section) => {
+      const syncDeletedStats = () => {
+        section.querySelectorAll("input[name$='-DELETE']").forEach((toggle) => {
+          toggle.closest("fieldset")?.querySelectorAll("input, select, textarea").forEach((field) => {
+            if (field === toggle || field.type === "hidden") return;
+            if (toggle.checked) {
+              if (!field.disabled) {
+                field.dataset.disabledForStatDeletion = "1";
+                field.disabled = true;
+              }
+            } else if (field.dataset.disabledForStatDeletion === "1") {
+              field.disabled = false;
+              delete field.dataset.disabledForStatDeletion;
+            }
+          });
+        });
+      };
+      section.addEventListener("change", (event) => {
+        if (event.target.matches("input[name$='-DELETE']")) syncDeletedStats();
+      });
+      syncDeletedStats();
       section.querySelector("[data-catalog-add-form]")?.addEventListener("click", () => {
         const total = section.querySelector("input[name$='-TOTAL_FORMS']");
         const template = section.querySelector("[data-catalog-empty-form]");
