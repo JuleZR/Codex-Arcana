@@ -155,6 +155,35 @@ def divine_entity_count_for_school(school_id: int) -> int:
     return divine_entities_for_school(school_id).count()
 
 
+def core_aspects_for_source(source, binding=None):
+    """Resolve configured core aspects using the existing selection modes."""
+    from charsheet.models import DruidCult, ShamanPatron
+
+    is_shaman = isinstance(source, ShamanPatron)
+    links = source.aspects.all()
+    if source.aspect_selection_mode == "fixed":
+        if is_shaman:
+            aspects = list(links.order_by("name", "id"))
+        else:
+            aspects = [link.aspect for link in links.filter(
+                is_starting_aspect=True,
+            ).select_related("aspect").order_by("aspect__name", "aspect_id")]
+        if not isinstance(source, DruidCult):
+            return aspects
+    elif binding is None:
+        return []
+    else:
+        aspects = list(binding.core_aspects.all().order_by("name", "id"))
+        if source.aspect_selection_mode == "choose_from_entity":
+            key = "pk" if is_shaman else "aspect_id"
+            allowed_ids = set(links.values_list(key, flat=True))
+            aspects = [
+                aspect for aspect in aspects if aspect.pk in allowed_ids
+            ]
+    limit = int(source.starting_aspect_count or 0)
+    return aspects[:limit] if limit > 0 else aspects
+
+
 def locked_religion_entity(character, *, repair: bool = False):
     """Return the entity locking religion for an active clerical school."""
     from charsheet.models import CharacterDivineEntity

@@ -26,10 +26,24 @@
     function sync() {
       available.replaceChildren();
       selected.replaceChildren();
+      const groups = new Map();
       Array.from(source.options).forEach((option) => {
         const copy = option.cloneNode(true);
         copy.selected = false;
-        (option.selected ? selected : available).appendChild(copy);
+        const destination = option.selected ? selected : available;
+        const group = option.dataset.conditionGroup;
+        if (!group) {
+          destination.appendChild(copy);
+          return;
+        }
+        const key = `${option.selected}:${group}`;
+        if (!groups.has(key)) {
+          const optgroup = document.createElement("optgroup");
+          optgroup.label = group;
+          destination.appendChild(optgroup);
+          groups.set(key, optgroup);
+        }
+        groups.get(key).appendChild(copy);
       });
       updateButtons();
       if (toggle && fields) {
@@ -92,13 +106,82 @@
     });
   }
 
+  function initializeFocus(editor) {
+    if (editor.dataset.focusReady) return;
+    const source = editor.querySelector("[data-focus-target-picker] [data-condition-source]");
+    const value = editor.querySelector("[data-focus-bindings-value]");
+    const list = editor.querySelector("[data-focus-bindings]");
+    const template = editor.querySelector("[data-focus-binding-template]");
+    if (!source || !value || !list || !template) return;
+    editor.dataset.focusReady = "1";
+    const catalog = JSON.parse(editor.dataset.focusOptions || "{}");
+
+    function save() {
+      const targets = [];
+      list.querySelectorAll("[data-focus-binding]").forEach(pane => {
+        const schoolId = pane.dataset.focusSchoolId;
+        const picker = pane.querySelector("[data-condition-source]");
+        const hasSelection = picker.selectedOptions.length > 0;
+        const configuration = catalog[schoolId];
+        const current = hasSelection ? "" : " (aktuelle Bindung)";
+        pane.querySelector("legend").textContent = `${configuration.name} · ${configuration.label}${current}`;
+        Array.from(picker.selectedOptions).forEach(option => {
+          targets.push({
+            school_id: Number(schoolId), kind: catalog[schoolId].kind,
+            object_id: Number(option.value),
+          });
+        });
+      });
+      value.value = JSON.stringify(targets);
+      value.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function sync() {
+      const saved = JSON.parse(value.value || "[]");
+      const schoolIds = new Set(Array.from(source.selectedOptions, option => option.value));
+      list.querySelectorAll("[data-focus-binding]").forEach(pane => {
+        if (!schoolIds.has(pane.dataset.focusSchoolId)) {
+          pane.remove();
+        }
+      });
+      schoolIds.forEach(schoolId => {
+        const configuration = catalog[schoolId];
+        if (!configuration || list.querySelector(`[data-focus-school-id="${schoolId}"]`)) return;
+        const pane = template.content.firstElementChild.cloneNode(true);
+        pane.dataset.focusSchoolId = schoolId;
+        pane.querySelector("legend").textContent = `${configuration.name} · ${configuration.label}`;
+        const picker = pane.querySelector("[data-condition-source]");
+        const selected = new Set(saved.filter(target =>
+          String(target.school_id) === schoolId && target.kind === configuration.kind,
+        ).map(target => String(target.object_id)));
+        configuration.options.forEach(entry => {
+          const option = document.createElement("option");
+          option.value = String(entry.pk);
+          option.textContent = entry.name;
+          option.selected = selected.has(option.value);
+          picker.appendChild(option);
+        });
+        list.appendChild(pane);
+        pane.querySelectorAll("select").forEach(select => { select.disabled = source.disabled; });
+        initialize(pane.querySelector("[data-condition-picker]"));
+        picker.addEventListener("change", save);
+      });
+      save();
+    }
+    source.addEventListener("change", sync);
+    sync();
+  }
+
   function scan(root) {
     if (root.matches?.("[data-condition-picker]")) initialize(root);
     root.querySelectorAll?.("[data-condition-picker]").forEach(initialize);
     if (root.matches?.("[data-effect-group]")) initializeGroup(root);
     root.querySelectorAll?.("[data-effect-group]").forEach(initializeGroup);
+    if (root.matches?.("[data-focus-editor]")) initializeFocus(root);
+    root.querySelectorAll?.("[data-focus-editor]").forEach(initializeFocus);
   }
 
+  window.initializeMagicConditionPickers = scan;
   scan(document);
   new MutationObserver((mutations) => {
     mutations.forEach(mutation => mutation.addedNodes.forEach(scan));

@@ -662,6 +662,13 @@ class TraitExclusion(models.Model):
 class TraitSemanticEffect(models.Model):
     """Persisted new-system semantic effect attached directly to one trait."""
 
+    target_schools = models.ManyToManyField(
+        "charsheet.School", blank=True, related_name="trait_focus_effects",
+    )
+    target_aspects = models.ManyToManyField(
+        "charsheet.Aspect", blank=True, related_name="trait_focus_effects",
+    )
+
     trait = models.ForeignKey(
         Trait, on_delete=models.CASCADE, related_name="semantic_effects")
     sort_order = models.PositiveIntegerField(default=0)
@@ -863,6 +870,13 @@ class TraitSemanticEffect(models.Model):
             "rule_flag": RuleFlagModifier,
         }
         metadata = dict(self.metadata or {})
+        if self.pk and self.target_domain == "spell_focus":
+            metadata["target_school_ids"] = list(
+                self.target_schools.values_list("pk", flat=True)
+            )
+            metadata["target_aspect_ids"] = list(
+                self.target_aspects.values_list("pk", flat=True)
+            )
         if self.pk:
             metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.trait.name

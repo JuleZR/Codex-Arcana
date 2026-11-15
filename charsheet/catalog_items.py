@@ -452,6 +452,7 @@ def _effect_context(payloads):
             ("trait", "Trait vergeben / erhöhen"),
             ("text", "Nur Beschreibung"), ("counter", "Zähler"),
             ("rule_flag", "Regel aktivieren"),
+            ("spell_focus", "Fokus"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),
             ("attribute", "Attribut"), ("stat", "Abgeleiteter Wert"),

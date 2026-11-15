@@ -96,6 +96,9 @@
 
     setRowVisible(root, "simple_target", !isTextOnly && area.value !== "multi_skill");
     setRowVisible(root, "simple_target_skills", area.value === "multi_skill");
+    setRowVisible(root, "target_schools", area.value === "spell_focus");
+    setRowVisible(root, "target_aspects", area.value === "spell_focus");
+    if (area.value === "spell_focus") setRowVisible(root, "simple_target", false);
     setRowVisible(root, "simple_operator", !isTextOnly);
     setRowVisible(root, "simple_weapon_category_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_type_filter", isWeaponRange);

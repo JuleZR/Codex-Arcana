@@ -568,6 +568,7 @@ def is_allowed_trait_attribute_choice(
 # Modifier system constants used by TraitSemanticEffect and the modifier engine
 
 TARGET_DOMAIN_CHOICES = (
+    ("spell_focus", "Fokus"),
     ("school_level", "Schulstufe (Bonus)"),
     ("skill", "skill"),
     ("skill_category", "skill_category"),

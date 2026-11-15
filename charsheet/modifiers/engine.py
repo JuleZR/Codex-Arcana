@@ -1052,6 +1052,34 @@ class ModifierEngine:
             return self.resolve_numeric_total(TargetDomain.SKILL, skill_slug, context=context)
         return self.character_engine.skill_total(skill_slug)
 
+    def resolve_spell_focus(
+        self, school_id, context=None, *, aspect_id=None, bindings=None,
+    ):
+        """Resolve focus using shared activation and stacking rules."""
+        from charsheet.focus import focus_target_kind
+        from charsheet.models import School
+
+        school = School.objects.select_related("type").filter(
+            pk=school_id,
+        ).first() if school_id is not None else None
+        if bindings is None:
+            from charsheet.focus import active_focus_binding, focus_binding_key
+
+            binding = active_focus_binding(
+                getattr(self.character_engine, "character", None), school_id,
+            )
+            bindings = [focus_binding_key(binding)] if binding else []
+        return self.resolve_numeric_total(
+            TargetDomain.SPELL_FOCUS, str(school_id),
+            context={
+                **(context or {}), "spell_aspect_id": aspect_id,
+                "focus_bindings": bindings,
+                "focus_spiritual_school": bool(
+                    school and focus_target_kind(school)
+                ),
+            },
+        )
+
     def resolve_attribute_bonus(self, attribute_slug: str, context: dict[str, Any] | None = None) -> int:
         """Resolve attribute bonus modifiers that target one base attribute."""
         return self.resolve_numeric_total(TargetDomain.ATTRIBUTE, attribute_slug, context=context)
@@ -1660,6 +1688,30 @@ class ModifierEngine:
         context: dict[str, Any] | None = None,
     ) -> bool:
         """Match direct target_key or concrete skill selections stored in metadata."""
+        if target_domain == TargetDomain.SPELL_FOCUS:
+            targets = modifier.metadata.get("focus_targets") or []
+            scoped_school_ids = {
+                str(target["school_id"]) for target in targets
+            }
+            school_matches = str(target_key) in {
+                str(pk)
+                for pk in modifier.metadata.get("target_school_ids", [])
+            } and str(target_key) not in scoped_school_ids
+            if (school_matches
+                    and (context or {}).get("focus_spiritual_school")):
+                school_matches = any(
+                    str(binding["school_id"]) == str(target_key)
+                    for binding in (context or {}).get("focus_bindings", [])
+                )
+            binding_matches = any(
+                target in (context or {}).get("focus_bindings", [])
+                for target in targets
+            )
+            aspect_matches = str((context or {}).get("spell_aspect_id")) in {
+                str(pk)
+                for pk in modifier.metadata.get("target_aspect_ids", [])
+            }
+            return school_matches or aspect_matches or binding_matches
         if target_domain == TargetDomain.SCHOOL_LEVEL:
             context = context or {}
             if context.get("unlearned_school") and not modifier.metadata.get(

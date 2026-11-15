@@ -3,6 +3,8 @@
 {% semantic_trait_targets as trait_targets %}
 {% semantic_school_level_targets as school_level_targets %}
 {% semantic_school_level_targets True as school_level_grant_targets %}
+{% semantic_focus_targets as focus_targets %}
+{% semantic_focus_binding_options as focus_binding_options %}
 <section class="sl-editor-card shop_magic_effect_editor" data-sl-magic-effect-editor{% if magic_editor_hidden %} hidden{% endif %}>
   {% if not magic_editor_inspector %}<header><span>{{ magic_editor_eyebrow|default:"Optional" }}</span><h4>Magische Effekte</h4></header>{% endif %}
   {% if magic_editor_show_cp %}
@@ -42,6 +44,18 @@
       <div class="sl-editor-row sl-editor-row--effect">
         <label class="shop_item_form_row" data-effect-scale-source-row data-magic-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source data-magic-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>
         <label class="shop_item_form_row" data-effect-scale-divisor-row data-magic-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor data-magic-scale-divisor></label>
+      </div>
+      <div data-effect-target="spell_focus" data-magic-target-row="spell_focus" hidden data-focus-editor data-focus-options="{{ focus_binding_options }}">
+        <div data-focus-target-picker>
+        {% include "charsheet/partials/item_editor/_condition_picker.html" with condition_label="Fokus auf Magieschulen / Aspekte" condition_kind="focus" condition_choices=focus_targets only %}
+        </div>
+        <input type="hidden" data-focus-bindings-value value="[]">
+        <div data-focus-bindings></div>
+        <template data-focus-binding-template>
+          <div data-focus-binding>
+            {% include "charsheet/partials/item_editor/_condition_picker.html" with condition_kind="focus" only %}
+          </div>
+        </template>
       </div>
       <div data-effect-counter-fields data-magic-counter-fields hidden>
         <label class="sl-editor-field shop_item_form_row"><span>Beschreibung</span><textarea rows="2" placeholder="Zähler" data-effect-counter-label data-magic-counter-label></textarea></label>

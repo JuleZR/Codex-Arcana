@@ -101,6 +101,13 @@ class CreatureDaemonicPower(models.Model):
 class DaemonicPowerSemanticEffect(models.Model):
     """Semantic effect contributed by a daemonic power to either rules engine."""
 
+    target_schools = models.ManyToManyField(
+        "charsheet.School", blank=True, related_name="daemonic_focus_effects",
+    )
+    target_aspects = models.ManyToManyField(
+        "charsheet.Aspect", blank=True, related_name="daemonic_focus_effects",
+    )
+
     class ApplicationScope(models.TextChoices):
         CHARACTER = "character", "Character"
         CREATURE = "creature", "Creature"
@@ -302,6 +309,13 @@ class DaemonicPowerSemanticEffect(models.Model):
         }
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
+        if self.pk and self.target_domain == "spell_focus":
+            metadata["target_school_ids"] = list(
+                self.target_schools.values_list("pk", flat=True)
+            )
+            metadata["target_aspect_ids"] = list(
+                self.target_aspects.values_list("pk", flat=True)
+            )
         if self.pk:
             metadata["semantic_effect_key"] = f"daemonic_power_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.power.name

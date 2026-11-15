@@ -42,7 +42,9 @@ SEMANTIC_EFFECT_AREA_GROUPS = (
     ("Lernen & Progression", (
         "learning_slot", "school_level", "school_level_grant",
     )),
-    ("Mächte & Spezialsysteme", ("daemonic_power", "disallow_schools")),
+    ("Mächte & Spezialsysteme", (
+        "spell_focus", "daemonic_power", "disallow_schools",
+    )),
     ("Regeln & Sonderlogik", ("rule_flag",)),
 )
 

@@ -222,7 +222,9 @@
       || fieldHasValue(root, "applies_outside_combat");
     var hasText = fieldHasValue(root, "notes") || fieldHasValue(root, "rules_text");
 
-    setRowVisible(root, "simple_target", !isChoiceBinding && !isMultiSkill);
+    setRowVisible(root, "simple_target", !isChoiceBinding && !isMultiSkill && area.value !== "spell_focus");
+    setRowVisible(root, "target_schools", area.value === "spell_focus");
+    setRowVisible(root, "target_aspects", area.value === "spell_focus");
     setFilteredSelectRowVisible(root, "simple_weapon_skills", hasWeaponSkillFilter);
     setRowVisible(root, "simple_weapon_category_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_type_filter", isWeaponRange);

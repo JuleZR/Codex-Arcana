@@ -1176,12 +1176,138 @@ value: 1
 | Eine Regel an-/abschalten | `rule_flag` |
 | Kampfwerte veraendern | `combat` |
 
+## Fokus
+
+`spell_focus` gewährt einen numerischen Fokusbonus pro ausgewählter
+Magieschule oder ausgewähltem Aspekt. `target_schools` speichert die
+School-IDs, `target_aspects` die Aspect-IDs als eigene Mehrfachzuordnungen.
+Der Standardoperator ist `flat_add`. Der vollständige Wert gilt für jedes
+ausgewählte Ziel. `condition_schools` steuert weiterhin
+die Aktivierungsbedingung.
+
+Die Werkstätten blenden bei der Wirkung `Fokus` direkt unter „Skaliert nach“
+den vorhandenen Zwei-Felder-Auswahldialog ein. Die Liste enthält die Gruppen
+„Magieschulen“ und „Aspekte“, jeweils alphabetisch sortiert. Kampfschulen
+werden ausgeblendet. Die Zielzuordnungen werden beim Speichern einer
+anderen Wirkung entfernt. Der Editor codiert Aspekte als `aspect:ID` in
+seiner gemeinsamen Auswahlliste. Der Speicherhelfer trennt diese Einträge
+in `target_schools` und `target_aspects` mit jeweils positiven Datensatz-IDs.
+
+`ModifierEngine.resolve_spell_focus(school_id, aspect_id=aspect_id)` nutzt
+die gemeinsame
+Auswertung für aktive Quellen, Bedingungen, Skalierung und Stapelregeln.
+Basiseffekte und ihre instanzbezogenen Überschreibungen folgen der
+bestehenden Vererbungslogik. Beim Kopieren und Übertragen von Items werden
+die Zielschulen und Zielaspekte übernommen.
+
+Die Itemkarte und ihre Vorschau verwenden den gemeinsamen Effektformatter,
+beispielsweise `+2 Fokus auf Feuer, Illusion und Nekromantie`.
+Die Zauberkarte zeigt den Gesamtwert als letzte Zeile ihrer oberen
+Informationstabelle, einschließlich `+0` und negativer Werte.
+Aspektzauber berücksichtigen ihren konkreten Aspekt sowie ihre gespeicherte
+eindeutige `source_school`-Zuordnung. Ein Effekt zählt pro Zauber einmal,
+auch wenn sowohl die Schule als auch der Aspekt zu seinen Zielen gehören.
+
+Die Migration `0510_spell_focus` ergänzt die Schulziele und die
+Domain-Auswahl. `0511_spell_focus_aspects` ergänzt die Aspektziele.
+Die Regressionstests liegen in
+`charsheet/tests/test_spell_focus.py` und werden mit
+`.venv\Scripts\python.exe manage.py test charsheet.tests.test_spell_focus --keepdb`
+ausgeführt.
+
+Am 15.11.2026 bestanden 87 gezielte Tests mit `--keepdb`, darunter die
+23 Fokus-Regressionstests, die Item- und SL-Werkstatttests, die
+SemanticEffect-Adminprüfungen und zwei bestehende Zauber-Tooltiptests.
+Die JavaScript-Syntaxprüfung, Flake8 für geänderte Python-Zeilen und die
+F/E9-Prüfung der betroffenen Python-Dateien bestanden.
+`makemigrations --check --dry-run` meldete einen konsistenten Modellstand.
+Die Browser- und Sichtprüfung wurde gemäß Repository-Vorgabe ausgelassen.
+
+### Spirituelle Fokusziele
+
+Die bestehende Wirkung `spell_focus` unterstützt individuelle spirituelle
+Zuordnungen pro Schule. Die Schulziele bleiben in `target_schools`.
+`metadata.focus_targets` ergänzt die konkreten Kombinationen aus stabilen IDs
+und einem expliziten Typ.
+
+```json
+{
+  "focus_targets": [
+    {"school_id": 12, "kind": "divine_entity", "object_id": 34},
+    {"school_id": 15, "kind": "druid_cult", "object_id": 8},
+    {"school_id": 19, "kind": "shaman_patron", "object_id": 6}
+  ]
+}
+```
+
+Die Zahlen sind Beispiele. Der gemeinsame Resolver in `charsheet/focus.py`
+validiert die Zuordnungen anhand von `is_druid_school`, `is_shaman_school`,
+`is_divine_entity_school` und `divine_entities_for_school`.
+Jede ausgewählte spirituelle Schule erhält eine eigene Zwei-Felder-Auswahl
+für ihre gültigen Entitäten, Zirkel oder Patrone. Mehrere Kombinationen sind
+innerhalb eines Effekts möglich. Entfernte Schulen verlieren ihre Zuordnungen.
+Beim Wechsel der Wirkung werden die zugehörigen Felder deaktiviert.
+
+Die spirituelle Zuordnung darf leer bleiben. Dann folgt der Fokus der
+aktuellen Bindung des Spielers an dieser Schule und erscheint beispielsweise
+als `+4 Kannushi-Fokus`. Das Auswahlfeld kennzeichnet diesen Zustand mit
+„aktuelle Bindung“. Eine ausdrücklich gewählte Entity, ein Zirkel oder ein
+Patron beschränkt den Effekt auf diese konkrete Zuordnung und verwendet
+deren dynamisch aufgelöste Aspekte für den Fokustext.
+
+`core_aspects_for_source` in `religion_rules.py` verwendet die vorhandenen
+Auswahlmodi für die Anzeige und die bestehende Magie-Synchronisierung.
+Bei `fixed` gelten die konfigurierten Kernaspekte. Bei `choose_from_entity`
+werden die zulässigen gespeicherten Kernaspekte der Charakterbindung
+verwendet. Bei `free` gelten deren individuelle Kernaspekte. Vorhandene
+Anzahlbegrenzungen werden berücksichtigt. Ohne passende Charakterbindung
+erhalten flexible Quellen eine eindeutige Ersatzanzeige mit Schule,
+Zuordnungstyp und Quellenname.
+
+Die Berechnung verwendet die konkrete aktive Bindung und die tatsächliche
+Herkunft des Zaubers. Zusätzlich erworbene Aspekte mit gespeicherter
+Schulzuordnung erhalten den passenden Schul-Fokus ebenfalls, einschließlich
+des Fokus auf eine konkrete Kombination aus Schule und Entity.
+Direkt ausgewählte einzelne Aspekte behalten ihren eigenen Geltungsbereich.
+Bei alten Kernaspektzaubern
+ohne gespeicherte Schule wird eine Quelle nur bei eindeutiger Zuordnung
+verwendet. Gleiche Aspektnamen anderer Quellen erweitern den Geltungsbereich
+des Effekts nicht. Mehrere passende Kombinationen eines Effekts zählen pro
+Zauber einmal. Unterschiedliche technische Ziele bleiben beim Formatieren
+getrennt, wenn ihre sichtbaren Bezeichnungen zusammenfallen.
+
+Die Werkstattvorschau und die besitzende Charakter-Itemkarte verwenden
+denselben Resolver. Der bestehende Magie-Refresh aktualisiert auch die
+Fokustexte nach Änderungen der Kernaspekte. Die spirituellen Zuordnungen
+verwenden das vorhandene JSON-Metadatenfeld und benötigen keine weitere
+Schema-Migration.
+
+Die gezielten Läufe mit `--keepdb` bestanden mit 89 Tests aus
+`test_spiritual_focus`, `test_spell_focus`, `test_item_workshop`,
+`test_sl_item_workshop` und `test_shaman_aspect_refresh`.
+Der Node-Test `node charsheet/tests/test_spiritual_focus.cjs` prüft
+Wiederherstellung, Mehrfachzuordnung, Schulwechsel und den vollständigen
+Initialisierungsweg des gemeinsamen Auswahlcontrollers. Er prüft auch die
+Ereignisbindung der Katalog- und Charakterwerkstätten an deren tatsächliche
+Serialisierung. Die Auswahl wird beim Anlegen einer Werkstattzeile direkt
+initialisiert. Versionierte Skript-URLs aktualisieren diese Komponenten
+auch auf bereits verwendeten Charakter-, SL- und Katalogoberflächen.
+
+Der erweiterte Lauf mit der vollständigen Datei `test_magic_integration`
+ergab sechs Fehler, die mit der Magie- und Darstellunglogik aus `HEAD`
+ebenfalls reproduziert wurden. Betroffen sind das ungültige Bild im
+Druiden-Uploadtest, zwei Tests für göttliche Arkangaben, die Meldung bei
+mehrdeutigen Entitäten, die Schulauswahl bei gewählter Religion und die
+Eigenschaftstabelle im Lern-Tooltip. Diese Ergebnisse sind unabhängig von
+den neuen Fokus-Regressionstests dokumentiert.
+
 ## Stolperfallen
 
 - `skill` ist ein Modifikator, kein Rang.
 - `skill_rank` ist ein automatischer Rang-Bonus, aber nicht gelernt/gekauft.
 - `skill_rank_cap` erlaubt Lernen ueber 10, gibt aber keinen Bonus.
 - Spezifikationspflichtige Skills brauchen `metadata.skill_specification`, wenn nur eine bestimmte Spezifikation betroffen ist.
-- `target_key` darf nur leer bleiben, wenn ein `target_choice_definition` gesetzt ist.
+- Für Fokus wird das Ziel über `target_schools` bestimmt. Andere leere
+  `target_key`-Werte benötigen eine Auswahlbindung.
 - Bei `scaled` immer `scaling.scale_source` setzen.
 - Fuer `school_level` an Technik-Effects muss die Technik einer Schule gehoeren.

@@ -44,6 +44,7 @@ from charsheet.modifiers.definitions import (
     DIVISION_OPERATORS, ModifierOperator, TargetDomain,
 )
 from charsheet.models import (
+    Aspect,
     ArmorStats,
     Character,
     CharacterItem,
@@ -512,6 +513,33 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
+    elif target_kind == "spell_focus":
+        targets = row_data.get("target_schools") or []
+        school_ids = _positive_int_list(targets)
+        aspect_ids = _positive_int_list([
+            str(value).removeprefix("aspect:")
+            for value in targets if str(value).startswith("aspect:")
+        ] + list(row_data.get("target_aspects") or []))
+        valid_ids = set(School.objects.filter(
+            pk__in=school_ids,
+        ).values_list("pk", flat=True))
+        valid_aspects = set(Aspect.objects.filter(
+            pk__in=aspect_ids,
+        ).values_list("pk", flat=True))
+        if (not (school_ids or aspect_ids) or set(school_ids) != valid_ids
+                or set(aspect_ids) != valid_aspects):
+            raise ValidationError({
+                "magic_modifier_payloads": (
+                    "Bitte gültige Fokus-Schulen oder Aspekte wählen."
+                ),
+            })
+        payload["target_schools"] = school_ids
+        payload["target_aspects"] = aspect_ids
+        from charsheet.focus import normalize_focus_targets
+
+        payload["focus_targets"] = normalize_focus_targets(
+            row_data.get("focus_targets", []), school_ids,
+        )
     elif target_kind in {"school_level", "school_level_grant"}:
         key = str(row_data.get("target_school_level") or "").strip()
         valid = key == "*"
@@ -541,9 +569,20 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
 
 
 def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
-    """Read one optional legacy magic-item modifier definition from the shop form."""
+    """Read one optional legacy magic-item modifier from the shop form."""
+    target_kind = str(
+        post_data.get("magic_modifier_target_kind") or "",
+    ).strip()
+    focus_targets = []
+    if target_kind == "spell_focus":
+        try:
+            focus_targets = json.loads(
+                post_data.get("magic_modifier_focus_targets") or "[]",
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValidationError("Ungültige spirituelle Fokusziele.") from exc
     return _build_magic_modifier_payload(
-        str(post_data.get("magic_modifier_target_kind") or "").strip(),
+        target_kind,
         post_data.get("magic_modifier_value", 0),
         {
             "target_stat": post_data.get("magic_modifier_target_stat"),
@@ -561,6 +600,13 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
             "target_school_level": post_data.get(
                 "magic_modifier_target_school_level"
             ),
+            "target_schools": (
+                post_data.getlist("magic_modifier_target_schools")
+                if hasattr(post_data, "getlist")
+                else post_data.get("magic_modifier_target_schools", [])
+            ),
+            **({"focus_targets": focus_targets}
+               if "magic_modifier_focus_targets" in post_data else {}),
             "effect_description": post_data.get("magic_modifier_effect_description"),
             "rules_text": post_data.get("magic_modifier_rules_text"),
             "toggleable": post_data.get("magic_modifier_toggleable"),
@@ -839,6 +885,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
 
     if target_kind == TARGET_KIND_ATTRIBUTE:
         target_domain = TargetDomain.ATTRIBUTE
+    elif target_kind == "spell_focus":
+        target_domain = TargetDomain.SPELL_FOCUS
     elif target_kind in {"school_level", "school_level_grant"}:
         target_domain = TargetDomain.SCHOOL_LEVEL
     elif target_kind in {ARTIFACT_RANK, ADDITIONAL_ARCANE_POWER}:
@@ -915,6 +963,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     }
     if target_kind == "school_level_grant":
         metadata["include_unlearned_schools"] = True
+    if target_kind == "spell_focus" and payload.get("focus_targets"):
+        metadata["focus_targets"] = payload["focus_targets"]
     if payload.get("target_skills"):
         skills = payload["target_skills"]
         metadata["target_skill_ids"] = [skill.pk for skill in skills]
@@ -955,6 +1005,8 @@ def _magic_effect_kwargs_signature(
     *,
     condition_races: list[int] | None = None,
     condition_schools: list[int] | None = None,
+    target_schools: list[int] | None = None,
+    target_aspects: list[int] | None = None,
 ) -> str:
     """Return a semantic duplicate key for persisted magic effect rows."""
     comparable = {
@@ -966,6 +1018,10 @@ def _magic_effect_kwargs_signature(
         comparable["condition_races"] = sorted(condition_races)
     if condition_schools is not None:
         comparable["condition_schools"] = sorted(condition_schools)
+    if target_schools is not None:
+        comparable["target_schools"] = sorted(target_schools)
+    if target_aspects is not None:
+        comparable["target_aspects"] = sorted(target_aspects)
     return json.dumps(comparable, sort_keys=True, default=str)
 
 
@@ -975,6 +1031,8 @@ def _semantic_effect_matches_magic_payload(
     *,
     condition_races: list[int],
     condition_schools: list[int],
+    target_schools: list[int] | None = None,
+    target_aspects: list[int] | None = None,
 ) -> bool:
     """Return whether one editor payload leaves a base-item effect unchanged."""
     for field_name, incoming_value in kwargs.items():
@@ -992,6 +1050,10 @@ def _semantic_effect_matches_magic_payload(
 
     current_metadata = dict(effect.metadata or {})
     incoming_metadata = dict(kwargs.get("metadata") or {})
+    if current_metadata.get("focus_targets", []) != incoming_metadata.get(
+        "focus_targets", [],
+    ):
+        return False
     if bool(current_metadata.get("include_unlearned_schools")) != bool(
         incoming_metadata.get("include_unlearned_schools")
     ):
@@ -1013,6 +1075,10 @@ def _semantic_effect_matches_magic_payload(
     ).strip()
     return (
         current_description == incoming_description
+        and set(effect.target_schools.values_list("id", flat=True))
+        == set(target_schools or [])
+        and set(effect.target_aspects.values_list("id", flat=True))
+        == set(target_aspects or [])
         and set(effect.condition_races.values_list("id", flat=True))
         == set(condition_races)
         and set(effect.condition_schools.values_list("id", flat=True))
@@ -1062,6 +1128,14 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         kwargs = _magic_payload_to_semantic_effect_kwargs(payload)
         if kwargs is None:
             continue
+        target_schools = (
+            _positive_int_list(payload.get("target_schools"))
+            if kwargs["target_domain"] == "spell_focus" else []
+        )
+        target_aspects = (
+            _positive_int_list(payload.get("target_aspects"))
+            if kwargs["target_domain"] == "spell_focus" else []
+        )
         condition_races = (
             _positive_int_list(payload.get("condition_races"))
             if "condition_races" in payload
@@ -1113,12 +1187,16 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
                 kwargs,
                 condition_races=condition_races,
                 condition_schools=condition_schools,
+                target_schools=target_schools,
+                target_aspects=target_aspects,
             ):
                 continue
         signature = _magic_effect_kwargs_signature(
             kwargs,
             condition_races=condition_races,
             condition_schools=condition_schools,
+            target_schools=target_schools,
+            target_aspects=target_aspects,
         )
         payload_effect_ids = [
             int(value)
@@ -1143,7 +1221,8 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
             candidate = existing_effects_by_base_id.get(base_item_effect_id)
             if candidate is not None and int(candidate.pk) not in kept_effect_ids:
                 existing_effect = candidate
-        if existing_effect is None and signature in seen_signatures:
+        if (existing_effect is None and signature in seen_signatures
+                and kwargs["target_domain"] != "spell_focus"):
             continue
         seen_signatures.add(signature)
         metadata_source = (
@@ -1153,6 +1232,7 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         )
         for key in (
             "ui_target_kind",
+            "focus_targets",
             "target_skill_id",
             "target_skill_ids",
             "target_skill_slugs",
@@ -1195,6 +1275,8 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
                 setattr(effect, field_name, value)
         effect.full_clean()
         effect.save()
+        effect.target_schools.set(target_schools)
+        effect.target_aspects.set(target_aspects)
         if condition_races is not None:
             effect.condition_races.set(condition_races)
         if condition_schools is not None:

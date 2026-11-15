@@ -462,6 +462,13 @@ class TechniqueChoiceDefinition(models.Model):
 class TechniqueSemanticEffect(models.Model):
     """Persisted new-system semantic effect attached directly to one technique."""
 
+    target_schools = models.ManyToManyField(
+        "charsheet.School", blank=True, related_name="technique_focus_effects",
+    )
+    target_aspects = models.ManyToManyField(
+        "charsheet.Aspect", blank=True, related_name="technique_focus_effects",
+    )
+
     technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="semantic_effects")
     sort_order = models.PositiveIntegerField(default=0)
     target_choice_definition = models.ForeignKey(
@@ -628,6 +635,13 @@ class TechniqueSemanticEffect(models.Model):
             "learning_slot": LearningSlotModifier,
         }
         metadata = dict(self.metadata or {})
+        if self.pk and self.target_domain == "spell_focus":
+            metadata["target_school_ids"] = list(
+                self.target_schools.values_list("pk", flat=True)
+            )
+            metadata["target_aspect_ids"] = list(
+                self.target_aspects.values_list("pk", flat=True)
+            )
         if self.pk:
             metadata["semantic_effect_key"] = f"technique_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.technique.name

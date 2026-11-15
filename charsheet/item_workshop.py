@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from charsheet.models import (
     CharacterItemRuneSpec, CharacterItemSemanticEffect, ItemRune, ItemType,
     Race, Rune,
-    ItemSemanticEffect, School,
+    Aspect, ItemSemanticEffect, School,
 )
 from charsheet.sheet_context import (
     _build_character_item_magic_tooltip_rows,
@@ -148,11 +148,21 @@ def build_item_effect_previews(post, *, character_item=None):
                 if character_item and character_item.owner_id else None
             ),
             character_school_ids=school_ids,
+            character=(
+                character_item.owner
+                if character_item and character_item.owner_id else None
+            ),
             condition_races=list(Race.objects.filter(
                 pk__in=payload.get("condition_races", []),
             )),
             condition_schools=list(School.objects.filter(
                 pk__in=payload.get("condition_schools", []),
+            )),
+            target_schools=list(School.objects.filter(
+                pk__in=payload.get("target_schools", []),
+            )),
+            target_aspects=list(Aspect.objects.filter(
+                pk__in=payload.get("target_aspects", []),
             )),
         )
         if serialized.get("counter_enabled"):

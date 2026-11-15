@@ -364,6 +364,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (targetKind === "item_category") payload.target_item_category = target?.value || "";
         if (targetKind === "trait") payload.target_trait = target?.value || "";
         if (targetKind === "specialization") payload.target_specialization = target?.value || "";
+        if (targetKind === "spell_focus") payload.target_schools = Array.from(
+          row.querySelector("[data-effect-condition-focus]")?.selectedOptions || [],
+          option => option.value,
+        );
+        if (targetKind === "spell_focus") payload.focus_targets = JSON.parse(
+          row.querySelector("[data-focus-bindings-value]")?.value || "[]",
+        );
         if (["school_level", "school_level_grant"].includes(targetKind)) payload.target_school_level = target?.value || "";
         return payload;
       });
@@ -437,6 +444,7 @@ document.addEventListener("DOMContentLoaded", () => {
         serializeEffects();
       });
       syncEffectRow(row);
+      window.initializeMagicConditionPickers?.(row);
       renumberEffects();
     };
 
@@ -608,6 +616,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (kind === "item_category") payload.target_item_category = target;
         if (kind === "trait") payload.target_trait = target;
         if (kind === "specialization") payload.target_specialization = target;
+        if (kind === "spell_focus") payload.target_schools = Array.from(
+          row.querySelector("[data-effect-condition-focus]")?.selectedOptions || [],
+          option => option.value,
+        );
+        if (kind === "spell_focus") payload.focus_targets = JSON.parse(
+          row.querySelector("[data-focus-bindings-value]")?.value || "[]",
+        );
         if (["school_level", "school_level_grant"].includes(kind)) payload.target_school_level = target;
         return payload;
       });
@@ -714,19 +729,21 @@ document.addEventListener("DOMContentLoaded", () => {
       [
         ["[data-effect-condition-races]", payload.condition_races],
         ["[data-effect-condition-schools]", payload.condition_schools],
+        ["[data-effect-condition-focus]", payload.target_schools],
       ].forEach(([selector, selectedValues]) => {
         const select = row.querySelector(selector);
         const selectedIds = new Set(
           (Array.isArray(selectedValues) ? selectedValues : [])
-            .map((rawValue) => Number.parseInt(rawValue, 10))
-            .filter((selectedId) => Number.isInteger(selectedId) && selectedId > 0),
+            .map(String),
         );
         Array.from(select?.options || []).forEach((option) => {
-          option.selected = selectedIds.has(Number.parseInt(option.value, 10));
+          option.selected = selectedIds.has(String(option.value));
         });
       });
       const scaleSource = row.querySelector("[data-effect-scale-source]");
       const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
+      const focusBindings = row.querySelector("[data-focus-bindings-value]");
+      if (focusBindings) focusBindings.value = JSON.stringify(payload.focus_targets || []);
       if (scaleSource) scaleSource.value = payload.scale_source || "";
       if (scaleDivisor) scaleDivisor.value = String(payload.scale_divisor ?? 2);
       const selectedKind = kind?.value || "text";
@@ -767,6 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
         serialize();
       });
       sync(row);
+      window.initializeMagicConditionPickers?.(row);
       renumber();
     };
 

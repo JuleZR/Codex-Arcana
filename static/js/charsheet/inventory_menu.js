@@ -815,6 +815,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const rowKind = String(targetRow.dataset.magicTargetRow || "");
       const isActive = !isTextOnly && selectedKind === rowKind;
       targetRow.hidden = !isActive;
+      if (rowKind === "spell_focus") {
+        targetRow.querySelectorAll("select").forEach(select => { select.disabled = !isActive; });
+      }
       const select = targetRow.querySelector("select");
       if (select) {
         select.disabled = !isActive;
@@ -955,6 +958,14 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_trait = row.querySelector("[data-magic-target-select='trait']")?.value || "";
       } else if (targetKind === "specialization") {
         payload.target_specialization = String(row.querySelector("[data-magic-target-select='specialization']")?.value || "").trim();
+      } else if (targetKind === "spell_focus") {
+        payload.focus_targets = JSON.parse(
+          row.querySelector("[data-focus-bindings-value]")?.value || "[]",
+        );
+        payload.target_schools = Array.from(
+          row.querySelector("[data-magic-condition-focus]")?.selectedOptions || [],
+          option => option.value,
+        );
       } else if (["school_level", "school_level_grant"].includes(targetKind)) {
         payload.target_school_level = String(row.querySelector(`[data-magic-target-select='${targetKind}']`)?.value || "").trim();
       }
@@ -1149,15 +1160,18 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       [
         ["[data-magic-condition-races]", initialPayload.condition_races],
         ["[data-magic-condition-schools]", initialPayload.condition_schools],
+        ["[data-magic-condition-focus]", initialPayload.target_schools],
       ].forEach(([selector, selectedValues]) => {
         const select = row.querySelector(selector);
-        const selectedIds = new Set(parseIdList(selectedValues || []));
+        const selectedIds = new Set((selectedValues || []).map(String));
         if (select instanceof HTMLSelectElement) {
           Array.from(select.options).forEach((option) => {
-            option.selected = selectedIds.has(Number.parseInt(option.value, 10));
+            option.selected = selectedIds.has(String(option.value));
           });
         }
       });
+      const focusBindings = row.querySelector("[data-focus-bindings-value]");
+      if (focusBindings) focusBindings.value = JSON.stringify(initialPayload.focus_targets || []);
       const scaleSource = row.querySelector("[data-magic-scale-source]");
       const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
       if (scaleSource instanceof HTMLSelectElement) {
@@ -1216,6 +1230,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row.querySelector("[data-magic-toggle-inverted]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-condition-races]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-condition-schools]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-magic-condition-focus]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-focus-bindings-value]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {
       syncMagicEffectRow(row);
       serializeMagicEffects();
@@ -1232,6 +1248,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       selectedEffect?.querySelector("[data-magic-target-kind]")?.focus();
     });
     syncMagicEffectRow(row);
+    window.initializeMagicConditionPickers?.(row);
     syncMagicEffectRemoveButtons();
     serializeMagicEffects();
     syncWorkshopEffects();

@@ -54,6 +54,7 @@ class TargetDomain(StringEnum):
     """High-level rule domains addressable by modifiers."""
 
     SCHOOL_LEVEL = "school_level"
+    SPELL_FOCUS = "spell_focus"
     SKILL = "skill"
     SKILL_CATEGORY = "skill_category"
     SKILL_RANK = "skill_rank"

@@ -78,6 +78,16 @@ class SemanticEffectFields(models.Model):
         help_text="Optional school condition. Leave empty to apply to every school.",
     )
     active_flag = models.BooleanField(default=True)
+    target_schools = models.ManyToManyField(
+        "charsheet.School",
+        blank=True,
+        related_name="%(app_label)s_%(class)s_focus_effects",
+        help_text="Magieschulen, die den Fokusbonus erhalten.",
+    )
+    target_aspects = models.ManyToManyField(
+        "charsheet.Aspect", blank=True,
+        related_name="%(app_label)s_%(class)s_focus_effects",
+    )
     priority = models.IntegerField(default=0)
     notes = models.TextField(blank=True, default="")
     rules_text = models.TextField(blank=True, default="")
@@ -121,6 +131,13 @@ class SemanticEffectFields(models.Model):
 
         metadata = dict(self.metadata or {})
         if self.pk:
+            if self.target_domain == "spell_focus":
+                metadata["target_school_ids"] = sorted(
+                    school.pk for school in self.target_schools.all()
+                )
+                metadata["target_aspect_ids"] = sorted(
+                    aspect.pk for aspect in self.target_aspects.all()
+                )
             metadata["semantic_effect_key"] = f"{self.semantic_effect_key_prefix()}:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()
             condition_race_ids = sorted(

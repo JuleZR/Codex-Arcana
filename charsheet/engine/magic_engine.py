@@ -143,6 +143,58 @@ def _spell_range_supplement(spell: Spell) -> str:
     return re.sub(pattern, "", text, count=1, flags=re.IGNORECASE).strip()
 
 
+def _spell_focus(entry):
+    """Use the spell's concrete school or its persisted aspect ownership."""
+    from charsheet.focus import (
+        active_focus_binding, aspect_focus_binding, focus_binding_key,
+    )
+
+    school_id = entry.spell.school_id
+    aspect_entry = None
+    if entry.uses_divine_school_level and entry.granted_by_entity_id:
+        from charsheet.religion_rules import divine_school_for_entity
+
+        school = divine_school_for_entity(
+            entry.character, entry.granted_by_entity,
+        )
+        school_id = school.pk if school else None
+    if school_id is None and entry.spell.aspect_id:
+        aspect_entry = CharacterAspect.objects.filter(
+            character_id=entry.character_id, aspect_id=entry.spell.aspect_id,
+        ).first()
+        school_id = aspect_entry.source_school_id if aspect_entry else None
+        if school_id is None:
+            owner = aspect_focus_binding(
+                entry.character, entry.spell.aspect_id, aspect_entry,
+            )
+            school_id = owner["school_id"] if owner else None
+    if not entry.character_id:
+        return 0
+    binding = active_focus_binding(entry.character, school_id)
+    if binding and aspect_entry:
+        source = binding["source"]
+        entity_id = (
+            source.pk if binding["kind"] == "divine_entity"
+            else source.entity_id
+        )
+        if (aspect_entry.source_entity_id
+                and aspect_entry.source_entity_id != entity_id):
+            binding = None
+        elif (aspect_entry.source_binding_id
+              and (binding["kind"] != "divine_entity"
+                   or aspect_entry.source_binding_id
+                   != binding["binding"].pk)):
+            binding = None
+    if (binding and entry.granted_by_entity_id
+            and binding["kind"] == "divine_entity"
+            and entry.granted_by_entity_id != binding["object_id"]):
+        binding = None
+    return entry.character.get_engine().modifier_engine.resolve_spell_focus(
+        school_id, aspect_id=entry.spell.aspect_id,
+        bindings=[focus_binding_key(binding)] if binding else [],
+    )
+
+
 def _build_spell_tooltip(
     entry: CharacterSpell,
     *,
@@ -283,6 +335,9 @@ def _build_spell_tooltip(
     elif dur2:
         rows.append(("Wirkungsdauer", dur2))
 
+    focus = _spell_focus(entry)
+    if focus:
+        rows.append(("Fokus", f"{focus:+d}"))
     lines = [
         "| Wert | Details |",
         "| --- | --- |",
@@ -1050,20 +1105,12 @@ class MagicEngine:
                     elif created:
                         summary["aspects_created"] += 1
 
-                if binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
-                    chosen_aspects = []
-                elif binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
-                    allowed_ids = set(binding.entity.aspects.values_list("aspect_id", flat=True))
-                    chosen_aspects = [
-                        aspect
-                        for aspect in binding.core_aspects.all().order_by("name", "id")
-                        if aspect.id in allowed_ids
-                    ]
-                else:
-                    chosen_aspects = list(binding.core_aspects.all().order_by("name", "id"))
-                max_binding_aspects = int(binding.entity.starting_aspect_count or 0)
-                if max_binding_aspects > 0:
-                    chosen_aspects = chosen_aspects[:max_binding_aspects]
+                from charsheet.religion_rules import core_aspects_for_source
+
+                chosen_aspects = (
+                    [] if binding.entity.aspect_selection_mode == "fixed"
+                    else core_aspects_for_source(binding.entity, binding)
+                )
                 for aspect in chosen_aspects:
                     aspect_entry, created = CharacterAspect.objects.get_or_create(
                         character=self.character,
@@ -1105,21 +1152,9 @@ class MagicEngine:
 
         if druid_binding is not None and druid_school_id is not None and druid_school_level > 0:
             cult = druid_binding.cult
-            if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
-                cult_aspect_links = cult.aspects.filter(is_starting_aspect=True).select_related("aspect")
-                chosen_aspects = [link.aspect for link in cult_aspect_links]
-            elif cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
-                allowed_ids = set(cult.aspects.values_list("aspect_id", flat=True))
-                chosen_aspects = [
-                    aspect
-                    for aspect in druid_binding.core_aspects.all().order_by("name", "id")
-                    if aspect.id in allowed_ids
-                ]
-            else:
-                chosen_aspects = list(druid_binding.core_aspects.all().order_by("name", "id"))
-            max_druid_aspects = int(cult.starting_aspect_count or 0)
-            if max_druid_aspects > 0:
-                chosen_aspects = chosen_aspects[:max_druid_aspects]
+            from charsheet.religion_rules import core_aspects_for_source
+
+            chosen_aspects = core_aspects_for_source(cult, druid_binding)
             for aspect in chosen_aspects:
                 druid_granted_aspect_ids.add(aspect.id)
                 aspect_entry, created = CharacterAspect.objects.get_or_create(

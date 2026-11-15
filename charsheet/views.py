@@ -2059,7 +2059,9 @@ def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
             domain,
             ITEM_SEMANTIC_EFFECT_FALLBACK_PARTIAL_KEYS,
         )
-        if domain == "resource" and target_key == ARTIFACT_RANK:
+        if domain == "spell_focus":
+            keys = ("spell_panel",)
+        elif domain == "resource" and target_key == ARTIFACT_RANK:
             keys = ("fame_panel",)
         elif domain in {"resource", "derived_stat"} and (
             target_key == ADDITIONAL_ARCANE_POWER
@@ -6099,6 +6101,8 @@ def _ensure_character_item_effect_copies(
         effect.save()
         effect.condition_races.set(base_effect.condition_races.all())
         effect.condition_schools.set(base_effect.condition_schools.all())
+        effect.target_schools.set(base_effect.target_schools.all())
+        effect.target_aspects.set(base_effect.target_aspects.all())
         existing_by_base_id[int(base_effect.id)] = effect
     return existing_by_base_id
 

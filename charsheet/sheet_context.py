@@ -96,6 +96,7 @@ from charsheet.lesson_rules import (
     lesson_queryset,
 )
 from charsheet.religion_rules import (
+    core_aspects_for_source,
     divine_entities_for_school,
     is_clerical_school,
     is_cult_school,
@@ -1679,6 +1680,9 @@ def _serialize_item_semantic_effect_payload(
     character_school_ids: set[int] | None = None,
     condition_races: list[Race] | None = None,
     condition_schools: list[School] | None = None,
+    target_schools: list[School] | None = None,
+    target_aspects: list | None = None,
+    character=None,
 ) -> dict[str, object]:
     """Return one frontend-friendly payload for an item semantic effect."""
     metadata = dict(effect.metadata or {})
@@ -1810,7 +1814,65 @@ def _serialize_item_semantic_effect_payload(
         "inactive_due_to_school": bool(condition_school_ids and not school_condition_matches),
     }
 
-    if target_domain == "rule_flag":
+    if target_domain == "spell_focus":
+        from charsheet.focus import (
+            focus_target_kind, focus_target_labels, join_focus_labels,
+        )
+
+        if target_schools is None:
+            target_schools = list(effect.target_schools.all())
+        target_schools = sorted(target_schools, key=lambda school: school.pk)
+        if target_aspects is None:
+            target_aspects = list(effect.target_aspects.all())
+        target_aspects = sorted(target_aspects, key=lambda aspect: aspect.name)
+        focus_targets = metadata.get("focus_targets") or []
+        scoped_school_ids = {target["school_id"] for target in focus_targets}
+        names = []
+        school_focus_labels = []
+        has_holy_symbol = False
+        for school in target_schools:
+            if school.pk in scoped_school_ids:
+                continue
+            kind = focus_target_kind(school)
+            if kind == "divine_entity":
+                has_holy_symbol = True
+                continue
+            if kind:
+                label = {
+                    "druid_cult": "Druiden",
+                    "shaman_patron": "Schamanen",
+                }.get(kind, school.name)
+                school_focus_labels.append(f"{label}-Fokus")
+            else:
+                names.append(school.name)
+        names.extend(
+            _item_aspect_target_display(aspect.name)
+            for aspect in target_aspects
+        )
+        has_holy_symbol = has_holy_symbol or any(
+            target["kind"] == "divine_entity" for target in focus_targets
+        )
+        names.extend(focus_target_labels(
+            [target for target in focus_targets
+             if target["kind"] != "divine_entity"],
+            character, aspect_label=_item_aspect_target_display,
+        ))
+        descriptions = []
+        if names:
+            descriptions.append(f"Fokus auf {join_focus_labels(names)}")
+        if school_focus_labels:
+            descriptions.append(join_focus_labels(school_focus_labels))
+        if has_holy_symbol:
+            descriptions.append("Heiliges Zeichen")
+        payload["target_kind"] = "spell_focus"
+        payload["target_schools"] = [
+            *[school.pk for school in target_schools],
+            *[f"aspect:{aspect.pk}" for aspect in target_aspects],
+        ]
+        payload["target_aspects"] = [aspect.pk for aspect in target_aspects]
+        payload["focus_targets"] = focus_targets
+        payload["target_display"] = " sowie ".join(descriptions)
+    elif target_domain == "rule_flag":
         payload["target_kind"] = RULE_FLAG_TARGET_KIND
         payload["target_rule_flag"] = target_key
         payload["target_display"] = dict(RULE_FLAG_CHOICES).get(target_key, target_key)
@@ -1921,6 +1983,20 @@ def _serialize_item_semantic_effect_payload(
         payload["target_display"] = _movement_effect_target_display(target_key)
         payload["value_display"] = _movement_effect_value_display(raw_value, str(effect.operator or ""), target_key)
     return payload
+
+
+def _item_aspect_target_display(name: str) -> str:
+    name = name.strip()
+    if not name or name.casefold().endswith("aspekt"):
+        return name
+    stems = {
+        "bezauberung": "Bezauberungs",
+        "heilung": "Heilungs",
+        "reise und bewegung": "Reise- und Bewegungs",
+        "tod": "Todes",
+        "wissen": "Wissens",
+    }
+    return f"{stems.get(name.casefold(), name)}aspekt"
 
 
 def _item_skill_target_display(target_key: str, metadata: dict[str, object] | None = None) -> str:
@@ -2910,6 +2986,7 @@ def _build_character_item_magic_tooltip_rows(
         key = (
             target_kind,
             target_display,
+            json.dumps(payload.get("focus_targets") or [], sort_keys=True),
             tuple(payload.get("semantic_effect_ids") or [])
             if payload.get("counter_enabled") else (),
             str(payload.get("operator") or ""),
@@ -3127,6 +3204,12 @@ def _load_character_item_modifier_payloads(
             == list(instance_effect.condition_races.order_by("id").values_list("id", flat=True))
             and list(base_effect.condition_schools.order_by("id").values_list("id", flat=True))
             == list(instance_effect.condition_schools.order_by("id").values_list("id", flat=True))
+            and set(base_effect.target_schools.values_list("id", flat=True))
+            == set(instance_effect.target_schools.values_list("id", flat=True))
+            and set(base_effect.target_aspects.values_list("id", flat=True))
+            == set(instance_effect.target_aspects.values_list("id", flat=True))
+            and (base_effect.metadata or {}).get("focus_targets", [])
+            == (instance_effect.metadata or {}).get("focus_targets", [])
         )
 
     for character_item in character_items:
@@ -3181,6 +3264,9 @@ def _load_character_item_modifier_payloads(
                 invested_cp=character_item.invested_cp,
                 character_race_id=character_race_id,
                 character_school_ids=character_school_ids,
+                character=(
+                    character_item.owner if character_item.owner_id else None
+                ),
             )
             payload["character_item_id"] = character_item_id
             modifiers_by_character_item_id[character_item_id].append(payload)
@@ -10407,13 +10493,10 @@ def build_character_sheet_context(
         divine_card_editable = bool(divine_binding is not None and divine_entity.is_customizable)
         if divine_card_editable:
             divine_card_update_url = f"/character/{character.pk}/divine-card/update/"
-        divine_card_aspects = [
-            entry.aspect
-            for entry in divine_entity.aspects.all()
-            if entry.aspect_id and entry.is_starting_aspect
-        ]
+        divine_card_aspects = core_aspects_for_source(
+            divine_entity, divine_binding,
+        )
         if divine_binding is not None and divine_entity.aspect_selection_mode != "fixed":
-            divine_card_aspects = list(divine_binding.core_aspects.all().order_by("name", "id"))
             open_aspect_slots = max(0, int(divine_entity.starting_aspect_count) - len(divine_card_aspects))
             divine_card_aspect_placeholders = list(range(open_aspect_slots))
             divine_card_show_aspect_placeholder = bool(divine_card_aspect_placeholders)
@@ -10457,13 +10540,10 @@ def build_character_sheet_context(
         druid_card_editable = bool(druid_binding is not None and druid_cult.is_customizable)
         if druid_card_editable:
             druid_card_update_url = f"/character/{character.pk}/druid-card/update/"
-        druid_card_aspects = [
-            entry.aspect
-            for entry in druid_cult.aspects.all()
-            if entry.aspect_id and entry.is_starting_aspect
-        ]
+        druid_card_aspects = core_aspects_for_source(
+            druid_cult, druid_binding,
+        )
         if druid_binding is not None and druid_cult.aspect_selection_mode != "fixed":
-            druid_card_aspects = list(druid_binding.core_aspects.all().order_by("name", "id"))
             open_aspect_slots = max(0, int(druid_cult.starting_aspect_count) - len(druid_card_aspects))
             druid_card_aspect_placeholders = list(range(open_aspect_slots))
             druid_card_show_aspect_placeholder = bool(druid_card_aspect_placeholders)
@@ -10523,9 +10603,10 @@ def build_character_sheet_context(
             shaman_binding.custom_fluff if shaman_binding is not None and shaman_binding.custom_fluff is not None
             else shaman_patron.entity.fluff
         )
-        shaman_card_aspects = list(shaman_patron.aspects.all().order_by("name", "id"))
+        shaman_card_aspects = core_aspects_for_source(
+            shaman_patron, shaman_binding,
+        )
         if shaman_patron.aspect_selection_mode != "fixed" and shaman_binding is not None:
-            shaman_card_aspects = list(shaman_binding.core_aspects.all().order_by("name", "id"))
             open_aspect_slots = max(0, int(shaman_patron.starting_aspect_count) - len(shaman_card_aspects))
             shaman_card_aspect_placeholders = list(range(open_aspect_slots))
             shaman_card_show_aspect_placeholder = bool(shaman_card_aspect_placeholders)
@@ -11061,6 +11142,7 @@ def build_character_sheet_context(
         "shop_modifier_target_kind_choices": [
             ("trait", "Trait vergeben / erhöhen"),
             (TEXT_TARGET_KIND, "Text"),
+            ("spell_focus", "Fokus"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
@@ -11079,6 +11161,7 @@ def build_character_sheet_context(
             ("trait", "Trait vergeben / erhöhen"),
             (TEXT_TARGET_KIND, "Text"),
             ("counter", "Zähler"),
+            ("spell_focus", "Fokus"),
             ("school_level", "Erlernte Schulstufen"),
             ("school_level_grant", "Schulstufen"),
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),

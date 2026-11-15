@@ -204,12 +204,16 @@ def _clone_related_rows(source: CharacterItem, target: CharacterItem):
     for effect in source.semantic_effects.prefetch_related("condition_races", "condition_schools").all():
         condition_races = list(effect.condition_races.all())
         condition_schools = list(effect.condition_schools.all())
+        target_schools = list(effect.target_schools.all())
+        target_aspects = list(effect.target_aspects.all())
         source_effect_id = effect.pk
         effect.pk = None
         effect.character_item = target
         effect.save()
         effect.condition_races.set(condition_races)
         effect.condition_schools.set(condition_schools)
+        effect.target_schools.set(target_schools)
+        effect.target_aspects.set(target_aspects)
         cloned_effect_by_source_id[source_effect_id] = effect
     for disclosure in source.disclosures.all():
         CharacterItemDisclosure.objects.create(

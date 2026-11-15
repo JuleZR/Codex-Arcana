@@ -161,10 +161,13 @@ export function initItemForm() {
       const rowKind = String(targetRow.dataset.magicTargetRow || "");
       const isActive = !isTextOnly && selectedKind === rowKind;
       targetRow.hidden = !isActive;
+      if (rowKind === "spell_focus") {
+        targetRow.querySelectorAll("select").forEach(select => { select.disabled = !isActive; });
+      }
       const select = targetRow.querySelector("select");
       if (select) {
         select.disabled = !isActive;
-        select.required = isActive;
+        select.required = isActive && rowKind !== "spell_focus";
       }
     });
 
@@ -296,6 +299,14 @@ export function initItemForm() {
         payload.target_item_category = String(itemCategorySelect?.value || "").trim();
       } else if (targetKind === "specialization") {
         payload.target_specialization = String(specializationSelect?.value || "").trim();
+      } else if (targetKind === "spell_focus") {
+        payload.focus_targets = JSON.parse(
+          row.querySelector("[data-focus-bindings-value]")?.value || "[]",
+        );
+        payload.target_schools = Array.from(
+          row.querySelector("[data-magic-condition-focus]")?.selectedOptions || [],
+          option => option.value,
+        );
       } else if (["school_level", "school_level_grant"].includes(targetKind)) {
         payload.target_school_level = String(row.querySelector(`[data-magic-target-select='${targetKind}']`)?.value || "").trim();
         const operator = row.querySelector("[data-magic-operator]")?.value || "";
@@ -443,6 +454,8 @@ export function initItemForm() {
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-condition-races]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-condition-schools]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-magic-condition-focus]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-focus-bindings-value]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
@@ -457,6 +470,7 @@ export function initItemForm() {
 
     bindMagicEffectDragAndDrop(row);
     syncMagicEffectRow(row);
+    window.initializeMagicConditionPickers?.(row);
     syncMagicEffectRemoveButtons();
     serializeMagicEffects();
     return row;

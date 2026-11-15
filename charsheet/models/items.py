@@ -1351,6 +1351,14 @@ class ItemSemanticEffectFields(models.Model):
         ITEM_INVESTED_CP = "item_invested_cp", "Investierte CP des Items"
 
     sort_order = models.PositiveIntegerField(default=0)
+    target_schools = models.ManyToManyField(
+        "charsheet.School", blank=True,
+        related_name="%(class)s_focus_effects",
+    )
+    target_aspects = models.ManyToManyField(
+        "charsheet.Aspect", blank=True,
+        related_name="%(class)s_focus_effects",
+    )
     target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="rule_flag")
     target_key = models.CharField(max_length=120, blank=True, default="")
     operator = models.CharField(max_length=40, choices=MODIFIER_OPERATOR_CHOICES, default="flat_add")
@@ -1546,6 +1554,13 @@ class ItemSemanticEffectFields(models.Model):
             metadata["condition_text"] = " ".join(str(self.notes or "").split())
         if self.pk:
             metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
+            if self.target_domain == "spell_focus":
+                metadata["target_school_ids"] = sorted(
+                    school.pk for school in self.target_schools.all()
+                )
+                metadata["target_aspect_ids"] = sorted(
+                    aspect.pk for aspect in self.target_aspects.all()
+                )
             metadata["semantic_effect_label"] = self.semantic_source_label()
             condition_race_ids = sorted(
                 race.pk for race in self.condition_races.all()
