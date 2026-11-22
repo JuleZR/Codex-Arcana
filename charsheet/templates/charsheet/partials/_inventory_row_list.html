@@ -44,6 +44,11 @@
       </span>
     </span>
     <div class="inv_actions">
+      {% for effect in row.item_card.effect_rows %}
+        {% for counter in effect.counters %}
+          {% include "charsheet/partials/_item_effect_counter_badge.html" %}
+        {% endfor %}
+      {% endfor %}
       {% if row.has_runes %}
         <button
           type="button"

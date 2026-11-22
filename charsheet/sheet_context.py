@@ -7150,6 +7150,14 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
         )
         item_image_url = display.image_url
         item_name = display.name
+        counter_effect_rows = _build_character_item_magic_tooltip_rows(
+            effect_summary=_character_item_effect_summary_for_view(
+                row["character_item"],
+                sl_effect_group_id=sl_effect_group_id,
+            ),
+            modifier_payloads=magic_modifier_payloads,
+            include_condition_blocked=sl_effect_group_id is not None,
+        )
         display_options = list(row.get("maneuver_options") or [])
         if not display_options:
             display_options = [
@@ -7172,6 +7180,9 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
                 "is_primary_profile": rendered_row_index == 0,
                 "is_last_profile": rendered_row_index == (expanded_row_count_by_item.get(character_item_id, 1) - 1),
                 "show_weapon_name": rendered_row_index == 0,
+                "counter_effect_rows": _shared_item_card_effect_rows(
+                    counter_effect_rows,
+                ) if rendered_row_index == 0 else [],
                 "item_name": item_name,
                 "weapon_display_name": item_name,
                 "show_maneuver_badge": len(display_options) > 1,
@@ -7201,14 +7212,7 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
                             include_hidden_values=sl_effect_group_id is not None,
                         )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
-                        + _build_character_item_magic_tooltip_rows(
-                            effect_summary=_character_item_effect_summary_for_view(
-                                row["character_item"],
-                                sl_effect_group_id=sl_effect_group_id,
-                            ),
-                            modifier_payloads=magic_modifier_payloads,
-                            include_condition_blocked=sl_effect_group_id is not None,
-                        )
+                        + counter_effect_rows
                         + _build_character_item_rune_tooltip_rows(
                             item=row["item"],
                             character_item=row["character_item"],

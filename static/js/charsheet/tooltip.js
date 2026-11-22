@@ -1,6 +1,41 @@
 import { escapeHtml, getCsrfToken, loadJsonStorage, saveJsonStorage } from "./utils.js";
 import { applySheetPartials } from "./partial_updates.js";
 
+function updateItemEffectCounter(counter, value) {
+  const { counterUrl, effectSource, effectIds } = counter.dataset;
+  const matches = (url, source, ids) => (
+    url === counterUrl && source === effectSource && ids === effectIds
+  );
+  const update = (root) => {
+    root.querySelectorAll("[data-item-effect-counter], [data-item-effect-counter-value]").forEach((element) => {
+      if (!matches(element.dataset.counterUrl, element.dataset.effectSource, element.dataset.effectIds)) return;
+      if (element.hasAttribute("data-item-effect-counter-value")) {
+        element.textContent = String(value);
+        element.setAttribute("aria-label", `${element.title}: ${value}`);
+        return;
+      }
+      element.querySelector("output").textContent = String(value);
+      element.querySelectorAll("button").forEach((button) => {
+        const bound = button.dataset.counterDelta === "-1" ? element.dataset.counterMin : element.dataset.counterMax;
+        button.disabled = element.dataset.counterReadOnly === "1" || effectSource === "preview" || bound !== "" && (
+          button.dataset.counterDelta === "-1" ? value <= Number(bound) : value >= Number(bound)
+        );
+      });
+    });
+    root.querySelectorAll("[data-tooltip]").forEach((target) => {
+      const text = target.getAttribute("data-tooltip");
+      if (!text.includes("[[EFFECTCOUNTER:")) return;
+      target.setAttribute("data-tooltip", text.replace(
+        /\[\[EFFECTCOUNTER:([^;\]]+);([^;\]]+);([0-9,]+);(-?\d+);(-?\d*);(-?\d*)\]\]/g,
+        (marker, url, source, ids, previous, min, max) => matches(url, source, ids)
+          ? `[[EFFECTCOUNTER:${url};${source};${ids};${value};${min};${max}]]` : marker,
+      ));
+    });
+    root.querySelectorAll("template").forEach((template) => update(template.content));
+  };
+  update(document);
+}
+
 function parseTableRow(line) {
   const trimmed = String(line || "").trim();
   if (!trimmed.includes("|")) {
@@ -1732,15 +1767,11 @@ export function initTooltips() {
     const counterButton = event.target instanceof Element ? event.target.closest("[data-counter-delta]") : null;
     if (counterButton instanceof HTMLButtonElement) {
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       const counter = counterButton.closest("[data-item-effect-counter]");
-      if (!counter || counterButton.disabled || counter.dataset.busy === "1") return;
+      if (!counter || counterButton.disabled || counter.dataset.counterReadOnly === "1" || counter.dataset.busy === "1") return;
       counter.dataset.busy = "1";
       counter.querySelectorAll("button").forEach((button) => { button.disabled = true; });
-      const targetKey = activeCardTarget?.getAttribute("data-tooltip-card-key") || "";
-      const targetSignature = activeCardTarget ? buildCardTargetSignature(activeCardTarget) : "";
-      const previousLeft = card.style.left;
-      const previousTop = card.style.top;
       const formData = new FormData();
       formData.set("source_type", counter.dataset.effectSource || "");
       formData.set("effect_ids", counter.dataset.effectIds || "");
@@ -1759,17 +1790,8 @@ export function initTooltips() {
         if (!response.ok) throw new Error("counter update failed");
         const payload = await response.json();
         if (!payload?.ok) throw new Error("counter update invalid");
-        counter.querySelector("output").textContent = String(payload.value);
-        applySheetPartials(payload);
-        const nextTarget = Array.from(document.querySelectorAll(".tooltip_target[data-tooltip][data-tooltip-mode='card']"))
-          .find((target) => targetKey
-            ? target.getAttribute("data-tooltip-card-key") === targetKey
-            : targetSignature && buildCardTargetSignature(target) === targetSignature);
-        if (nextTarget) {
-          activeCardTarget = nextTarget;
-          saveCardState(nextTarget);
-          openCard(nextTarget, { preservePosition: true, previousLeft, previousTop });
-        }
+        updateItemEffectCounter(counter, payload.value);
+        if (activeCardTarget) saveCardState(activeCardTarget);
       } catch (_error) {
         window.alert("Zähler konnte nicht gespeichert werden.");
       } finally {
@@ -1777,7 +1799,7 @@ export function initTooltips() {
         const value = Number(counter.querySelector("output").textContent);
         counter.querySelectorAll("button").forEach((button) => {
           const bound = button.dataset.counterDelta === "-1" ? counter.dataset.counterMin : counter.dataset.counterMax;
-          button.disabled = bound !== "" && (button.dataset.counterDelta === "-1" ? value <= Number(bound) : value >= Number(bound));
+          button.disabled = counter.dataset.counterReadOnly === "1" || bound !== "" && (button.dataset.counterDelta === "-1" ? value <= Number(bound) : value >= Number(bound));
         });
       }
       return;

@@ -6207,16 +6207,9 @@ def adjust_character_item_effect_counter(request, pk):
             effect.bounded_counter_value() + delta,
         )
         effect.save(update_fields=["counter_value"])
-    keys = ("inventory_panel",)
-    if ci.equipped:
-        keys += ("weapon_panel", "armor_panel")
-    context = _build_item_semantic_effect_partial_context_for_request(
-        request, ci.owner, keys,
-    )
     return JsonResponse({
         "ok": True,
         "value": effects[0].counter_value,
-        "partials": _render_sheet_partials(request, context, keys),
     })
 
 

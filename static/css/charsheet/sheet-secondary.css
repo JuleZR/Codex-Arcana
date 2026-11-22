@@ -2762,6 +2762,71 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: inline-flex;
 }
 
+.inv_effect_counter {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  overflow: hidden;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: #4a2b16;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+  text-align: center;
+}
+
+.inv_effect_counter > output {
+  position: relative;
+  display: block;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+  color: inherit;
+  pointer-events: none;
+}
+
+.inv_effect_counter > button {
+  position: absolute;
+  inset: 0 0 50%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.inv_effect_counter > button[data-counter-delta="-1"] {
+  inset: 50% 0 0;
+}
+
+.inv_effect_counter > button:hover:not(:disabled),
+.inv_effect_counter > button:focus-visible {
+  background: rgb(100 65 30 / 18%);
+}
+
+.inv_effect_counter > button:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: -1px;
+}
+
+.inv_effect_counter > button:disabled {
+  cursor: default;
+}
+
 .inv_menu.is-open {
   z-index: 1210;
 }

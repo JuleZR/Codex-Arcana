@@ -1,0 +1,5 @@
+<span class="inv_effect_counter" data-item-effect-counter data-counter-url="{{ counter.url }}" data-effect-source="{{ counter.source }}" data-effect-ids="{{ counter.ids }}" data-counter-min="{{ counter.min|default_if_none:'' }}" data-counter-max="{{ counter.max|default_if_none:'' }}"{% if read_only or counter.read_only %} data-counter-read-only="1"{% endif %} title="{{ effect.label|default:effect.value }}">
+  <button type="button" data-counter-delta="1" aria-label="{{ effect.label|default:effect.value }}: Zähler erhöhen"{% if read_only or counter.read_only or counter.max != None and counter.value >= counter.max %} disabled{% endif %}></button>
+  <output aria-live="polite">{{ counter.value }}</output>
+  <button type="button" data-counter-delta="-1" aria-label="{{ effect.label|default:effect.value }}: Zähler verringern"{% if read_only or counter.read_only or counter.min != None and counter.value <= counter.min %} disabled{% endif %}></button>
+</span>
