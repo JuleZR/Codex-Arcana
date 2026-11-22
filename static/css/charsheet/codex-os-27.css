@@ -719,7 +719,8 @@ body.charsheet-page .skill_manager_search {
 
 body.charsheet-page .skill_manager_filter_button,
 body.charsheet-page .skill_manager_filter[open] .skill_manager_filter_button,
-body.charsheet-page .skill_manager_action:not(.skill_manager_action--locked) {
+body.charsheet-page .skill_manager_action:not(.skill_manager_action--locked),
+body.charsheet-page .creature-creation-controls button {
   color: #f9e7c7;
   border-color: #b68661;
   border-radius: 3px;
@@ -728,8 +729,14 @@ body.charsheet-page .skill_manager_action:not(.skill_manager_action--locked) {
   text-shadow: none;
 }
 
+body.charsheet-page .creature-creation-controls [data-creature-builder-url] {
+  border-color: var(--os-brass, #c5a16a);
+  background: linear-gradient(110deg, #594323, #94703d, #624929);
+}
+
 body.charsheet-page .skill_manager_filter_button:hover,
-body.charsheet-page button.skill_manager_action:hover {
+body.charsheet-page button.skill_manager_action:hover,
+body.charsheet-page .creature-creation-controls button:hover {
   filter: brightness(1.12);
 }
 

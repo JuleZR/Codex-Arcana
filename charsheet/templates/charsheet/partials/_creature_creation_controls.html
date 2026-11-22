@@ -1,26 +1,20 @@
 <div class="creature-creation-controls">
-  <strong>{{ choice.label }} auswählen oder erstellen</strong>
+  {% if not hide_title %}<strong>{{ choice.label }}</strong>{% endif %}
   <form method="post" action="{{ choice.create_url }}" class="creature-creation-card__form" data-sheet-action data-ajax-only>
     {% csrf_token %}<input type="hidden" name="mode" value="template">
     {% if choice.source_character_item_id %}<input type="hidden" name="source_character_item_id" value="{{ choice.source_character_item_id }}">{% endif %}
     <label>Vorlage aus der Kreaturendatenbank</label>
-    <select name="creature_id" required>{% for creature in choice.templates %}<option value="{{ creature.pk }}" data-creature-type-id="{{ creature.creature_type_id|default:'' }}">{{ creature.display_name }}</option>{% endfor %}</select>
-    {% if choice.supports_kraftbestie %}
-      <label class="creature-creation-card__kraft-option">
-        <input type="checkbox" name="is_kraftbestie" value="1" data-kraftbestie-tier-type-id="{{ choice.tier_type_id|default:'' }}">
-        <span>als Kraftbestie</span>
-      </label>
-    {% endif %}
+    <div class="creature-creation-card__template-options">
+      <select name="creature_id" aria-label="Kreaturenvorlage" required>{% for creature in choice.templates %}<option value="{{ creature.pk }}" data-creature-type-id="{{ creature.creature_type_id|default:'' }}">{{ creature.display_name }}</option>{% endfor %}</select>
+      {% if choice.supports_kraftbestie %}
+        <label class="creature-creation-card__kraft-option">
+          <input type="checkbox" name="is_kraftbestie" value="1" data-kraftbestie-tier-type-id="{{ choice.tier_type_id|default:'' }}">
+          <span>als Kraftbestie</span>
+        </label>
+      {% endif %}
+    </div>
     <button type="submit">Vorlage verwenden</button>
   </form>
-  {% if not choice.requires_template %}
   <div class="creature-creation-card__divider">oder</div>
-  <form method="post" action="{{ choice.create_url }}" class="creature-creation-card__form" data-sheet-action data-ajax-only>
-    {% csrf_token %}<input type="hidden" name="mode" value="free">
-    {% if choice.source_character_item_id %}<input type="hidden" name="source_character_item_id" value="{{ choice.source_character_item_id }}">{% endif %}
-    <label>Eigener Name für {{ choice.label }}</label>
-    <input type="text" name="custom_name" maxlength="100" required placeholder="z. B. Silberfuchs">
-    <button type="submit">Leere Karte erstellen</button>
-  </form>
-  {% endif %}
+  <button type="button" data-creature-builder-url="{% url 'creature_builder_new' %}">Kreatur erschaffen</button>
 </div>

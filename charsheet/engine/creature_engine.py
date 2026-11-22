@@ -586,15 +586,7 @@ class CreatureEngine:
         if profile is None:
             return 0
         size_modifier = int(GK_MODS.get(profile.size_class, 0))
-        category = getattr(skill, "category", None)
-        category_slug = getattr(category, "slug", "")
-        if category_slug == SKILL_COMBAT:
-            return size_modifier
-        if getattr(skill, "slug", "") == "skill_evasion":
-            return size_modifier
-        if getattr(skill, "slug", "") == "skill_hide":
-            return size_modifier * 2
-        return 0
+        return self._skill_size_bonus(skill, size_modifier)
 
     def _resolved_kraftbestie_traits(self, base_creature, overlay):
         rows = self._merge_overlay_rows(
@@ -2312,16 +2304,20 @@ class CreatureEngine:
             return 0
         return int(self.attribute_mod(short_name) or 0)
 
-    def _skill_size_modifier(self, skill) -> int:
+    @staticmethod
+    def _skill_size_bonus(skill, size_modifier) -> int:
         category = getattr(skill, "category", None)
         category_slug = getattr(category, "slug", "")
         if category_slug == SKILL_COMBAT:
-            return self.size_modifier()
-        if getattr(skill, "slug", "") == "skill_evasion":
-            return self.size_modifier()
+            return size_modifier
+        if getattr(skill, "slug", "") in ("skill_evasion", "skill_sneak"):
+            return size_modifier
         if getattr(skill, "slug", "") == "skill_hide":
-            return self.size_modifier() * 2
+            return size_modifier * 2
         return 0
+
+    def _skill_size_modifier(self, skill) -> int:
+        return self._skill_size_bonus(skill, self.size_modifier())
 
     def special_skills(self) -> list[dict[str, Any]]:
         overrides = {}
@@ -2570,6 +2566,11 @@ class CreatureEngine:
             "has_resources": bool(self.creature.has_kp or self.creature.has_bp or is_vampire),
             "has_age_cycle": bool(self.creature.has_age_cycle or is_vampire),
             "kp": kp,
+            "current_kp": (
+                max(0, min(int(kp or 0), int(self.instance.current_kp)))
+                if self.instance and self.instance.current_kp is not None
+                else max(0, int(kp or 0))
+            ),
             "bp": bp,
             "bp_max": bp_max,
             "age_cycle": age_cycle,
@@ -2708,6 +2709,9 @@ class CreatureEngine:
                 context["creature_kind_label"] = "Kraftbestie"
                 context["typebar_label"] = f"Kraftbestie - {context['kraftbestie_base_name']}"
                 context["name_suffix"] = ""
+        from charsheet.creature_builder_service import card_creation_context
+
+        context.update(card_creation_context(self))
         return context
 
     @staticmethod

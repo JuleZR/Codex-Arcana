@@ -861,13 +861,6 @@ def build_creature_card_training_context(card):
         }
         for quality in Quality.objects.all()
     ]
-    existing_skill_names = {
-        skill["name"].casefold()
-        for skill in skill_rows
-    } | {
-        row.skill.name.casefold()
-        for row in base_creature.skills.select_related("skill").filter(skill__isnull=False)
-    }
     skill_catalog = [
         {
             "id": f"skill:{skill.pk}",
@@ -875,7 +868,7 @@ def build_creature_card_training_context(card):
             "requires_specification": skill.requires_specification,
         }
         for skill in Skill.objects.order_by("name")
-        if skill.name.casefold() not in existing_skill_names
+        if skill.pk not in seen_skill_ids
     ]
     special_skill_catalog = [
         {
@@ -883,7 +876,7 @@ def build_creature_card_training_context(card):
             "name": skill.name,
         }
         for skill in CreatureSpecialSkill.objects.order_by("name")
-        if skill.name.casefold() not in existing_skill_names
+        if skill.pk not in seen_special_skill_ids
     ]
     movement = engine.movement()
     can_swim = any(movement.get(field_name) is not None for field_name in ("swim_combat", "swim_march", "swim_sprint"))
@@ -9692,6 +9685,11 @@ def build_item_semantic_effect_partial_context(
 ) -> dict[str, object]:
     """Build only the sheet data needed after item semantic-effect toggles."""
     partial_key_set = set(partial_keys)
+    if "card_hand" in partial_key_set:
+        # Creature bindings must be synchronized before rendering their cards.
+        return build_character_sheet_context(
+            character, read_only=read_only, include_learning_catalog=False,
+        )
     if partial_key_set == {"inventory_panel"}:
         context = build_inventory_partial_context(character)
         context["read_only"] = read_only
@@ -10729,6 +10727,8 @@ def build_character_sheet_context(
                 "name": card.display_name,
                 "is_creation_placeholder": True,
                 "creation_title": choice_label,
+                "holo": bool(card.quality.holographic_style),
+                "holo_kind": card.quality.holographic_style,
                 "creation_choice": {
                     "label": choice_label,
                     "create_url": (

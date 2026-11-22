@@ -466,6 +466,8 @@ def _equipment_action_partial_keys(
     item = character_item.effective_item
     item_type = item.item_type
     keys = ["inventory_panel"]
+    if item.creature_source_bindings.filter(active=True).exists():
+        _append_partial_key(keys, "card_hand")
 
     if effects is None:
         effects = [
@@ -1985,6 +1987,10 @@ def _accepted_item_partial_keys(transfers: list[ItemTransfer]) -> tuple[str, ...
     if not item_ids:
         return tuple(keys)
     base_item_ids = CharacterItem.objects.filter(pk__in=item_ids).values("item_id")
+    if CreatureSourceBinding.objects.filter(
+        active=True, item_trigger_id__in=base_item_ids,
+    ).exists():
+        _append_partial_key(keys, "card_hand")
     effects = [
         *ItemSemanticEffect.objects.filter(item_id__in=base_item_ids),
         *CharacterItemSemanticEffect.objects.filter(character_item_id__in=item_ids),
@@ -6711,13 +6717,40 @@ def update_carry_load_state(request, character_id: int):
 @login_required
 @require_POST
 def adjust_creature_damage(request, pk: int):
-    """Increase or decrease current damage on one owned creature instance."""
+    """Adjust damage or current KP on one owned creature instance."""
     character_creature = _owned_character_creature_or_404(request, pk)
     action = request.POST.get("action")
     try:
         amount = max(1, int(request.POST.get("amount", "1")))
     except (TypeError, ValueError):
         amount = 1
+
+    if action in {"kp_spend", "kp_restore"}:
+        engine = CreatureEngine(character_creature)
+        from .engine.vampire_engine import VampireRules
+
+        if (
+            not engine.creature.has_kp
+            or VampireRules(character_creature).is_vampire()
+        ):
+            return JsonResponse({"ok": False}, status=400)
+        maximum = max(0, int(engine.kp() or 0))
+        current = character_creature.current_kp
+        current = (
+            maximum if current is None else max(0, min(maximum, current))
+        )
+        delta = -amount if action == "kp_spend" else amount
+        character_creature.current_kp = max(0, min(maximum, current + delta))
+        character_creature.save(update_fields=["current_kp"])
+        if _is_partial_request(request):
+            payload = _render_creature_training_payload(
+                request, character_creature, include_training=False,
+            )
+            payload["current_kp"] = character_creature.current_kp
+            return JsonResponse(payload)
+        return redirect(
+            "character_sheet", character_id=character_creature.owner_id,
+        )
 
     aggravated = request.POST.get("aggravated") == "1"
     if action == "damage":
@@ -6802,7 +6835,7 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         "yes",
     }
     selected_creature = None
-    custom_name = ""
+    custom_name = str(request.POST.get("custom_name") or "").strip()[:100]
     if mode == "template":
         selected_creature = get_object_or_404(Creature, pk=request.POST.get("creature_id"))
         if not binding.allows_creature_template(selected_creature):
@@ -6860,7 +6893,7 @@ def choose_semantic_effect_creature(request, pk: int):
 
     mode = str(request.POST.get("mode") or "template")
     selected_creature = None
-    custom_name = ""
+    custom_name = str(request.POST.get("custom_name") or "").strip()[:100]
     if mode == "template":
         selected_creature = get_object_or_404(Creature, pk=request.POST.get("creature_id"))
         if card.source_binding_id and not card.source_binding.allows_creature_template(selected_creature):
@@ -7096,6 +7129,8 @@ def _render_pending_creature_choice_payload(
         "name": card.display_name,
         "is_creation_placeholder": True,
         "creation_title": choice_label,
+        "holo": bool(card.quality.holographic_style),
+        "holo_kind": card.quality.holographic_style,
         "creation_choice": {
             "label": choice_label,
             "create_url": (
@@ -7740,18 +7775,26 @@ def update_creature_card_training(request, pk: int):
                 )
             )
     new_skill_rows = []
-    existing_skill_names = {
-        row.skill.name.casefold()
-        for row in base_creature.skills.select_related("skill").filter(skill__isnull=False)
+    existing_skill_refs = {
+        ("skill", skill_id)
+        for skill_id in base_creature.skills.filter(
+            skill__isnull=False,
+        ).values_list("skill_id", flat=True)
     } | {
-        row.skill.name.casefold()
-        for row in base_creature.special_skills.select_related("skill")
+        ("special", skill_id)
+        for skill_id in base_creature.special_skills.values_list(
+            "skill_id", flat=True,
+        )
     } | {
-        row.skill.name.casefold()
-        for row in card.skill_overrides.exclude(skill_id__in=remove_normal_skill_ids).select_related("skill")
+        ("skill", skill_id)
+        for skill_id in card.skill_overrides.exclude(
+            skill_id__in=remove_normal_skill_ids,
+        ).values_list("skill_id", flat=True)
     } | {
-        row.skill.name.casefold()
-        for row in card.special_skill_overrides.exclude(skill_id__in=remove_special_skill_ids).select_related("skill")
+        ("special", skill_id)
+        for skill_id in card.special_skill_overrides.exclude(
+            skill_id__in=remove_special_skill_ids,
+        ).values_list("skill_id", flat=True)
     }
     new_skill_ids = request.POST.getlist("new_skill_id")
     new_skill_specifications = request.POST.getlist("new_skill_specification")
@@ -7782,9 +7825,11 @@ def update_creature_card_training(request, pk: int):
         else:
             skill_id = _parse_positive_int(raw_skill_ref.split(":", 1)[-1], 0)
             selected_skill = selected_normal_skills.get(skill_id)
-        if selected_skill is None or selected_skill.name.casefold() in existing_skill_names:
+        kind = "special" if raw_skill_ref.startswith("special:") else "skill"
+        reference = (kind, skill_id)
+        if selected_skill is None or reference in existing_skill_refs:
             continue
-        existing_skill_names.add(selected_skill.name.casefold())
+        existing_skill_refs.add(reference)
         value = _parse_int(new_skill_values[index] if index < len(new_skill_values) else 0, 0)
         if raw_skill_ref.startswith("special:"):
             new_skill_rows.append(
@@ -8990,6 +9035,10 @@ def _shop_cart_partial_keys(character, payload, buy_key, sell_key):
     ).select_related("item", "item__item_type"))
     keys = ["inventory_panel", "wallet_panel", "shop_sell_panel"]
     items = [*bought_items, *(owned.item for owned in sold_items)]
+    if CreatureSourceBinding.objects.filter(
+        active=True, item_trigger_id__in=[item.pk for item in items],
+    ).exists():
+        _append_partial_key(keys, "card_hand")
     if any(item.weight for item in items) or sold_items:
         _append_partial_key(keys, "load_panel")
         if character.carry_load_enabled:

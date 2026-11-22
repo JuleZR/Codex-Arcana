@@ -1702,6 +1702,46 @@ span.card-aspect-placeholder {
     text-align: right;
 }
 
+.creature-card__power-footer {
+    position: absolute;
+    left: 32px;
+    bottom: 4px;
+    z-index: 7;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    max-width: calc(100% - 160px);
+    padding: 0;
+    overflow: hidden;
+    color: #fff;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    font-family: "Consolas", "Courier New", monospace;
+    font-variant-caps: normal;
+    text-transform: none;
+    font-size: 10px;
+    line-height: 14px;
+    font-weight: bold;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.creature-card__power-footer span { overflow: hidden; text-overflow: ellipsis; }
+
+.creature-builder-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    padding: 0;
+    transform: none;
+}
+
+.creature-builder-dialog:not([open]) { display: none; }
+.creature-builder-dialog::backdrop { background: rgba(0, 0, 0, 0.75); }
+.creature-builder-dialog iframe { flex: 1; width: 100%; height: 100%; min-height: 0; border: 0; }
+
 .creature-card__rules {
     display: grid;
     grid-template-rows: none;
@@ -1759,6 +1799,18 @@ span.card-aspect-placeholder {
     display: grid;
     min-width: 0;
     margin: 0;
+}
+
+.creature-card__kp-cluster {
+    right: 128px;
+}
+
+.creature-card__kp-cluster small {
+    font-size: 9px;
+}
+
+.creature-card--has-kp .creature-card__power-footer {
+    max-width: calc(100% - 260px);
 }
 
 .creature-card__damage-badge {
@@ -2037,6 +2089,13 @@ span.card-aspect-placeholder {
 .creature-card__core-grid--two-rows {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 5px;
+}
+
+.creature-card__core-grid--compact {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    column-gap: 2px;
 }
 
 .creature-card__core-row {

@@ -21,6 +21,7 @@ from charsheet import group_views, views
 from charsheet.calendar_views import character_date
 from charsheet.attribute_flavor import attribute_flavor_card
 from charsheet.item_workshop import preview_item_effects
+from charsheet.creature_builder_views import creature_builder
 from charsheet.catalog_items import staff_item_editor, staff_items
 from django.views.static import serve
 from django.views.generic import TemplateView
@@ -31,6 +32,8 @@ from charsheet.quickslots import (
 )
 
 urlpatterns = [
+    path("creatures/build/", creature_builder, name="creature_builder_new"),
+    path("creatures/build/<int:pk>/", creature_builder, name="creature_builder"),
     path("character/<int:character_id>/attribute-flavor/",
          attribute_flavor_card, name="attribute_flavor_card"),
     path("character/<int:character_id>/date/", character_date,

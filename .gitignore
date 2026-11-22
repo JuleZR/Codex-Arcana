@@ -197,7 +197,7 @@ charsheet/tests/
 *.scss
 *.css.map
 MILESTONES.md
-_grw
+_regeln
 .tools
 .out
 _old

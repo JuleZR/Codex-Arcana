@@ -10,6 +10,9 @@ from .calendar import (
     CalendarSystem, CalendarSeason, CharacterDate,
 )
 from .creation_templates import CharacterCreationTemplate
+from .creature_creation import (
+    CreatureCategoryRule, CreatureCreation, CreaturePowerRule,
+)
 from .auth_security import AccountSecurityEvent, AuthenticationThrottle
 from .user import (
     CharacterQuickslotLayout, PasskeyCredential, TwoFactorRecoveryCode,
@@ -210,6 +213,9 @@ from .techniques import (
 )
 
 __all__ = [
+    "CreatureCategoryRule",
+    "CreatureCreation",
+    "CreaturePowerRule",
     "AttributeRating",
     "GeneralAttributeMeaning",
     "RaceAttributeFlavor",

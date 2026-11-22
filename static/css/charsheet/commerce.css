@@ -3689,8 +3689,10 @@
 :is(#runeRetrofitWindow, .sl-workshop-window) button:not(.workshop_socket, .sheet-window__close, [role="tab"]) { padding: 8px 12px; border: 1px solid #b59463; border-radius: 3px; color: #73462d; background: #fbf1df; }
 :is(#runeRetrofitWindow, .sl-workshop-window) #runeRetrofitCancelBtn { background: #4c3528; color: #e6cfad; }
 :is(#runeRetrofitWindow, .sl-workshop-window) #runeRetrofitCancelBtn:hover { background: #624737; }
-:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit { border-color: #b59463; background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c); color: #f9e7c7; }
-:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit:hover { filter: brightness(1.12); }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit,
+:is(#runeRetrofitWindow, .sl-workshop-window) button.builder-attack-remove { border-color: #b59463; background: linear-gradient(110deg, #64302b, #9a4d3d, #6c302c); color: #f9e7c7; }
+:is(#runeRetrofitWindow, .sl-workshop-window) .workshop_footer .workshop_submit:hover,
+:is(#runeRetrofitWindow, .sl-workshop-window) button.builder-attack-remove:hover { filter: brightness(1.12); }
 :is(#runeRetrofitWindow, .sl-workshop-window) .rune_window_save_error { color: #f2b6a3; margin: 0; max-width: 38%; }
 @media (max-width: 700px) {
   :is(#runeRetrofitWindow, .sl-workshop-window) .workshop_header { flex-wrap: wrap; gap: 8px; padding: 6px 12px; }

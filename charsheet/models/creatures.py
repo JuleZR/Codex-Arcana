@@ -1446,6 +1446,7 @@ class CharacterCreature(models.Model):
     semantic_effect_label = models.CharField(max_length=160, blank=True, default="")
     semantic_effect_is_choice = models.BooleanField(default=False)
     current_damage = models.PositiveIntegerField(default=0)
+    current_kp = models.PositiveIntegerField(blank=True, null=True)
     swarm_mode = models.CharField(
         "Schwarmdarstellung",
         max_length=12,
@@ -1691,7 +1692,7 @@ class CharacterCreatureSkill(models.Model):
     specification = models.CharField(max_length=25, blank=True, default="")
     level_override = models.IntegerField(validators=[MinValueValidator(0)])
     deviation = models.IntegerField("Abweichung", default=0)
-    notes = models.CharField(max_length=200, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["skill__name"]
@@ -1727,7 +1728,7 @@ class CharacterCreatureSpecialSkill(models.Model):
     creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="special_skill_overrides")
     skill = models.ForeignKey(CreatureSpecialSkill, on_delete=models.PROTECT)
     value_override = models.IntegerField()
-    notes = models.CharField(max_length=200, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["skill__name"]

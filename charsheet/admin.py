@@ -4,6 +4,8 @@ import json
 from collections import defaultdict
 from copy import copy, deepcopy
 
+from . import creature_builder_admin  # noqa: F401
+
 from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm

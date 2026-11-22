@@ -1,7 +1,9 @@
 import { applyCardEdgeColors, initGodCards } from "./god_card.js?v=20261018-image-edges";
 import { openCardImageCropper } from "./card_image_cropper.js";
+import { initCreatureBuilder } from "./creature_builder_bridge.js?v=20261121-instance-name";
 
 export function initCreatureCards() {
+  initCreatureBuilder();
   const getCsrfToken = () => {
     const tokenInput = document.querySelector("input[name='csrfmiddlewaretoken']");
     if (tokenInput instanceof HTMLInputElement && tokenInput.value) {
@@ -22,12 +24,13 @@ export function initCreatureCards() {
     Array.from(select.options).forEach((option) => {
       const isAllowed = !restrictToTier || option.dataset.creatureTypeId === tierTypeId;
       option.disabled = !isAllowed;
+      option.hidden = !isAllowed;
       if (isAllowed && firstAllowedOption === null) {
         firstAllowedOption = option;
       }
     });
-    if (select.selectedOptions[0]?.disabled && firstAllowedOption) {
-      select.value = firstAllowedOption.value;
+    if (select.selectedOptions[0]?.disabled) {
+      select.value = firstAllowedOption?.value || "";
     }
     const submitButton = form.querySelector("button[type='submit']");
     if (submitButton instanceof HTMLButtonElement) {
@@ -1344,15 +1347,16 @@ export function initCreatureCards() {
     if (!(form instanceof HTMLFormElement)) {
       return;
     }
-    const cluster = form.closest("[data-creature-damage-cluster]");
+    const cluster = form.closest("[data-creature-damage-cluster], [data-creature-kp-cluster]");
     if (!(cluster instanceof HTMLElement)) {
       form.submit();
       return;
     }
 
+    const isKp = cluster.hasAttribute("data-creature-kp-cluster");
     let state = damageRequestQueues.get(cluster);
     if (!state) {
-      state = { queue: Promise.resolve(), pending: [], confirmedDamage: readInt(cluster.dataset.creatureCurrentDamage, 0) };
+      state = { queue: Promise.resolve(), pending: [], confirmedDamage: readInt(isKp ? cluster.dataset.currentKp : cluster.dataset.creatureCurrentDamage, 0) };
       damageRequestQueues.set(cluster, state);
     }
     const body = new FormData(form);
@@ -1363,7 +1367,11 @@ export function initCreatureCards() {
     applyPreviewDamageAction(cluster, action);
 
     const renderPendingDamage = () => {
-      renderPreviewDamage(cluster, state.confirmedDamage);
+      if (isKp) {
+        renderPreviewKp(cluster, state.confirmedDamage);
+      } else {
+        renderPreviewDamage(cluster, state.confirmedDamage);
+      }
       state.pending.forEach((pendingAction) => applyPreviewDamageAction(cluster, pendingAction));
     };
     const request = async () => {
@@ -1380,7 +1388,7 @@ export function initCreatureCards() {
         throw new Error("creature damage update failed");
       }
       const payload = await response.json();
-      state.confirmedDamage = readInt(payload.current_damage, state.confirmedDamage);
+      state.confirmedDamage = readInt(isKp ? payload.current_kp : payload.current_damage, state.confirmedDamage);
       state.pending.shift();
       if (!state.pending.length && payload?.cardHtml) {
         replaceCreatureCardFragments(cluster, payload);
@@ -1533,7 +1541,21 @@ export function initCreatureCards() {
     fitCreatureRuleText(card);
   };
 
+  const renderPreviewKp = (cluster, value) => {
+    const current = Math.max(0, Math.min(readInt(cluster.dataset.maxKp), value));
+    cluster.dataset.currentKp = String(current);
+    const badge = cluster.querySelector("[data-creature-kp-current]");
+    if (badge) badge.textContent = String(current);
+  };
+
   const applyPreviewDamageAction = (cluster, action) => {
+    if (cluster.hasAttribute("data-creature-kp-cluster")) {
+      const current = readInt(cluster.dataset.currentKp);
+      if (action === "kp_spend" || action === "kp_restore") {
+        renderPreviewKp(cluster, current + (action === "kp_spend" ? -1 : 1));
+      }
+      return;
+    }
     if (action !== "heal" && action !== "damage") {
       return;
     }

@@ -1,0 +1,190 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  {% include "charsheet/partials/_viewport.html" %}
+  <title>Kreaturenbaukasten · Codex Arcana</title>
+  <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20261121-centered-remove">
+  {% if request.user.settings.charsheet_design == "codex_os_27" %}
+  <link rel="stylesheet" href="{% static 'css/charsheet/codex-os-27.css' %}?v=20261108-skill-descenders">
+  {% endif %}
+  <link rel="stylesheet" href="{% static 'css/charsheet/creature_builder.css' %}?v=20261122-language-fields">
+</head>
+<body class="charsheet-page creature-builder-page" data-builder-design="{{ request.user.settings.charsheet_design|default:'classic' }}">
+  <div id="creatureBuilderWorkspace" class="sl-workshop-window sheet-window">
+  {% if not embedded %}<header class="workshop_header market_header">
+    <span class="market_emblem" aria-hidden="true">✦</span>
+    <div class="sheet-window__heading market_heading"><span class="market_guild">Codex Arcana · Kreaturen</span><h1 class="sheet-window__title market_title">Kreatur {% if duplicate %}duplizieren{% else %}erschaffen / bearbeiten{% endif %}</h1>
+      <p class="market_subtitle">Kompendium · 17 Erschaffungsschritte</p></div>
+    <div class="sheet-window__actions"><button type="button" class="payday-window__close sheet-window__close" data-builder-cancel aria-label="Fenster schließen">×</button></div>
+  </header>{% endif %}
+  {% if drafts %}<nav class="builder-drafts" aria-label="Eigene Entwürfe">
+    <strong>Entwürfe fortsetzen:</strong>
+    {% for draft in drafts %}<a href="{{ draft.url }}">{{ draft.name }}</a>{% endfor %}
+  </nav>{% endif %}
+  <main class="builder-layout workshop_content">
+    <form method="post" id="creature-builder" class="shop_item_form sheet-window__editor-form builder-step-panel" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="_wizard_step" value="{{ wizard_step|default:1 }}">
+      <nav class="builder-progress workshop_sockets" aria-label="Erschaffungsschritte">
+        <div class="workshop_section_heading"><strong data-builder-step-title aria-live="polite">Schritt 1 von 17</strong>
+          <span data-builder-quality>Qualität: {{ quality.name }}</span></div>
+        <progress max="17" value="1" aria-label="Fortschritt" data-builder-progress></progress>
+      </nav>
+      {% for group in groups %}
+      <fieldset data-step="{{ group.step }}"{% if group.step != 1 %} hidden{% endif %}>
+        <legend class="workshop_section_heading"><h2>{{ group.step }} · {{ group.label }}</h2></legend>
+        {% if group.step == 3 %}
+        <div class="builder-size-controls">
+          <div class="shop_item_form_row">
+            <div class="builder-field-caption">
+              <label for="{{ group.fields.0.id_for_label }}">{{ group.fields.0.label }}</label>
+              <button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Die Größenklasse verändert die Größenmodifikatoren und Machtkosten. Abgeleitete Werte passen sich automatisch an." aria-label="Informationen zur Größenklasse">i</button>
+            </div>
+            {{ group.fields.0 }}
+          </div>
+          <div class="builder-size-option">
+            <label class="shop_item_form_check">{{ group.fields.1 }}<span>{{ group.fields.1.label }}</span></label>
+            <button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Erlaubt Stärke außerhalb der natürlichen Grenzen dieser Größenklasse, wenn sie durch Magie entsteht." aria-label="Informationen zur magischen Stärke">i</button>
+          </div>
+        </div>
+        {% elif group.step == 6 %}
+          <label class="builder-general-attack">{{ group.fields.0 }}<span>Gleicher Angriffswert für alle Angriffsarten</span></label>
+        {% elif group.step == 11 %}
+          <table class="builder-movement-table">
+            <thead><tr><th scope="col">Bewegungsart</th><th scope="col">Kampf</th><th scope="col">Marsch</th><th scope="col">Sprint</th><th scope="col">Schwimmen <button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Dieser Schwimm-Einzelwert gehört zur Bodenbewegung. Er wird nur verwendet, wenn kein vollständiges Schwimm-Triplett aus Kampf, Marsch und Sprint angegeben ist." aria-label="Informationen zum Schwimmwert der Bodenbewegung">i</button></th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Boden</th>
+                {% for field in group.fields|slice:":3" %}<td><label class="builder-movement-field"><span>{{ field.label }}</span>{{ field }}</label></td>{% endfor %}
+                <td><label class="builder-movement-field"><span>Boden: Schwimmen</span>{{ form.swimming_speed }}</label><span data-single-swim-unavailable hidden>—</span></td>
+              </tr>
+              <tr><th scope="row">Schwimmen</th>
+                {% for field in group.fields|slice:"4:7" %}<td><label class="builder-movement-field"><span>{{ field.label }}</span>{{ field }}</label></td>{% endfor %}
+                <td>—</td>
+              </tr>
+              <tr><th scope="row">Fliegen</th>
+                {% for field in group.fields|slice:"7:10" %}<td><label class="builder-movement-field"><span>{{ field.label }}</span>{{ field }}</label></td>{% endfor %}
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        {% elif group.step == 14 %}
+          <label class="builder-general-attack">{{ form.has_kp }}<span>Besitzt Arkane Macht</span></label>
+          <div class="builder-arcane-controls">
+            <div class="shop_item_form_row">
+              <div class="builder-field-caption"><label for="{{ form.school_levels.id_for_label }}">Schulstufen</label><button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Summe der Stufen in Kampf- und Magieschulen. Diese Stufen fließen in den Grundwert der Arkanen Macht ein." aria-label="Informationen zu Schulstufen">i</button></div>
+              {{ form.school_levels }}
+            </div>
+            <div class="shop_item_form_row">
+              <div class="builder-field-caption"><label for="{{ form.kp_override.id_for_label }}" data-arcane-label>Arkane Macht</label><button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Leer lassen für den automatischen Grundwert: Willenskraftwert (Bonus + 5, mindestens 0) plus Schulstufen. Eine Eingabe setzt einen festen Wert. Bei Vampiren wird hier der Blutpunktewert festgelegt." aria-label="Informationen zur Arkanen Macht">i</button></div>
+              {{ form.kp_override }}
+            </div>
+            <div class="shop_item_form_row">
+              <div class="builder-field-caption"><label for="{{ form.potential_override.id_for_label }}">Potential</label><button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Leer lassen für die Hälfte des Willenskraftwerts (Bonus + 5, mindestens 0), abgerundet. Eine Eingabe setzt ein festes Potential." aria-label="Informationen zum Potential">i</button></div>
+              {{ form.potential_override }}
+            </div>
+          </div>
+        {% elif group.step == 17 %}
+          <div class="builder-finish">
+            <label class="shop_item_form_row"><span>Beschreibung</span>{{ form.description }}</label>
+            <div class="builder-finish-options">
+              <label class="builder-general-attack">{{ form.is_swarm_creature }}<span>Schwarmkreatur</span></label>
+              <label class="builder-confirmation" title="Alle Fähigkeiten und Besonderheiten sind eingetragen.">
+                {{ form.checked }}
+                <span class="builder-confirmation-surface"><span class="builder-confirmation-icon" aria-hidden="true">✓</span><span>Alles erfasst</span></span>
+              </label>
+            </div>
+          </div>
+        {% else %}<div class="builder-fields">
+          {% for field in group.fields %}<label class="shop_item_form_row"><span>{{ field.label }}</span>{{ field }}{{ field.errors }}</label>{% endfor %}
+        </div>{% endif %}
+        {% if group.step == 6 %}
+          <section data-formset="attacks">
+            {{ attacks.management_form }}
+            <div data-formset-rows>{% for row in attacks %}<div class="builder-row">{{ row.as_p }}</div>{% endfor %}</div>
+            <template data-formset-empty><div class="builder-row">{{ attacks.empty_form.as_p }}</div></template>
+            <button type="button" data-add-row>Angriffsart hinzufügen</button>
+          </section>
+        {% elif group.step == 7 %}
+          <div data-damage-rows></div>
+        {% elif group.step == 10 %}
+          <p>Zusätzliche LP verändern die Konstitution nicht. Exakte Wundschwellen haben Vorrang vor „LP pro Wundgrad“.</p>
+        {% endif %}
+      </fieldset>
+      {% if group.step == 3 %}
+      <fieldset data-step="4" hidden><legend class="workshop_section_heading"><h2>4 · Eigenschaften</h2></legend>
+        {{ attributes.management_form }}
+        <div class="builder-attribute-columns">
+          {% for column in attribute_columns %}
+          <table class="builder-attribute-table">
+            <thead><tr>
+              <th scope="col">Eigenschaft</th><th scope="col">Bonus</th>
+              <th scope="col"><span class="builder-absence-heading">— <button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Markieren, wenn die Kreatur diese Eigenschaft nicht besitzt. Auf der Karte steht dann „—“; bei den Machtkosten zählt sie als −5." aria-label="Informationen zu nicht vorhandenen Eigenschaften">i</button></span></th>
+            </tr></thead>
+            <tbody>{% for entry in column %}<tr>
+              <th scope="row">
+                <label for="{{ entry.form.base_value.id_for_label }}">{{ entry.label }}</label>
+                {{ entry.form.attribute.as_hidden }}
+                {% for hidden in entry.form.hidden_fields %}{{ hidden }}{% endfor %}
+              </th>
+              <td>{{ entry.form.base_value }}</td>
+              <td class="builder-attribute-absent">{{ entry.form.absent }}</td>
+            </tr>{% endfor %}</tbody>
+          </table>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% elif group.step == 11 %}
+      <fieldset data-step="12" hidden><legend class="workshop_section_heading"><h2>12 · Fertigkeiten</h2></legend>
+        <p data-natural-survival-status hidden>Eine passende Überlebensfertigkeit wird automatisch bis Gesamtwert 6 ergänzt. <button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Wähle die passende Überlebensfertigkeit im Fertigkeitseditor. Genau eine ist bis Gesamtwert 6 kostenlos, einschließlich Eigenschaftsbonus und Abweichung. Höhere vorhandene Werte bleiben erhalten; zusätzliche Stufen werden regulär berechnet." aria-label="Informationen zur natürlichen Überlebensfertigkeit">i</button></p>
+        <section data-formset="skills">
+          {{ skills.management_form }}
+          <div data-formset-rows>{% for row in skills %}<div class="builder-row">{{ row.as_p }}</div>{% endfor %}</div>
+          <template data-formset-empty><div class="builder-row">{{ skills.empty_form.as_p }}</div></template>
+          <button type="button" data-add-row>Fertigkeit hinzufügen</button>
+        </section>
+        <h3 class="builder-language-heading">Sprachen <button type="button" class="builder-info tooltip_target" data-tooltip-trigger="click" data-tooltip="Sprachstufen kosten je einen Punkt, Lesen und Schreiben einen weiteren. Lesen und Schreiben setzt Stufe 3 voraus." aria-label="Informationen zu Sprachen">i</button></h3>
+        <section data-formset="languages">
+          {{ languages.management_form }}
+          <div data-formset-rows>{% for row in languages %}<div class="builder-row">{{ row.as_p }}</div>{% endfor %}</div>
+          <template data-formset-empty><div class="builder-row">{{ languages.empty_form.as_p }}</div></template>
+          <button type="button" data-add-row>Sprache hinzufügen</button>
+        </section>
+      </fieldset>
+      <fieldset data-step="13" hidden><legend class="workshop_section_heading"><h2>13 · Besondere Fähigkeiten und Nachteile</h2></legend>
+        <p>Kategorieabhängige Regeldefinitionen. Machtkosten werden einmal je ausgewählter Fähigkeit berechnet.</p>
+        <section data-formset="abilities">
+          {{ abilities.management_form }}
+          <div data-formset-rows>{% for row in abilities %}<div class="builder-row" data-ability-row>{{ row.as_p }}</div>{% endfor %}</div>
+          <template data-formset-empty><div class="builder-row" data-ability-row>{{ abilities.empty_form.as_p }}</div></template>
+          <button type="button" data-add-row>Fähigkeit / Nachteil hinzufügen</button>
+        </section>
+      </fieldset>
+      {% endif %}
+      {% endfor %}
+      {{ form.non_field_errors }}
+      <div class="builder-actions workshop_footer">
+        <button type="button" data-step-back hidden>Zurück</button>
+        <button type="button" class="workshop_submit" data-step-next>Weiter</button>
+        <button type="button" data-save-draft>Entwurf speichern</button>
+        {% if duplicate_url %}<button type="button" data-builder-duplicate-url="{{ duplicate_url }}">Duplizieren</button>{% endif %}
+        <button type="submit" class="workshop_submit" data-builder-publish hidden>Speichern und verwenden</button>
+        <button type="button" data-builder-cancel>Abbrechen</button>
+      </div>
+    </form>
+    <aside class="builder-summary workshop_inspector" aria-label="Machtberechnung">
+      <header class="builder-summary-heading"><h2>Machtkosten</h2><strong class="builder-total" data-power-total>0 MP</strong></header>
+      <p role="status" aria-live="polite" data-builder-status>Berechnung wird vorbereitet …</p>
+      <table><thead><tr><th>Bestandteil</th><th>MP</th></tr></thead><tbody data-power-steps></tbody></table>
+      <section class="builder-derived" aria-label="Abgeleitete Werte"><h3>Abgeleitete Werte</h3><dl data-derived-values></dl></section>
+      <div class="builder-error-toast sheet-window__surface" role="alert" aria-atomic="true" data-builder-error-toast hidden>
+        <div data-builder-errors></div>
+      </div>
+    </aside>
+  </main>
+  </div>
+  {{ rule_definitions|json_script:"creature-power-rules" }}
+  <script type="module" src="{% static 'js/charsheet/creature_builder.js' %}?v=20261122-languages"></script>
+</body>
+</html>
