@@ -883,6 +883,25 @@ class ModifierEngine:
         )
         return new_value
 
+    def resolve_calculation_contributions(
+        self, target_domain: str, target_key: str,
+        contributions: dict[str, int],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, int]:
+        """Resolve named inputs locally, without changing their source values.
+
+        Component effects use the normal numeric operators and conditions.
+        Their metadata selects inputs instead of modifying the target total.
+        Callers supply the contribution after any formula-specific weighting.
+        """
+        return {
+            key: self._migrated_numeric_total(
+                target_domain, target_key, context=context,
+                initial_value=value, contribution_key=key,
+            )
+            for key, value in contributions.items()
+        }
+
     def resolve_wound_stage_effects(self) -> dict[str, object]:
         """Resolve legacy and position-specific additions to the wound track."""
         legacy_total = self.resolve_numeric_total(
@@ -1089,17 +1108,19 @@ class ModifierEngine:
         if self.character_engine is None:
             return self.resolve_numeric_total(TargetDomain.DERIVED_STAT, stat_key, context=context)
         if stat_key == "initiative":
-            return self.character_engine.calculate_initiative()
+            return self.character_engine.calculate_initiative(context=context)
         if stat_key == "arcane_power":
-            return self.character_engine.calculate_arcane_power()
+            return self.character_engine.calculate_arcane_power(
+                context=context,
+            )
         if stat_key == "potential":
-            return self.character_engine.calculate_potential()
+            return self.character_engine.calculate_potential(context=context)
         if stat_key == "vw":
-            return self.character_engine.vw()
+            return self.character_engine.vw(context=context)
         if stat_key == "gw":
-            return self.character_engine.gw()
+            return self.character_engine.gw(context=context)
         if stat_key == "sr":
-            return self.character_engine.sr()
+            return self.character_engine.sr(context=context)
         if stat_key == "rs":
             return self.character_engine.get_grs()
         return self.resolve_numeric_total(TargetDomain.DERIVED_STAT, stat_key, context=context)
@@ -1580,6 +1601,7 @@ class ModifierEngine:
         minimum_base: int = 0,
         additional_target_keys: tuple[str, ...] = (),
         initial_value: int = 0,
+        contribution_key: str | None = None,
     ) -> int:
         """Resolve one numeric target from migrated typed modifiers."""
         skill = (
@@ -1591,6 +1613,13 @@ class ModifierEngine:
             modifier
             for modifier in self.collect_active_modifiers(context=context)
             if modifier.target_domain == target_domain
+            and (
+                contribution_key in modifier.metadata.get(
+                    "calculation_contributions", (),
+                )
+                if contribution_key is not None
+                else not modifier.metadata.get("calculation_contributions")
+            )
             and (
                 self._modifier_matches_target_key(
                     modifier,

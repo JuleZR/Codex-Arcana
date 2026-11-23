@@ -53,17 +53,21 @@ def auto_lesson_fame_points(engine) -> int:
     return engine.character.learned_lessons.count()
 
 
-def calculate_initiative(engine) -> int:
+def calculate_initiative(engine, context=None) -> int:
     """Calculate the character's initiative value."""
+    contributions = engine.modifier_engine.resolve_calculation_contributions(
+        "derived_stat", INITIATIVE,
+        {ATTR_WA: engine.attribute_modifier(ATTR_WA)}, context=context,
+    )
     return (
-        engine.attribute_modifier(ATTR_WA)
+        contributions[ATTR_WA]
         + engine.current_wound_penalty()
         + engine._resolve_stat_modifiers(INITIATIVE)
         + engine.carry_penalty("initiative")
     )
 
 
-def calculate_arcane_power(engine) -> int:
+def calculate_arcane_power(engine, context=None) -> int:
     """Calculate the character's arcane power value."""
     from charsheet.advanced_specializations import arcane_power_bonus
     from charsheet.career_paths import arcane_power_bonus as career_arcane_power_bonus
@@ -80,8 +84,12 @@ def calculate_arcane_power(engine) -> int:
         and engine._weapon_master_school_entry.level == 10
         else 0
     )
+    contributions = engine.modifier_engine.resolve_calculation_contributions(
+        "derived_stat", ARCANE_POWER, {ATTR_WILL: willpower},
+        context=context,
+    )
     return (
-        willpower + school_levels + lesson_levels
+        contributions[ATTR_WILL] + school_levels + lesson_levels
         + advanced_runes
         + arcane_power_bonus(engine.character)
         + career_arcane_power_bonus(engine.character)
@@ -89,10 +97,14 @@ def calculate_arcane_power(engine) -> int:
     )
 
 
-def calculate_potential(engine) -> int:
+def calculate_potential(engine, context=None) -> int:
     """Calculate the character's potential value."""
     willpower = engine.attributes().get(ATTR_WILL, 0)
-    return willpower // 2 + engine._resolve_stat_modifiers(POTENTIAL)
+    contributions = engine.modifier_engine.resolve_calculation_contributions(
+        "derived_stat", POTENTIAL, {ATTR_WILL: willpower // 2},
+        context=context,
+    )
+    return contributions[ATTR_WILL] + engine._resolve_stat_modifiers(POTENTIAL)
 
 
 def wound_thresholds(engine) -> dict[int, tuple[str, int]]:
@@ -135,34 +147,45 @@ def wound_thresholds(engine) -> dict[int, tuple[str, int]]:
         for index, (stage_name, penalty) in enumerate(expanded_sequence, start=1)
     }
 
-def calculate_defense(engine, mod1: str, mod2: str, slug: str) -> int:
+
+def calculate_defense(
+    engine, mod1: str, mod2: str, slug: str, context=None,
+) -> int:
     """Resolve one defense value from two attributes and stat modifiers."""
+    contributions = engine.modifier_engine.resolve_calculation_contributions(
+        "derived_stat", slug,
+        {
+            mod1: engine.attribute_modifier(mod1),
+            mod2: engine.attribute_modifier(mod2),
+        }, context=context,
+    )
     return (
         14
-        + engine.attribute_modifier(mod1)
-        + engine.attribute_modifier(mod2)
+        + sum(contributions.values())
         + engine._resolve_stat_modifiers(slug)
     )
 
 
-def vw(engine) -> int:
+def vw(engine, context=None) -> int:
     """Return the avoidance defense."""
-    ge_bonus = engine.attribute_modifier(ATTR_GE)
-    wa_bonus = engine.attribute_modifier(ATTR_WA)
-    if engine.resolve_flags().get("suppress_positive_vw_attribute_bonuses", False):
-        ge_bonus = min(0, ge_bonus)
-        wa_bonus = min(0, wa_bonus)
-    return 14 + ge_bonus + wa_bonus + engine.size_modifier() + engine._resolve_stat_modifiers(DEFENSE_VW)
+    return (
+        engine.calculate_defense(ATTR_GE, ATTR_WA, DEFENSE_VW, context=context)
+        + engine.size_modifier()
+    )
 
 
-def gw(engine) -> int:
+def gw(engine, context=None) -> int:
     """Return the mental resistance defense."""
-    return engine.calculate_defense(ATTR_INT, ATTR_WILL, DEFENSE_GW)
+    return engine.calculate_defense(
+        ATTR_INT, ATTR_WILL, DEFENSE_GW, context=context,
+    )
 
 
-def sr(engine) -> int:
+def sr(engine, context=None) -> int:
     """Return the physical resistance defense."""
-    return engine.calculate_defense(ATTR_ST, ATTR_KON, DEFENSE_SR)
+    return engine.calculate_defense(
+        ATTR_ST, ATTR_KON, DEFENSE_SR, context=context,
+    )
 
 
 def current_wound_stage(engine) -> tuple[str, int | None]:

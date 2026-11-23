@@ -2622,7 +2622,73 @@ class SemanticRoundingAdminMixin:
         super()._post_clean()
 
 
-class ItemSemanticEffectAdminForm(SemanticRoundingAdminMixin, forms.ModelForm):
+class CalculationContributionAdminForm(forms.ModelForm):
+    """Store component selectors in existing semantic-effect metadata."""
+
+    calculation_contributions = forms.MultipleChoiceField(
+        label="Betroffene Beiträge", choices=ATTRIBUTE_CODE_CHOICES,
+        required=False, widget=forms.CheckboxSelectMultiple,
+        help_text=(
+            "Leer: gesamten Zielwert ändern. Sonst jeden Beitrag einzeln."
+        ),
+    )
+    contribution_operation = forms.ChoiceField(
+        label="Beitragsoperation", required=False,
+        choices=(
+            ("", "Rechenart verwenden"),
+            ("ignore_positive", "Positive Beiträge ignorieren"),
+            ("ignore_negative", "Negative Beiträge ignorieren"),
+            ("ignore", "Beitrag vollständig ignorieren"),
+            ("max_value", "Beitrag höchstens auf Zahl begrenzen"),
+            ("min_value", "Beitrag mindestens auf Zahl begrenzen"),
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        metadata = self.initial.get("metadata", self.instance.metadata) or {}
+        self.initial.setdefault(
+            "calculation_contributions",
+            metadata.get("calculation_contributions", []),
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        operation = cleaned_data.get("contribution_operation")
+        contributions = cleaned_data.get("calculation_contributions")
+        if operation and not contributions:
+            self.add_error(
+                "calculation_contributions", "Bitte Beiträge auswählen.",
+            )
+        if contributions and operation:
+            operator, value = {
+                "ignore_positive": ("max_value", "0"),
+                "ignore_negative": ("min_value", "0"),
+                "ignore": ("override", "0"),
+            }.get(operation, (operation, cleaned_data.get("simple_value")))
+            cleaned_data["simple_operator"] = operator
+            cleaned_data["simple_value"] = value
+        return cleaned_data
+
+    def _post_clean(self):
+        contributions = self.cleaned_data.get("calculation_contributions")
+        metadata = dict(self.cleaned_data.get("metadata") or {})
+        if contributions:
+            metadata["calculation_contributions"] = contributions
+            if self.cleaned_data.get("target_domain") != "derived_stat":
+                self.add_error(
+                    "calculation_contributions",
+                    "Beiträge erfordern einen abgeleiteten Zielwert.",
+                )
+        else:
+            metadata.pop("calculation_contributions", None)
+        self.cleaned_data["metadata"] = metadata
+        super()._post_clean()
+
+
+class ItemSemanticEffectAdminForm(
+    SemanticRoundingAdminMixin, CalculationContributionAdminForm,
+):
     """User-friendly item effect editor that maps dropdowns to semantic fields."""
 
     class Media:
@@ -3190,6 +3256,8 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
                     "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
+                    "calculation_contributions",
+                    "contribution_operation",
                     "scale_source",
                     "scale_divisor",
                     ("round_up", "round_down"),
@@ -3779,7 +3847,7 @@ def _semantic_derived_stat_choices():
 
 class RuleSemanticEffectAdminForm(
     SemanticRoundingAdminMixin, SemanticCreatureCardGrantFormMixin,
-    forms.ModelForm,
+    CalculationContributionAdminForm,
 ):
     """Click-first editor for rule SemanticEffects.
 
@@ -5561,6 +5629,8 @@ class TraitSemanticEffectInline(admin.StackedInline):
                     ),
                     "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
+                    "calculation_contributions",
+                    "contribution_operation",
                     "target_choice_definition",
                     "target_skills",
                     "target_schools",
@@ -5642,6 +5712,8 @@ class RaceSemanticEffectInline(admin.StackedInline):
                     ),
                     "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
+                    "calculation_contributions",
+                    "contribution_operation",
                     "target_race_choice_definition",
                     "simple_scaling",
                     ("round_up", "round_down"),
@@ -5689,6 +5761,8 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
                 ),
                 "simple_weapon_type_contains_filter",
                 ("simple_operator", "simple_value"),
+                "calculation_contributions",
+                "contribution_operation",
                 "simple_scaling",
                 ("round_up", "round_down"),
                 (
