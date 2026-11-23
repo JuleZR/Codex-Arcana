@@ -3475,6 +3475,18 @@ class RaceChoiceDefinitionInline(
 
 
 class TraitChoiceDefinitionAdminForm(forms.ModelForm):
+    additional_target_kinds = forms.MultipleChoiceField(
+        label="Weitere Zieltypen", required=False,
+        choices=[
+            (value, label)
+            for value, label in TraitChoiceDefinition.TargetKind.choices
+            if value not in {"text", "entity"}
+        ],
+        help_text=(
+            "Alle Zieltypen teilen sich dieselbe Mindest- und Höchstanzahl."
+        ),
+    )
+
     class Meta:
         model = TraitChoiceDefinition
         fields = "__all__"
@@ -3515,6 +3527,7 @@ class TraitChoiceDefinitionInline(
     fields = (
         "name",
         "target_kind",
+        "additional_target_kinds",
         "min_choices",
         "max_choices",
         "is_required",
@@ -7550,6 +7563,7 @@ class TraitChoiceDefinitionAdmin(
                     "trait",
                     "name",
                     "target_kind",
+                    "additional_target_kinds",
                     "description",
                     ("min_choices", "max_choices", "is_required"),
                     ("allowed_attribute", "allowed_skill_category", "allowed_skill_family"),
@@ -8177,6 +8191,7 @@ class CharacterTraitChoiceAdmin(
         "selected_derived_stat",
         "selected_resource",
         "selected_proficiency_group",
+        "selected_language__name",
         "selected_item__name",
         "selected_specialization__name",
         "selected_text",
@@ -8189,6 +8204,7 @@ class CharacterTraitChoiceAdmin(
         "selected_attribute",
         "selected_skill",
         "selected_skill_category",
+        "selected_language",
         "selected_item",
         "selected_specialization",
     )
@@ -8224,6 +8240,7 @@ class CharacterTraitChoiceAdmin(
                     "selected_derived_stat",
                     "selected_resource",
                     "selected_proficiency_group",
+                    "selected_language",
                     ("selected_item", "selected_item_category"),
                     "selected_text",
                     ("selected_content_type", "selected_object_id"),

@@ -69,6 +69,7 @@ def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
 
 
 CHOICE_FIELD_PREFIX_BY_KIND = {
+    "combined": "learn_choice_target",
     TraitChoiceDefinition.TargetKind.ATTRIBUTE: "learn_choice_attribute",
     TraitChoiceDefinition.TargetKind.RESOURCE: "learn_choice_resource",
     Technique.ChoiceTargetKind.SKILL: "learn_choice_skill",
@@ -1186,7 +1187,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                 TraitChoiceDefinition.TargetKind.ATTRIBUTE,
                 TraitChoiceDefinition.TargetKind.RESOURCE,
                 TraitChoiceDefinition.TargetKind.ENTITY,
-            }:
+            } and not definition.uses_target_options:
                 continue
             stored_choices = engine._trait_choices_by_definition_id.get(
                 definition.id, [],
@@ -1199,7 +1200,17 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             existing_count = len(stored_choices)
             required_count = definition.min_choices if definition.is_required else 0
             missing_count = max(0, required_count - existing_count)
-            if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+            if definition.uses_target_options:
+                missing_count = max(0, definition.max_choices - existing_count)
+                selected_values = {
+                    definition.selection_value(choice)
+                    for choice in stored_choices
+                }
+                options = [
+                    option for option in definition.target_options()
+                    if option["value"] not in selected_values
+                ]
+            elif definition.target_kind == "attribute":
                 options = [
                     {
                         "value": attribute.short_name,
@@ -1266,11 +1277,22 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         "trait_name": trait.name,
                         "trait_slug": trait.slug,
                         "definition_id": definition.id,
+                        "uses_target_options": definition.uses_target_options,
                         "target_kind": definition.target_kind,
                         "target_label": CHOICE_KIND_LABELS.get(definition.target_kind, definition.target_kind),
                         "label": definition.name,
                         "description": definition.description or "",
-                        "field_name": trait_choice_field_name(definition.target_kind, trait.id, definition.id),
+                        "field_name": (
+                            trait_choice_field_name(
+                                "combined", trait.id, definition.id,
+                            )
+                            + f"_slot_{missing_index}"
+                            if definition.uses_target_options else
+                            trait_choice_field_name(
+                                definition.target_kind, trait.id,
+                                definition.id,
+                            )
+                        ),
                         "slot_index": missing_index,
                         "supported": True,
                         "options": options,

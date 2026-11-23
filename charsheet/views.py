@@ -4263,6 +4263,42 @@ def _creation_entity_choices(trait, choice_map):
     return rows
 
 
+def _creation_target_choices(trait, choice_map):
+    rows = []
+    for definition in trait.choice_definitions.filter(is_active=True).order_by(
+        "sort_order", "id",
+    ):
+        if not definition.uses_target_options:
+            continue
+        values = choice_map.get(trait.slug, {}).get(definition.pk, [])
+        options = definition.target_options()
+        for index in range(definition.max_choices):
+            rows.append({
+                "id": f"{definition.pk}_slot_{index}",
+                "name": definition.name,
+                "selected": values[index] if index < len(values) else "",
+                "options": options,
+            })
+    return rows
+
+
+def _posted_creation_target_choices(post, prefix, trait):
+    choices = {}
+    for definition in trait.choice_definitions.filter(is_active=True):
+        if not definition.uses_target_options:
+            continue
+        field = f"{prefix}_choice_{trait.slug}_{definition.pk}"
+        values = [
+            str(post.get(f"{field}_slot_{index}", "")).strip()
+            for index in range(definition.max_choices)
+        ]
+        # Accept repeated fields from clients using a native multiple select.
+        if field in post:
+            values.extend(post.getlist(field))
+        choices[str(definition.pk)] = [value for value in values if value]
+    return choices
+
+
 @login_required
 def create_character(request):
     """Create one character through the phase-based draft engine."""
@@ -4768,6 +4804,11 @@ def create_character(request):
                             )
                         if selected:
                             choice_payload[str(definition.id)] = [selected]
+                    choice_payload.update(
+                        _posted_creation_target_choices(
+                            request.POST, "dis", trait,
+                        )
+                    )
                     if choice_payload:
                         trait_choices[trait.slug] = choice_payload
             state["phase_3"] = {
@@ -4821,6 +4862,11 @@ def create_character(request):
                         selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
                         if selected:
                             choice_payload[str(definition.id)] = [selected]
+                    choice_payload.update(
+                        _posted_creation_target_choices(
+                            request.POST, "adv", trait,
+                        )
+                    )
                     if choice_payload:
                         trait_choices[trait.slug] = choice_payload
 
@@ -5190,10 +5236,16 @@ def create_character(request):
                     if is_allowed_trait_attribute_choice(trait.slug, short_name)
                 ],
             }
-            for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
+            for definition in trait.choice_definitions.filter(
+                target_kind="attribute", additional_target_kinds=[],
+            ).order_by("sort_order", "id")
+            if not definition.uses_target_options
         ]
         attribute_choice_definitions.extend(
             _creation_entity_choices(trait, phase_3_trait_choices)
+        )
+        attribute_choice_definitions.extend(
+            _creation_target_choices(trait, phase_3_trait_choices)
         )
         phase_3_rows.append(
             {
@@ -5268,10 +5320,16 @@ def create_character(request):
                     if is_allowed_trait_attribute_choice(trait.slug, short_name)
                 ],
             }
-            for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
+            for definition in trait.choice_definitions.filter(
+                target_kind="attribute", additional_target_kinds=[],
+            ).order_by("sort_order", "id")
+            if not definition.uses_target_options
         ]
         attribute_choice_definitions.extend(
             _creation_entity_choices(trait, phase_4_trait_choices)
+        )
+        attribute_choice_definitions.extend(
+            _creation_target_choices(trait, phase_4_trait_choices)
         )
         resource_choice_definitions = [
             {
@@ -5289,7 +5347,10 @@ def create_character(request):
                     else [{"value": value, "label": label} for value, label in RESOURCE_KEY_CHOICES]
                 ),
             }
-            for definition in trait.choice_definitions.filter(target_kind="resource").order_by("sort_order", "id")
+            for definition in trait.choice_definitions.filter(
+                target_kind="resource", additional_target_kinds=[],
+            ).order_by("sort_order", "id")
+            if not definition.uses_target_options
         ]
         phase_4_adv_rows.append(
             {

@@ -6282,6 +6282,8 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 choice.selected_object_id is None
                 and not choice.custom_organization_name
             ):
+                if choice.definition.uses_target_options:
+                    affiliations.append(choice.selected_target_display())
                 continue
             organization = choice.selected_entity
             rank_options = choice.organization_rank_options
@@ -9043,6 +9045,35 @@ def _build_learning_rows(
         } if entry else {}
         entity_choices = []
         for definition in trait.choice_definitions.all():
+            if definition.is_active and definition.uses_target_options:
+                stored = list(entry.choices.filter(
+                    definition=definition,
+                )) if entry else []
+                options = definition.target_options()
+                selected_values = {
+                    definition.selection_value(choice) for choice in stored
+                }
+                for index in range(definition.max_choices):
+                    entity_choices.append({
+                        "name": definition.name,
+                        "field_name": (
+                            trait_choice_field_name(
+                                "combined", trait.pk, definition.pk,
+                            )
+                            + f"_slot_{max(0, index - len(stored))}"
+                        ),
+                        "required": (definition.is_required
+                                     and index < definition.min_choices),
+                        "selected_label": (
+                            stored[index].selected_target_display()
+                            if index < len(stored) else ""
+                        ),
+                        "options": [
+                            option for option in options
+                            if option["value"] not in selected_values
+                        ] if index >= len(stored) else [],
+                    })
+                continue
             if (
                 not definition.is_active or definition.target_kind != "entity"
                 or definition.max_choices != 1

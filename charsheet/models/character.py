@@ -20,6 +20,7 @@ from ..constants import (
     PROFICIENCY_GROUP_CHOICES,
     RESOURCE_KEY_CHOICES,
     STAT_SLUG_CHOICES,
+    is_allowed_trait_attribute_choice,
     VAMPIRE_STATE_ACTIVE,
     VAMPIRE_STATE_CHOICES,
     VAMPIRE_ANCHOR_TRAIT_SLUG,
@@ -1123,6 +1124,7 @@ class TraitChoiceDefinition(models.Model):
         ATTRIBUTE = "attribute", "Attribute"
         SKILL = "skill", "Skill"
         SKILL_CATEGORY = "skill_category", "Skill Category"
+        LANGUAGE = "language", "Sprache"
         DERIVED_STAT = "derived_stat", "Derived Stat"
         RESOURCE = "resource", "Resource"
         PROFICIENCY_GROUP = "proficiency_group", "Proficiency Group"
@@ -1145,6 +1147,13 @@ class TraitChoiceDefinition(models.Model):
         max_length=20,
         choices=TargetKind.choices,
         help_text="What kind of thing must be selected for this trait decision.",
+    )
+    additional_target_kinds = models.JSONField(
+        default=list, blank=True, verbose_name="Weitere Zieltypen",
+        help_text=(
+            "Zusätzliche Zieltypen; Mindest- und Höchstanzahl "
+            "gelten gemeinsam."
+        ),
     )
     description = models.TextField(
         blank=True,
@@ -1210,6 +1219,19 @@ class TraitChoiceDefinition(models.Model):
     def clean(self):
         """Prevent contradictory trait choice filters."""
         super().clean()
+        if (
+            not isinstance(self.additional_target_kinds, list)
+            or any(kind not in self.TargetKind.values
+                   for kind in self.additional_target_kinds)
+            or (self.additional_target_kinds and any(
+                kind in {"text", "entity"} for kind in self.target_kinds
+            ))
+        ):
+            raise ValidationError({
+                "additional_target_kinds": (
+                    "Gültige kombinierbare Zieltypen wählen."
+                ),
+            })
         if self.uses_nobility_ranks and (
             self.target_kind != self.TargetKind.ENTITY
             or self.has_organization_types
@@ -1239,19 +1261,124 @@ class TraitChoiceDefinition(models.Model):
             raise ValidationError({"max_choices": "max_choices must be greater than or equal to min_choices."})
         if not self.is_required and self.min_choices != 0:
             raise ValidationError({"min_choices": "Optional choice definitions must use min_choices = 0."})
-        if self.target_kind != self.TargetKind.ATTRIBUTE and self.allowed_attribute_id:
+        if (self.TargetKind.ATTRIBUTE not in self.target_kinds
+                and self.allowed_attribute_id):
             raise ValidationError({"allowed_attribute": "This filter is only valid for attribute choices."})
-        if self.target_kind != self.TargetKind.SKILL:
+        if self.TargetKind.SKILL not in self.target_kinds:
             if self.allowed_skill_category_id:
                 raise ValidationError({"allowed_skill_category": "This filter is only valid for skill choices."})
             if self.allowed_skill_family:
                 raise ValidationError({"allowed_skill_family": "This filter is only valid for skill choices."})
-        if self.target_kind != self.TargetKind.DERIVED_STAT and self.allowed_derived_stat:
+        if (self.TargetKind.DERIVED_STAT not in self.target_kinds
+                and self.allowed_derived_stat):
             raise ValidationError({"allowed_derived_stat": "This filter is only valid for derived-stat choices."})
-        if self.target_kind != self.TargetKind.RESOURCE and self.allowed_resource:
+        if (self.TargetKind.RESOURCE not in self.target_kinds
+                and self.allowed_resource):
             raise ValidationError({"allowed_resource": "This filter is only valid for resource choices."})
-        if self.target_kind != self.TargetKind.PROFICIENCY_GROUP and self.allowed_proficiency_group:
+        if (self.TargetKind.PROFICIENCY_GROUP not in self.target_kinds
+                and self.allowed_proficiency_group):
             raise ValidationError({"allowed_proficiency_group": "This filter is only valid for proficiency-group choices."})
+
+    @property
+    def target_kinds(self):
+        return list(dict.fromkeys([
+            self.target_kind, *self.additional_target_kinds,
+        ]))
+
+    @property
+    def has_combined_targets(self):
+        return len(self.target_kinds) > 1
+
+    @property
+    def uses_target_options(self):
+        return self.has_combined_targets or self.target_kind in {
+            "skill", "skill_category", "language", "proficiency_group",
+            "derived_stat", "item", "item_category", "specialization",
+        } or (self.max_choices > 1
+              and self.target_kind in {"attribute", "resource"})
+
+    def target_options(self):
+        """Offer typed targets using the existing choice storage fields."""
+        options = []
+        for kind in self.target_kinds:
+            if kind == "attribute":
+                rows = Attribute.objects.all()
+                if self.allowed_attribute_id:
+                    rows = rows.filter(pk=self.allowed_attribute_id)
+                values = [
+                    (row.short_name, row.name) for row in rows
+                    if is_allowed_trait_attribute_choice(
+                        self.trait.slug, row.short_name,
+                    )
+                ]
+            elif kind == "skill":
+                rows = Skill.objects.all()
+                if self.allowed_skill_category_id:
+                    rows = rows.filter(
+                        category_id=self.allowed_skill_category_id,
+                    )
+                if self.allowed_skill_family:
+                    rows = rows.in_family(self.allowed_skill_family)
+                values = [(str(row.pk), row.name) for row in rows]
+            elif kind in {
+                "skill_category", "language", "item", "specialization",
+            }:
+                model = {"skill_category": SkillCategory, "language": Language,
+                         "item": Item, "specialization": Specialization}[kind]
+                values = [
+                    (str(row.pk), str(row)) for row in model.objects.all()
+                ]
+            else:
+                values, allowed = {
+                    "derived_stat": (
+                        STAT_SLUG_CHOICES, self.allowed_derived_stat,
+                    ),
+                    "resource": (
+                        RESOURCE_KEY_CHOICES, self.allowed_resource,
+                    ),
+                    "proficiency_group": (
+                        PROFICIENCY_GROUP_CHOICES,
+                        self.allowed_proficiency_group,
+                    ),
+                    "item_category": (Item.type_choices(), ""),
+                }.get(kind, ([], ""))
+                values = [(value, label) for value, label in values
+                          if not allowed or value == allowed]
+            options.extend({
+                "value": (f"{kind}:{value}" if self.has_combined_targets
+                          else str(value)),
+                "label": label, "meta": "",
+            } for value, label in values)
+        return options
+
+    def target_selection_payload(self, value):
+        value = str(value)
+        if value not in {option["value"] for option in self.target_options()}:
+            raise ValidationError("Ungültiges Auswahlziel.")
+        kind = self.target_kind
+        if self.has_combined_targets:
+            kind, value = value.split(":", 1)
+        if kind == "attribute":
+            return {
+                "selected_attribute": Attribute.objects.get(short_name=value),
+            }
+        if kind in {
+            "skill", "skill_category", "language", "item", "specialization",
+        }:
+            return {f"selected_{kind}_id": int(value)}
+        return {f"selected_{kind}": value}
+
+    def selection_value(self, choice):
+        for kind in self.target_kinds:
+            value = getattr(choice, f"selected_{kind}_id", None)
+            if kind == "attribute" and value is not None:
+                value = choice.selected_attribute.short_name
+            if value is None:
+                value = getattr(choice, f"selected_{kind}", "")
+            if value:
+                return (f"{kind}:{value}" if self.has_combined_targets
+                        else str(value))
+        return ""
 
     def __str__(self) -> str:
         return f"{self.trait.name}: {self.name}"
@@ -1492,6 +1619,10 @@ class CharacterTraitChoice(models.Model):
         blank=True,
         related_name="character_trait_choices",
     )
+    selected_language = models.ForeignKey(
+        Language, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="character_trait_choices",
+    )
     selected_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
     selected_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
     selected_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
@@ -1591,6 +1722,8 @@ class CharacterTraitChoice(models.Model):
             self.selected_attribute_id is not None,
             self.selected_skill_id is not None,
             self.selected_skill_category_id is not None,
+            self.selected_language_id is not None,
+            bool(self.selected_resource),
             bool(self.selected_derived_stat),
             bool(self.selected_proficiency_group),
             self.selected_item_id is not None,
@@ -1608,7 +1741,16 @@ class CharacterTraitChoice(models.Model):
             and self.character_trait.trait_id != self.definition.trait_id
         ):
             raise ValidationError({"definition": "The selected trait choice definition must belong to the same trait."})
-        self._validate_target_kind(self.definition.target_kind if self.definition_id else "")
+        expected_kind = (
+            self.definition.target_kind if self.definition_id else ""
+        )
+        if self.definition_id and self.definition.has_combined_targets:
+            expected_kind = next((
+                kind for kind in self.definition.target_kinds
+                if getattr(self, f"selected_{kind}_id", None) is not None
+                or bool(getattr(self, f"selected_{kind}", None))
+            ), "")
+        self._validate_target_kind(expected_kind)
         if self.definition_id and self.definition.uses_nobility_ranks:
             if (
                 not isinstance(self.selected_entity, Country)
@@ -1675,7 +1817,7 @@ class CharacterTraitChoice(models.Model):
                 )
         if (
             self.definition_id
-            and self.definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE
+            and expected_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE
             and self.selected_attribute_id
             and self.definition.allowed_attribute_id
             and self.selected_attribute_id != self.definition.allowed_attribute_id
@@ -1683,7 +1825,7 @@ class CharacterTraitChoice(models.Model):
             raise ValidationError({"selected_attribute": "The selected attribute does not match the allowed attribute."})
         if (
             self.definition_id
-            and self.definition.target_kind == TraitChoiceDefinition.TargetKind.SKILL
+            and expected_kind == TraitChoiceDefinition.TargetKind.SKILL
             and self.selected_skill_id
         ):
             if (
@@ -1700,21 +1842,21 @@ class CharacterTraitChoice(models.Model):
                 raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill family."})
         if (
             self.definition_id
-            and self.definition.target_kind == TraitChoiceDefinition.TargetKind.DERIVED_STAT
+            and expected_kind == TraitChoiceDefinition.TargetKind.DERIVED_STAT
             and self.definition.allowed_derived_stat
             and self.selected_derived_stat != self.definition.allowed_derived_stat
         ):
             raise ValidationError({"selected_derived_stat": "The selected derived stat does not match the allowed derived stat."})
         if (
             self.definition_id
-            and self.definition.target_kind == TraitChoiceDefinition.TargetKind.RESOURCE
+            and expected_kind == TraitChoiceDefinition.TargetKind.RESOURCE
             and self.definition.allowed_resource
             and self.selected_resource != self.definition.allowed_resource
         ):
             raise ValidationError({"selected_resource": "The selected resource does not match the allowed resource."})
         if (
             self.definition_id
-            and self.definition.target_kind == TraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP
+            and expected_kind == "proficiency_group"
             and self.definition.allowed_proficiency_group
             and self.selected_proficiency_group != self.definition.allowed_proficiency_group
         ):
@@ -1729,6 +1871,17 @@ class CharacterTraitChoice(models.Model):
             if self.definition.max_choices and existing.count() >= self.definition.max_choices:
                 raise ValidationError({"definition": "Maximum number of choices for this trait definition exceeded."})
 
+            def concrete(target):
+                if target and target[0] == "proficiency_group":
+                    return ("language" if target[1] == "foreign_languages"
+                            else "skill_category", target[1])
+                return target
+
+            target = concrete(self.resolved_modifier_target())
+            if any(concrete(choice.resolved_modifier_target()) == target
+                   for choice in existing):
+                raise ValidationError("Dieses Ziel wurde bereits ausgewählt.")
+
     def _validate_target_kind(self, expected_kind: str):
         """Ensure the selected target fields match the configured trait choice kind."""
         errors = {}
@@ -1737,6 +1890,7 @@ class CharacterTraitChoice(models.Model):
         target_field_by_kind = {
             TraitChoiceDefinition.TargetKind.ATTRIBUTE: "selected_attribute",
             TraitChoiceDefinition.TargetKind.SKILL: "selected_skill",
+            TraitChoiceDefinition.TargetKind.LANGUAGE: "selected_language",
             TraitChoiceDefinition.TargetKind.SKILL_CATEGORY: "selected_skill_category",
             TraitChoiceDefinition.TargetKind.DERIVED_STAT: "selected_derived_stat",
             TraitChoiceDefinition.TargetKind.RESOURCE: "selected_resource",
@@ -1769,6 +1923,7 @@ class CharacterTraitChoice(models.Model):
         disallowed_fields = {
             "selected_attribute",
             "selected_skill",
+            "selected_language",
             "selected_skill_category",
             "selected_derived_stat",
             "selected_resource",
@@ -1827,6 +1982,8 @@ class CharacterTraitChoice(models.Model):
             return dict(STAT_SLUG_CHOICES).get(self.selected_derived_stat, self.selected_derived_stat)
         if self.selected_resource:
             return dict(RESOURCE_KEY_CHOICES).get(self.selected_resource, self.selected_resource)
+        if self.selected_language_id:
+            return self.selected_language.name
         if self.selected_proficiency_group:
             return dict(PROFICIENCY_GROUP_CHOICES).get(self.selected_proficiency_group, self.selected_proficiency_group)
         if self.selected_item is not None:
@@ -1939,6 +2096,8 @@ class CharacterTraitChoice(models.Model):
             return ("derived_stat", self.selected_derived_stat)
         if self.selected_resource:
             return ("resource", self.selected_resource)
+        if self.selected_language_id:
+            return ("language", self.selected_language.slug)
         if self.selected_proficiency_group:
             return ("proficiency_group", self.selected_proficiency_group)
         if self.selected_item is not None:

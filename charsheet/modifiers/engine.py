@@ -2214,10 +2214,38 @@ class ModifierEngine:
             if target[0] == TargetDomain.ATTRIBUTE and modifier.target_domain == TargetDomain.ATTRIBUTE_CAP:
                 resolved_targets.append((TargetDomain.ATTRIBUTE_CAP, target[1]))
                 continue
-            if target[0] != modifier.target_domain and target[0] != "metadata":
-                continue
             resolved_targets.append(target)
-        return resolved_targets
+        # A collective language target already includes every non-native
+        # language, including languages learned after this choice was stored.
+        language_group = (
+            TargetDomain.LANGUAGE, PROFICIENCY_GROUP_FOREIGN_LANGUAGES,
+        )
+        if language_group in resolved_targets:
+            native_slugs = {
+                slug for slug, entry in (
+                    self.character_engine._languages_map.items()
+                )
+                if entry.is_mother_tongue
+            }
+            resolved_targets = [
+                target for target in resolved_targets
+                if target[0] != TargetDomain.LANGUAGE
+                or target[1] == PROFICIENCY_GROUP_FOREIGN_LANGUAGES
+                or target[1] in native_slugs
+            ]
+        category_keys = {
+            key for domain, key in resolved_targets
+            if domain == TargetDomain.SKILL_CATEGORY
+        }
+        if category_keys:
+            skills = self.character_engine._skill_definitions_by_slug
+            resolved_targets = [
+                target for target in resolved_targets
+                if target[0] != TargetDomain.SKILL
+                or target[1] not in skills
+                or skills[target[1]].category.slug not in category_keys
+            ]
+        return list(dict.fromkeys(resolved_targets))
 
     def _expand_proficiency_group_target(self, group_key: str) -> list[tuple[str, str]]:
         """Map one proficiency-group key to concrete central modifier targets."""

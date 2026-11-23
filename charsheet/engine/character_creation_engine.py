@@ -378,6 +378,35 @@ class CharacterCreationEngine:
                 return False
             selected = choice_map.get(slug, {})
             for definition in self._relevant_choice_definitions(trait, level):
+                if definition.uses_target_options:
+                    values = selected.get(definition.id, [])
+                    if (
+                        len(values) > definition.max_choices
+                        or len(values) != len(set(values))
+                        or (definition.is_required
+                            and len(values) < definition.min_choices)
+                    ):
+                        return False
+                    targets = set()
+                    for value in values:
+                        try:
+                            payload = definition.target_selection_payload(
+                                value,
+                            )
+                            choice = CharacterTraitChoice(**payload)
+                            target = choice.resolved_modifier_target()
+                            if target and target[0] == "proficiency_group":
+                                target = (
+                                    "language"
+                                    if target[1] == "foreign_languages"
+                                    else "skill_category", target[1],
+                                )
+                            if target in targets:
+                                return False
+                            targets.add(target)
+                        except ValidationError:
+                            return False
+                    continue
                 if definition.target_kind not in {
                     "attribute", "resource", "entity",
                 }:
@@ -1895,7 +1924,13 @@ class CharacterCreationEngine:
                                     "character_trait": character_trait,
                                     "definition": definition,
                                 }
-                                if (
+                                if definition.uses_target_options:
+                                    payload.update(
+                                        definition.target_selection_payload(
+                                            selected_value,
+                                        )
+                                    )
+                                elif (
                                     definition.target_kind
                                     ==
                                     TraitChoiceDefinition.TargetKind.ATTRIBUTE
@@ -1922,6 +1957,8 @@ class CharacterCreationEngine:
                                 else:
                                     continue
                                 if (
+                                    not definition.uses_target_options
+                                    and
                                     definition.target_kind
                                     ==
                                     TraitChoiceDefinition.TargetKind.ATTRIBUTE
@@ -1930,7 +1967,10 @@ class CharacterCreationEngine:
                                 ):
                                     continue
                                 choice = CharacterTraitChoice(**payload)
-                                if definition.target_kind == "entity":
+                                if (
+                                    definition.target_kind == "entity"
+                                    or definition.uses_target_options
+                                ):
                                     choice.full_clean()
                                 choice.save()
 
@@ -1971,7 +2011,13 @@ class CharacterCreationEngine:
                                     "character_trait": character_trait,
                                     "definition": definition,
                                 }
-                                if (
+                                if definition.uses_target_options:
+                                    payload.update(
+                                        definition.target_selection_payload(
+                                            selected_value,
+                                        )
+                                    )
+                                elif (
                                     definition.target_kind
                                     ==
                                     TraitChoiceDefinition.TargetKind.ATTRIBUTE
@@ -1998,6 +2044,8 @@ class CharacterCreationEngine:
                                 else:
                                     continue
                                 if (
+                                    not definition.uses_target_options
+                                    and
                                     definition.target_kind
                                     ==
                                     TraitChoiceDefinition.TargetKind.ATTRIBUTE
@@ -2006,7 +2054,10 @@ class CharacterCreationEngine:
                                 ):
                                     continue
                                 choice = CharacterTraitChoice(**payload)
-                                if definition.target_kind == "entity":
+                                if (
+                                    definition.target_kind == "entity"
+                                    or definition.uses_target_options
+                                ):
                                     choice.full_clean()
                                 choice.save()
 
