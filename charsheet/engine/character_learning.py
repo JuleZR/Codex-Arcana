@@ -82,7 +82,13 @@ def trait_learning_delta_cost(engine, trait: Trait, base_level: int, target_leve
 def validate_trait_selection(engine, trait_type: str, selected_levels: dict[str, int]) -> list[str]:
     """Validate one final trait selection and return user-facing messages."""
     validator = engine.build_trait_validator(trait_type, max_disadvantage_cp=None)
-    issues = validator.validate(selected_levels)
+    combined = {}
+    issues = []
+    for key, level in selected_levels.items():
+        slug = key.split(":instance:", 1)[0]
+        issues.extend(validator.validate({slug: level}))
+        combined[slug] = max(combined.get(slug, 0), level)
+    issues.extend(validator.validate(combined))
     if not issues:
         return []
     trait_names = {
@@ -104,6 +110,15 @@ def validate_cross_type_trait_selection(
     selected_disadvantages: dict[str, int],
 ) -> list[str]:
     """Validate exclusions between advantages and disadvantages."""
+    def combine(values):
+        result = {}
+        for key, level in values.items():
+            slug = key.split(":instance:", 1)[0]
+            result[slug] = max(result.get(slug, 0), level)
+        return result
+
+    selected_advantages = combine(selected_advantages)
+    selected_disadvantages = combine(selected_disadvantages)
     zero_level_slugs = set(Trait.objects.filter(
         slug__in=set(selected_advantages) | set(selected_disadvantages),
         min_level=0,

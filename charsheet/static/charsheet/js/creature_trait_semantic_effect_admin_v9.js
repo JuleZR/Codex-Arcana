@@ -9,6 +9,8 @@
   }
 
   function fieldRow(root, fieldName) {
+    var fieldBox = root.querySelector(".fieldBox.field-" + fieldName);
+    if (fieldBox) return fieldBox;
     var classRow = root.querySelector(".field-" + fieldName);
     if (classRow) {
       return classRow;
@@ -22,6 +24,14 @@
     if (row) {
       row.hidden = !visible;
       row.style.display = visible ? "" : "none";
+      var formRow = row.closest(".form-row");
+      if (formRow && formRow !== row) {
+        var hasVisibleField = Array.prototype.some.call(formRow.querySelectorAll(".fieldBox"), function (box) {
+          return !box.hidden && box.style.display !== "none";
+        });
+        formRow.hidden = !hasVisibleField;
+        formRow.style.display = hasVisibleField ? "" : "none";
+      }
     }
   }
 
@@ -180,16 +190,14 @@
     var inlineRows = document.querySelectorAll(".inline-related:not(.empty-form)");
     Array.prototype.forEach.call(inlineRows, bind);
 
-    if (document.querySelector(".inline-related")) {
-      return;
-    }
     var standaloneArea = document.querySelector('form [name$="effect_area"]:not([name*="__prefix__"])');
-    if (standaloneArea) {
+    if (standaloneArea && !standaloneArea.closest(".inline-related")) {
       bind(standaloneArea.closest("form"));
     }
   }
 
-  document.addEventListener("DOMContentLoaded", bindAll);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bindAll);
+  else bindAll();
   document.addEventListener("formset:added", function (event) {
     bind(event.target);
   });

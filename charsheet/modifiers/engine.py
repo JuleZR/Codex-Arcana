@@ -264,6 +264,26 @@ class ModifierEngine:
                     )
         return modifiers
 
+    def _trait_instance_modifiers(self, entry, level):
+        """Bind a definition effect to its purchased source and rank."""
+        for effect in build_trait_semantic_modifiers(
+            trait_slug=entry.trait.slug, level=level, trait=entry.trait,
+        ):
+            metadata = dict(effect.metadata)
+            metadata["character_trait_id"] = entry.pk
+            metadata["trait_slug"] = entry.trait.slug
+            metadata["trait_definition_id"] = entry.trait_id
+            metadata["semantic_effect_key"] = (
+                f'{metadata.get("semantic_effect_key", "trait")}'
+                f":instance:{entry.pk}"
+            )
+            yield replace(
+                effect, metadata=metadata,
+                scaling={**effect.scaling, "_effective_trait_level": level},
+                source_id=(f"{effect.source_id}:instance:{entry.pk}"
+                           if entry.trait.repeatable else effect.source_id),
+            )
+
     @cached_property
     def _active_trait_modifiers(self) -> list[BaseModifier]:
         """Build semantic trait modifiers from purchased character traits."""
@@ -280,13 +300,9 @@ class ModifierEngine:
             .order_by("trait__slug")
         )
         for entry in trait_entries:
-            modifiers.extend(
-                build_trait_semantic_modifiers(
-                    trait_slug=entry.trait.slug,
-                    level=int(entry.trait_level),
-                    trait=entry.trait,
-                )
-            )
+            modifiers.extend(self._trait_instance_modifiers(
+                entry, int(entry.trait_level),
+            ))
         return modifiers
 
     @cached_property
@@ -724,11 +740,14 @@ class ModifierEngine:
 
     def _effective_trait_modifiers(self, base_modifiers):
         """Resolve temporary trait ranks without changing purchased traits."""
-        purchased = {
-            entry.trait.slug: entry.trait_level
-            for entry in self.character_engine.character.charactertrait_set
-            .select_related("trait")
-        }
+        entries = list(
+            self.character_engine.character.charactertrait_set
+            .select_related("trait").prefetch_related("choices__definition")
+        )
+        purchased = {}
+        for entry in entries:
+            slug = entry.trait.slug
+            purchased[slug] = max(purchased.get(slug, 0), entry.trait_level)
         definitions = {}
         effects = {}
         pending = set(purchased) | {
@@ -744,6 +763,9 @@ class ModifierEngine:
             pending = set()
             for trait in rows:
                 definitions[trait.slug] = trait
+                for entry in entries:
+                    if entry.trait_id == trait.pk:
+                        entry.trait = trait
                 effects[trait.slug] = build_trait_semantic_modifiers(
                     trait_slug=trait.slug, level=1, trait=trait,
                 )
@@ -756,11 +778,18 @@ class ModifierEngine:
 
         levels = {}
         resolving = set()
+        resolvers = {}
 
         def at_level(modifier, level):
             return replace(modifier, scaling={
                 **modifier.scaling, "_effective_trait_level": level,
             })
+
+        def level_of(entry):
+            return max(0, resolvers[entry.trait.slug].resolve_numeric_total(
+                TargetDomain.TRAIT, entry.trait.slug,
+                base_value=entry.trait_level,
+            ))
 
         def resolve(slug):
             if slug in levels:
@@ -778,16 +807,33 @@ class ModifierEngine:
                     continue
                 level = resolve(source)
                 if level > 0:
-                    candidates.extend(
-                        at_level(effect, level) for effect in grants
-                    )
+                    instances = [entry for entry in entries
+                                 if entry.trait.slug == source]
+                    if instances:
+                        for entry in instances:
+                            instance_effects = self._trait_instance_modifiers(
+                                entry, level_of(entry),
+                            )
+                            candidates.extend(
+                                effect for effect in instance_effects
+                                if effect.target_domain == TargetDomain.TRAIT
+                                and effect.target_key == slug
+                            )
+                    else:
+                        candidates.extend(
+                            at_level(effect, level) for effect in grants
+                        )
             resolver = ModifierEngine(self.character_engine)
-            resolver._active_modifiers_cache = [
+            candidates = [
                 effect for effect in candidates
                 if effect.applies({})
                 and resolver._modifier_matches_race_condition(effect)
                 and resolver._modifier_matches_school_condition(effect)
             ]
+            resolver._active_modifiers_cache = (
+                resolver._expand_choice_bound_modifiers(candidates)
+            )
+            resolvers[slug] = resolver
             levels[slug] = max(0, resolver.resolve_numeric_total(
                 TargetDomain.TRAIT, slug, base_value=purchased.get(slug, 0),
             ))
@@ -795,9 +841,20 @@ class ModifierEngine:
             return levels[slug]
 
         modifiers = []
+        instance_levels = {}
         for slug, trait in definitions.items():
             level = resolve(slug)
-            if level > 0:
+            instances = [entry for entry in entries
+                         if entry.trait.slug == slug]
+            if instances:
+                for entry in instances:
+                    instance_level = level_of(entry)
+                    instance_levels[entry.pk] = instance_level
+                    if instance_level > 0 or entry.trait.min_level == 0:
+                        modifiers.extend(self._trait_instance_modifiers(
+                            entry, instance_level,
+                        ))
+            elif level > 0:
                 modifiers.extend(
                     at_level(effect, level)
                     for effect in build_trait_semantic_modifiers(
@@ -805,6 +862,7 @@ class ModifierEngine:
                     )
                 )
         self.effective_trait_levels = levels
+        self.effective_trait_instance_levels = instance_levels
         self.effective_trait_definitions = definitions
         return modifiers
 
@@ -2118,6 +2176,11 @@ class ModifierEngine:
         if source_type == "school":
             return source_id is not None and self.character_engine.school_level(source_id) > 0
         if source_type == "trait":
+            if modifier.metadata.get("character_trait_id"):
+                entries = self.character_engine.character.charactertrait_set
+                return entries.filter(
+                    pk=modifier.metadata["character_trait_id"],
+                ).exists()
             return source_id is not None and source_id in self.character_engine._trait_levels
         if source_type == SOURCE_ITEM_RUNE:
             return source_id is not None and any(
@@ -2205,6 +2268,9 @@ class ModifierEngine:
         choices = self.character_engine._trait_choices_by_definition_id.get(int(choice_binding["id"]), [])
         resolved_targets: list[tuple[str, str]] = []
         for choice in choices:
+            instance_id = modifier.metadata.get("character_trait_id")
+            if instance_id and choice.character_trait_id != instance_id:
+                continue
             target = choice.resolved_modifier_target()
             if target is None:
                 continue

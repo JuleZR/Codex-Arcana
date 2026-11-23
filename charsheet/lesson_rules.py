@@ -357,6 +357,9 @@ class LessonRequirementContext:
     trait_states: Mapping[int, tuple[int, int | None, str]] = field(
         default_factory=dict
     )
+    trait_instances: Mapping[int, list[tuple[int, int | None, str]]] = field(
+        default_factory=dict,
+    )
 
     @classmethod
     def from_state(
@@ -368,6 +371,7 @@ class LessonRequirementContext:
         learned_lesson_ids=None,
         aspect_levels=None,
         trait_states=None,
+        trait_instances=None,
         organization_levels=None,
     ):
         from charsheet.models import School
@@ -388,6 +392,7 @@ class LessonRequirementContext:
             learned_lesson_ids=learned_lesson_ids or set(),
             aspect_levels=aspect_levels or {},
             trait_states=trait_states or {},
+            trait_instances=trait_instances or {},
             organization_levels=organization_levels or {},
             arcane_level=max(
                 (
@@ -443,18 +448,20 @@ class LessonRequirementContext:
         context.aspect_levels = dict(
             character.aspect_entries.values_list("aspect_id", "level")
         )
-        context.trait_states = {
-            int(entry.trait_id): (
+        instances = {}
+        for entry in character.charactertrait_set.only(
+            "trait_id", "trait_level", "specification_option_id",
+            "specification",
+        ):
+            instances.setdefault(int(entry.trait_id), []).append((
                 int(entry.trait_level),
                 entry.specification_option_id,
                 str(entry.specification or "").strip().casefold(),
-            )
-            for entry in character.charactertrait_set.only(
-                "trait_id",
-                "trait_level",
-                "specification_option_id",
-                "specification",
-            )
+            ))
+        context.trait_instances = instances
+        context.trait_states = {
+            trait_id: max(rows, key=lambda row: row[0])
+            for trait_id, rows in instances.items()
         }
         from charsheet.models import CharacterDruidCult, CharacterTraitChoice
 
@@ -574,18 +581,24 @@ def requirement_met(
             ) >= requirement.minimum_value
         )
     if kind == types.TRAIT_LEVEL:
-        level, option_id, legacy_value = state.trait_states.get(
-            requirement.required_trait_id, (0, None, "")
+        instances = state.trait_instances.get(
+            requirement.required_trait_id,
+            [state.trait_states.get(
+                requirement.required_trait_id, (0, None, ""),
+            )],
         )
-        if level < requirement.minimum_value:
-            return False
-        if requirement.required_trait_specification_id is None:
-            return True
-        if option_id is not None:
-            return option_id == requirement.required_trait_specification_id
-        return legacy_value == str(
-            requirement.required_trait_specification.normalized_name
-        )
+        for level, option_id, legacy_value in instances:
+            if level < requirement.minimum_value:
+                continue
+            if requirement.required_trait_specification_id is None:
+                return True
+            if option_id == requirement.required_trait_specification_id:
+                return True
+            if option_id is None and legacy_value == str(
+                requirement.required_trait_specification.normalized_name,
+            ):
+                return True
+        return False
     return False
 
 

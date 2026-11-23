@@ -6199,8 +6199,14 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     modifier_engine.collect_active_modifiers()
     levels = modifier_engine.effective_trait_levels
     owned = {entry.trait.slug for entry in entries}
+    purchased_levels = {
+        entry.pk: entry.trait_level for entry in entries
+    }
+    instance_levels = modifier_engine.effective_trait_instance_levels
     for entry in entries:
-        entry.trait_level = levels.get(entry.trait.slug, entry.trait_level)
+        entry.trait_level = instance_levels.get(
+            entry.pk, levels.get(entry.trait.slug, entry.trait_level),
+        )
     entries.extend(
         CharacterTrait(owner=character, trait=trait, trait_level=levels[slug])
         for slug, trait in modifier_engine.effective_trait_definitions.items()
@@ -6209,7 +6215,9 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     advantage_rows: list[dict] = []
     disadvantage_rows: list[dict] = []
     for entry in entries:
-        if entry.trait_level <= 0:
+        if entry.trait_level <= 0 and not (
+            entry.trait.repeatable and entry.trait.min_level == 0
+        ):
             continue
         specification = (
             entry.specification_option.name
@@ -6232,7 +6240,9 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
             "id": entry.id,
             "name": entry.trait.name,
             "description": entry.trait.description,
-            "points": entry.trait.cost_for_level(entry.trait_level),
+            "points": entry.trait.cost_for_level(
+                purchased_levels.get(entry.pk, entry.trait_level),
+            ),
             "can_edit_specification": bool(entry.trait.has_specification),
             "organization_rank_choices": [],
             "name_affiliations": [],
@@ -6360,6 +6370,8 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
                 f"**{entry.trait.name}**", "\n".join(labels),
                 row["description"],
             ) if part)
+        if entry.trait.repeatable:
+            row["display_name"] += f" ? Stufe {entry.trait_level}"
         if entry.trait.trait_type == Trait.TraitType.ADV:
             advantage_rows.append(row)
         else:
@@ -8784,6 +8796,11 @@ def _build_learning_rows(
         }
         for entry in language_entries
     }
+    character_trait_instances = list(
+        CharacterTrait.objects.filter(owner=character).select_related(
+            "trait", "specification_option",
+        ).prefetch_related("choices__definition")
+    )
     character_trait_entries = {
         entry.trait_id: entry
         for entry in CharacterTrait.objects.filter(owner=character).select_related(
@@ -9027,127 +9044,170 @@ def _build_learning_rows(
     ):
         if not trait.is_available_for_race(character.race_id):
             continue
-        base_level = int(trait_levels.get(trait.id, 0))
-        if (
-            trait.slug == VAMPIRE_ANCHOR_TRAIT_SLUG
-            and base_level <= 0
-            and not (
-                character.is_at_vampire_baptism_threshold
-                and character.vampire_baptism_confirmed
-            )
-        ):
-            continue
-        group_name = "Vorteile" if trait.trait_type == Trait.TraitType.ADV else "Nachteile"
-        entry = character_trait_entries.get(trait.id)
-        existing_choices = {
-            choice.definition_id: choice
-            for choice in entry.choices.all()
-        } if entry else {}
-        entity_choices = []
-        for definition in trait.choice_definitions.all():
-            if definition.is_active and definition.uses_target_options:
-                stored = list(entry.choices.filter(
-                    definition=definition,
-                )) if entry else []
-                options = definition.target_options()
-                selected_values = {
-                    definition.selection_value(choice) for choice in stored
-                }
-                for index in range(definition.max_choices):
-                    entity_choices.append({
-                        "name": definition.name,
-                        "field_name": (
-                            trait_choice_field_name(
-                                "combined", trait.pk, definition.pk,
-                            )
-                            + f"_slot_{max(0, index - len(stored))}"
-                        ),
-                        "required": (definition.is_required
-                                     and index < definition.min_choices),
-                        "selected_label": (
-                            stored[index].selected_target_display()
-                            if index < len(stored) else ""
-                        ),
-                        "options": [
-                            option for option in options
-                            if option["value"] not in selected_values
-                        ] if index >= len(stored) else [],
+        instances = ([entry for entry in character_trait_instances
+                      if entry.trait_id == trait.pk] + [None]
+                     if trait.repeatable else
+                     [character_trait_entries.get(trait.id)])
+        for entry in instances:
+            base_level = int(entry.trait_level) if entry else 0
+            if (
+                trait.slug == VAMPIRE_ANCHOR_TRAIT_SLUG
+                and base_level <= 0
+                and not (
+                    character.is_at_vampire_baptism_threshold
+                    and character.vampire_baptism_confirmed
+                )
+            ):
+                continue
+            group_name = "Vorteile" if trait.trait_type == Trait.TraitType.ADV else "Nachteile"
+            existing_choices = {
+                choice.definition_id: choice
+                for choice in entry.choices.all()
+            } if entry else {}
+            entity_choices = []
+            for definition in trait.choice_definitions.all():
+                if definition.is_active and (
+                    definition.uses_target_options
+                    or (trait.repeatable and definition.target_kind in {
+                        "attribute", "resource",
                     })
-                continue
-            if (
-                not definition.is_active or definition.target_kind != "entity"
-                or definition.max_choices != 1
-            ):
-                continue
-            choice = existing_choices.get(definition.pk)
-            if (
-                choice and definition.uses_nobility_ranks
-                and not choice.has_valid_title_country
-            ):
-                choice = None
-            entity_choices.append({
-                "name": definition.name,
-                "field_name": trait_choice_field_name(
-                    "entity", trait.pk, definition.pk,
-                ),
-                "required": definition.is_required
-                and definition.min_choices > 0,
-                "selected_label": (
-                    choice.selected_target_display() if choice else ""
-                ),
-                "organization_name": (
-                    choice.custom_organization_name
-                    or getattr(choice.selected_entity, "name", "")
-                ) if choice else "",
-                "organization_ranks": list(
-                    choice.organization_ranks.order_by("points").values(
-                        "points", "name",
-                    )
-                ) if choice else [],
-                "rank_field_name": (
-                    f"learn_organization_rank_{choice.pk}" if choice else ""
-                ),
-                "selected_rank": choice.organization_rank if choice else "",
-                "options": (
-                    [] if choice else definition.entity_choice_options()
-                ),
-            })
-        organization_choices = trait.uses_organization_choices
-        trait_groups.setdefault(group_name, []).append(
-            {
-                "slug": trait.slug,
-                "name": trait.name,
-                "description": (trait.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "base_level": base_level,
-                "min_level": int(trait.min_level),
-                "is_owned": entry is not None,
-                "max_level": trait.effective_max_level,
-                "points_per_level": int(trait.points_per_level),
-                "points_display": trait.cost_display(),
-                "points_by_level": list(trait.progression_cost_curve()),
-                "entity_choices_json": json.dumps(entity_choices),
-                "has_specification": (
-                    trait.has_specification and not organization_choices
-                ),
-                "specification_options_json": json.dumps(
-                    [
-                        {"id": option.id, "name": option.name}
-                        for option in trait.specification_options.all()
-                        if not organization_choices
-                    ]
-                ),
-                "specification_option_id": getattr(
-                    character_trait_entries.get(trait.id),
-                    "specification_option_id",
-                    None,
-                ),
-                "specification": getattr(
-                    character_trait_entries.get(trait.id),
-                    "specification",
-                    "",
-                ),
-            }
-        )
+                ):
+                    stored = list(entry.choices.filter(
+                        definition=definition,
+                    )) if entry else []
+                    options = definition.target_options()
+                    selected_values = {
+                        definition.selection_value(choice) for choice in stored
+                    }
+                    for index in range(definition.max_choices):
+                        entity_choices.append({
+                            "name": definition.name,
+                            "field_name": (
+                                trait_choice_field_name(
+                                    ("combined"
+                                     if definition.uses_target_options
+                                     else definition.target_kind),
+                                    (entry.pk if trait.repeatable
+                                     and entry else trait.pk),
+                                    definition.pk,
+                                )
+                                + ("_slot_" + str(
+                                    index if trait.repeatable
+                                    else max(0, index - len(stored))
+                                ) if definition.uses_target_options else "")
+                            ),
+                            "required": (definition.is_required
+                                         and index < definition.min_choices),
+                            "selected_label": (
+                                stored[index].selected_target_display()
+                                if index < len(stored) else ""
+                            ),
+                            "editable": trait.repeatable,
+                            "selected_value": (
+                                definition.selection_value(stored[index])
+                                if index < len(stored) else ""
+                            ),
+                            "options": options if trait.repeatable else [
+                                option for option in options
+                                if option["value"] not in selected_values
+                            ] if index >= len(stored) else [],
+                        })
+                    continue
+                if (
+                    not definition.is_active or definition.target_kind != "entity"
+                    or definition.max_choices != 1
+                ):
+                    continue
+                choice = existing_choices.get(definition.pk)
+                if (
+                    choice and definition.uses_nobility_ranks
+                    and not choice.has_valid_title_country
+                ):
+                    choice = None
+                entity_choices.append({
+                    "name": definition.name,
+                    "field_name": trait_choice_field_name(
+                        "entity", entry.pk if trait.repeatable and entry
+                        else trait.pk, definition.pk,
+                    ),
+                    "required": definition.is_required
+                    and definition.min_choices > 0,
+                    "selected_label": (
+                        choice.selected_target_display() if choice else ""
+                    ),
+                    "editable": trait.repeatable,
+                    "selected_value": (
+                        definition.entity_selection_value(choice)
+                        if choice else ""
+                    ),
+                    "custom_name": (
+                        choice.custom_organization_name if choice else ""
+                    ),
+                    "organization_name": (
+                        choice.custom_organization_name
+                        or getattr(choice.selected_entity, "name", "")
+                    ) if choice else "",
+                    "organization_ranks": list(
+                        choice.organization_ranks.order_by("points").values(
+                            "points", "name",
+                        )
+                    ) if choice else [],
+                    "rank_field_name": (
+                        f"learn_organization_rank_{choice.pk}" if choice else ""
+                    ),
+                    "selected_rank": choice.organization_rank if choice else "",
+                    "options": (
+                        [] if choice and not trait.repeatable
+                        else definition.entity_choice_options()
+                    ),
+                })
+            organization_choices = trait.uses_organization_choices
+            trait_groups.setdefault(group_name, []).append(
+                {
+                    "slug": (f"{trait.slug}:instance:{entry.pk}"
+                             if trait.repeatable and entry else trait.slug),
+                    "name": (
+                        f"{trait.name} (neu)" if trait.repeatable and not entry
+                        else f"{trait.name} #{entry.pk}"
+                        if trait.repeatable else trait.name
+                    ),
+                    "instance_label": ", ".join(
+                        choice.selected_target_display()
+                        for choice in entry.choices.all()
+                    ) if entry else "",
+                    "description": (trait.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "base_level": base_level,
+                    "min_level": int(trait.min_level),
+                    "is_owned": entry is not None,
+                    "repeatable": trait.repeatable,
+                    "max_level": entry.effective_max_level if entry
+                    else trait.effective_max_level,
+                    "points_per_level": int(trait.points_per_level),
+                    "points_display": trait.cost_display(),
+                    "points_by_level": list(trait.progression_cost_curve()),
+                    "entity_choices_json": json.dumps(entity_choices),
+                    "has_specification": (
+                        trait.has_specification and not organization_choices
+                    ),
+                    "specification_options_json": json.dumps(
+                        [
+                            {"id": option.id, "name": option.name}
+                            for option in trait.specification_options.all()
+                            if not organization_choices
+                        ]
+                    ),
+                    "specification_option_id": getattr(
+                        entry,
+                        "specification_option_id",
+                        None,
+                    ),
+                    "specification": getattr(
+                        entry,
+                        "specification",
+                        "",
+                    ),
+                }
+            )
 
     magic_groups: OrderedDict[str, list[dict]] = OrderedDict()
     aspect_by_id = {

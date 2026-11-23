@@ -7,7 +7,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from uuid import uuid4
 from .items import (
     ArmorStats, Item, Rune, default_quality_pk, validate_inventory_size_classes,
@@ -994,14 +994,23 @@ class CharacterTrait(models.Model):
             })
         return result
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["owner", "trait"], name="unique_trait_per_character")
-        ]
+    @property
+    def effective_max_level(self):
+        limits = [self.trait.effective_max_level]
+        if self.pk:
+            limits.extend(choice.maximum_trait_level for choice in
+                          self.choices.select_related("definition"))
+        return min((limit for limit in limits if limit is not None),
+                   default=None)
 
     def clean(self):
         """Validate the chosen trait level against its allowed range."""
         super().clean()
+        if self.owner_id and self.trait_id and not self.trait.repeatable:
+            if CharacterTrait.objects.filter(
+                owner_id=self.owner_id, trait_id=self.trait_id,
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError({"trait": "Trait bereits erworben."})
         if (
             self.trait_id and self.owner_id
             and not self.trait.is_available_for_race(self.owner.race_id)
@@ -1010,8 +1019,8 @@ class CharacterTrait(models.Model):
                 "trait": "Dieser Trait ist für die Rasse nicht erlaubt.",
             })
         if (
-            self.trait.effective_max_level is not None
-            and self.trait_level > self.trait.effective_max_level
+            self.effective_max_level is not None
+            and self.trait_level > self.effective_max_level
         ):
             raise ValidationError({"trait_level": "You can't purchase more levels of a trait than max level"})
         if self.trait_level < self.trait.min_level:
@@ -1051,15 +1060,30 @@ class CharacterTrait(models.Model):
             raise ValidationError(
                 {"specification_option": "This trait has no controlled options."}
             )
+        if (self.owner_id and not self.trait.allow_repeated_choice_targets
+                and self.specification.strip()):
+            siblings = CharacterTrait.objects.filter(
+                owner_id=self.owner_id, trait_id=self.trait_id,
+            ).exclude(pk=self.pk)
+            normalized = self.specification.strip().casefold()
+            if any(entry.specification.strip().casefold() == normalized
+                   for entry in siblings):
+                raise ValidationError({
+                    "specification": (
+                        "Diese Spezifikation wurde bereits gewählt."
+                    ),
+                })
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        if kwargs.get("update_fields"):
-            kwargs["update_fields"] = set(kwargs["update_fields"]) | {
-                "specification",
-                "specification_option",
-            }
-        return super().save(*args, **kwargs)
+        with transaction.atomic():
+            Character.objects.select_for_update().get(pk=self.owner_id)
+            self.full_clean()
+            if kwargs.get("update_fields"):
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                    "specification",
+                    "specification_option",
+                }
+            return super().save(*args, **kwargs)
 
     def __str__(self):
         suffix = f": {self.specification}" if self.specification else ""
@@ -1155,6 +1179,11 @@ class TraitChoiceDefinition(models.Model):
             "gelten gemeinsam."
         ),
     )
+    max_levels_by_target = models.JSONField(
+        "Stufenbegrenzungen nach Auswahlziel", default=dict, blank=True,
+        help_text='Zieltyp:Zielschlüssel und maximale Stufe, z. B. '
+                  '{"proficiency_group:foreign_languages": 3}.',
+    )
     description = models.TextField(
         blank=True,
         default="",
@@ -1219,6 +1248,19 @@ class TraitChoiceDefinition(models.Model):
     def clean(self):
         """Prevent contradictory trait choice filters."""
         super().clean()
+        if self.max_levels_by_target is None:
+            self.max_levels_by_target = {}
+        if not isinstance(self.max_levels_by_target, dict) or any(
+            not isinstance(key, str) or ":" not in key
+            or not isinstance(value, int) or isinstance(value, bool)
+            or value < self.trait.min_level
+            for key, value in self.max_levels_by_target.items()
+        ):
+            raise ValidationError({
+                "max_levels_by_target": (
+                    "Zielschlüssel und gültige Stufen angeben."
+                ),
+            })
         if (
             not isinstance(self.additional_target_kinds, list)
             or any(kind not in self.TargetKind.values
@@ -1461,6 +1503,23 @@ class TraitChoiceDefinition(models.Model):
                 "name": str(specification).strip(),
             }, ensure_ascii=False)
         return value
+
+    def entity_selection_value(self, choice):
+        """Restore the editor value of one independently stored entity."""
+        if choice.custom_organization_name:
+            prefix = "custom:"
+            if self.allowed_organization_types.count() > 1:
+                prefix += f"{choice.custom_organization_type_id}:"
+            return prefix + choice.custom_organization_size
+        if self.has_organization_types:
+            return f"organization:{choice.selected_object_id}"
+        if self.uses_nobility_ranks:
+            return str(choice.selected_object_id)
+        option = self.entity_options.filter(
+            content_type_id=choice.selected_content_type_id,
+            object_id=choice.selected_object_id,
+        ).first()
+        return str(option.pk) if option else ""
 
     def entity_selection_payload(self, option_id, specification=""):
         """Resolve a configured option into the entity binding fields."""
@@ -1871,16 +1930,60 @@ class CharacterTraitChoice(models.Model):
             if self.definition.max_choices and existing.count() >= self.definition.max_choices:
                 raise ValidationError({"definition": "Maximum number of choices for this trait definition exceeded."})
 
-            def concrete(target):
-                if target and target[0] == "proficiency_group":
-                    return ("language" if target[1] == "foreign_languages"
-                            else "skill_category", target[1])
-                return target
-
-            target = concrete(self.resolved_modifier_target())
-            if any(concrete(choice.resolved_modifier_target()) == target
+            target = self.target_identity
+            if any(choice.target_identity == target
                    for choice in existing):
                 raise ValidationError("Dieses Ziel wurde bereits ausgewählt.")
+            if not self.character_trait.trait.allow_repeated_choice_targets:
+                siblings = CharacterTraitChoice.objects.filter(
+                    character_trait__owner_id=self.character_trait.owner_id,
+                    character_trait__trait_id=self.character_trait.trait_id,
+                ).exclude(character_trait_id=self.character_trait_id)
+                if any(choice.target_identity == target
+                       for choice in siblings):
+                    raise ValidationError("Dieses Ziel wurde bereits ausgewählt.")
+            maximum = self.maximum_trait_level
+            if (maximum is not None
+                    and self.character_trait.trait_level > maximum):
+                raise ValidationError(
+                    "Stufenbegrenzung des Auswahlziels überschritten.",
+                )
+
+    @property
+    def target_identity(self):
+        """Compare equivalent selections across definitions and instances."""
+        target = self.resolved_modifier_target()
+        if target and target[0] == "proficiency_group":
+            return ("language" if target[1] == "foreign_languages"
+                    else "skill_category", target[1])
+        if self.custom_organization_name:
+            return ("organization", self.custom_organization_type_id,
+                    self.custom_organization_name.strip().casefold())
+        return target
+
+    @property
+    def maximum_trait_level(self):
+        target = self.resolved_modifier_target()
+        if target is None:
+            return None
+        keys = {":".join(target), ":".join(self.target_identity)}
+        if (self.target_identity[0] == "skill_category"
+                or self.target_identity == ("language", "foreign_languages")):
+            keys.add(f"proficiency_group:{self.target_identity[1]}")
+        limits = self.definition.max_levels_by_target
+        return min(
+            (limits[key] for key in keys if key in limits), default=None,
+        )
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            Character.objects.select_for_update().get(
+                pk=self.character_trait.owner_id,
+            )
+            if (self.character_trait.trait.repeatable
+                    or self.definition.max_levels_by_target):
+                self.full_clean()
+            return super().save(*args, **kwargs)
 
     def _validate_target_kind(self, expected_kind: str):
         """Ensure the selected target fields match the configured trait choice kind."""

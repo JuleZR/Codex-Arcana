@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from django.apps import apps
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.db.models import Q
 
@@ -277,32 +279,21 @@ class CharacterCreationEngine:
             )
             else 0
         )
-        choice_map = self.phase_4_trait_choices()
-        for slug, level in self.phase_4_advantages().items():
-            trait = Trait.objects.filter(
-                slug=slug, trait_type=Trait.TraitType.ADV
-            ).first()
-            if trait is None or level < trait.min_level:
-                continue
-            modifiers = build_trait_semantic_modifiers(
-                trait_slug=slug, level=level, trait=trait
-            )
-            trait_choices = choice_map.get(slug, {})
-            for modifier in modifiers:
-                if modifier.target_domain != TargetDomain.ATTRIBUTE_CAP:
-                    continue
-                choice_binding = modifier.metadata.get("choice_binding")
-                if choice_binding:
-                    selected_targets = trait_choices.get(
-                        int(choice_binding.get("id") or 0), []
-                    )
-                    if attribute_slug not in selected_targets:
-                        continue
-                elif str(modifier.target_key or "") != str(attribute_slug):
-                    continue
-                modifier_engine = ModifierEngine(modifiers=[modifier])
-                resolved = modifier_engine._resolve_numeric_modifier(modifier)
-                total += int(resolved or 0)
+        advantages = self.phase_4_advantages()
+        modifiers = [
+            modifier for modifier in self._creation_trait_semantic_modifiers()
+            if modifier.source_id in advantages
+        ]
+        resolver = ModifierEngine(modifiers=modifiers)
+        total += resolver.resolve_numeric_total(
+            TargetDomain.ATTRIBUTE_CAP, attribute_slug,
+            context={
+                "during_character_creation": True,
+                "race_id": self.race.pk,
+                "school_ids": [self._to_int(key)
+                               for key in self.phase_4_schools()],
+            },
+        )
         return int(total)
 
     def vampire_disallowed_school_ids(self) -> set[int]:
@@ -353,6 +344,21 @@ class CharacterCreationEngine:
                     )
         return blocked
 
+    @staticmethod
+    def _draft_trait_choice(definition, value):
+        payload = {"definition": definition}
+        if definition.uses_target_options:
+            payload.update(definition.target_selection_payload(value))
+        elif definition.target_kind == "entity":
+            payload.update(definition.entity_selection_payload(value))
+        elif definition.target_kind == "attribute":
+            payload["selected_attribute"] = Attribute.objects.get(
+                short_name=value,
+            )
+        else:
+            payload[f"selected_{definition.target_kind}"] = value
+        return CharacterTraitChoice(**payload)
+
     def _trait_choices_are_valid(
         self, phase_key: str, trait_type: str
     ) -> bool:
@@ -370,13 +376,32 @@ class CharacterCreationEngine:
             if phase_key == "phase_3"
             else self.phase_4_trait_choices()
         )
+        used_targets = {}
         for slug, level in selected_traits.items():
             trait = Trait.objects.filter(
-                slug=slug, trait_type=trait_type
+                slug=slug.split(":instance:", 1)[0], trait_type=trait_type
             ).first()
             if trait is None:
                 return False
+            if slug != trait.slug and not trait.repeatable:
+                return False
             selected = choice_map.get(slug, {})
+            for definition in self._relevant_choice_definitions(trait, level):
+                for value in selected.get(definition.pk, []):
+                    try:
+                        choice = self._draft_trait_choice(definition, value)
+                        maximum = choice.maximum_trait_level
+                        if maximum is not None and level > maximum:
+                            return False
+                        target = choice.target_identity
+                        previous = used_targets.setdefault(trait.pk, {})
+                        if (not trait.allow_repeated_choice_targets
+                                and target in previous
+                                and previous[target] != slug):
+                            return False
+                        previous[target] = slug
+                    except (ValidationError, ValueError, ObjectDoesNotExist):
+                        return False
             for definition in self._relevant_choice_definitions(trait, level):
                 if definition.uses_target_options:
                     values = selected.get(definition.id, [])
@@ -540,11 +565,11 @@ class CharacterCreationEngine:
         other.
         """
         selected_advantages = {
-            slug
+            slug.split(":instance:", 1)[0]
             for slug, level in self.phase_4_advantages().items()
         }
         selected_disadvantages = {
-            slug
+            slug.split(":instance:", 1)[0]
             for slug, level in self.phase_3_disadvantages().items()
         }
         if not selected_advantages or not selected_disadvantages:
@@ -824,7 +849,8 @@ class CharacterCreationEngine:
 
     def calc_disadvantage_cost(self, slug: str, level: int) -> int:
         trait = Trait.objects.filter(
-            slug=slug, trait_type=Trait.TraitType.DIS
+            slug=slug.split(":instance:", 1)[0],
+            trait_type=Trait.TraitType.DIS
         ).first()
         if trait is None:
             return 0
@@ -844,7 +870,8 @@ class CharacterCreationEngine:
     def validate_phase_3(self) -> bool:
         for slug, level in self.phase_3_disadvantages().items():
             trait = Trait.objects.filter(
-                slug=slug, trait_type=Trait.TraitType.DIS
+                slug=slug.split(":instance:", 1)[0],
+                trait_type=Trait.TraitType.DIS
             ).first()
             if trait is None:
                 return False
@@ -889,9 +916,10 @@ class CharacterCreationEngine:
         )
         from charsheet.models import TraitSpecificationOption
 
+        used_specifications = set()
         for slug, level in selected.items():
             trait = Trait.objects.filter(
-                slug=slug, trait_type=trait_type,
+                slug=slug.split(":instance:", 1)[0], trait_type=trait_type,
             ).first()
             if trait is None:
                 return False
@@ -910,6 +938,12 @@ class CharacterCreationEngine:
                 return False
             elif text and not trait.has_specification:
                 return False
+            if option_id or text:
+                target = (trait.pk, option_id or text.casefold())
+                if (not trait.allow_repeated_choice_targets
+                        and target in used_specifications):
+                    return False
+                used_specifications.add(target)
         return True
 
     def phase_4_vampire(self) -> dict[str, object]:
@@ -1009,7 +1043,8 @@ class CharacterCreationEngine:
 
     def calc_advantage_cost(self, slug: str, level: int) -> int:
         trait = Trait.objects.filter(
-            slug=slug, trait_type=Trait.TraitType.ADV
+            slug=slug.split(":instance:", 1)[0],
+            trait_type=Trait.TraitType.ADV
         ).first()
         if trait is None:
             return 0
@@ -1372,6 +1407,7 @@ class CharacterCreationEngine:
                     skill_levels.get(skill_id, 0), level
                 )
         trait_states: dict[int, tuple[int, int | None, str]] = {}
+        trait_instances = {}
         organization_levels: dict[int, int] = {}
         for values, specs, choices, trait_type in (
             (
@@ -1387,23 +1423,28 @@ class CharacterCreationEngine:
                 Trait.TraitType.ADV,
             ),
         ):
-            traits = Trait.objects.filter(
-                slug__in=values, trait_type=trait_type
-            )
-            for trait in traits:
-                payload = specs.get(trait.slug, {}) or {}
-                trait_states[trait.id] = (
-                    int(values[trait.slug]),
+            for key, level in values.items():
+                trait = Trait.objects.filter(
+                    slug=key.split(":instance:", 1)[0], trait_type=trait_type,
+                ).first()
+                if trait is None:
+                    continue
+                payload = specs.get(key, {}) or {}
+                instance_state = (
+                    int(level),
                     self._to_int(payload.get("option_id"), 0) or None,
                     str(payload.get("text") or "").strip().casefold(),
                 )
-                level = int(values[trait.slug])
+                trait_instances.setdefault(trait.pk, []).append(instance_state)
+                if level >= trait_states.get(trait.id, (0,))[0]:
+                    trait_states[trait.id] = instance_state
+                level = int(level)
                 for definition in self._relevant_choice_definitions(
                     trait, level,
                 ):
                     if definition.target_kind != "entity":
                         continue
-                    for value in choices.get(trait.slug, {}).get(
+                    for value in choices.get(key, {}).get(
                         definition.pk, [],
                     ):
                         try:
@@ -1432,6 +1473,7 @@ class CharacterCreationEngine:
                 for aspect_id, level in self.phase_4_aspects().items()
             },
             trait_states=trait_states,
+            trait_instances=trait_instances,
             organization_levels=organization_levels,
         )
 
@@ -1477,7 +1519,8 @@ class CharacterCreationEngine:
 
         for slug, level in self.phase_4_advantages().items():
             trait = Trait.objects.filter(
-                slug=slug, trait_type=Trait.TraitType.ADV
+                slug=slug.split(":instance:", 1)[0],
+                trait_type=Trait.TraitType.ADV
             ).first()
             if trait is None:
                 return False
@@ -1630,6 +1673,22 @@ class CharacterCreationEngine:
                 ),
                 mutually_exclusive_with=tuple(sorted(mutually_exclusive)),
             )
+        selection = (self.phase_3_disadvantages()
+                     if trait_type == Trait.TraitType.DIS
+                     else self.phase_4_advantages())
+        repeatable = set(trait_rows.filter(repeatable=True).values_list(
+            "slug", flat=True,
+        ))
+        for key in selection:
+            slug = key.split(":instance:", 1)[0]
+            if key != slug and slug in repeatable and slug in rules:
+                rules[key] = replace(rules[slug], slug=key)
+        for key, rule in list(rules.items()):
+            rules[key] = replace(rule, mutually_exclusive_with=tuple(
+                candidate for candidate in rules
+                if candidate.split(":instance:", 1)[0]
+                in rule.mutually_exclusive_with
+            ))
         return CharacterBuildValidator(
             rules=rules, max_disadvantage_cp=max_disadvantage_cp
         )
@@ -1639,33 +1698,61 @@ class CharacterCreationEngine:
         Build semantic trait modifiers for creation-only resolution before
         CharacterTrait rows exist.
         """
-        modifiers: list = []
-        for slug, level in self.phase_3_disadvantages().items():
-            if level >= 0:
+        modifiers = []
+        expand_group = ModifierEngine()._expand_proficiency_group_target
+        for values, choices, trait_type in (
+            (self.phase_3_disadvantages(), self.phase_3_trait_choices(),
+             Trait.TraitType.DIS),
+            (self.phase_4_advantages(), self.phase_4_trait_choices(),
+             Trait.TraitType.ADV),
+        ):
+            for key, level in values.items():
                 trait = Trait.objects.filter(
-                    slug=slug, trait_type=Trait.TraitType.DIS
+                    slug=key.split(":instance:", 1)[0], trait_type=trait_type,
                 ).first()
-                modifiers.extend(
-                    build_trait_semantic_modifiers(
-                        trait_slug=slug,
-                        level=level,
-                        trait=trait,
-                        allow_persisted_lookup=True,
+                if trait is None:
+                    continue
+                definitions = {row.pk: row for row in
+                               trait.choice_definitions.all()}
+                for effect in build_trait_semantic_modifiers(
+                    trait_slug=trait.slug, level=level, trait=trait,
+                ):
+                    metadata = dict(effect.metadata)
+                    metadata["semantic_effect_key"] = (
+                        f'{metadata.get("semantic_effect_key", "trait")}:{key}'
                     )
-                )
-        for slug, level in self.phase_4_advantages().items():
-            if level >= 0:
-                trait = Trait.objects.filter(
-                    slug=slug, trait_type=Trait.TraitType.ADV
-                ).first()
-                modifiers.extend(
-                    build_trait_semantic_modifiers(
-                        trait_slug=slug,
-                        level=level,
-                        trait=trait,
-                        allow_persisted_lookup=True,
+                    effect = replace(
+                        effect, source_id=key, metadata=metadata,
+                        scaling={**effect.scaling,
+                                 "_effective_trait_level": level},
                     )
-                )
+                    binding = metadata.get("choice_binding")
+                    if not binding:
+                        modifiers.append(effect)
+                        continue
+                    definition_id = int(binding["id"])
+                    definition = definitions.get(definition_id)
+                    if definition is None:
+                        continue
+                    targets = set()
+                    for value in choices.get(key, {}).get(definition_id, []):
+                        choice = self._draft_trait_choice(definition, value)
+                        target = choice.resolved_modifier_target()
+                        if target is None:
+                            continue
+                        if target[0] == TargetDomain.PROFICIENCY_GROUP:
+                            targets.update(expand_group(target[1]))
+                        else:
+                            targets.add(target)
+                    for domain, target_key in targets:
+                        if (domain == TargetDomain.ATTRIBUTE
+                                and effect.target_domain
+                                == TargetDomain.ATTRIBUTE_CAP):
+                            domain = TargetDomain.ATTRIBUTE_CAP
+                        modifiers.append(replace(
+                            effect, target_domain=domain,
+                            target_key=target_key,
+                        ))
         return modifiers
 
     def skill_exclusion(self, skill_slug, *, specification=None):
@@ -1889,7 +1976,8 @@ class CharacterCreationEngine:
 
             for slug, level in self.phase_3_disadvantages().items():
                 trait = Trait.objects.filter(
-                    slug=slug, trait_type=Trait.TraitType.DIS
+                    slug=slug.split(":instance:", 1)[0],
+                    trait_type=Trait.TraitType.DIS
                 ).first()
                 if trait and level >= trait.min_level:
                     spec = (
@@ -1976,7 +2064,8 @@ class CharacterCreationEngine:
 
             for slug, level in self.phase_4_advantages().items():
                 trait = Trait.objects.filter(
-                    slug=slug, trait_type=Trait.TraitType.ADV
+                    slug=slug.split(":instance:", 1)[0],
+                    trait_type=Trait.TraitType.ADV
                 ).first()
                 if trait and level >= trait.min_level:
                     spec = (

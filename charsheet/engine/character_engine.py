@@ -545,18 +545,21 @@ class CharacterEngine:
     @cached_property
     def _trait_levels(self) -> dict[int, int]:
         """Cache learned trait levels keyed by trait id."""
-        return {
-            entry.trait_id: entry.trait_level
-            for entry in self.character.charactertrait_set.select_related("trait")
-        }
+        levels = {}
+        for entry in self.character.charactertrait_set.all():
+            levels[entry.trait_id] = max(
+                levels.get(entry.trait_id, 0), entry.trait_level,
+            )
+        return levels
 
     @cached_property
     def _trait_levels_by_slug(self) -> dict[str, int]:
         """Cache learned trait levels keyed by trait slug for semantic scaling."""
-        return {
-            entry.trait.slug: entry.trait_level
-            for entry in self.character.charactertrait_set.select_related("trait")
-        }
+        levels = {}
+        for entry in self.character.charactertrait_set.select_related("trait"):
+            slug = entry.trait.slug
+            levels[slug] = max(levels.get(slug, 0), entry.trait_level)
+        return levels
 
     def effective_trait_level(self, trait) -> int:
         """Return the purchased rank plus active semantic trait effects."""

@@ -4227,12 +4227,25 @@ class AppLogoutView(LogoutView):
         return HttpResponseRedirect(self.get_success_url())
 
 
-def _creation_entity_choices(trait, choice_map):
+def _creation_trait_keys(trait, values):
+    keys = [
+        key for key in values
+        if key == trait.slug or (
+            trait.repeatable and key.startswith(f"{trait.slug}:instance:")
+        )
+    ]
+    if trait.slug not in keys:
+        keys.append(trait.slug)
+    return keys
+
+
+def _creation_entity_choices(trait, choice_map, instance_key=None):
+    instance_key = instance_key or trait.slug
     rows = []
     for definition in trait.choice_definitions.filter(
         target_kind="entity", is_active=True,
     ).order_by("sort_order", "id"):
-        values = choice_map.get(trait.slug, {}).get(definition.pk, [])
+        values = choice_map.get(instance_key, {}).get(definition.pk, [])
         selected = values[0] if values else ""
         custom_name = ""
         if selected.startswith("custom:{"):
@@ -4263,14 +4276,15 @@ def _creation_entity_choices(trait, choice_map):
     return rows
 
 
-def _creation_target_choices(trait, choice_map):
+def _creation_target_choices(trait, choice_map, instance_key=None):
+    instance_key = instance_key or trait.slug
     rows = []
     for definition in trait.choice_definitions.filter(is_active=True).order_by(
         "sort_order", "id",
     ):
         if not definition.uses_target_options:
             continue
-        values = choice_map.get(trait.slug, {}).get(definition.pk, [])
+        values = choice_map.get(instance_key, {}).get(definition.pk, [])
         options = definition.target_options()
         for index in range(definition.max_choices):
             rows.append({
@@ -4282,12 +4296,12 @@ def _creation_target_choices(trait, choice_map):
     return rows
 
 
-def _posted_creation_target_choices(post, prefix, trait):
+def _posted_creation_target_choices(post, prefix, trait, instance_key=None):
     choices = {}
     for definition in trait.choice_definitions.filter(is_active=True):
         if not definition.uses_target_options:
             continue
-        field = f"{prefix}_choice_{trait.slug}_{definition.pk}"
+        field = f"{prefix}_choice_{instance_key or trait.slug}_{definition.pk}"
         values = [
             str(post.get(f"{field}_slot_{index}", "")).strip()
             for index in range(definition.max_choices)
@@ -4767,50 +4781,58 @@ def create_character(request):
             trait_choices: dict[str, dict[str, list[str]]] = {}
             trait_specifications: dict[str, dict[str, object]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
-                raw_level = request.POST.get(f"dis_{trait.slug}", "")
-                level = int(raw_level or 0)
-                if level > 0 or (raw_level == "0" and trait.min_level == 0):
-                    disadvantages[trait.slug] = level
-                    option_id = _parse_positive_int(
-                        request.POST.get(f"dis_spec_option_{trait.slug}", "0")
-                    )
-                    text = " ".join(
-                        str(
-                            request.POST.get(f"dis_spec_text_{trait.slug}", "")
-                            or ""
-                        ).split()
-                    )
-                    if option_id or text:
-                        trait_specifications[trait.slug] = {
-                            "option_id": option_id,
-                            "text": text,
-                        }
-                    choice_payload: dict[str, list[str]] = {}
-                    for definition in trait.choice_definitions.filter(
-                        target_kind__in=["attribute", "entity"],
-                    ).order_by("sort_order", "id"):
-                        field_name = (
-                            f"dis_choice_{trait.slug}_{definition.id}"
-                        )
-                        selected = str(
-                            request.POST.get(field_name) or ""
-                        ).strip()
-                        if definition.target_kind == "entity":
-                            selected = definition.serialize_entity_selection(
-                                selected,
-                                request.POST.get(
-                                    f"{field_name}_specification", "",
-                                ),
+                posted_keys = [str(key).removeprefix("dis_")
+                               for key in request.POST
+                               if str(key).startswith("dis_")]
+                for instance_key in _creation_trait_keys(trait, posted_keys):
+                    raw_level = request.POST.get(f"dis_{instance_key}", "")
+                    level = int(raw_level or 0)
+                    if level > 0 or (raw_level == "0" and trait.min_level == 0):
+                        disadvantages[instance_key] = level
+                        option_id = _parse_positive_int(
+                            request.POST.get(
+                                f"dis_spec_option_{instance_key}", "0",
                             )
-                        if selected:
-                            choice_payload[str(definition.id)] = [selected]
-                    choice_payload.update(
-                        _posted_creation_target_choices(
-                            request.POST, "dis", trait,
                         )
-                    )
-                    if choice_payload:
-                        trait_choices[trait.slug] = choice_payload
+                        text = " ".join(
+                            str(
+                                request.POST.get(
+                                    f"dis_spec_text_{instance_key}", "",
+                                )
+                                or ""
+                            ).split()
+                        )
+                        if option_id or text:
+                            trait_specifications[instance_key] = {
+                                "option_id": option_id,
+                                "text": text,
+                            }
+                        choice_payload: dict[str, list[str]] = {}
+                        for definition in trait.choice_definitions.filter(
+                            target_kind__in=["attribute", "entity"],
+                        ).order_by("sort_order", "id"):
+                            field_name = (
+                                f"dis_choice_{instance_key}_{definition.id}"
+                            )
+                            selected = str(
+                                request.POST.get(field_name) or ""
+                            ).strip()
+                            if definition.target_kind == "entity":
+                                selected = definition.serialize_entity_selection(
+                                    selected,
+                                    request.POST.get(
+                                        f"{field_name}_specification", "",
+                                    ),
+                                )
+                            if selected:
+                                choice_payload[str(definition.id)] = [selected]
+                        choice_payload.update(
+                            _posted_creation_target_choices(
+                                request.POST, "dis", trait, instance_key,
+                            )
+                        )
+                        if choice_payload:
+                            trait_choices[instance_key] = choice_payload
             state["phase_3"] = {
                 "disadvantages": disadvantages,
                 "trait_choices": trait_choices,
@@ -4821,54 +4843,65 @@ def create_character(request):
             trait_choices: dict[str, dict[str, list[str]]] = {}
             trait_specifications: dict[str, dict[str, object]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
-                raw_level = request.POST.get(f"adv_{trait.slug}", "")
-                level = int(raw_level or 0)
-                if level > 0 or (raw_level == "0" and trait.min_level == 0):
-                    advantages[trait.slug] = level
-                    option_id = _parse_positive_int(
-                        request.POST.get(f"adv_spec_option_{trait.slug}", "0")
-                    )
-                    text = " ".join(
-                        str(
-                            request.POST.get(f"adv_spec_text_{trait.slug}", "")
-                            or ""
-                        ).split()
-                    )
-                    if option_id or text:
-                        trait_specifications[trait.slug] = {
-                            "option_id": option_id,
-                            "text": text,
-                        }
-                    choice_payload: dict[str, list[str]] = {}
-                    for definition in trait.choice_definitions.filter(
-                        target_kind__in=["attribute", "entity"],
-                    ).order_by("sort_order", "id"):
-                        field_name = (
-                            f"adv_choice_{trait.slug}_{definition.id}"
-                        )
-                        selected = str(
-                            request.POST.get(field_name) or ""
-                        ).strip()
-                        if definition.target_kind == "entity":
-                            selected = definition.serialize_entity_selection(
-                                selected,
-                                request.POST.get(
-                                    f"{field_name}_specification", "",
-                                ),
+                posted_keys = [str(key).removeprefix("adv_")
+                               for key in request.POST
+                               if str(key).startswith("adv_")]
+                for instance_key in _creation_trait_keys(trait, posted_keys):
+                    raw_level = request.POST.get(f"adv_{instance_key}", "")
+                    level = int(raw_level or 0)
+                    if level > 0 or (raw_level == "0" and trait.min_level == 0):
+                        advantages[instance_key] = level
+                        option_id = _parse_positive_int(
+                            request.POST.get(
+                                f"adv_spec_option_{instance_key}", "0",
                             )
-                        if selected:
-                            choice_payload[str(definition.id)] = [selected]
-                    for definition in trait.choice_definitions.filter(target_kind="resource").order_by("sort_order", "id"):
-                        selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
-                        if selected:
-                            choice_payload[str(definition.id)] = [selected]
-                    choice_payload.update(
-                        _posted_creation_target_choices(
-                            request.POST, "adv", trait,
                         )
-                    )
-                    if choice_payload:
-                        trait_choices[trait.slug] = choice_payload
+                        text = " ".join(
+                            str(
+                                request.POST.get(
+                                    f"adv_spec_text_{instance_key}", "",
+                                )
+                                or ""
+                            ).split()
+                        )
+                        if option_id or text:
+                            trait_specifications[instance_key] = {
+                                "option_id": option_id,
+                                "text": text,
+                            }
+                        choice_payload: dict[str, list[str]] = {}
+                        for definition in trait.choice_definitions.filter(
+                            target_kind__in=["attribute", "entity"],
+                        ).order_by("sort_order", "id"):
+                            field_name = (
+                                f"adv_choice_{instance_key}_{definition.id}"
+                            )
+                            selected = str(
+                                request.POST.get(field_name) or ""
+                            ).strip()
+                            if definition.target_kind == "entity":
+                                selected = definition.serialize_entity_selection(
+                                    selected,
+                                    request.POST.get(
+                                        f"{field_name}_specification", "",
+                                    ),
+                                )
+                            if selected:
+                                choice_payload[str(definition.id)] = [selected]
+                        for definition in trait.choice_definitions.filter(target_kind="resource").order_by("sort_order", "id"):
+                            selected = str(request.POST.get(
+                                f"adv_choice_{instance_key}_{definition.id}",
+                                "",
+                            ) or "").strip()
+                            if selected:
+                                choice_payload[str(definition.id)] = [selected]
+                        choice_payload.update(
+                            _posted_creation_target_choices(
+                                request.POST, "adv", trait, instance_key,
+                            )
+                        )
+                        if choice_payload:
+                            trait_choices[instance_key] = choice_payload
 
             attribute_adds: dict[str, int] = {}
             for short_name, _label in ATTRIBUTE_ORDER:
@@ -5218,61 +5251,69 @@ def create_character(request):
         "specification_options", "allowed_races",
     ).order_by("name")
     for trait in disadvantage_traits:
-        if not trait.is_available_for_race(engine.race.pk):
-            continue
-        description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
-        specification_options = sorted(
-            trait.specification_options.all(),
-            key=lambda option: (option.sort_order, option.name, option.id),
-        )
-        attribute_choice_definitions = [
-            {
-                "id": definition.id,
-                "name": definition.name,
-                "selected": ((phase_3_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
-                "options": [
-                    {"value": short_name, "label": label}
-                    for short_name, label in ATTRIBUTE_ORDER
-                    if is_allowed_trait_attribute_choice(trait.slug, short_name)
-                ],
-            }
-            for definition in trait.choice_definitions.filter(
-                target_kind="attribute", additional_target_kinds=[],
-            ).order_by("sort_order", "id")
-            if not definition.uses_target_options
-        ]
-        attribute_choice_definitions.extend(
-            _creation_entity_choices(trait, phase_3_trait_choices)
-        )
-        attribute_choice_definitions.extend(
-            _creation_target_choices(trait, phase_3_trait_choices)
-        )
-        phase_3_rows.append(
-            {
-                "slug": trait.slug,
-                "name": trait.name,
-                "min_level": trait.min_level,
-                "max_level": trait.effective_max_level,
-                "points_per_level": trait.points_per_level,
-                "points_display": trait.cost_display(),
-                "points_by_level": list(trait.progression_cost_curve()),
-                "description": description,
-                "value": phase_3_values.get(
-                    trait.slug, "" if trait.min_level == 0 else 0,
-                ),
-                "attribute_choice_definitions": attribute_choice_definitions,
-                "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
-                "has_specification": trait.has_specification,
-                "specification_options": specification_options,
-                "specification_options_json": json.dumps(
-                    [
-                        {"id": option.id, "name": option.name}
-                        for option in specification_options
-                    ]
-                ),
-                "specification": phase_3_trait_specs.get(trait.slug, {}),
-            }
-        )
+        for instance_key in _creation_trait_keys(trait, phase_3_values):
+            if not trait.is_available_for_race(engine.race.pk):
+                continue
+            description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+            specification_options = sorted(
+                trait.specification_options.all(),
+                key=lambda option: (option.sort_order, option.name, option.id),
+            )
+            attribute_choice_definitions = [
+                {
+                    "id": definition.id,
+                    "name": definition.name,
+                    "selected": (phase_3_trait_choices.get(
+                        instance_key, {}).get(definition.id) or [""])[0],
+                    "options": [
+                        {"value": short_name, "label": label}
+                        for short_name, label in ATTRIBUTE_ORDER
+                        if is_allowed_trait_attribute_choice(trait.slug, short_name)
+                    ],
+                }
+                for definition in trait.choice_definitions.filter(
+                    target_kind="attribute", additional_target_kinds=[],
+                ).order_by("sort_order", "id")
+                if not definition.uses_target_options
+            ]
+            attribute_choice_definitions.extend(
+                _creation_entity_choices(
+                    trait, phase_3_trait_choices, instance_key,
+                )
+            )
+            attribute_choice_definitions.extend(
+                _creation_target_choices(
+                    trait, phase_3_trait_choices, instance_key,
+                )
+            )
+            phase_3_rows.append(
+                {
+                    "slug": instance_key,
+                    "definition_slug": trait.slug,
+                    "repeatable": trait.repeatable,
+                    "name": trait.name,
+                    "min_level": trait.min_level,
+                    "max_level": trait.effective_max_level,
+                    "points_per_level": trait.points_per_level,
+                    "points_display": trait.cost_display(),
+                    "points_by_level": list(trait.progression_cost_curve()),
+                    "description": description,
+                    "value": phase_3_values.get(
+                        instance_key, "" if trait.min_level == 0 else 0,
+                    ),
+                    "attribute_choice_definitions": attribute_choice_definitions,
+                    "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
+                    "has_specification": trait.has_specification,
+                    "specification_options": specification_options,
+                    "specification_options_json": json.dumps(
+                        [
+                            {"id": option.id, "name": option.name}
+                            for option in specification_options
+                        ]
+                    ),
+                    "specification": phase_3_trait_specs.get(instance_key, {}),
+                }
+            )
 
     phase_4_values = engine.phase_4_advantages()
     phase_4_trait_choices = engine.phase_4_trait_choices()
@@ -5299,90 +5340,101 @@ def create_character(request):
         "specification_options", "allowed_races",
     ).order_by("name")
     for trait in advantage_traits:
-        if not trait.is_available_for_race(engine.race.pk):
-            continue
-        description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
-        selected_level = phase_4_values.get(
-            trait.slug, "" if trait.min_level == 0 else 0,
-        )
-        specification_options = sorted(
-            trait.specification_options.all(),
-            key=lambda option: (option.sort_order, option.name, option.id),
-        )
-        attribute_choice_definitions = [
-            {
-                "id": definition.id,
-                "name": definition.name,
-                "selected": ((phase_4_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
-                "options": [
-                    {"value": short_name, "label": label}
-                    for short_name, label in ATTRIBUTE_ORDER
-                    if is_allowed_trait_attribute_choice(trait.slug, short_name)
-                ],
-            }
-            for definition in trait.choice_definitions.filter(
-                target_kind="attribute", additional_target_kinds=[],
-            ).order_by("sort_order", "id")
-            if not definition.uses_target_options
-        ]
-        attribute_choice_definitions.extend(
-            _creation_entity_choices(trait, phase_4_trait_choices)
-        )
-        attribute_choice_definitions.extend(
-            _creation_target_choices(trait, phase_4_trait_choices)
-        )
-        resource_choice_definitions = [
-            {
-                "id": definition.id,
-                "name": definition.name,
-                "selected": ((phase_4_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
-                "options": (
-                    [
-                        {
-                            "value": definition.allowed_resource,
-                            "label": dict(RESOURCE_KEY_CHOICES).get(definition.allowed_resource, definition.allowed_resource),
-                        }
-                    ]
-                    if definition.allowed_resource
-                    else [{"value": value, "label": label} for value, label in RESOURCE_KEY_CHOICES]
-                ),
-            }
-            for definition in trait.choice_definitions.filter(
-                target_kind="resource", additional_target_kinds=[],
-            ).order_by("sort_order", "id")
-            if not definition.uses_target_options
-        ]
-        phase_4_adv_rows.append(
-            {
-                "slug": trait.slug,
-                "name": trait.name,
-                "min_level": trait.min_level,
-                "max_level": trait.effective_max_level,
-                "points_per_level": trait.points_per_level,
-                "points_display": trait.cost_display(),
-                "points_by_level": list(trait.progression_cost_curve()),
-                "attribute_choice_definitions": attribute_choice_definitions,
-                "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
-                "resource_choice_definitions": resource_choice_definitions,
-                "resource_choice_definitions_json": json.dumps(resource_choice_definitions),
-                "has_specification": trait.has_specification,
-                "specification_options": specification_options,
-                "specification_options_json": json.dumps(
-                    [
-                        {"id": option.id, "name": option.name}
-                        for option in specification_options
-                    ]
-                ),
-                "specification": phase_4_trait_specs.get(trait.slug, {}),
-                "description": description,
-                "value": selected_level,
-                "effective_value": (
-                    engine.calc_advantage_cost(trait.slug, selected_level)
-                    if selected_level != ""
-                    else 0
-                ),
-            }
-        )
+        for instance_key in _creation_trait_keys(trait, phase_4_values):
+            if not trait.is_available_for_race(engine.race.pk):
+                continue
+            description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+            selected_level = phase_4_values.get(
+                instance_key, "" if trait.min_level == 0 else 0,
+            )
+            specification_options = sorted(
+                trait.specification_options.all(),
+                key=lambda option: (option.sort_order, option.name, option.id),
+            )
+            attribute_choice_definitions = [
+                {
+                    "id": definition.id,
+                    "name": definition.name,
+                    "selected": (phase_4_trait_choices.get(
+                        instance_key, {}).get(definition.id) or [""])[0],
+                    "options": [
+                        {"value": short_name, "label": label}
+                        for short_name, label in ATTRIBUTE_ORDER
+                        if is_allowed_trait_attribute_choice(trait.slug, short_name)
+                    ],
+                }
+                for definition in trait.choice_definitions.filter(
+                    target_kind="attribute", additional_target_kinds=[],
+                ).order_by("sort_order", "id")
+                if not definition.uses_target_options
+            ]
+            attribute_choice_definitions.extend(
+                _creation_entity_choices(
+                    trait, phase_4_trait_choices, instance_key,
+                )
+            )
+            attribute_choice_definitions.extend(
+                _creation_target_choices(
+                    trait, phase_4_trait_choices, instance_key,
+                )
+            )
+            resource_choice_definitions = [
+                {
+                    "id": definition.id,
+                    "name": definition.name,
+                    "selected": (phase_4_trait_choices.get(
+                        instance_key, {}).get(definition.id) or [""])[0],
+                    "options": (
+                        [
+                            {
+                                "value": definition.allowed_resource,
+                                "label": dict(RESOURCE_KEY_CHOICES).get(definition.allowed_resource, definition.allowed_resource),
+                            }
+                        ]
+                        if definition.allowed_resource
+                        else [{"value": value, "label": label} for value, label in RESOURCE_KEY_CHOICES]
+                    ),
+                }
+                for definition in trait.choice_definitions.filter(
+                    target_kind="resource", additional_target_kinds=[],
+                ).order_by("sort_order", "id")
+                if not definition.uses_target_options
+            ]
+            phase_4_adv_rows.append(
+                {
+                    "slug": instance_key,
+                    "definition_slug": trait.slug,
+                    "repeatable": trait.repeatable,
+                    "name": trait.name,
+                    "min_level": trait.min_level,
+                    "max_level": trait.effective_max_level,
+                    "points_per_level": trait.points_per_level,
+                    "points_display": trait.cost_display(),
+                    "points_by_level": list(trait.progression_cost_curve()),
+                    "attribute_choice_definitions": attribute_choice_definitions,
+                    "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
+                    "resource_choice_definitions": resource_choice_definitions,
+                    "resource_choice_definitions_json": json.dumps(resource_choice_definitions),
+                    "has_specification": trait.has_specification,
+                    "specification_options": specification_options,
+                    "specification_options_json": json.dumps(
+                        [
+                            {"id": option.id, "name": option.name}
+                            for option in specification_options
+                        ]
+                    ),
+                    "specification": phase_4_trait_specs.get(instance_key, {}),
+                    "description": description,
+                    "value": selected_level,
+                    "effective_value": (
+                        engine.calc_advantage_cost(
+                            instance_key, selected_level,
+                        )
+                        if selected_level != ""
+                        else 0
+                    ),
+                }
+            )
 
     phase_4_attr_rows = []
     for short_name, label in ATTRIBUTE_ORDER:

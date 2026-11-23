@@ -1192,6 +1192,8 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             stored_choices = engine._trait_choices_by_definition_id.get(
                 definition.id, [],
             )
+            stored_choices = [choice for choice in stored_choices
+                              if choice.character_trait_id == trait_entry.pk]
             if definition.uses_nobility_ranks:
                 stored_choices = [
                     choice for choice in stored_choices
@@ -1226,9 +1228,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         choice.selected_content_type_id,
                         choice.selected_object_id,
                     )
-                    for choice in engine._trait_choices_by_definition_id.get(
-                        definition.id, []
-                    )
+                    for choice in stored_choices
                 }
                 if definition.uses_nobility_ranks:
                     options = definition.entity_choice_options()
@@ -1274,6 +1274,7 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     {
                         "choice_scope": "trait",
                         "trait_id": trait.id,
+                        "character_trait_id": trait_entry.pk,
                         "trait_name": trait.name,
                         "trait_slug": trait.slug,
                         "definition_id": definition.id,
@@ -1284,12 +1285,15 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         "description": definition.description or "",
                         "field_name": (
                             trait_choice_field_name(
-                                "combined", trait.id, definition.id,
+                                "combined", trait_entry.pk if trait.repeatable
+                                else trait.id, definition.id,
                             )
                             + f"_slot_{missing_index}"
                             if definition.uses_target_options else
                             trait_choice_field_name(
-                                definition.target_kind, trait.id,
+                                definition.target_kind,
+                                (trait_entry.pk if trait.repeatable
+                                 else trait.id),
                                 definition.id,
                             )
                         ),
@@ -1367,9 +1371,13 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
             decision_prefix = "trait-choice"
             decision_kind = "trait_choice"
             decision_title = row["trait_name"]
-            selection_group_id = f"trait-choice:{row['trait_id']}:{row['definition_id']}"
+            selection_group_id = (
+                f"trait-choice:{row['character_trait_id']}:"
+                f"{row['definition_id']}"
+            )
             decision_key = (
-                f"{row['trait_id']}-{row['definition_id']}-{row['slot_index']}"
+                f"{row['character_trait_id']}-"
+                f"{row['definition_id']}-{row['slot_index']}"
             )
         else:
             decision_prefix = "technique-choice"

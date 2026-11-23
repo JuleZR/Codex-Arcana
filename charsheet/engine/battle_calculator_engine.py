@@ -127,6 +127,20 @@ class BattleCalculatorEngine:
                 if race is not None:
                     return race.name
         if source_type_text == "trait":
+            if ":instance:" in source_id_text:
+                instance_id = source_id_text.rsplit(":instance:", 1)[1]
+                if instance_id.isdigit():
+                    entry = engine.character.charactertrait_set.filter(
+                        pk=int(instance_id),
+                    ).select_related("trait").first()
+                    if entry is not None:
+                        labels = [choice.selected_target_display()
+                                  for choice in entry.choices.all()]
+                        if entry.specification:
+                            labels.append(entry.specification)
+                        detail = ", ".join(labels)
+                        suffix = f" ({detail})" if detail else ""
+                        return f"{entry.trait.name}{suffix} #{entry.pk}"
             if source_id_text.isdigit():
                 trait = Trait.objects.filter(pk=int(source_id_text)).only("name").first()
                 if trait is not None:

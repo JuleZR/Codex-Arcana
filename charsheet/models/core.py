@@ -381,6 +381,13 @@ class Trait(models.Model):
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField()
     has_specification = models.BooleanField(default=False)
+    repeatable = models.BooleanField("Mehrfach erwerbbar", default=False)
+    allow_repeated_choice_targets = models.BooleanField(
+        "Auswahlziele mehrfach wählbar", default=True,
+        help_text=(
+            "Dasselbe Ziel in mehreren Instanzen dieses Traits erlauben."
+        ),
+    )
     allowed_races = models.ManyToManyField(
         Race,
         blank=True,

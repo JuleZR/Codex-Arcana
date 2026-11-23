@@ -23,6 +23,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from .substances import SubstanceStatsForm
+from .choice_admin_widgets import TargetLevelField
 from .attribute_flavor_admin import (
     AttributeRatingInline,
     RaceAttributeFlavorInline,
@@ -2625,6 +2626,9 @@ class SemanticRoundingAdminMixin:
 class CalculationContributionAdminForm(forms.ModelForm):
     """Store component selectors in existing semantic-effect metadata."""
 
+    class Media:
+        js = ("charsheet/js/semantic_effect_contributions.js",)
+
     calculation_contributions = forms.MultipleChoiceField(
         label="Betroffene Beiträge", choices=ATTRIBUTE_CODE_CHOICES,
         required=False, widget=forms.CheckboxSelectMultiple,
@@ -3417,6 +3421,9 @@ class TraitExcludedByInline(admin.TabularInline):
 class SemanticTargetChoiceAdminMixin:
     """Apply the shared target order to related rule-object selectors."""
 
+    class Media:
+        js = ("charsheet/js/choice_definition_admin.js",)
+
     def formfield_for_choice_field(self, db_field, request, **kwargs):
         field = super().formfield_for_choice_field(db_field, request, **kwargs)
         if db_field.name == "target_kind":
@@ -3429,7 +3436,7 @@ class SemanticTargetChoiceAdminMixin:
 
 
 class TechniqueChoiceDefinitionInline(
-    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+    SemanticTargetChoiceAdminMixin, admin.StackedInline,
 ):
     """Inline editor for persistent technique choice definitions."""
 
@@ -3451,7 +3458,7 @@ class TechniqueChoiceDefinitionInline(
 
 
 class RaceChoiceDefinitionInline(
-    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+    SemanticTargetChoiceAdminMixin, admin.StackedInline,
 ):
     """Inline editor for persistent race choice definitions."""
 
@@ -3475,6 +3482,10 @@ class RaceChoiceDefinitionInline(
 
 
 class TraitChoiceDefinitionAdminForm(forms.ModelForm):
+    max_levels_by_target = TargetLevelField(
+        label="Stufenbegrenzungen nach Auswahlziel", required=False,
+        help_text="Optional: Auswahlziel und maximale Stufe festlegen.",
+    )
     additional_target_kinds = forms.MultipleChoiceField(
         label="Weitere Zieltypen", required=False,
         choices=[
@@ -3490,6 +3501,46 @@ class TraitChoiceDefinitionAdminForm(forms.ModelForm):
     class Meta:
         model = TraitChoiceDefinition
         fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        field = self.fields.get("max_levels_by_target")
+        if field:
+            field.widget.choices = self.level_target_choices
+
+    def level_target_choices(self):
+        for kind, label in TraitChoiceDefinition.TargetKind.choices:
+            if kind in {"text", "entity"}:
+                continue
+            field = CharacterTraitChoice._meta.get_field(f"selected_{kind}")
+            if field.is_relation:
+                attribute_name = {
+                    "attribute": "short_name", "skill": "slug",
+                    "skill_category": "slug", "language": "slug",
+                }.get(kind, "pk")
+                values = field.related_model.objects.order_by("name")
+                values = [
+                    (str(getattr(obj, attribute_name)), str(obj))
+                    for obj in values
+                ]
+            else:
+                values = (
+                    Item.type_choices() if kind == "item_category"
+                    else field.choices
+                )
+            for key, name in values:
+                if key:
+                    yield f"{kind}:{key}", f"{label}: {name}"
+
+    def clean_max_levels_by_target(self):
+        limits = self.cleaned_data["max_levels_by_target"]
+        if not limits:
+            return limits
+        known = dict(self.level_target_choices())
+        existing = self.instance.max_levels_by_target or {}
+        if any(key not in known and key not in existing for key in limits):
+            raise ValidationError("Ein gültiges Auswahlziel auswählen.")
+        return limits
 
     def clean(self):
         cleaned = super().clean()
@@ -3513,7 +3564,7 @@ class TraitChoiceDefinitionAdminForm(forms.ModelForm):
 
 
 class TraitChoiceDefinitionInline(
-    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+    SemanticTargetChoiceAdminMixin, admin.StackedInline,
 ):
     """Inline editor for persistent trait choice definitions."""
 
@@ -3528,6 +3579,7 @@ class TraitChoiceDefinitionInline(
         "name",
         "target_kind",
         "additional_target_kinds",
+        "max_levels_by_target",
         "min_choices",
         "max_choices",
         "is_required",
@@ -7564,6 +7616,7 @@ class TraitChoiceDefinitionAdmin(
                     "name",
                     "target_kind",
                     "additional_target_kinds",
+                    "max_levels_by_target",
                     "description",
                     ("min_choices", "max_choices", "is_required"),
                     ("allowed_attribute", "allowed_skill_category", "allowed_skill_family"),
@@ -8799,6 +8852,8 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
                     "has_specification",
+                    "repeatable",
+                    "allow_repeated_choice_targets",
                     "allowed_races",
                     "name_display_mode",
                     "points_by_level",
@@ -10007,7 +10062,7 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
 
 
 class CreatureTraitChoiceDefinitionInline(
-    SemanticTargetChoiceAdminMixin, admin.TabularInline,
+    SemanticTargetChoiceAdminMixin, admin.StackedInline,
 ):
     model = CreatureTraitChoiceDefinition
     form = CreatureTraitChoiceDefinitionAdminForm

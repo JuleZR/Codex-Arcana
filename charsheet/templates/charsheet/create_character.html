@@ -163,7 +163,7 @@
                 {% if draft_phase > 3 %}
                   <section class="traits_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="traits" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
                     <div class="creation_section_heading"><h2>Vorzüge &amp; Schwächen</h2><span>Ausgefüllt</span></div>
-                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}">{% include "charsheet/partials/_creation_info_button.html" with category="Vorzug" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank" data-phase4-effective-label>({{ row.effective_value }})</span></span><input class="creation_sheet_value_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value != "" and row.value >= row.min_level %}<span class="trait_line">{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank">({{ row.value }})</span></span></span>{% endif %}{% endfor %}</div></div>
+                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}">{% if row.repeatable %}<button type="button" data-repeat-adv aria-label="Weitere Instanz von {{ row.name }}">+</button><button type="button" data-remove-adv aria-label="Instanz entfernen">?</button>{% endif %}{% include "charsheet/partials/_creation_info_button.html" with category="Vorzug" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank" data-phase4-effective-label>({{ row.effective_value }})</span></span><input class="creation_sheet_value_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value != "" and row.value >= row.min_level %}<span class="trait_line">{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %}<span class="trait_line_text creation_trait_label"><span class="creation_trait_name">{{ row.name }}</span><span class="creation_trait_rank">({{ row.value }})</span></span></span>{% endif %}{% endfor %}</div></div>
                   </section>
                 {% endif %}
 
@@ -482,7 +482,7 @@
                         <tbody id="phase3DisCartBody">
                           {% for row in phase_3_rows %}
                             <tr data-phase3-dis-cart-item data-phase3-sheet-row data-min="{{ row.min_level }}" data-phase3-search="{{ row.name|lower }} schwäche" data-slug="{{ row.slug }}" data-max="{{ row.max_level|default_if_none:'' }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
-                              <td>{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %} <span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
+                              <td>{% if row.repeatable %}<button type="button" data-repeat-dis aria-label="Weitere Instanz von {{ row.name }}">+</button><button type="button" data-phase3-dis-remove aria-label="Instanz entfernen">?</button>{% endif %}{% include "charsheet/partials/_creation_info_button.html" with category="Schwäche" %} <span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
                               <td>
                                 <input class="creation_sheet_value_input" type="number" min="0" {% if row.max_level != None %}max="{{ row.max_level }}"{% endif %} value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>
                                 {% for choice in row.attribute_choice_definitions %}<label class="creation_sheet_choice"><span>{{ choice.name }}</span><select name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% if choice.organization_choice %}<label class="phase4_choice_block" data-organization-custom-wrap hidden><span>Name der Organisation</span><input class="dashboard_input" maxlength="200" name="dis_choice_{{ row.slug }}_{{ choice.id }}_specification" value="{{ choice.custom_name }}" data-organization-custom-name disabled></label>{% endif %}{% endfor %}
@@ -1851,6 +1851,24 @@
           };
 
           const bindDisRow = function (row) {
+            const repeat = row.querySelector("[data-repeat-dis]");
+            if (repeat) {
+              repeat.addEventListener("click", function () {
+                const clone = row.cloneNode(true);
+                const oldKey = row.dataset.slug;
+                const newKey = `${oldKey.split(":instance:")[0]}:instance:${crypto.randomUUID()}`;
+                clone.dataset.slug = newKey;
+                clone.querySelectorAll("[name]").forEach(function (field) {
+                  field.name = field.name.replace(oldKey, newKey);
+                  field.value = "";
+                  field.disabled = false;
+                });
+                clone.querySelector("[data-phase3-dis-level]").value = String(Math.max(1, toInt(row.dataset.min, 1)));
+                row.after(clone);
+                bindDisRow(clone);
+                refreshPhase3Totals();
+              });
+            }
             const levelInput = row.querySelector("[data-phase3-dis-level]");
             const removeBtn = row.querySelector("[data-phase3-dis-remove]");
             if (levelInput) {
@@ -2912,6 +2930,43 @@
             }
             refreshPhase4DirectScope(scope);
           });
+
+          const bindRepeatAdvantage = function (host) {
+            const control = host.querySelector('[data-phase4-sheet-value][data-kind="adv"]');
+            const repeat = host.querySelector("[data-repeat-adv]");
+            if (!control || !repeat) return;
+            host.querySelector("[data-remove-adv]").addEventListener("click", function () {
+              const cart = findPhase4SheetCartRow("adv", control.dataset.key);
+              cart?.querySelector("[data-phase4-remove]")?.click();
+              host.querySelectorAll("[name]").forEach(field => field.remove());
+              host.remove();
+              refreshTotals();
+            });
+            repeat.addEventListener("click", function () {
+              const originalKey = control.dataset.key;
+              const originalSource = findPhase4SheetSource("adv", originalKey);
+              if (!originalSource) return;
+              const source = originalSource.cloneNode(true);
+              const slug = `${originalSource.dataset.slug.split(":instance:")[0]}:instance:${crypto.randomUUID()}`;
+              source.dataset.slug = slug;
+              source.dataset.key = `adv:${slug}`;
+              originalSource.after(source);
+              source.addEventListener("click", () => addFromSource(source));
+              const clone = host.cloneNode(true);
+              clone.querySelector(".creation_phase4_inline_choices")?.remove();
+              const input = clone.querySelector("[data-phase4-sheet-value]");
+              input.dataset.key = source.dataset.key;
+              input.value = String(Math.max(1, toInt(input.dataset.min, 1)));
+              host.after(clone);
+              input.addEventListener("input", () => syncPhase4SheetValue(input));
+              input.addEventListener("change", () => syncPhase4SheetValue(input));
+              bindRepeatAdvantage(clone);
+              syncPhase4SheetValue(input);
+              clone.querySelectorAll("select, input[name]").forEach(field => field.value = "");
+              refreshTotals();
+            });
+          };
+          document.querySelectorAll("[data-repeat-adv]").forEach(button => bindRepeatAdvantage(button.closest(".trait_line")));
 
           const syncPhase4SheetValue = function (control) {
             const kind = control.dataset.kind || "";

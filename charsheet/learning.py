@@ -23,6 +23,7 @@ from charsheet.advanced_weapon_mastery import (
 )
 from charsheet.learning_progression import build_learning_progression_context
 from charsheet.learning_progression import build_learning_magic_groups
+from charsheet.learning_progression import trait_choice_field_name
 from charsheet.learning_rules import (
     DEFAULT_SCHOOL_MAX_LEVEL,
     calc_attribute_total_cost,
@@ -449,7 +450,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         elif choice_scope == "trait":
             trait_row = CharacterTrait.objects.filter(
                 owner=character,
-                trait_id=row["trait_id"],
+                pk=row["character_trait_id"],
             ).first()
             if trait_row is None:
                 raise LearningSubmissionError(f"{choice_label}: Vorteil oder Schwaeche nicht gefunden.")
@@ -788,6 +789,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
 def _process_locked_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """All planning and validation reads run under the character row lock."""
+    post_data = post_data.copy()
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
     engine = character.get_engine(refresh=True)
@@ -816,9 +818,20 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
     }
     trait_defs = {trait.slug: trait for trait in Trait.objects.all()}
     trait_rows = {
-        row.trait.slug: row
+        (f"{row.trait.slug}:instance:{row.pk}"
+         if row.trait.repeatable else row.trait.slug): row
         for row in CharacterTrait.objects.filter(owner=character).select_related("trait")
     }
+    trait_defs.update({key: row.trait for key, row in trait_rows.items()})
+    for field in post_data:
+        if not str(field).startswith("learn_trait_add_"):
+            continue
+        key = str(field).removeprefix("learn_trait_add_")
+        if ":instance:new-" not in key:
+            continue
+        trait = trait_defs.get(key.split(":instance:", 1)[0])
+        if trait and trait.repeatable:
+            trait_defs[key] = trait
     school_defs = {str(school.id): school for school in School.objects.all()}
     school_rows = {
         str(row.school_id): row
@@ -1024,9 +1037,30 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         error = engine.validate_trait_target_level(
             trait, 0 if removing else target_level,
         )
+        existing_instance = trait_rows.get(slug)
+        if existing_instance and not removing:
+            maximum = existing_instance.effective_max_level
+            replacing_choices = any(
+                f"_trait_{existing_instance.pk}_" in str(field)
+                for field in post_data
+                if str(field).startswith("learn_choice_")
+            )
+            if (not replacing_choices and maximum is not None
+                    and target_level > maximum):
+                error = (
+                    f"{trait.name}: Stufenbegrenzung des Auswahlziels "
+                    "überschritten."
+                )
         if error:
             return "error", error
-        if add == 0 and (slug in trait_rows or trait.min_level != 0):
+        specification_edit = trait.repeatable and slug in trait_rows and any(
+            field in post_data for field in (
+                f"learn_trait_spec_option_{slug}",
+                f"learn_trait_spec_text_{slug}",
+            )
+        )
+        if (add == 0 and (slug in trait_rows or trait.min_level != 0)
+                and not specification_edit):
             continue
         option_id = _read_int(
             post_data, f"learn_trait_spec_option_{slug}", 0
@@ -1036,9 +1070,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         )
         organization_choices = trait.uses_organization_choices
         if (
-            (organization_choices or trait.choice_definitions.filter(
-                is_active=True, uses_nobility_ranks=True,
-            ).exists()) and slug in trait_rows
+            slug in trait_rows
             and f"learn_trait_spec_option_{slug}" not in post_data
             and f"learn_trait_spec_text_{slug}" not in post_data
         ):
@@ -1557,6 +1589,24 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
 
     try:
         with transaction.atomic():
+            edited_definitions = []
+            for entry in trait_rows.values():
+                if not entry.trait.repeatable:
+                    continue
+                for definition in entry.trait.choice_definitions.filter(
+                    is_active=True,
+                ):
+                    kind = ("combined" if definition.uses_target_options
+                            else definition.target_kind)
+                    field = trait_choice_field_name(
+                        kind, entry.pk, definition.pk,
+                    )
+                    if field and any(
+                        name == field or name.startswith(field + "_")
+                        for name in post_data
+                    ):
+                        entry.choices.filter(definition=definition).delete()
+                        edited_definitions.append((entry, definition))
             for short_name, add in attr_plan.items():
                 attr_row = attribute_rows.get(short_name)
                 if attr_row is None:
@@ -1581,6 +1631,28 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                         specification=specification,
                     )
                     trait_rows[slug] = trait_row
+                    if trait.repeatable:
+                        for definition in trait.choice_definitions.all():
+                            kind = (
+                                "combined" if definition.uses_target_options
+                                else definition.target_kind
+                            )
+                            old = trait_choice_field_name(
+                                kind, slug.split(":instance:", 1)[1]
+                                if ":instance:new-" in slug else trait.pk,
+                                definition.pk,
+                            )
+                            new = trait_choice_field_name(
+                                kind, trait_row.pk, definition.pk,
+                            )
+                            for field in list(post_data):
+                                if (field == old
+                                        or field.startswith(old + "_")):
+                                    post_data[new + field[len(old):]] = (
+                                        post_data.pop(field)[0]
+                                        if hasattr(post_data, "getlist")
+                                        else post_data.pop(field)
+                                    )
                     if slug == VAMPIRE_ANCHOR_TRAIT_SLUG:
                         character.__dict__.pop("_is_vampire_cache", None)
                         character.vampire_baptism_confirmed = False
@@ -2022,6 +2094,14 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             progression_summary = _apply_progression_choices(
                 character, post_data, magic_engine=magic_engine,
             )
+            for entry, definition in edited_definitions:
+                if not CharacterTrait.objects.filter(pk=entry.pk).exists():
+                    continue
+                count = entry.choices.filter(definition=definition).count()
+                if definition.is_required and count < definition.min_choices:
+                    raise LearningSubmissionError(
+                        f"{entry.trait.name}: Erforderliche Auswahl fehlt.",
+                    )
             for field_name in post_data:
                 prefixes = {
                     "learn_organization_rank_": "selected_organization_rank",

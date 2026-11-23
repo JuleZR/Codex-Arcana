@@ -868,7 +868,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         entityChoices = [];
       }
       const entityInputs = entityChoices.map((choice) => {
-        if (choice.selected_label || ownedZero) {
+        if ((choice.selected_label || ownedZero) && !choice.editable) {
           const rankData = choice.organization_ranks?.length
             ? ` data-organization-name="${escapeHtml(choice.organization_name)}" data-organization-ranks="${escapeHtml(JSON.stringify(choice.organization_ranks))}"` : "";
           const rankInput = rankData && choice.rank_field_name
@@ -876,13 +876,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           return `<label class="learn_trait_spec_control"><span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span><span class="learn_trait_spec_field"${rankData}>${escapeHtml(choice.selected_label || "Auswahl noch offen")}</span>${rankInput}</label>`;
         }
         const options = ['<option value="">Bitte wählen</option>'].concat(
-          choice.options.map((option) => `<option value="${escapeHtml(option.value)}" data-requires-specification="${option.requires_specification ? "1" : "0"}">${escapeHtml(option.label)}${option.meta ? ` – ${escapeHtml(option.meta)}` : ""}</option>`),
+          choice.options.map((option) => `<option value="${escapeHtml(option.value)}"${String(option.value) === String(choice.selected_value) ? " selected" : ""} data-requires-specification="${option.requires_specification ? "1" : "0"}">${escapeHtml(option.label)}${option.meta ? ` – ${escapeHtml(option.meta)}` : ""}</option>`),
         ).join("");
         return `<label class="learn_trait_spec_control">
           <span class="learn_trait_spec_label">${escapeHtml(choice.name)}</span>
           <span class="learn_trait_spec_field">
             <select class="learn_trait_spec_select" name="${escapeHtml(choice.field_name)}" data-learn-entity-choice data-choice-required="${choice.required ? "1" : "0"}">${options}</select>
-            <span data-learn-entity-name-wrap hidden><input class="learn_trait_spec_input" name="${escapeHtml(choice.field_name)}_specification" maxlength="200" placeholder="Name der Organisation" aria-label="Name der Organisation" data-learn-entity-name disabled></span>
+            <span data-learn-entity-name-wrap hidden><input class="learn_trait_spec_input" name="${escapeHtml(choice.field_name)}_specification" value="${escapeHtml(choice.custom_name || "")}" maxlength="200" placeholder="Name der Organisation" aria-label="Name der Organisation" data-learn-entity-name disabled></span>
           </span>
         </label>`;
       }).join("");
@@ -1225,6 +1225,19 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (source.dataset.careerAvailable === "0") {
       return;
     }
+    const originalSource = source;
+    if (source.dataset.kind === "trait" && source.dataset.repeatable === "1"
+        && source.dataset.owned !== "1") {
+      source = source.cloneNode(true);
+      const instance = `new-${crypto.randomUUID()}`;
+      source.dataset.slug += `:instance:${instance}`;
+      source.dataset.key = `trait:${source.dataset.slug}`;
+      const choices = JSON.parse(source.dataset.entityChoices || "[]");
+      choices.forEach(choice => {
+        choice.field_name = choice.field_name.replace(/_trait_\d+_/, `_trait_${instance}_`);
+      });
+      source.dataset.entityChoices = JSON.stringify(choices);
+    }
     const key = source.getAttribute("data-key") || "";
     const kind = source.getAttribute("data-kind") || "";
     if (!key && kind !== "skill-new-spec") {
@@ -1252,7 +1265,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       return;
     }
     cartBody.appendChild(row);
-    row.learningSource = source;
+    row.learningSource = originalSource;
     bindRow(row);
     ensureEmptyRow();
     refreshTotals();
