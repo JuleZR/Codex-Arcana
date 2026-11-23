@@ -278,6 +278,12 @@ class ModifierEngine:
                 f'{metadata.get("semantic_effect_key", "trait")}'
                 f":instance:{entry.pk}"
             )
+            specification = " ".join(str(entry.specification or "").split())
+            if entry.trait.has_specification and specification:
+                condition_text = str(metadata.get("condition_text") or "")
+                metadata["condition_text"] = condition_text.replace(
+                    "@", specification,
+                )
             yield replace(
                 effect, metadata=metadata,
                 scaling={**effect.scaling, "_effective_trait_level": level},
