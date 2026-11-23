@@ -135,6 +135,7 @@ class ModifierEngine:
         )
         self._comparison_log: list[NumericResolutionComparison] = []
         self._active_modifiers_cache: list[BaseModifier] | None = None
+        self._effective_trait_modifiers_cache: list[BaseModifier] | None = None
 
     @cached_property
     def _active_race_semantic_modifiers(self) -> list[BaseModifier]:
@@ -740,6 +741,8 @@ class ModifierEngine:
 
     def _effective_trait_modifiers(self, base_modifiers):
         """Resolve temporary trait ranks without changing purchased traits."""
+        if self._effective_trait_modifiers_cache is not None:
+            return self._effective_trait_modifiers_cache
         entries = list(
             self.character_engine.character.charactertrait_set
             .select_related("trait").prefetch_related("choices__definition")
@@ -864,6 +867,7 @@ class ModifierEngine:
         self.effective_trait_levels = levels
         self.effective_trait_instance_levels = instance_levels
         self.effective_trait_definitions = definitions
+        self._effective_trait_modifiers_cache = modifiers
         return modifiers
 
     def _career_max_modifiers(self, modifiers, *, context=None):
