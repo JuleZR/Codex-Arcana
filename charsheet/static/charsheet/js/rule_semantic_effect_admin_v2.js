@@ -135,7 +135,9 @@
     if (!area || !operator) {
       return;
     }
-    var allowed = area.value === "rule_flag"
+    var allowed = area.value === "skill_exclusion"
+      ? ["exclude_both", "exclude_learning", "exclude_use"]
+      : area.value === "rule_flag"
       ? ["", "set_flag", "unset_flag"]
       : area.value === "school_level"
         ? ["", "flat_add", "flat_sub"]
@@ -155,6 +157,9 @@
       }),
       operator.value
     );
+    if (area.value === "skill_exclusion" && !operator.value) {
+      operator.value = "exclude_both";
+    }
   }
 
   function syncScaling(root) {
@@ -164,6 +169,7 @@
       return;
     }
     var allowedByArea = {
+      skill_exclusion: [""],
       rule_flag: [""],
       learning_slot: ["", "school_level"],
       item: ["", "fame_total", "rune_crafter_level"],
@@ -210,7 +216,8 @@
     var hasWeaponSkillFilter = area.value === "combat" || area.value === "damage_source";
     var isWeaponRange = area.value === "weapon_range";
     var isChoiceBinding = area.value === "choice_binding";
-    var isMultiSkill = area.value === "multi_skill";
+    var isExclusion = area.value === "skill_exclusion";
+    var isMultiSkill = area.value === "multi_skill" || isExclusion;
     var scaling = field(root, "simple_scaling");
     var hasScaling = scaling && scaling.value !== "";
     var needsSchool = scaling && scaling.value === "school_level";
@@ -231,7 +238,7 @@
     setRowVisible(root, "simple_weapon_type_contains_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_item_filter", isWeaponRange);
     setRowVisible(root, "simple_operator", true);
-    setRowVisible(root, "simple_value", !isRuleFlag);
+    setRowVisible(root, "simple_value", !isRuleFlag && !isExclusion);
     setRowVisible(root, "target_choice_definition", isChoiceBinding || hasChoiceBinding);
     setRowVisible(root, "target_race_choice_definition", isChoiceBinding || hasChoiceBinding);
     setRowVisible(root, "target_skills", isMultiSkill || hasMultiSkill);
@@ -239,9 +246,9 @@
     setRowVisible(root, "simple_scale_school", needsSchool);
     setRowVisible(root, "simple_scale_skill", needsSkill);
     setRowVisible(root, "simple_scale_divisor", hasScaling);
-    setRowVisible(root, "applies_during_character_creation", hasCondition);
-    setRowVisible(root, "applies_in_combat", hasCondition);
-    setRowVisible(root, "applies_outside_combat", hasCondition);
+    setRowVisible(root, "applies_during_character_creation", hasCondition || isExclusion);
+    setRowVisible(root, "applies_in_combat", hasCondition || isExclusion);
+    setRowVisible(root, "applies_outside_combat", hasCondition || isExclusion);
     setRowVisible(root, "notes", hasText);
     setRowVisible(root, "rules_text", hasText && fieldHasValue(root, "rules_text"));
   }

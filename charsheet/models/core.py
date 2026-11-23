@@ -880,6 +880,11 @@ class TraitSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.trait.name
+            condition_school_ids = list(
+                self.condition_schools.values_list("pk", flat=True)
+            )
+            if condition_school_ids:
+                metadata["condition_school_ids"] = condition_school_ids
             condition_race_ids = sorted(
                 race.pk for race in self.condition_races.all()
             )

@@ -6125,6 +6125,18 @@ def _build_skill_rows(
         )
 
     for row in skill_rows:
+        skill = skills_by_id.get(row.get("skill_id"))
+        if skill is not None:
+            exclusion = engine.modifier_engine.skill_exclusion(
+                skill.slug, specification=row.get("specification"),
+                context={"condition_text": row.get("condition_text", "")},
+            )
+            row["skill_exclusion"] = exclusion
+            row["use_blocked"] = exclusion["use"]
+            row["learning_blocked"] = exclusion["learning"]
+            row["exclusion_reason"] = exclusion["reason"]
+            if exclusion["learning"] or exclusion["use"]:
+                row["can_edit_specification"] = False
         if "with_load_total_value" not in row:
             continue
         row["carry_affected"] = row.get("attribute") in CARRY_ATTRIBUTES
@@ -8813,12 +8825,18 @@ def _build_learning_rows(
         }
 
     for skill in Skill.objects.select_related("category", "attribute").order_by("category__name", "name"):
+        if engine.modifier_engine.skill_exclusion(skill.slug)["learning"]:
+            continue
         cs_entries = character_skills_by_skill_id.get(skill.id, [])
         desc = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
         if skill.requires_specification:
             for cs in sorted(cs_entries, key=lambda x: (x.specification or "")):
                 spec = (cs.specification or "").strip()
                 if not spec or spec == "*":
+                    continue
+                if engine.modifier_engine.skill_exclusion(
+                    skill.slug, specification=spec,
+                )["learning"]:
                     continue
                 rank_payload = _skill_rank_learning_payload(skill, spec)
                 skill_groups.setdefault(skill.category.name, []).append(

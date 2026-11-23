@@ -202,7 +202,8 @@ def build_quickslot_actions(character, engine):
             ),
             "label": row.get("quickslot_label") or row["display_name"],
             "modifier": row["with_load_total_value"],
-            "available": True,
+            "available": not row.get("use_blocked", False),
+            "unavailable_reason": row.get("exclusion_reason", ""),
         })
 
     items = list(CharacterItem.objects.filter(

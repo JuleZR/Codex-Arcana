@@ -2971,6 +2971,14 @@ def update_character_info(request, character_id: int):
 def update_skill_specification(request, character_id: int, character_skill_id: int):
     """Persist the specification text for one learned skill from the character sheet."""
     character, character_skill = _owned_character_skill_or_404(request, character_id, character_skill_id)
+    modifiers = character.get_engine(refresh=True).modifier_engine
+    exclusion = modifiers.skill_exclusion(
+        character_skill.skill.slug,
+        specification=character_skill.specification,
+    )
+    if exclusion["learning"] or exclusion["use"]:
+        messages.error(request, "Fertigkeit gesperrt: " + exclusion["reason"])
+        return redirect("character_sheet", character_id=character.id)
     if not character_skill.skill.requires_specification:
         messages.error(request, "Diese Fertigkeit besitzt keine Spezifikation.")
         return redirect("character_sheet", character_id=character.id)
@@ -2980,6 +2988,15 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
 
     form = CharacterSkillSpecificationForm(request.POST, instance=character_skill)
     if form.is_valid():
+        exclusion = modifiers.skill_exclusion(
+            character_skill.skill.slug,
+            specification=form.cleaned_data["specification"],
+        )
+        if exclusion["learning"] or exclusion["use"]:
+            messages.error(
+                request, "Fertigkeit gesperrt: " + exclusion["reason"],
+            )
+            return redirect("character_sheet", character_id=character.id)
         form.save()
         messages.success(request, f"{character_skill.skill.name} wurde aktualisiert.")
     else:
@@ -5108,6 +5125,8 @@ def create_character(request):
     phase_2_languages = engine.phase_2_languages()
     phase_2_skill_rows = []
     for skill in Skill.objects.select_related("category").order_by("category__name", "name"):
+        if engine.skill_exclusion(skill.slug)["learning"]:
+            continue
         value = phase_2_skills.get(skill.slug, 0)
         entries = phase_2_skill_entries_by_slug.get(skill.slug, [])
         description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
@@ -5327,6 +5346,8 @@ def create_character(request):
         )
     phase_4_skill_rows = []
     for skill in Skill.objects.order_by("name"):
+        if engine.skill_exclusion(skill.slug)["learning"]:
+            continue
         description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
         base_entries = phase_2_skill_entries_by_slug.get(skill.slug, [])
         add_entries = phase_4_skill_add_entries_by_slug.get(skill.slug, [])

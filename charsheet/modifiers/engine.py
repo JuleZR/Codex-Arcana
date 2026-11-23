@@ -714,8 +714,8 @@ class ModifierEngine:
             modifier
             for modifier in expanded
             if modifier is not None and modifier.applies(context) and TargetResolver.matches_context(modifier, context)
-            and self._modifier_matches_race_condition(modifier)
-            and self._modifier_matches_school_condition(modifier)
+            and self._modifier_matches_race_condition(modifier, context)
+            and self._modifier_matches_school_condition(modifier, context)
         ]
         result = self._career_max_modifiers(result, context=context)
         if not context:
@@ -933,6 +933,68 @@ class ModifierEngine:
         new_value = self._migrated_choice_skill_modifier_total(skill_id, context=context, specification=specification)
         return new_value
 
+    def resolve_content_exclusion(
+        self, target_domain, target_key, *, specification=None, context=None,
+    ):
+        """Resolve nonnumeric learning/use restrictions and their sources.
+
+        Targets use persisted slugs. A skill target covers all of its free
+        specifications unless the effect explicitly selects one specification.
+        """
+        sources = {"learning": [], "use": []}
+        context = dict(context or {})
+        if target_domain == "skill":
+            context.setdefault("skill_slugs", (target_key,))
+        for modifier in self.collect_active_modifiers(context=context):
+            mode = modifier.metadata.get("content_exclusion")
+            if mode not in {"learning", "use", "both"}:
+                continue
+            if modifier.target_domain != target_domain:
+                continue
+            targets = modifier.metadata.get("target_skill_slugs") or []
+            if target_key not in [modifier.target_key, *targets]:
+                continue
+            if not self._modifier_matches_condition_text(modifier, context):
+                continue
+            if not self._modifier_matches_skill_specification(
+                modifier, target_domain=target_domain,
+                specification=specification,
+            ):
+                continue
+            label = str(
+                modifier.metadata.get("semantic_effect_label")
+                or f"{modifier.source_type}: {modifier.source_id}"
+            )
+            reason = modifier.rules_text or modifier.notes
+            source = f"{label}: {reason}" if reason else label
+            for action in sources:
+                if mode in {action, "both"} and source not in sources[action]:
+                    sources[action].append(source)
+        return {
+            "learning": bool(sources["learning"]),
+            "use": bool(sources["use"]),
+            "sources": sources,
+            "reason": "; ".join(dict.fromkeys(
+                sources["learning"] + sources["use"],
+            )),
+        }
+
+    def skill_exclusion(self, skill_slug, **kwargs):
+        """Shared interface for creation, learning and skill actions."""
+        return self.resolve_content_exclusion("skill", skill_slug, **kwargs)
+
+    def require_skill_available(self, skill_slug, *, action="use", **kwargs):
+        """Reject direct requests without changing purchased ranks or EP."""
+        from django.core.exceptions import ValidationError
+
+        exclusion = self.skill_exclusion(skill_slug, **kwargs)
+        if exclusion[action]:
+            raise ValidationError(
+                "Fertigkeit gesperrt: "
+                + "; ".join(exclusion["sources"][action]),
+                code="skill_excluded",
+            )
+
     def resolve_skill_rank_cap(
         self,
         skill_slug: str,
@@ -1019,6 +1081,8 @@ class ModifierEngine:
         specifications: set[str] = set()
         display_values: dict[str, str] = {}
         for modifier in self.collect_active_modifiers(context=context):
+            if modifier.metadata.get("content_exclusion"):
+                continue
             if modifier.target_domain not in {TargetDomain.SKILL, TargetDomain.SKILL_RANK, TargetDomain.SKILL_RANK_CAP}:
                 continue
 
@@ -1067,6 +1131,7 @@ class ModifierEngine:
 
     def resolve_skill_value(self, skill_slug: str, context: dict[str, Any] | None = None) -> int:
         """Resolve one full skill value through the existing engine facade."""
+        self.require_skill_available(skill_slug, context=context)
         if self.character_engine is None:
             return self.resolve_numeric_total(TargetDomain.SKILL, skill_slug, context=context)
         return self.character_engine.skill_total(skill_slug)
@@ -1613,6 +1678,7 @@ class ModifierEngine:
             modifier
             for modifier in self.collect_active_modifiers(context=context)
             if modifier.target_domain == target_domain
+            and not modifier.metadata.get("content_exclusion")
             and (
                 contribution_key in modifier.metadata.get(
                     "calculation_contributions", (),
@@ -1867,19 +1933,23 @@ class ModifierEngine:
         actual = self._normalize_condition_text((context or {}).get("condition_text"))
         return bool(actual) and actual == expected
 
-    def _modifier_matches_race_condition(self, modifier: BaseModifier) -> bool:
+    def _modifier_matches_race_condition(
+        self, modifier: BaseModifier, context=None,
+    ) -> bool:
         """Return whether the current character satisfies an optional race condition."""
         expected_race_ids = modifier.metadata.get("condition_race_ids") or ()
         if not expected_race_ids:
             return True
         if self.character_engine is None:
-            return False
+            return (context or {}).get("race_id") in expected_race_ids
         character_race_id = self.character_engine.character.race_id
         if character_race_id is None:
             return False
         return int(character_race_id) in {int(race_id) for race_id in expected_race_ids}
 
-    def _modifier_matches_school_condition(self, modifier: BaseModifier) -> bool:
+    def _modifier_matches_school_condition(
+        self, modifier: BaseModifier, context=None,
+    ) -> bool:
         """Return whether the current character satisfies an optional school condition."""
         expected_school_ids = modifier.metadata.get("condition_school_ids") or ()
 
@@ -1887,7 +1957,8 @@ class ModifierEngine:
             return True
 
         if self.character_engine is None:
-            return False
+            selected = set((context or {}).get("school_ids", ()))
+            return bool(selected.intersection(expected_school_ids))
 
         character_school_ids = {
             int(school_id)

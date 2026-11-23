@@ -2719,6 +2719,7 @@ class ItemSemanticEffectAdminForm(
         ("weapon_range", "Waffenreichweite"),
         ("skill", "Fertigkeit"),
         ("multi_skill", "Mehrere Fertigkeiten"),
+        ("skill_exclusion", "Fertigkeiten ausschließen"),
         ("skill_category", "Fertigkeitskategorie"),
         ("specialization", "Spezialisierung"),
         ("rule_flag", "Regelflag"),
@@ -2766,6 +2767,9 @@ class ItemSemanticEffectAdminForm(
         ("max_value", "hoechstens"),
         ("set_flag", "Flag setzen"),
         ("unset_flag", "Flag entfernen"),
+        ("exclude_both", "Beides"),
+        ("exclude_learning", "Erlernen verhindern"),
+        ("exclude_use", "Nutzung verhindern"),
     )
 
     effect_area = forms.ChoiceField(
@@ -2853,7 +2857,14 @@ class ItemSemanticEffectAdminForm(
             self.instance.target_domain == "skill"
             and metadata.get("target_skill_slugs")
         ):
-            self.initial["effect_area"] = "multi_skill"
+            self.initial["effect_area"] = (
+                "skill_exclusion" if metadata.get("content_exclusion")
+                else "multi_skill"
+            )
+            if metadata.get("content_exclusion"):
+                self.initial["simple_operator"] = (
+                    "exclude_" + metadata["content_exclusion"]
+                )
             self.initial["simple_target_skills"] = list(
                 Skill.objects.filter(slug__in=metadata["target_skill_slugs"])
                 .values_list("pk", flat=True)
@@ -3033,7 +3044,7 @@ class ItemSemanticEffectAdminForm(
             return cleaned_data
 
         target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
-        if area == "multi_skill":
+        if area in {"multi_skill", "skill_exclusion"}:
             skills = cleaned_data.get("simple_target_skills")
             if not skills:
                 self.add_error(
@@ -3051,6 +3062,14 @@ class ItemSemanticEffectAdminForm(
             self.add_error("effect_area", "Bitte auswählen, welcher Wert geändert werden soll.")
 
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+        exclusion = ""
+        if area == "skill_exclusion":
+            exclusion = operator.removeprefix("exclude_")
+            if exclusion not in {"learning", "use", "both"}:
+                exclusion = "both"
+            operator = "unset_flag"
+        elif operator.startswith("exclude_"):
+            self.add_error("simple_operator", "Bitte Sperreffekt auswählen.")
         if area == "wound_stage":
             operator = "flat_add"
         if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
@@ -3097,10 +3116,17 @@ class ItemSemanticEffectAdminForm(
             cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
             cleaned_data["scale_divisor"] = None
         metadata = dict(cleaned_data.get("metadata") or {})
+        if exclusion:
+            metadata["content_exclusion"] = exclusion
+        else:
+            metadata.pop("content_exclusion", None)
         metadata.pop("target_skill_ids", None)
         metadata.pop("target_skill_slugs", None)
         metadata.pop("target_skill_id", None)
-        if area == "multi_skill" and cleaned_data.get("simple_target_skills"):
+        if (
+            area in {"multi_skill", "skill_exclusion"}
+            and cleaned_data.get("simple_target_skills")
+        ):
             skills = cleaned_data["simple_target_skills"]
             metadata["target_skill_ids"] = list(
                 skills.values_list("pk", flat=True)
@@ -3888,6 +3914,7 @@ class RuleSemanticEffectAdminForm(
         ("skill", "Fertigkeit"),
         ("choice_binding", "Auswahlbindung"),
         ("multi_skill", "Mehrere Fertigkeiten"),
+        ("skill_exclusion", "Fertigkeiten ausschließen"),
         ("skill_category", "Fertigkeitskategorie"),
         ("language", "Sprache"),
         ("specialization", "Spezialisierung"),
@@ -3929,6 +3956,9 @@ class RuleSemanticEffectAdminForm(
         ("max_value", "hoechstens"),
         ("set_flag", "Flag setzen"),
         ("unset_flag", "Flag entfernen"),
+        ("exclude_both", "Beides"),
+        ("exclude_learning", "Erlernen verhindern"),
+        ("exclude_use", "Nutzung verhindern"),
     )
     MOVEMENT_TARGET_CHOICES = (
         ("ground", "Laufen: Kampf, Marsch und Sprint"),
@@ -4195,7 +4225,15 @@ class RuleSemanticEffectAdminForm(
             and "target_skills" in self.fields
             and self.instance.target_skills.exists()
         ):
-            self.initial.setdefault("effect_area", "multi_skill")
+            self.initial.setdefault(
+                "effect_area",
+                "skill_exclusion" if metadata.get("content_exclusion")
+                else "multi_skill",
+            )
+            if metadata.get("content_exclusion"):
+                self.initial["simple_operator"] = (
+                    "exclude_" + metadata["content_exclusion"]
+                )
             self.initial.setdefault("simple_target", "")
         elif area:
             if target_key.startswith("dmg_"):
@@ -4317,8 +4355,11 @@ class RuleSemanticEffectAdminForm(
             cleaned_data["target_key"] = ""
             target_domain = cleaned_data["target_domain"]
             target_key = ""
-        elif area == "multi_skill" and has_target_skills:
-            cleaned_data["target_domain"] = cleaned_data.get("target_domain") or "skill"
+        elif area in {"multi_skill", "skill_exclusion"} and has_target_skills:
+            cleaned_data["target_domain"] = (
+                "skill" if area == "skill_exclusion"
+                else cleaned_data.get("target_domain") or "skill"
+            )
             cleaned_data["target_key"] = ""
             target_domain = cleaned_data["target_domain"]
             target_key = ""
@@ -4344,6 +4385,16 @@ class RuleSemanticEffectAdminForm(
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
         operator = cleaned_data.get("simple_operator") or "flat_add"
+        exclusion = ""
+        if area == "skill_exclusion":
+            exclusion = operator.removeprefix("exclude_")
+            if exclusion not in {"learning", "use", "both"}:
+                exclusion = "both"
+            operator = "unset_flag"
+        elif operator.startswith("exclude_"):
+            self.add_error(
+                "simple_operator", "Bitte Fertigkeiten ausschließen wählen.",
+            )
         if operator == "language_rank_minimum":
             if area != "language":
                 self.add_error(
@@ -4428,6 +4479,10 @@ class RuleSemanticEffectAdminForm(
                 condition_set[field_name] = True
         cleaned_data["condition_set"] = condition_set
         metadata = dict(cleaned_data.get("metadata") or {})
+        if exclusion:
+            metadata["content_exclusion"] = exclusion
+        else:
+            metadata.pop("content_exclusion", None)
         if area == "wound_stage":
             prefix, separator, position = str(cleaned_data.get("simple_target") or "").partition(":")
             valid_positions = {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
@@ -5694,7 +5749,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
     autocomplete_fields = ("target_race_choice_definition",)
     filter_horizontal = (
         "condition_races", "condition_schools", "target_schools",
-        "target_aspects",
+        "target_aspects", "target_skills",
     )
     fieldsets = (
         (
@@ -5715,6 +5770,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
                     "calculation_contributions",
                     "contribution_operation",
                     "target_race_choice_definition",
+                    "target_skills",
                     "simple_scaling",
                     ("round_up", "round_down"),
                     (
@@ -5763,6 +5819,7 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
                 ("simple_operator", "simple_value"),
                 "calculation_contributions",
                 "contribution_operation",
+                "target_skills",
                 "simple_scaling",
                 ("round_up", "round_down"),
                 (
@@ -5798,7 +5855,7 @@ class SchoolSemanticEffectInline(admin.StackedInline):
     show_change_link = True
     filter_horizontal = (
         "condition_races", "condition_schools", "target_schools",
-        "target_aspects",
+        "target_aspects", "target_skills",
     )
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
@@ -5818,7 +5875,7 @@ class RuneSemanticEffectInline(admin.StackedInline):
     show_change_link = True
     filter_horizontal = (
         "condition_races", "condition_schools", "target_schools",
-        "target_aspects",
+        "target_aspects", "target_skills",
     )
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
@@ -7553,7 +7610,7 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
     show_change_link = True
     filter_horizontal = (
         "condition_races", "condition_schools", "target_schools",
-        "target_aspects",
+        "target_aspects", "target_skills",
     )
     autocomplete_fields = ("target_choice_definition",)
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS + (

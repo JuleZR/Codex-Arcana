@@ -78,6 +78,10 @@ class SemanticEffectFields(models.Model):
         help_text="Optional school condition. Leave empty to apply to every school.",
     )
     active_flag = models.BooleanField(default=True)
+    target_skills = models.ManyToManyField(
+        "charsheet.Skill", blank=True,
+        related_name="%(app_label)s_%(class)s_targeted_effects",
+    )
     target_schools = models.ManyToManyField(
         "charsheet.School",
         blank=True,
@@ -131,6 +135,11 @@ class SemanticEffectFields(models.Model):
 
         metadata = dict(self.metadata or {})
         if self.pk:
+            skill_slugs = list(
+                self.target_skills.values_list("slug", flat=True)
+            )
+            if skill_slugs:
+                metadata["target_skill_slugs"] = skill_slugs
             if self.target_domain == "spell_focus":
                 metadata["target_school_ids"] = sorted(
                     school.pk for school in self.target_schools.all()

@@ -491,6 +491,7 @@ class BattleCalculatorEngine:
     @classmethod
     def build_payload(cls, engine, skill_rows: list[dict], weapon_rows: list[dict]) -> dict[str, object]:
         """Return one prepared frontend payload for the battle calculator."""
+        skill_rows = [row for row in skill_rows if not row.get("use_blocked")]
         attack_options: list[dict[str, object]] = []
         seen_attack_keys: set[str] = set()
         combat_skill_ids: set[int] = set()

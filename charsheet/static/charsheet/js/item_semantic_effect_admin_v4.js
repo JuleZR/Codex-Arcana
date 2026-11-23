@@ -70,6 +70,7 @@
     }
 
     var semanticOperators = {
+      skill_exclusion: ["exclude_both", "exclude_learning", "exclude_use"],
       rule_flag: ["set_flag", "unset_flag"]
     };
     var isTextOnly = area.value === "text";
@@ -92,10 +93,14 @@
         });
       }
       rebuildOptions(operator, operatorOptions, operator.value);
+      if (area.value === "skill_exclusion" && !operator.value) {
+        operator.value = "exclude_both";
+      }
     }
 
-    setRowVisible(root, "simple_target", !isTextOnly && area.value !== "multi_skill");
-    setRowVisible(root, "simple_target_skills", area.value === "multi_skill");
+    var isMultiSkill = ["multi_skill", "skill_exclusion"].indexOf(area.value) !== -1;
+    setRowVisible(root, "simple_target", !isTextOnly && !isMultiSkill);
+    setRowVisible(root, "simple_target_skills", isMultiSkill);
     setRowVisible(root, "target_schools", area.value === "spell_focus");
     setRowVisible(root, "target_aspects", area.value === "spell_focus");
     if (area.value === "spell_focus") setRowVisible(root, "simple_target", false);

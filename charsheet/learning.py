@@ -1076,6 +1076,9 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         if key not in post_data:
             continue
         add = _read_int(post_data, key, 0)
+        exclusion = engine.modifier_engine.skill_exclusion(slug)
+        if add and exclusion["learning"]:
+            return "error", f"{skill.name}: {exclusion['reason']}"
         base_value = int(skill_rows.get(slug).level if slug in skill_rows else 0)
         target_value = base_value + add
         if target_value < 0:
@@ -1104,6 +1107,11 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         cs_row = CharacterSkill.objects.filter(id=cs_id, character=character).select_related("skill").first()
         if cs_row is None:
             return "error", "Fertigkeit nicht gefunden."
+        exclusion = engine.modifier_engine.skill_exclusion(
+            cs_row.skill.slug, specification=cs_row.specification,
+        )
+        if exclusion["learning"]:
+            return "error", f"{cs_row.skill.name}: {exclusion['reason']}"
         base_value = int(cs_row.level)
         target_value = base_value + add
         spec_label = f"{cs_row.skill.name}: {cs_row.specification}"
@@ -1138,6 +1146,11 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         skill = skill_defs.get(slug)
         if skill is None:
             return "error", f"Fertigkeit '{slug}' nicht gefunden."
+        exclusion = engine.modifier_engine.skill_exclusion(
+            slug, specification=spec,
+        )
+        if exclusion["learning"]:
+            return "error", f"{skill.name}: {exclusion['reason']}"
         if not skill.requires_specification:
             return "error", f"{skill.name}: Spezialisierung nicht erlaubt."
         max_level, _above_base_cost = _skill_rank_payload(skill, spec)
@@ -2106,6 +2119,22 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                     int(character.current_experience) - total_cost,
                 )
                 character.save(update_fields=["current_experience"])
+            # Recheck sources changed by traits, choices or items in this POST.
+            final_engine = character.get_engine(refresh=True)
+            final_modifiers = final_engine.modifier_engine
+            changed_skills = [
+                (slug, None) for slug in skill_plan
+            ] + [
+                (row.skill.slug, row.specification)
+                for row in cs_skill_rows.values()
+            ] + [
+                (entry["skill"].slug, entry["spec"])
+                for entry in new_spec_plan
+            ]
+            for slug, specification in changed_skills:
+                final_modifiers.require_skill_available(
+                    slug, action="learning", specification=specification,
+                )
             refreshed_magic_engine = character.get_magic_engine(refresh=True)
             refreshed_magic_engine.sync_character_magic()
             refreshed_magic_engine.normalize_current_arcane_power(

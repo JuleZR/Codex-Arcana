@@ -13,11 +13,12 @@
     </thead>
     <tbody>
       {% for row in skill_rows %}
-        <tr{% if row.is_context_row %} class="skill_context_row"{% endif %}{% if row.quickslot_id and not read_only %} draggable="true" data-quickslot-source="skill" data-quickslot-id="{{ row.quickslot_id }}" data-quickslot-subentry="{{ row.quickslot_subentry }}" data-quickslot-specification="{% if row.is_context_row %}{{ row.quickslot_specification }}{% elif not row.character_skill_id %}{{ row.specification }}{% endif %}"{% endif %}>
+        <tr{% if row.use_blocked %} style="opacity: .5; filter: grayscale(1)" aria-disabled="true"{% endif %}{% if row.exclusion_reason %} title="Fertigkeit gesperrt: {{ row.exclusion_reason }}"{% endif %}{% if row.is_context_row %} class="skill_context_row"{% endif %}{% if row.quickslot_id and not read_only and not row.use_blocked %} draggable="true" data-quickslot-source="skill" data-quickslot-id="{{ row.quickslot_id }}" data-quickslot-subentry="{{ row.quickslot_subentry }}" data-quickslot-specification="{% if row.is_context_row %}{{ row.quickslot_specification }}{% elif not row.character_skill_id %}{{ row.specification }}{% endif %}"{% endif %}>
           <td class="skill_name{% if row.is_context_row %} skill_name--context{% endif %}">
             <div class="skill_name_wrap">
+              {% if row.exclusion_reason %}<span class="tooltip_target" data-tooltip="Fertigkeit gesperrt: {{ row.exclusion_reason }}" aria-label="Fertigkeit gesperrt">&#128274;</span>{% endif %}
               <span class="skill_name_text{% if row.description %} tooltip_target{% endif %}"{% if row.description %} data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"{% if row.row_kind == "skill" or row.row_kind == "skill_specification_parent" %} data-tooltip-mode="skill-card" data-tooltip-inline="off" data-tooltip-card-variant="skill" data-tooltip-card-extra-sections="none" data-tooltip-title="{{ row.display_name }}" data-tooltip-subtitle="{{ row.category_name }}{% if row.attribute %} &middot; {{ row.attribute }}{% if row.rank != '' %} &middot; Rang {{ row.rank }}{% endif %}{% endif %}" data-tooltip-card-key="skill:{{ row.row_kind }}:{{ row.skill_id }}:{% if row.character_skill_id %}character-{{ row.character_skill_id }}{% elif row.specification %}spec-{{ row.specification|slugify }}{% else %}base{% endif %}"{% endif %}{% endif %}>{{ row.display_name }}</span>
-              {% if row.can_edit_specification %}
+              {% if row.can_edit_specification and not row.learning_blocked and not row.use_blocked %}
                 <button
                   type="button"
                   class="skill_spec_edit_btn"
@@ -45,7 +46,7 @@
                 class="bel_dot tooltip_target{% if row.has_conditional_modifiers %} has_conditional_modifiers{% endif %}"
                 data-tooltip-side="left"
                 data-tooltip="{{ row.calculation_tooltip }}"
-                {% if row.quickslot_id and not read_only and request.user.settings.dice_enabled %}data-quickslot-roll role="button" tabindex="0" aria-label="{{ row.display_name }} würfeln"{% endif %}
+                {% if row.quickslot_id and not read_only and not row.use_blocked and request.user.settings.dice_enabled %}data-quickslot-roll role="button" tabindex="0" aria-label="{{ row.display_name }} würfeln"{% endif %}
                 data-carry-value
                 data-carry-base="{{ row.carry_base_value }}"
                 data-carry-affected="{% if row.carry_affected %}1{% else %}0{% endif %}"

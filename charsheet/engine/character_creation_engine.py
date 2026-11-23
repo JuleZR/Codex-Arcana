@@ -38,6 +38,8 @@ from charsheet.models import (
     Lesson,
     Rune,
     School,
+    SchoolSemanticEffect,
+    RaceSemanticEffect,
     Skill,
     Technique,
     TraitChoiceDefinition,
@@ -741,6 +743,10 @@ class CharacterCreationEngine:
             specification = " ".join(
                 str(entry.get("specification") or "").split()
             )
+            if self.skill_exclusion(
+                slug, specification=specification,
+            )["learning"]:
+                return False
             if skill.requires_specification and not specification:
                 return False
             if not skill.requires_specification and specification:
@@ -1467,6 +1473,10 @@ class CharacterCreationEngine:
             specification = " ".join(
                 str(entry.get("specification") or "").split()
             )
+            if self.skill_exclusion(
+                slug, specification=specification,
+            )["learning"]:
+                return False
             if skill.requires_specification and not specification:
                 return False
             if not skill.requires_specification and specification:
@@ -1628,6 +1638,36 @@ class CharacterCreationEngine:
                     )
                 )
         return modifiers
+
+    def skill_exclusion(self, skill_slug, *, specification=None):
+        """Evaluate selections from every phase through the shared resolver."""
+        schools = list(School.objects.filter(
+            pk__in=[
+                self._to_int(key)
+                for key, level in self.phase_4_schools().items()
+                if level > 0
+            ],
+        ).values_list("pk", flat=True))
+        effects = [
+            *RaceSemanticEffect.objects.filter(race=self.race),
+            *SchoolSemanticEffect.objects.filter(school_id__in=schools),
+        ]
+        engine = ModifierEngine(
+            modifiers=[
+                *self._creation_trait_semantic_modifiers(),
+                *(effect.to_modifier() for effect in effects),
+            ],
+            trait_levels_by_slug={
+                **self.phase_3_disadvantages(), **self.phase_4_advantages(),
+            },
+        )
+        return engine.skill_exclusion(
+            skill_slug, specification=specification,
+            context={
+                "during_character_creation": True,
+                "race_id": self.race.pk, "school_ids": schools,
+            },
+        )
 
     def resolve_creation_starting_funds(self) -> int:
         """Add creation-only economy modifiers to the standard funds in KM."""
@@ -2109,6 +2149,17 @@ class CharacterCreationEngine:
                 else max(0, int(arcane_power))
             )
             character.save(update_fields=["current_arcane_power"])
+            # Validate again after all sources and choices have materialized.
+            modifiers = character.get_engine(refresh=True).modifier_engine
+            for entry in character.characterskill_set.select_related("skill"):
+                try:
+                    modifiers.require_skill_available(
+                        entry.skill.slug, action="learning",
+                        specification=entry.specification,
+                        context={"during_character_creation": True},
+                    )
+                except ValidationError as error:
+                    raise ValueError(" ".join(error.messages)) from error
             self.draft.delete()
 
             return character
