@@ -4311,7 +4311,31 @@ class RuleSemanticEffectAdminForm(
                     "" if area == "spell_focus" else f"{area}:{target_key}",
                 )
         self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
+        scaling = dict(self.initial.get(
+            "scaling", getattr(self.instance, "scaling", {}) or {},
+        ) or {})
+        legacy_scaling = (
+            scaling.get("source") and not scaling.get("scale_source")
+        )
         value = self.initial.get("value", getattr(self.instance, "value", ""))
+        if legacy_scaling:
+            if value in (None, ""):
+                value = scaling.get("multiplier", 1)
+            for field_name, key in (
+                ("value_min", "min"), ("value_max", "max"),
+            ):
+                if self.initial.get(field_name) is None and key in scaling:
+                    self.initial[field_name] = scaling[key]
+            if not (
+                self.initial.get("round_up") or self.initial.get("round_down")
+            ):
+                self.initial["round_up"] = scaling.get("round") == "ceil"
+                self.initial["round_down"] = scaling.get("round") == "floor"
+        elif scaling.get("scale_source") and self._is_numberish(value):
+            value = (
+                float(str(value).replace(",", "."))
+                * float(scaling.get("mul", 1))
+            )
         if target_domain == "derived_stat" and str(value) == "inf":
             self.initial["simple_value"] = "inf"
         elif self._is_numberish(value):
@@ -4322,8 +4346,10 @@ class RuleSemanticEffectAdminForm(
             and str(value or "").strip()
         ):
             self.initial.setdefault("simple_value", str(value).strip())
-        scaling = dict(self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {})
-        self.initial.setdefault("simple_scaling", scaling.get("scale_source", ""))
+        self.initial.setdefault(
+            "simple_scaling",
+            scaling.get("scale_source", scaling.get("source", "")),
+        )
         self.initial.setdefault("simple_scale_school", scaling.get("scale_school_id"))
         self.initial.setdefault("simple_scale_skill", scaling.get("scale_skill_id"))
         self.initial.setdefault("simple_scale_divisor", scaling.get("div", 1))
@@ -4520,11 +4546,22 @@ class RuleSemanticEffectAdminForm(
         if scale_source:
             divisor = cleaned_data.get("simple_scale_divisor") or 1
             cleaned_data["mode"] = "scaled"
-            scaling = {
+            scaling = dict(self.initial.get(
+                "scaling", getattr(self.instance, "scaling", {}) or {},
+            ) or {})
+            if scaling.get("source") and not scaling.get("scale_source"):
+                for field_name, key in (
+                    ("value_min", "min"), ("value_max", "max"),
+                ):
+                    if cleaned_data.get(field_name) is None and key in scaling:
+                        cleaned_data[field_name] = scaling[key]
+            for key in ("source", "multiplier", "round", "min", "max"):
+                scaling.pop(key, None)
+            scaling.update({
                 "scale_source": scale_source,
                 "mul": 1,
                 "div": self._number_for_scaling_json(divisor),
-            }
+            })
             if cleaned_data.get("simple_scale_school"):
                 scaling["scale_school_id"] = cleaned_data["simple_scale_school"].pk
             if cleaned_data.get("simple_scale_skill"):
@@ -4674,6 +4711,9 @@ class RuleSemanticEffectAdminForm(
         instance = super().save(commit=False)
         for field_name in ("target_domain", "target_key", "operator", "value", "mode", "scaling", "condition_set", "metadata"):
             setattr(instance, field_name, self.cleaned_data[field_name])
+        for field_name in ("value_min", "value_max"):
+            if field_name in self.cleaned_data:
+                setattr(instance, field_name, self.cleaned_data[field_name])
         if commit:
             instance.save()
             self.save_m2m()
