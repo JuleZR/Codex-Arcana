@@ -3424,6 +3424,13 @@ class SemanticTargetChoiceAdminMixin:
     class Media:
         js = ("charsheet/js/choice_definition_admin.js",)
 
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "allowed_skills":
+            kwargs["widget"] = FilteredSelectMultiple(
+                db_field.verbose_name, is_stacked=False,
+            )
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
     def formfield_for_choice_field(self, db_field, request, **kwargs):
         field = super().formfield_for_choice_field(db_field, request, **kwargs)
         if db_field.name == "target_kind":
@@ -3451,6 +3458,7 @@ class TechniqueChoiceDefinitionInline(
         "min_choices",
         "max_choices",
         "is_required",
+        "allowed_skills",
         "sort_order",
         "is_active",
         "description",
@@ -3474,6 +3482,7 @@ class RaceChoiceDefinitionInline(
         "max_choices",
         "is_required",
         "allowed_skill_category",
+        "allowed_skills",
         "allowed_skill_family",
         "sort_order",
         "is_active",
@@ -3585,6 +3594,7 @@ class TraitChoiceDefinitionInline(
         "is_required",
         "allowed_attribute",
         "allowed_skill_category",
+        "allowed_skills",
         "allowed_skill_family",
         "allowed_derived_stat",
         "allowed_resource",
@@ -7425,6 +7435,7 @@ class TechniqueChoiceDefinitionAdmin(
                     "description",
                     ("min_choices", "max_choices", "is_required"),
                     ("allowed_skill_category", "allowed_skill_family"),
+                    "allowed_skills",
                     ("sort_order", "is_active"),
                 ),
             },
@@ -7517,6 +7528,7 @@ class RaceChoiceDefinitionAdmin(
                     "description",
                     ("min_choices", "max_choices", "is_required"),
                     ("allowed_skill_category", "allowed_skill_family"),
+                    "allowed_skills",
                     ("sort_order", "is_active"),
                 ),
             },
@@ -7660,6 +7672,7 @@ class TraitChoiceDefinitionAdmin(
                     "description",
                     ("min_choices", "max_choices", "is_required"),
                     ("allowed_attribute", "allowed_skill_category", "allowed_skill_family"),
+                    "allowed_skills",
                     "allowed_derived_stat",
                     "allowed_resource",
                     "allowed_proficiency_group",

@@ -1217,6 +1217,14 @@ class TraitChoiceDefinition(models.Model):
         blank=True,
         related_name="trait_choice_definitions",
     )
+    allowed_skills = models.ManyToManyField(
+        Skill, blank=True, related_name="+",
+        verbose_name="Erlaubte Fähigkeiten",
+        help_text=(
+            "Nur diese Fähigkeiten stehen zur Wahl. Leer = keine feste Liste. "
+            "Kategorie und Familie gelten zusätzlich."
+        ),
+    )
     allowed_skill_family = models.SlugField(
         max_length=50,
         blank=True,
@@ -1355,6 +1363,8 @@ class TraitChoiceDefinition(models.Model):
                 ]
             elif kind == "skill":
                 rows = Skill.objects.all()
+                if self.pk and self.allowed_skills.exists():
+                    rows = rows.filter(pk__in=self.allowed_skills.all())
                 if self.allowed_skill_category_id:
                     rows = rows.filter(
                         category_id=self.allowed_skill_category_id,
@@ -1887,6 +1897,13 @@ class CharacterTraitChoice(models.Model):
             and expected_kind == TraitChoiceDefinition.TargetKind.SKILL
             and self.selected_skill_id
         ):
+            allowed = self.definition.allowed_skills.all()
+            if allowed and self.selected_skill_id not in {
+                s.pk for s in allowed
+            }:
+                raise ValidationError({
+                    "selected_skill": "Diese Fähigkeit steht nicht zur Wahl."
+                })
             if (
                 self.definition.allowed_skill_category_id
                 and self.selected_skill.category_id != self.definition.allowed_skill_category_id

@@ -418,6 +418,14 @@ class TechniqueChoiceDefinition(models.Model):
         blank=True,
         related_name="technique_choice_definitions",
         )
+    allowed_skills = models.ManyToManyField(
+        Skill, blank=True, related_name="+",
+        verbose_name="Erlaubte Fähigkeiten",
+        help_text=(
+            "Nur diese Fähigkeiten stehen zur Wahl. Leer = keine feste Liste. "
+            "Kategorie und Familie gelten zusätzlich."
+        ),
+    )
     allowed_skill_family = models.SlugField(
         max_length=50,
         blank=True,
@@ -751,6 +759,14 @@ class RaceChoiceDefinition(models.Model):
         blank=True,
         related_name="race_choice_definitions",
     )
+    allowed_skills = models.ManyToManyField(
+        Skill, blank=True, related_name="+",
+        verbose_name="Erlaubte Fähigkeiten",
+        help_text=(
+            "Nur diese Fähigkeiten stehen zur Wahl. Leer = keine feste Liste. "
+            "Kategorie und Familie gelten zusätzlich."
+        ),
+    )
     allowed_skill_family = models.SlugField(
         max_length=50,
         blank=True,
@@ -943,6 +959,7 @@ class CharacterTechniqueChoice(models.Model):
             raise ValidationError({"technique": "This technique does not store persistent character choices."})
         self._validate_target_kind(expected_kind)
         self._validate_skill_specification()
+        self._validate_allowed_skill()
         if (
             self.definition_id
             and expected_kind == Technique.ChoiceTargetKind.SKILL
@@ -1067,6 +1084,16 @@ class CharacterTechniqueChoice(models.Model):
         if self.technique_id:
             return self.technique.choice_target_kind
         return Technique.ChoiceTargetKind.NONE
+
+    def _validate_allowed_skill(self):
+        if self.definition_id and self.selected_skill_id:
+            allowed = self.definition.allowed_skills.all()
+            if allowed and self.selected_skill_id not in {
+                s.pk for s in allowed
+            }:
+                raise ValidationError({
+                    "selected_skill": "Diese Fähigkeit steht nicht zur Wahl."
+                })
 
     def _validate_target_kind(self, expected_kind):
         """Ensure the selected target fields match the configured choice kind."""
@@ -1205,6 +1232,14 @@ class SpecializationChoiceDefinition(models.Model):
         null=True,
         blank=True,
         related_name="specialization_choice_definitions",
+    )
+    allowed_skills = models.ManyToManyField(
+        Skill, blank=True, related_name="+",
+        verbose_name="Erlaubte Fähigkeiten",
+        help_text=(
+            "Nur diese Fähigkeiten stehen zur Wahl. Leer = keine feste Liste. "
+            "Kategorie und Familie gelten zusätzlich."
+        ),
     )
     allowed_skill_family = models.SlugField(
         max_length=50, blank=True, default=""
@@ -1351,6 +1386,7 @@ class CharacterSpecializationChoice(models.Model):
         CharacterTechniqueChoice._validate_target_kind(
             self, self.definition.target_kind
         )
+        CharacterTechniqueChoice._validate_allowed_skill(self)
         if self.selected_skill_id:
             if (
                 self.definition.allowed_skill_category_id
@@ -1554,6 +1590,7 @@ class CharacterRaceChoice(models.Model):
             raise ValidationError({"definition": "This race choice definition must point at a concrete target kind."})
         self._validate_target_kind(expected_kind)
         CharacterTechniqueChoice._validate_skill_specification(self)
+        CharacterTechniqueChoice._validate_allowed_skill(self)
         if (
             self.definition_id
             and expected_kind == Technique.ChoiceTargetKind.SKILL

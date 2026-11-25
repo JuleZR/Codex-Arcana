@@ -184,6 +184,12 @@ def configured_options(character):
                 )
                 if definitions.exists() and not any(
                     (
+                        not definition.allowed_skills.exists()
+                        or definition.allowed_skills.filter(
+                            pk=skill_id,
+                        ).exists()
+                    )
+                    and (
                         not definition.allowed_skill_category_id
                         or definition.allowed_skill_category_id
                         == skill.category_id

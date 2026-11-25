@@ -1010,6 +1010,9 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                             allowed_skill_category_id=definition.allowed_skill_category_id,
                             allowed_skill_family=definition.allowed_skill_family
                             or "",
+                            allowed_skill_ids={
+                                s.pk for s in definition.allowed_skills.all()
+                            },
                             group_name=technique.school.name,
                         )
                         if row is not None:
@@ -1069,6 +1072,9 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     item_category_options=item_category_options,
                     allowed_skill_category_id=definition.allowed_skill_category_id,
                     allowed_skill_family=definition.allowed_skill_family or "",
+                    allowed_skill_ids={
+                        s.pk for s in definition.allowed_skills.all()
+                    },
                 )
                 if row is not None:
                     choice_groups.setdefault(race.name, []).append(row)
@@ -1109,6 +1115,9 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     item_category_options=item_category_options,
                     allowed_skill_category_id=category_id,
                     allowed_skill_family=definition.allowed_skill_family,
+                    allowed_skill_ids={
+                        s.pk for s in definition.allowed_skills.all()
+                    },
                 )
                 row.update(
                     {
@@ -1573,6 +1582,7 @@ def _build_choice_row(
     allowed_skill_category_id: int | None,
     allowed_skill_family: str,
     group_name: str,
+    allowed_skill_ids=None,
 ) -> dict[str, object] | None:
     """Return one rendered choice row for a still-missing technique decision."""
     field_name = choice_field_name(target_kind, technique.id, definition_id)
@@ -1601,6 +1611,10 @@ def _build_choice_row(
     options: list[dict[str, object]] = []
     if target_kind == Technique.ChoiceTargetKind.SKILL:
         filtered_skills = skill_definitions
+        if allowed_skill_ids:
+            filtered_skills = [
+                s for s in filtered_skills if s.pk in allowed_skill_ids
+            ]
         if allowed_skill_category_id is not None:
             filtered_skills = [
                 skill for skill in filtered_skills if skill.category_id == allowed_skill_category_id
@@ -1702,6 +1716,7 @@ def _build_race_choice_row(
     item_category_options,
     allowed_skill_category_id: int | None,
     allowed_skill_family: str,
+    allowed_skill_ids=None,
 ) -> dict[str, object] | None:
     """Return one rendered choice row for a still-missing race decision."""
     field_name = race_choice_field_name(target_kind, definition_id)
@@ -1725,6 +1740,10 @@ def _build_race_choice_row(
     options: list[dict[str, object]] = []
     if target_kind == Technique.ChoiceTargetKind.SKILL:
         filtered_skills = skill_definitions
+        if allowed_skill_ids:
+            filtered_skills = [
+                s for s in filtered_skills if s.pk in allowed_skill_ids
+            ]
         if allowed_skill_category_id is not None:
             filtered_skills = [
                 skill for skill in filtered_skills if skill.category_id == allowed_skill_category_id
